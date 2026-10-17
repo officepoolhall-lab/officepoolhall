@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
-import { Empty, PageTitle } from "@/components/ui";
+import Link from "next/link";
+import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
-import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
+import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } from "@/lib/pool";
 import { PickBoard } from "./PickBoard";
 
 export const metadata: Metadata = { title: "My picks" };
 
 export default async function PicksPage({ params, searchParams }: PageProps<"/p/[slug]/picks">) {
   const { slug } = await params;
-  const { for: forParam } = await searchParams;
+  const { for: forParam, week: weekParam } = await searchParams;
   const ctx = await getPoolContext(slug);
-  const slate = await getCurrentSlate(ctx);
+  const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
 
-  if (!slate) {
+  if (!current) {
     return (
       <>
         <PageTitle>My picks</PageTitle>
@@ -23,19 +24,47 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
 
   // Commissioner entering picks on behalf of a player: /picks?for=<user id>
   const forUserId = ctx.isCommissioner && typeof forParam === "string" && forParam !== ctx.user.id ? forParam : undefined;
-  let forName: string | null = null;
-  let picks;
-  if (forUserId) {
-    const [{ data }, { data: profile }] = await Promise.all([
-      ctx.supabase.rpc("member_picks", { p_slate_id: slate.id, p_user_id: forUserId }),
-      ctx.supabase.from("profiles").select("display_name").eq("id", forUserId).maybeSingle(),
-    ]);
-    picks = data;
-    forName = profile?.display_name ?? "player";
-  } else {
-    ({ data: picks } = await ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.user.id));
+  // Another week: /picks?week=<n>. Defaults to the current slate.
+  const slate = typeof weekParam === "string" ? slates.find((s) => s.week === Number(weekParam)) : current;
+  const weekHref = (week: number) => `/p/${slug}/picks?week=${week}${forUserId ? `&for=${forUserId}` : ""}`;
+
+  const weekChips = slates.length > 1 && (
+    <div className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+      {[...slates].reverse().map((s) => (
+        <Link
+          key={s.id}
+          href={weekHref(s.week)}
+          aria-current={s.id === slate?.id ? "page" : undefined}
+          className={chipClass(s.id === slate?.id, "min-h-11")}
+        >
+          {s.label ?? `Week ${s.week}`}
+        </Link>
+      ))}
+    </div>
+  );
+
+  if (!slate) {
+    return (
+      <>
+        <PageTitle>My picks</PageTitle>
+        {weekChips}
+        <Empty>That week isn&apos;t published.</Empty>
+      </>
+    );
   }
-  const games = await getSlateGames(ctx, slate.id);
+
+  const userId = forUserId ?? ctx.user.id;
+  const [{ data: picks }, forName, { data: score }, games] = await Promise.all([
+    forUserId
+      ? ctx.supabase.rpc("member_picks", { p_slate_id: slate.id, p_user_id: forUserId })
+      : ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.user.id),
+    forUserId
+      ? ctx.supabase.from("profiles").select("display_name").eq("id", forUserId).maybeSingle().then(({ data }) => data?.display_name ?? "player")
+      : null,
+    // The week's official total (it includes a missed week's last-place score).
+    ctx.supabase.from("slate_scores").select("points, wins, losses, pushes").eq("slate_id", slate.id).eq("user_id", userId).maybeSingle(),
+    getSlateGames(ctx, slate.id),
+  ]);
 
   return (
     <>
@@ -43,7 +72,10 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         {slate.label ?? `Week ${slate.week}`}
         {forName && <span className="text-accent"> for {forName}</span>}
       </PageTitle>
+      {weekChips}
       <PickBoard
+        // A fresh board per week and player: its draft state belongs to one slate.
+        key={`${slate.id}:${userId}`}
         slug={slug}
         slate={{ id: slate.id, status: slate.status, lockAt: slate.lock_at, firstDayLockAt: slate.first_day_lock_at }}
         games={games}
@@ -54,6 +86,8 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
             .filter((p) => p.result !== null)
             .map((p) => [p.game_id, { result: p.result!, points: Number(p.points ?? 0), bonus: Number(p.bonus ?? 0) }]),
         )}
+        edited={(picks ?? []).filter((p) => p.edited_by !== null).map((p) => p.game_id)}
+        score={score ? { points: Number(score.points), wins: score.wins, losses: score.losses, pushes: score.pushes } : null}
         settings={{
           pickType: ctx.settings.pick_type,
           picksPerSlate: ctx.settings.picks_per_slate,

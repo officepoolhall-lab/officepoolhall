@@ -19,7 +19,8 @@ export async function savePicks(slug: string, slateId: string, picks: PickInput[
     ...(forUserId ? { p_user_id: forUserId } : {}),
   });
   if (!error) {
-    revalidatePath(`/p/${slug}`);
+    // An edit on the player's behalf can regrade the week, which moves standings and the grid.
+    revalidatePath(`/p/${slug}`, forUserId ? "layout" : undefined);
     return { ok: true };
   }
 

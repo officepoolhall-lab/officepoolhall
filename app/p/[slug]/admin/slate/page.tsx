@@ -288,11 +288,10 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
                 <span className={`text-[15px] font-semibold tabular-nums ${p.picks < need ? "text-loss" : "text-win"}`}>
                   {p.picks}/{need}
                 </span>
-                {slate.status === "open" && (
-                  <Link href={`/p/${slug}/picks?for=${p.user_id}`} className="-my-1 inline-flex min-h-11 items-center pl-2 text-sm font-medium text-accent">
-                    Enter picks
-                  </Link>
-                )}
+                {/* Past the deadline too: the commissioner can fix picks, and the change is marked. */}
+                <Link href={`/p/${slug}/picks?week=${slate.week}&for=${p.user_id}`} className="-my-1 inline-flex min-h-11 items-center pl-2 text-sm font-medium text-accent">
+                  {slate.status === "open" ? "Enter picks" : "Edit picks"}
+                </Link>
               </li>
             ))}
           </ul>

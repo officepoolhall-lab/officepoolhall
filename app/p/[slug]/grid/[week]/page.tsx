@@ -20,7 +20,7 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
     getSlateGames(ctx, slate.id),
     getStandings(ctx, slate.id),
     // RLS only returns other players' picks on games that have locked (deadline or tip).
-    ctx.supabase.from("picks").select("user_id, game_id, picked_side, confidence, result, points, bonus").eq("slate_id", slate.id),
+    ctx.supabase.from("picks").select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by").eq("slate_id", slate.id),
   ]);
   const byCell = new Map((picks ?? []).map((p) => [`${p.user_id}:${p.game_id}`, p]));
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which columns have locked
@@ -104,6 +104,11 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
                               {/* Color isn't the only signal for the result. */}
                               {p?.result === "win" && <span className="sr-only">, won</span>}
                               {p?.result === "loss" && <span className="sr-only">, lost</span>}
+                              {p?.edited_by && (
+                                <span title="Changed by the commissioner" className="ml-0.5 inline-block size-1.5 rounded-full bg-muted align-super">
+                                  <span className="sr-only">, changed by the commissioner</span>
+                                </span>
+                              )}
                             </div>
                             {p?.confidence != null && (
                               <div className="text-sm font-semibold tabular-nums">

@@ -117,17 +117,23 @@ isOneToOne: false
                   ]
                 },"picks": {
                   Row: {
-                    "bonus": number | null,"confidence": number | null,"game_id": string,"id": string,"picked_side": string,"points": number | null,"result": string | null,"slate_id": string,"updated_at": string,"user_id": string
+                    "bonus": number | null,"confidence": number | null,"edited_at": string | null,"edited_by": string | null,"game_id": string,"id": string,"picked_side": string,"points": number | null,"result": string | null,"slate_id": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "bonus"?: number | null,"confidence"?: number | null,"game_id": string,"id"?: string,"picked_side": string,"points"?: number | null,"result"?: string | null,"slate_id": string,"updated_at"?: string,"user_id": string
+                    "bonus"?: number | null,"confidence"?: number | null,"edited_at"?: string | null,"edited_by"?: string | null,"game_id": string,"id"?: string,"picked_side": string,"points"?: number | null,"result"?: string | null,"slate_id": string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "bonus"?: number | null,"confidence"?: number | null,"game_id"?: string,"id"?: string,"picked_side"?: string,"points"?: number | null,"result"?: string | null,"slate_id"?: string,"updated_at"?: string,"user_id"?: string
+                    "bonus"?: number | null,"confidence"?: number | null,"edited_at"?: string | null,"edited_by"?: string | null,"game_id"?: string,"id"?: string,"picked_side"?: string,"points"?: number | null,"result"?: string | null,"slate_id"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "picks_edited_by_fkey"
+      columns: ["edited_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "picks_game_id_fkey"
       columns: ["game_id"]
 isOneToOne: false
@@ -430,6 +436,8 @@ isOneToOne: false
 { Args: { "p_slate_id": string,"p_user_id": string }; Returns: {
               "bonus": number | null,
 "confidence": number | null,
+"edited_at": string | null,
+"edited_by": string | null,
 "game_id": string,
 "id": string,
 "picked_side": string,
