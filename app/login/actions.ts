@@ -32,3 +32,23 @@ export async function verifyCode(_: LoginState, form: FormData): Promise<LoginSt
   if (error) return { sentTo: email, next, error: "That code didn't work. Check it, or request a new link." };
   redirect(next);
 }
+
+/** Email + password, for players who set one on /account. Never creates an account. */
+export async function signInWithPassword(_: LoginState, form: FormData): Promise<LoginState> {
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const password = String(form.get("password") ?? "");
+  const next = safeNext(String(form.get("next") ?? ""));
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
+  if (!password) return { error: "Enter your password." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    if (error.code === "invalid_credentials") {
+      return { error: "Wrong email or password. No password yet? Sign in with an emailed code, then set one under Account." };
+    }
+    if (error.code === "over_request_rate_limit") return { error: "Too many tries. Wait a minute, or use an emailed code." };
+    return { error: error.message };
+  }
+  redirect(next);
+}

@@ -11,6 +11,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
         </Link>
         <div className="ml-auto flex items-center gap-4 text-sm text-muted">
           {children}
+          <Link href="/account" className="flex h-11 items-center hover:text-ink">Account</Link>
           <form action="/auth/signout" method="post">
             <button className="h-11 hover:text-ink">Sign out</button>
           </form>
