@@ -238,6 +238,12 @@ isOneToOne: false
       referencedRelation: "game_lines"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "slate_games_locked_line_id_fkey"
+      columns: ["locked_line_id"]
+isOneToOne: false
+      referencedRelation: "latest_game_lines"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "slate_games_slate_id_fkey"
       columns: ["slate_id"]
 isOneToOne: false
@@ -322,7 +328,21 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "latest_game_lines": {
+                  Row: {
+                    "away_moneyline": number | null,"bookmaker": string | null,"captured_at": string | null,"game_id": string | null,"home_moneyline": number | null,"home_spread": number | null,"id": number | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "game_lines_game_id_fkey"
+      columns: ["game_id"]
+isOneToOne: false
+      referencedRelation: "games"
+      referencedColumns: ["id"]
+    }
+                  ]
+                }
           }
           Functions: {
             "add_manual_game":
@@ -400,6 +420,11 @@ isOneToOne: false
                            },
 "set_result_override":
 { Args: { "p_away_score": number,"p_game_id": string,"p_home_score": number,"p_slate_id": string }; Returns: undefined
+                           },
+"slate_progress":
+{ Args: { "p_slate_id": string }; Returns: {
+              "display_name": string,"picks": number,"user_id": string
+            }[]
                            },
 "submit_picks":
 { Args: { "p_picks": Json,"p_slate_id": string,"p_user_id"?: string }; Returns: undefined
