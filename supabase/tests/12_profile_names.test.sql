@@ -1,6 +1,6 @@
 -- First/last names on profiles. Run with: npx supabase test db
 begin;
-select plan(10);
+select plan(12);
 
 -- An account created with a name (seed / roster import) counts as named; one created by
 -- signing in with an email starts unconfirmed.
@@ -42,6 +42,16 @@ select is((select display_name from profiles where id = 'e0000000-0000-0000-0000
           'set_my_name never touches another player');
 
 select is(has_password(), false, 'a code-only account has no password');
+
+-- GoTrue gives code sign-ups a random hash; only the app's password_set flag counts.
+reset role;
+update auth.users set encrypted_password = crypt('random', gen_salt('bf')) where id = 'e0000000-0000-0000-0000-000000000002';
+set local role authenticated;
+select is(has_password(), false, 'a random hash from a code sign-up is not a password');
+reset role;
+update auth.users set raw_user_meta_data = raw_user_meta_data || '{"password_set": true}' where id = 'e0000000-0000-0000-0000-000000000002';
+set local role authenticated;
+select is(has_password(), true, 'a password the player set counts');
 
 select * from finish();
 rollback;

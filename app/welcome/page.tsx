@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Wordmark } from "@/components/ui";
+import { Field, inputClass, Wordmark } from "@/components/ui";
 import { getProfile, getUser, safeNext } from "@/lib/auth";
 import { continueWithName } from "../account/actions";
 import { NameFields } from "../account/NameFields";
@@ -9,7 +9,7 @@ import { NameFields } from "../account/NameFields";
 export const metadata: Metadata = { title: "Your name" };
 
 // One-time step after a new player's first sign-in (requireUser sends them here), so
-// standings show real names instead of email addresses.
+// standings show real names instead of email addresses. A password is optional here.
 export default async function WelcomePage({ searchParams }: PageProps<"/welcome">) {
   const params = await searchParams;
   const next = safeNext(typeof params.next === "string" ? params.next : undefined);
@@ -27,6 +27,14 @@ export default async function WelcomePage({ searchParams }: PageProps<"/welcome"
       <ActionForm action={continueWithName} className="space-y-3">
         <input type="hidden" name="next" value={next} />
         <NameFields first={profile.first_name} last={profile.last_name} autoFocus />
+        {/* Lets password managers file the new password under this account. */}
+        <input type="email" name="username" autoComplete="username" value={user.email} readOnly hidden />
+        <Field label="Password (optional)" hint="Set one to sign in without an emailed code. At least 8 characters, with a letter and a number.">
+          <input name="password" type="password" minLength={8} maxLength={72} autoComplete="new-password" className={inputClass} />
+        </Field>
+        <Field label="Confirm password">
+          <input name="confirm" type="password" minLength={8} maxLength={72} autoComplete="new-password" className={inputClass} />
+        </Field>
         <SubmitButton className="w-full" pending="Saving…">Continue</SubmitButton>
       </ActionForm>
       <form action="/auth/signout" method="post" className="mt-2 text-center">

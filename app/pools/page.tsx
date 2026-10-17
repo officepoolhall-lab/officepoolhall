@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { PasswordNudge } from "@/components/PasswordNudge";
 import { ChevronIcon, Empty, LinkButton, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -24,6 +26,9 @@ export default async function PoolsPage() {
     <>
       <AppHeader />
       <main className="mx-auto w-full max-w-3xl px-4 py-6">
+        <Suspense fallback={null}>
+          <PasswordNudge />
+        </Suspense>
         <PageTitle sub={user.email}>My pools</PageTitle>
         {memberships?.length ? (
           <ul className="divide-y divide-line border-y border-line">
