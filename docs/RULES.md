@@ -24,6 +24,15 @@ has a `TODO(brooks)` in code. Everything here is configurable per pool in `pools
 | Everyone's picks shared for auditing | Selections grid shows each game's picks once it locks | — |
 | $100 season fee, paid before 11/1 | Roster paid/unpaid toggle; money handled outside the app | `entry_fee` |
 
+## Football Supercontest (Pool B)
+| Rule (Brooks) | App behavior | Setting |
+|---|---|---|
+| Pick 5 games against the spread each week; 1 point per win | 5 ATS picks, win 1 / push ½ / loss 0 | `pick_type: ats`, `picks_per_slate: 5` |
+| Half-point lines (no pushes) | Whole-number spreads get a half point at publish | `lines.force_half_point: true` |
+| Each game locks at kickoff | Per-game lock | `lock.mode: per_game` |
+| Season split into segments with their own payouts: weeks 1–5, 6–10, 11–end | Segment standings | `segments` |
+| More than 5 picks submitted → only the first 5 by kickoff count | The app can't accept a sixth pick; for imported history, the picks on the 5 earliest-starting games are kept | — |
+
 ## Later in the season (Phase 2)
 | Rule (Brooks) | When it's needed |
 |---|---|
