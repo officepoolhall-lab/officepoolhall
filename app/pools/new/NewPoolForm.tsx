@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ActionForm } from "@/components/ActionForm";
+import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { SettingsFields } from "@/components/SettingsFields";
-import { Button, Card, Field, inputClass } from "@/components/ui";
+import { Card, Field, inputClass } from "@/components/ui";
 import { PRESETS, type PoolSettings, type PresetKey } from "@/lib/poolSettings";
 import { createPool } from "./actions";
 
@@ -17,8 +17,6 @@ export function NewPoolForm({ defaultSeason }: { defaultSeason: number }) {
 
   return (
     <ActionForm action={createPool} className="space-y-6">
-      {(pending) => (
-        <>
           <Card className="space-y-4 p-4">
             <div className="grid grid-cols-2 gap-2">
               {(Object.keys(PRESETS) as PresetKey[]).map((key) => (
@@ -53,9 +51,7 @@ export function NewPoolForm({ defaultSeason }: { defaultSeason: number }) {
             <h2 className="mb-3 font-display text-xl font-bold uppercase">Rules</h2>
             <SettingsFields key={preset} initial={PRESETS[preset].settings as PoolSettings} />
           </Card>
-          <Button className="w-full" disabled={pending}>{pending ? "Creating…" : "Create pool"}</Button>
-        </>
-      )}
+          <SubmitButton className="w-full" pending="Creating…">Create pool</SubmitButton>
     </ActionForm>
   );
 }

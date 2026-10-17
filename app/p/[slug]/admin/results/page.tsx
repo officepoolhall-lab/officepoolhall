@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionButton } from "@/components/ActionButton";
-import { ActionForm } from "@/components/ActionForm";
+import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Card, Empty, StatusBadge } from "@/components/ui";
 import { gameTime } from "@/lib/format";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
@@ -48,8 +48,6 @@ export default async function ResultsPage({ params, searchParams }: PageProps<"/
               </div>
               <div className="flex flex-wrap items-start gap-2">
                 <ActionForm action={overrideResult.bind(null, slug, slate.id, g.id)} className="flex items-center gap-2">
-                  {(pending) => (
-                    <>
                       <label className="flex items-center gap-1 text-xs text-muted">
                         {g.away.abbreviation}
                         <input name="away" type="number" min={0} defaultValue={g.awayScore ?? ""} className="w-16 rounded-md border border-border px-2 py-1.5 text-right tabular-nums text-ink" />
@@ -58,12 +56,10 @@ export default async function ResultsPage({ params, searchParams }: PageProps<"/
                         {g.home.abbreviation}
                         <input name="home" type="number" min={0} defaultValue={g.homeScore ?? ""} className="w-16 rounded-md border border-border px-2 py-1.5 text-right tabular-nums text-ink" />
                       </label>
-                      <button disabled={pending} className="min-h-9 rounded-lg border border-border px-3 text-sm hover:bg-raised">Save</button>
+                      <SubmitButton kind="ghost" pending="…" className="!min-h-9 !px-3 text-sm">Save</SubmitButton>
                       {g.overridden && (
-                        <button name="clear" value="1" disabled={pending} className="text-xs text-muted underline">use feed</button>
+                        <button name="clear" value="1" className="text-xs text-muted underline">use feed</button>
                       )}
-                    </>
-                  )}
                 </ActionForm>
                 <span className="ml-auto">
                   <ActionButton action={setVoided.bind(null, slug, slate.id, g.id, !g.voided)} kind={g.voided ? "ghost" : "danger"} className="!min-h-9 !px-3 text-sm">

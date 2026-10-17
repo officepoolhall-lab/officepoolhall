@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ActionForm } from "@/components/ActionForm";
-import { Button, Card, Field, LinkButton, StatusBadge, inputClass } from "@/components/ui";
+import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { Card, Field, LinkButton, StatusBadge, inputClass } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
@@ -47,8 +47,6 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         <Card className="p-4">
           <h2 className="mb-3 font-display text-xl font-bold uppercase">New week</h2>
           <ActionForm action={createSlate.bind(null, slug)} className="space-y-3">
-            {(pending) => (
-              <>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="First day" hint={`${ctx.settings.window.length_days}-day window from midnight (${tz.replace("America/", "")})`}>
                     <input type="date" name="start_date" required defaultValue={suggestedStart} className={inputClass} />
@@ -57,9 +55,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
                     <input name="label" placeholder={`Week ${(slates?.[0]?.week ?? 0) + 1}`} className={inputClass} />
                   </Field>
                 </div>
-                <Button disabled={pending}>{pending ? "Creating…" : "Create draft"}</Button>
-              </>
-            )}
+                <SubmitButton pending="Creating…">Create draft</SubmitButton>
           </ActionForm>
         </Card>
       ) : slate.status === "draft" ? (
@@ -142,7 +138,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
                       <option value="">Choose team…</option>
                       {teams?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
-                    <Button kind="ghost">Match</Button>
+                    <SubmitButton kind="ghost" pending="…">Match</SubmitButton>
                   </ActionForm>
                 </li>
               ))}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { ActionButton } from "@/components/ActionButton";
-import { ActionForm, type ActionState } from "@/components/ActionForm";
+import { ActionForm, SubmitButton, type ActionState } from "@/components/ActionForm";
 import { Button, Card, Field, TeamLogo, inputClass } from "@/components/ui";
 import { dayKey, dayLabel, formatSpread, gameTime } from "@/lib/format";
 import type { SlateGame } from "@/lib/pool";
@@ -233,8 +233,6 @@ export function SlateEditor({
       <details className="rounded-xl border border-border bg-surface p-4">
         <summary className="cursor-pointer font-display text-lg font-bold uppercase">Enter a game by hand</summary>
         <ActionForm action={addManualGame.bind(null, slug, slateId)} className="mt-3 grid gap-3 sm:grid-cols-2">
-          {(pending) => (
-            <>
               <Field label="Away team">
                 <select name="away" required className={inputClass}>
                   <option value="">Choose…</option>
@@ -256,9 +254,7 @@ export function SlateEditor({
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="neutral" className="size-5 accent-[var(--felt)]" /> Neutral site
               </label>
-              <Button kind="ghost" disabled={pending} className="sm:col-start-2">{pending ? "Adding…" : "Add to slate"}</Button>
-            </>
-          )}
+              <SubmitButton kind="ghost" pending="Adding…" className="sm:col-start-2">Add to slate</SubmitButton>
         </ActionForm>
       </details>
     </div>
