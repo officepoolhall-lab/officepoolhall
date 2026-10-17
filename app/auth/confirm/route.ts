@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/auth";
+import { doneUrl, safeNext } from "@/lib/auth";
 
 // Magic-link target. Uses token_hash (not PKCE) so the link works even when the
 // email opens in a different browser than the one that requested it.
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (tokenHash) {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-    if (!error) return NextResponse.redirect(new URL(next, request.url));
+    if (!error) return NextResponse.redirect(doneUrl(next, request.url));
   }
 
   const url = new URL("/login", request.url);

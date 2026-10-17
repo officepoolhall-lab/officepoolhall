@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/auth";
+import { doneUrl, safeNext } from "@/lib/auth";
 
 // Target for Supabase's default (PKCE) email links, which arrive with ?code=. Our own
 // templates use /auth/confirm (token_hash) instead; this keeps sign-in working either way.
@@ -18,5 +18,5 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(url);
     }
   }
-  return NextResponse.redirect(new URL(next, request.url));
+  return NextResponse.redirect(doneUrl(next, request.url));
 }

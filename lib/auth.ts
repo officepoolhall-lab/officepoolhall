@@ -28,3 +28,17 @@ export function safeNext(next: string | null | undefined, fallback = "/pools") {
     return fallback;
   }
 }
+
+/**
+ * Where a successful email sign-in lands: /auth/done, which hands off to the tab that asked
+ * for the link if it's still open. Unwraps our own /auth/callback?next=… so the final
+ * destination is the page the player was going to.
+ */
+export function doneUrl(next: string, base: string) {
+  let dest = next;
+  const parsed = new URL(next, base);
+  if (parsed.pathname === "/auth/callback") dest = safeNext(parsed.searchParams.get("next"));
+  const url = new URL("/auth/done", base);
+  url.searchParams.set("next", dest);
+  return url;
+}
