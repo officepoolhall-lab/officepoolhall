@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Check an imported Supercontest pool against the parsed workbook.
 //
-//   node verify.mjs <parsed.json> --db <postgres-url> --pool-slug 2026-ncaa-supercontest
+//   node verify.mjs <parsed.json> --db <postgres-url> --pool-slug 2026-ncaa-supercontest [--report <report.json>]
+//
+// An in-progress week (parsed with --partial) is compared on the games the sheet has decided
+// only; its other games may be pending or already graded by the app's score poller. That
+// needs build.mjs's --report (which ESPN game each sheet column became).
 //
 // For every entry: per-week W-L, season W-L and Segment 1/2/3 W-L from picks.result (and the
 // grader's slate_scores) vs the sheet, for the imported weeks only. Also checks membership,
@@ -83,6 +87,18 @@ const notes = [];
 
 const nameByEmail = new Map(data.roster.map((r) => [r.email, r.name]));
 const weeks = data.weeks.map((w) => w.week);
+const partialWeek = data.partial_week ?? null;
+const report = o.report ? JSON.parse(readFileSync(o.report, "utf8")) : null;
+// espn_id → decided in the sheet, for the in-progress week.
+const decidedByEspn = new Map();
+if (partialWeek !== null) {
+  const map = report?.weeks?.find((w) => w.week === partialWeek)?.game_map;
+  if (!map) {
+    console.error(`week ${partialWeek} is in progress: pass --report <report.json> from the build that imported it`);
+    process.exit(2);
+  }
+  for (const m of map) decidedByEspn.set(m.espn_id, m.decided);
+}
 
 // ---- DB side ----
 const pool = q(`select id, settings->'segments' from pools where slug = '${slug}'`);
@@ -128,23 +144,45 @@ for (const w of data.weeks) {
   const s = slates.get(w.week);
   if (!s) bad(`week ${w.week}: no slate`);
   else {
-    if (s.status !== "graded") bad(`week ${w.week}: slate is ${s.status}`);
+    if (w.week === partialWeek ? !["locked", "graded"].includes(s.status) : s.status !== "graded") bad(`week ${w.week}: slate is ${s.status}`);
     if (s.games !== w.games.length) bad(`week ${w.week}: ${s.games} slate games, sheet ${w.games.length}`);
   }
 }
 
-// email → week → {w,l} from picks, and from slate_scores
+// email → week → {w,l} from picks, and from slate_scores. For the in-progress week,
+// fromPicks counts only the sheet's decided games (comparable with the sheet) and
+// allPicks counts every graded pick (comparable with slate_scores).
 const fromPicks = new Map();
-for (const [e, wk, w, l, other] of q(
-  `select lower(u.email), s.week,
-          count(*) filter (where p.result = 'win'), count(*) filter (where p.result = 'loss'),
-          count(*) filter (where p.result is null or p.result not in ('win','loss'))
+const allPicks = new Map();
+const tally = (m, e, wk, res) => {
+  if (!m.has(e)) m.set(e, new Map());
+  const x = m.get(e).get(wk) ?? { w: 0, l: 0 };
+  if (res === "win") x.w++;
+  else if (res === "loss") x.l++;
+  m.get(e).set(wk, x);
+};
+const partialPicks = { graded: 0, pending: 0 };
+for (const [e, wk, espnId, res] of q(
+  `select lower(u.email), s.week, g.espn_id, p.result
    from picks p join slates s on s.id = p.slate_id join auth.users u on u.id = p.user_id
-   where s.pool_id = '${poolId}' group by 1, 2`,
+   join games g on g.id = p.game_id
+   where s.pool_id = '${poolId}'`,
 )) {
-  if (!fromPicks.has(e)) fromPicks.set(e, new Map());
-  fromPicks.get(e).set(Number(wk), { w: Number(w), l: Number(l) });
-  if (Number(other)) bad(`${nameByEmail.get(e) ?? "(non-roster member)"} week ${wk}: ${other} pick(s) not win/loss`);
+  const week = Number(wk);
+  const who = nameByEmail.get(e) ?? "(non-roster member)";
+  const graded = res === "win" || res === "loss";
+  if (week === partialWeek) {
+    partialPicks[graded ? "graded" : "pending"]++;
+    if (!decidedByEspn.has(espnId)) bad(`${who} week ${week}: pick on ESPN game ${espnId}, not one of the sheet's games`);
+    if (res && !graded) bad(`${who} week ${week}: pick result ${res}`);
+    if (decidedByEspn.get(espnId) && !graded) bad(`${who} week ${week}: pick on decided game ${espnId} not graded win/loss`);
+    tally(allPicks, e, week, res);
+    tally(fromPicks, e, week, decidedByEspn.get(espnId) ? res : null);
+  } else {
+    if (!graded) bad(`${who} week ${week}: pick not win/loss (${res || "ungraded"})`);
+    tally(allPicks, e, week, res);
+    tally(fromPicks, e, week, res);
+  }
 }
 const fromScores = new Map();
 for (const [e, wk, w, l, pts] of q(
@@ -164,8 +202,7 @@ const standingsByName = new Map(data.standings.map((s) => [s.name, s]));
 const excludedByWeek = (data.excluded_weeks ?? []).map((x) => ({ week: x.week, records: x.records }));
 // Picks the importer didn't count (Brooks's rule: only the first 5 by kickoff count). The
 // sheet's own record includes them, so take each dropped pick's result back out of it.
-const reportPath = o.report;
-const trimmed = reportPath ? (JSON.parse(readFileSync(reportPath, "utf8")).trimmed ?? []) : [];
+const trimmed = report?.trimmed ?? [];
 const adjustments = new Map(); // "name|week" -> {w, l} to subtract from the sheet
 for (const t of trimmed) {
   const week = data.weeks.find((w) => w.week === t.week);
@@ -175,7 +212,7 @@ for (const t of trimmed) {
     const game = week.games.find((g) => g.col === d.col);
     const entry = week.entries.find((x) => x.name === t.entry);
     const pick = entry?.picks.find((p) => p.col === d.col);
-    if (!game || !pick) continue;
+    if (!game || !pick || !game.cover) continue; // undecided: not in the sheet's record yet
     if (pick.team === game.cover.team) adj.w++;
     else adj.l++;
   }
@@ -199,10 +236,12 @@ for (const r of data.roster) {
     const adj = adjustments.get(`${r.name}|${w.week}`);
     const sheet = e ? (adj ? sub(e.record, adj) : e.record) : zero();
     const db = dbWeeks.get(w.week) ?? zero();
+    const dbAll = allPicks.get(r.email)?.get(w.week) ?? zero();
     const sc = dbScores.get(w.week);
-    if (!same(sheet, db)) bad(`${r.name} week ${w.week}: db ${fmt(db)}, sheet ${fmt(sheet)}`);
+    const tag = w.week === partialWeek ? " (decided games)" : "";
+    if (!same(sheet, db)) bad(`${r.name} week ${w.week}${tag}: db ${fmt(db)}, sheet ${fmt(sheet)}`);
     if (!sc) bad(`${r.name} week ${w.week}: no slate_scores row`);
-    else if (!same(sc, db) || sc.pts !== db.w) bad(`${r.name} week ${w.week}: slate_scores ${fmt(sc)} / ${sc.pts} pts vs picks ${fmt(db)}`);
+    else if (!same(sc, dbAll) || sc.pts !== dbAll.w) bad(`${r.name} week ${w.week}: slate_scores ${fmt(sc)} / ${sc.pts} pts vs picks ${fmt(dbAll)}`);
     sheetSeason = add(sheetSeason, sheet);
     dbSeason = add(dbSeason, db);
     sheetSeg[segOf(w.week)] = add(sheetSeg[segOf(w.week)], sheet);
@@ -239,11 +278,34 @@ for (const r of data.roster) {
   }
 }
 
-const totalPicks = [...fromPicks.values()].reduce((n, m) => n + [...m.values()].reduce((k, x) => k + x.w + x.l, 0), 0);
+const totalPicks = [...allPicks.values()].reduce((n, m) => n + [...m.values()].reduce((k, x) => k + x.w + x.l, 0), 0);
 console.log(
   `verify ${slug}: weeks ${weeks.join(",")}; ${entriesChecked} entries, ${weekRows} entry-weeks, ` +
     `${totalPicks} graded picks, ${members.size} members (${data.roster.length} roster)`,
 );
+if (partialWeek !== null) {
+  const [st] = q(
+    `select s.status, s.lock_at,
+            count(*) filter (where g.status = 'final'), count(*) filter (where g.status = 'in_progress'),
+            count(*) filter (where g.status not in ('final', 'in_progress')),
+            count(*) filter (where sg.lock_at is distinct from s.lock_at), count(*)
+     from slates s join slate_games sg on sg.slate_id = s.id join games g on g.id = sg.game_id
+     where s.pool_id = '${poolId}' and s.week = ${partialWeek} group by s.id`,
+  );
+  const w = data.weeks.find((x) => x.week === partialWeek);
+  const sheetDecided = w.games.filter((g) => g.decided !== false).length;
+  if (!st) bad(`week ${partialWeek}: no slate games`);
+  else {
+    const [status, lockAt, fin, live, sched, offLock, n] = st;
+    if (!lockAt) bad(`week ${partialWeek}: in-progress slate has no lock_at`);
+    if (Number(offLock)) bad(`week ${partialWeek}: ${offLock} slate game(s) with a lock_at other than the slate's`);
+    console.log(
+      `week ${partialWeek} (in progress): slate ${status}, picks locked at ${lockAt}; ${n} games: ` +
+        `${sheetDecided} decided in the sheet (compared above), app: ${fin} final, ${live} in progress, ${sched} not started; ` +
+        `picks ${partialPicks.graded} graded, ${partialPicks.pending} pending`,
+    );
+  }
+}
 if (notes.length) {
   console.log(`${notes.length} note(s):`);
   for (const n of notes) console.log("  -", n);

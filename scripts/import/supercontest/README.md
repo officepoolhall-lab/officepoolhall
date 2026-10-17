@@ -9,8 +9,8 @@ completed week with the sheet's own lines and picks.
 | File | Does |
 |---|---|
 | `parse.py` | Workbook → JSON. Validates every matchup, outcome, cover cell, pick and weekly record; exits 1 with a list of problems. |
-| `build.mjs` | JSON → one idempotent SQL statement. Matches each sheet game to exactly one final ESPN event (both teams and the score must agree), converts spreads to `locked_home_spread` and picks to home/away, and checks every cover against the sheet. |
-| `verify.mjs` | Compares per-week, season and segment W-L in the database with the sheet (and the Standings tab), plus membership, paid flags, commissioners and the segments setting. |
+| `build.mjs` | JSON → one idempotent SQL statement. Matches each sheet game to exactly one final ESPN event (both teams and the score must agree), converts spreads to `locked_home_spread` and picks to home/away, and checks every cover against the sheet. With `--partial N --lock-at <ISO>`, week N is imported in progress (see below). |
+| `verify.mjs` | Compares per-week, season and segment W-L in the database with the sheet (and the Standings tab), plus membership, paid flags, commissioners and the segments setting. An in-progress week is compared on its decided games. |
 
 ## Privacy
 
@@ -37,7 +37,7 @@ node $D/build.mjs $OUT/parsed.json --pool-slug 2026-ncaa-supercontest --season 2
 
 psql $DB -v ON_ERROR_STOP=1 -f $OUT/local-setup.sql   # local only: creates the pool (see below)
 psql $DB -v ON_ERROR_STOP=1 -f $OUT/import.sql
-node $D/verify.mjs $OUT/parsed.json --db $DB --pool-slug 2026-ncaa-supercontest
+node $D/verify.mjs $OUT/parsed.json --db $DB --pool-slug 2026-ncaa-supercontest --report $OUT/report.json
 ```
 
 Locally the pool doesn't exist, so `local-setup.sql` (kept with the data, not here) creates
@@ -59,7 +59,7 @@ To rehearse without committing, wrap it in a transaction and look before rolling
 
 ```sh
 npx supabase db query --linked -f $OUT/import.sql
-node $D/verify.mjs $OUT/parsed.json --db "<production connection string>" --pool-slug 2026-ncaa-supercontest
+node $D/verify.mjs $OUT/parsed.json --db "<production connection string>" --pool-slug 2026-ncaa-supercontest --report $OUT/report.json
 ```
 
 The SQL is a single `do` block, so it is all-or-nothing under any client. It only touches:
@@ -79,16 +79,76 @@ The import fails closed if an imported or reserved week number is taken by a sla
 create: an in-app draft other than the untouched placeholder, any non-draft slate at a reserved
 week, or a non-draft slate with games that aren't that sheet week's. Nothing is overwritten.
 
-## After week 7 finishes
+## Tomorrow: importing an in-progress week
 
-Week 7 was in progress at import time, so only weeks 1–6 were loaded. Once every week 7
-outcome is in the sheet, download it again and re-run everything with `--weeks 1-7`:
+Brooks's week 7 picks lock Saturday Oct 17, 2026 at 11:00 AM Central. Once he sends the sheet
+with every player's picks (outcomes only for games already played), import week 7 as an
+in-progress week. Use `--partial 7` on both scripts and a `--lock-at` with an explicit offset
+(Central daylight time is `-05:00`); do **not** pass `--reserve-weeks 7`:
 
 ```sh
-/tmp/xlenv/bin/python -I $D/parse.py <new.xlsx> $OUT/parsed.json --weeks 1-7
-node $D/build.mjs $OUT/parsed.json --pool-slug 2026-ncaa-supercontest --season 2026 --out $OUT/import.sql --report $OUT/report.json
-npx supabase db query --linked -f $OUT/import.sql
-node $D/verify.mjs $OUT/parsed.json --db "<production connection string>" --pool-slug 2026-ncaa-supercontest
+D=scripts/import/supercontest
+OUT=/path/outside/repo
+
+# Chained, and old outputs removed first: a failed parse/build writes nothing, so a stale
+# import.sql from an earlier run must never be the one that gets applied.
+rm -f $OUT/parsed.json $OUT/import.sql $OUT/report.json &&
+/tmp/xlenv/bin/python -I $D/parse.py <new.xlsx> $OUT/parsed.json --weeks 1-7 --partial 7 &&
+node $D/build.mjs $OUT/parsed.json --pool-slug 2026-ncaa-supercontest --season 2026 \
+  --partial 7 --lock-at '2026-10-17T11:00:00-05:00' --out $OUT/import.sql --report $OUT/report.json &&
+npx supabase db query --linked -f $OUT/import.sql &&
+node $D/verify.mjs $OUT/parsed.json --db linked --pool-slug 2026-ncaa-supercontest --report $OUT/report.json
+```
+
+What `--partial 7` changes for week 7 (weeks 1–6 are re-imported exactly as before):
+
+- **Sheet.** A game with neither an outcome nor a cover cell is *undecided*. A game with only
+  one of the two is still an error, and so is everything the parser normally rejects. Each
+  entry's "Week 7 Record" must match its picks on the decided games.
+- **ESPN.** Decided games must still match a final ESPN score exactly. Undecided games match on
+  both teams alone and keep ESPN's live status, start time and score (scheduled, in progress or
+  final). An undecided game that ESPN already shows final is fine (the sheet is just behind);
+  the build lists those. A postponed or cancelled game stops the build: ask Brooks how it
+  counts, then add `--allow-postponed` to the build to import it with ESPN's status (a cancelled
+  game is voided by the grader; a postponed one stays ungraded, keeping the slate `locked`,
+  until ESPN finishes it or Brooks voids it in the app).
+- **Locking.** The week 7 slate is imported `locked` with `lock_at` = `--lock-at`, and every
+  week 7 game gets the same `slate_games.lock_at`, so nobody can pick or change picks in the app
+  (`submit_picks` needs an open slate; effective lock is `least(kickoff, lock_at)`).
+  `close_slates` only looks at open slates and `refresh_slate_locks` only runs for open slates
+  in weekly mode (this pool is per-game), so nothing reopens or moves it. Players can see
+  everyone's week 7 picks once it's imported (a locked slate shows all picks).
+- **Grading.** Every pick is imported (the week's picks are replaced, as for history; the
+  first-5-by-kickoff rule still applies). Final games are graded at import; the rest stay
+  ungraded. `games_to_poll()` returns them from 10 minutes before kickoff, the `poll-scores`
+  cron grades each as ESPN marks it final, and the slate moves to `graded` after the last one.
+- **Ownership.** The importer's empty `Week 7 (pending sheet import)` draft becomes week 7.
+  Re-running the partial import (e.g. with a corrected sheet) is safe: the locked week 7 slate
+  only has this sheet's games, so it is replaced in place and regraded. A re-run resets week 7
+  games to ESPN's current status/scores and clears any void or result override made in the app,
+  so **don't re-run it after Brooks voids or overrides a week 7 game**.
+- **verify.** Week 7 is compared on the sheet's decided games only (that's also what the
+  Standings tab counts), and it prints how many week 7 games/picks the app has graded or still
+  has pending. It needs `--report` from the same build.
+
+If the import runs before 11:00, the build warns that the deadline is in the future; the slate
+is locked regardless, so nobody can pick after the sheet's picks are loaded.
+
+## After week 7 finishes
+
+Once every week 7 outcome is in the sheet, download it again and re-run without `--partial`
+(and without `--lock-at`). Week 7 ends `graded` with the sheet's results; anything the poller
+graded is regraded from the same scores. This only works once ESPN shows **every** week 7 game
+final (the last kickoff is about 10 PM Central Saturday), so run it late Saturday night or
+Sunday; before that the build fails with "ESPN shows in_progress/scheduled; wait until it is
+final" and writes nothing. It isn't required for the app: the poller grades week 7 on its own.
+
+```sh
+rm -f $OUT/parsed.json $OUT/import.sql $OUT/report.json &&
+/tmp/xlenv/bin/python -I $D/parse.py <new.xlsx> $OUT/parsed.json --weeks 1-7 &&
+node $D/build.mjs $OUT/parsed.json --pool-slug 2026-ncaa-supercontest --season 2026 --out $OUT/import.sql --report $OUT/report.json &&
+npx supabase db query --linked -f $OUT/import.sql &&
+node $D/verify.mjs $OUT/parsed.json --db linked --pool-slug 2026-ncaa-supercontest --report $OUT/report.json
 ```
 
 Re-running is safe: accounts and members aren't duplicated, a member marked paid in the app is
@@ -99,7 +159,7 @@ re-inserted from the sheet, then regraded. Anything changed in the app on those 
 (result overrides, voids, edited spreads) is reset to the sheet. Weeks not in `--weeks` are
 left alone, and the week-number guard above refuses to overwrite a slate the app created.
 
-`parse.py` refuses a week whose outcomes aren't all filled in.
+Without `--partial`, `parse.py` refuses a week whose outcomes aren't all filled in.
 
 ## Sheet conventions the parser relies on
 

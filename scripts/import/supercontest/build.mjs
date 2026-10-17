@@ -2,11 +2,14 @@
 // Turn parse.py's JSON into one idempotent SQL import for the NCAA Supercontest pool.
 //
 //   node build.mjs <parsed.json> --pool-slug 2026-ncaa-supercontest --season 2026 \
-//        --out <import.sql> --report <report.json>
+//        --out <import.sql> --report <report.json> [--reserve-weeks 8] \
+//        [--partial 7 --lock-at 2026-10-17T11:00:00-05:00 [--allow-postponed]]
 //
 // Matches every sheet game to exactly one final ESPN event (both teams AND the score must
 // agree), converts the sheet's spreads to locked_home_spread and picks to home/away, and
-// fails loudly on anything it can't match. The output contains names and emails: keep it
+// fails loudly on anything it can't match. --partial N imports an in-progress week N: games
+// the sheet hasn't decided match on teams alone and keep ESPN's live status, every game locks
+// at --lock-at, and the app's score poller grades the rest as they finish. The output contains names and emails: keep it
 // outside the repo. Node 22+, no dependencies.
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -105,8 +108,10 @@ function teamKeys(t) {
 function args() {
   const a = process.argv.slice(2);
   const o = { input: null };
+  const flags = new Set(["allow-postponed"]); // take no value
   for (let i = 0; i < a.length; i++) {
-    if (a[i].startsWith("--")) o[a[i].slice(2)] = a[++i];
+    if (flags.has(a[i].slice(2))) o[a[i].slice(2)] = true;
+    else if (a[i].startsWith("--")) o[a[i].slice(2)] = a[++i];
     else o.input = a[i];
   }
   for (const k of ["input", "pool-slug", "season", "out", "report"]) {
@@ -130,6 +135,28 @@ function args() {
       process.exit(2);
     }
     for (let w = Number(m[1]); w <= Number(m[2] ?? m[1]); w++) o.reserve.push(w);
+  }
+  // --partial 7 --lock-at <ISO>: week 7 is in progress (see README "importing an in-progress week").
+  if (o.partial !== undefined || o["lock-at"] !== undefined) {
+    if (!/^\d+$/.test(o.partial ?? "")) {
+      console.error("bad --partial (use the week number)");
+      process.exit(2);
+    }
+    o.partial = Number(o.partial);
+    // Require an explicit offset so the deadline can't silently land in the machine's zone.
+    if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?(\.\d+)?(Z|[+-]\d\d:\d\d)$/.test(o["lock-at"] ?? "") || isNaN(Date.parse(o["lock-at"]))) {
+      console.error("--partial needs --lock-at <ISO timestamp with offset>, e.g. 2026-10-17T11:00:00-05:00");
+      process.exit(2);
+    }
+    o.lockAt = new Date(o["lock-at"]).toISOString();
+    if (o.reserve.includes(o.partial)) {
+      console.error(`--reserve-weeks can't include the partial week ${o.partial}`);
+      process.exit(2);
+    }
+  } else o.partial = null;
+  if (o["allow-postponed"] && o.partial === null) {
+    console.error("--allow-postponed only applies with --partial");
+    process.exit(2);
   }
   return o;
 }
@@ -251,16 +278,38 @@ async function main() {
     return new Map();
   });
 
+  // parse.py and build.mjs must agree on which week is in progress.
+  const parsedPartial = data.partial_week ?? null;
+  if (parsedPartial !== o.partial) {
+    console.error(`parsed.json was parsed with --partial ${parsedPartial ?? "(none)"} but build got --partial ${o.partial ?? "(none)"}`);
+    process.exit(2);
+  }
+  if (o.partial !== null && data.weeks.at(-1)?.week !== o.partial) {
+    console.error(`--partial ${o.partial} must be the last parsed week`);
+    process.exit(2);
+  }
+  if (o.partial !== null && Date.parse(o.lockAt) > Date.now()) {
+    console.error(`warning: --lock-at ${o["lock-at"]} is in the future; the slate is imported locked anyway (nobody can pick in the app)`);
+  }
+
   const teams = new Map();
   const games = new Map();
   const slates = [];
 
   for (const w of data.weeks) {
+    const partial = w.week === o.partial;
     const wr = { week: w.week, games: w.games.length, matched: 0, by_espn_week: {} };
+    if (partial) Object.assign(wr, { partial: true, decided: 0, espn_status: {} });
     const slateGames = [];
     const sideByCol = new Map(); // col → { espn_id, home sheet-team index }
     for (const g of w.games) {
-      if (!g.outcome || !g.cover) {
+      // Undecided = an in-progress week's game with neither outcome nor cover yet (parse.py).
+      const decided = g.decided !== false;
+      if (!decided && !partial) {
+        problems.push(`Week ${w.week} col ${g.col}: ${g.raw}: marked undecided outside the --partial week`);
+        continue;
+      }
+      if (decided && (!g.outcome || !g.cover)) {
         problems.push(`Week ${w.week} col ${g.col}: ${g.raw}: no outcome/cover in the sheet`);
         continue;
       }
@@ -279,8 +328,15 @@ async function main() {
       for (const [n, fbs] of attempts) {
         const events = await scoreboard(o.season, n, fbs);
         const cands = candidates(events, g);
-        const good = cands.filter((c) => scoreAgrees(c, g));
-        tried.push(`wk${n}${fbs ? "" : " all"}: ${cands.length} team match(es), ${good.length} with score`);
+        // A decided game must also match ESPN's final score; an undecided one (the in-progress
+        // week's unplayed games) matches on both teams alone.
+        const good = decided ? cands.filter((c) => scoreAgrees(c, g)) : cands;
+        // A decided game whose teams match but ESPN isn't final yet: say so (usually "wait").
+        const notFinal = decided ? cands.map((c) => mapStatus(c.ev.c.status?.type ?? c.ev.e.status?.type)).filter((st) => st !== "final") : [];
+        tried.push(
+          `wk${n}${fbs ? "" : " all"}: ${cands.length} team match(es)${decided ? `, ${good.length} with score` : ""}` +
+            (notFinal.length ? ` (ESPN shows ${notFinal.join("/")}; wait until it is final)` : ""),
+        );
         if (good.length > 1) {
           const ids = new Set(good.map((c) => c.ev.e.id));
           if (ids.size > 1) {
@@ -296,7 +352,8 @@ async function main() {
       }
       if (found === "ambiguous") continue;
       if (!found) {
-        problems.push(`Week ${w.week} col ${g.col}: no ESPN match for ${g.raw} (${g.outcome.winner} ${g.outcome.w_score}-${g.outcome.l_score}); tried ${tried.join("; ")}`);
+        const what = decided ? `${g.outcome.winner} ${g.outcome.w_score}-${g.outcome.l_score}` : "undecided";
+        problems.push(`Week ${w.week} col ${g.col}: no ESPN match for ${g.raw} (${what}); tried ${tried.join("; ")}`);
         continue;
       }
       if (found.espnWeek !== w.week || !found.fbs) {
@@ -314,10 +371,27 @@ async function main() {
       const homeSpread = spreadIdx === homeTeam ? g.teams[spreadIdx].spread : -g.teams[spreadIdx].spread;
       const homeScore = Number(ev.home.score);
       const awayScore = Number(ev.away.score);
-      const cover = homeScore - awayScore + homeSpread;
-      const coverTeam = cover === 0 ? null : g.teams[cover > 0 ? homeTeam : 1 - homeTeam].name;
-      if (coverTeam !== g.cover.team) {
-        problems.push(`Week ${w.week}: ${g.raw}: computed cover ${coverTeam ?? "push"} but sheet says ${g.cover.team}`);
+      // History is final by construction (scoreAgrees); the in-progress week keeps ESPN's
+      // live status, with scores only once a game has started (as _shared/espn.ts does).
+      const status = partial ? mapStatus(ev.c.status?.type ?? ev.e.status?.type) : "final";
+      const started = status === "in_progress" || status === "final";
+      if (decided) {
+        const cover = homeScore - awayScore + homeSpread;
+        const coverTeam = cover === 0 ? null : g.teams[cover > 0 ? homeTeam : 1 - homeTeam].name;
+        if (coverTeam !== g.cover.team) {
+          problems.push(`Week ${w.week}: ${g.raw}: computed cover ${coverTeam ?? "push"} but sheet says ${g.cover.team}`);
+        }
+      }
+      if (partial) {
+        if (decided) wr.decided++;
+        wr.espn_status[status] = (wr.espn_status[status] ?? 0) + 1;
+        if (!decided && status === "final") (report.sheet_behind ??= []).push({ week: w.week, game: g.raw, home_score: homeScore, away_score: awayScore });
+        if (status === "postponed" || status === "cancelled") {
+          // --allow-postponed imports it with ESPN's status: grade_slate voids a cancelled game
+          // and leaves a postponed one ungraded (the poller keeps watching it; Brooks can void it).
+          if (o["allow-postponed"]) (report.postponed ??= []).push({ week: w.week, game: g.raw, status });
+          else problems.push(`Week ${w.week}: ${g.raw}: ESPN says ${status}; ask Brooks how it counts, then re-run with --allow-postponed to import it as ${status}`);
+        }
       }
 
       for (const side of [ev.home, ev.away]) {
@@ -343,9 +417,14 @@ async function main() {
         away_espn_id: String(ev.away.team.id),
         start_at: new Date(ev.e.date).toISOString(),
         time_tbd: ev.c.timeValid === false,
-        status: "final",
-        home_score: homeScore,
-        away_score: awayScore,
+        status,
+        home_score: started ? homeScore : null,
+        away_score: started ? awayScore : null,
+        // Only decided games must already be final with the sheet's score (checked in SQL
+        // against these, which come from the sheet, not from ESPN).
+        decided,
+        sheet_home_score: decided ? (g.teams[homeTeam].name === g.outcome.winner ? g.outcome.w_score : g.outcome.l_score) : null,
+        sheet_away_score: decided ? (g.teams[homeTeam].name === g.outcome.winner ? g.outcome.l_score : g.outcome.w_score) : null,
         neutral_site: Boolean(ev.c.neutralSite),
         tv_network: national?.names?.join("/") || null,
         home_rank: hr,
@@ -353,6 +432,8 @@ async function main() {
         venue: venueLabel(ev.c.venue?.address),
       });
       sideByCol.set(g.col, { espn_id: espnId, homeTeam, names: g.teams.map((t) => t.name) });
+      // verify.mjs needs col → ESPN game to compare an in-progress week on decided games only.
+      if (partial) (wr.game_map ??= []).push({ col: g.col, espn_id: espnId, decided });
       slateGames.push({ espn_id: espnId, sort_order: slateGames.length + 1, home_spread: homeSpread });
     }
 
@@ -385,6 +466,9 @@ async function main() {
       slates.push({
         week: w.week,
         label: `Week ${w.week}`,
+        // In-progress week: every game (and the slate) locks at Brooks's deadline; history has none.
+        lock_at: partial ? o.lockAt : null,
+        partial,
         first_date: localDate(starts[0]),
         end_date: nextDay(localDate(starts.at(-1))),
         published_at: new Date(Date.parse(starts[0]) - 86400000).toISOString(),
@@ -443,7 +527,14 @@ async function main() {
       `${slates.reduce((n, s) => n + s.picks.length, 0)} picks, ${data.roster.length} roster, ` +
       `${reserved.length} reserved week(s)${reserved.length ? " (" + reserved.map((r) => r.week).join(",") + ")" : ""} → ${o.out}`,
   );
-  for (const w of report.weeks) console.log(`  week ${w.week}: ${w.matched}/${w.games} matched, ESPN weeks ${JSON.stringify(w.by_espn_week)}, ${w.picks} picks`);
+  for (const w of report.weeks) {
+    console.log(
+      `  week ${w.week}: ${w.matched}/${w.games} matched, ESPN weeks ${JSON.stringify(w.by_espn_week)}, ${w.picks} picks` +
+        (w.partial ? `; in progress: ${w.decided} decided in the sheet, ESPN ${JSON.stringify(w.espn_status)}, locks at ${o.lockAt}` : ""),
+    );
+  }
+  for (const p of report.postponed ?? []) console.log(`  week ${p.week}: ${p.game} is ${p.status} on ESPN; imported as ${p.status} (--allow-postponed)`);
+  for (const b of report.sheet_behind ?? []) console.log(`  week ${b.week}: ${b.game} is final on ESPN (${b.home_score}-${b.away_score} home-away) but not in the sheet yet; the app grades it`);
   for (const t of report.trimmed) console.log(`  week ${t.week}: ${t.entry} had more than ${t.kept} picks; not counted (latest kickoff): ${t.dropped.map((d) => d.raw).join(", ")}`);
   if (report.fallbacks.length) console.log(`  fallback matches: ${report.fallbacks.length} (see report)`);
 }
@@ -533,12 +624,23 @@ begin
 
   -- Teams and games, through the same upsert the schedule sync uses.
   perform ingest_espn('ncaaf', v_data->'teams', v_data->'games');
+  -- Every game the sheet has decided must now be final with the sheet's score (sheet_*_score
+  -- come from the workbook, separately from the ESPN scores ingested above). An in-progress
+  -- week's undecided games only have to exist; the score poller finishes them.
   select count(*) into v_n
-  from jsonb_to_recordset(v_data->'games') x(espn_id text, home_score int, away_score int)
+  from jsonb_to_recordset(v_data->'games') x(espn_id text, sheet_home_score int, sheet_away_score int, decided boolean)
   join games g on g.espn_id = x.espn_id and g.sport = 'ncaaf'
-  where g.status = 'final' and g.home_score = x.home_score and g.away_score = x.away_score;
+  where coalesce(x.decided, true)
+    and g.status = 'final' and g.home_score = x.sheet_home_score and g.away_score = x.sheet_away_score;
+  if v_n <> (select count(*) from jsonb_array_elements(v_data->'games') x where coalesce((x->>'decided')::boolean, true)) then
+    raise exception 'Only % of % decided games ingested as final with matching scores', v_n,
+      (select count(*) from jsonb_array_elements(v_data->'games') x where coalesce((x->>'decided')::boolean, true));
+  end if;
+  select count(*) into v_n
+  from jsonb_to_recordset(v_data->'games') x(espn_id text)
+  join games g on g.espn_id = x.espn_id and g.sport = 'ncaaf';
   if v_n <> jsonb_array_length(v_data->'games') then
-    raise exception 'Only % of % games ingested as final with matching scores', v_n, jsonb_array_length(v_data->'games');
+    raise exception 'Only % of % games ingested', v_n, jsonb_array_length(v_data->'games');
   end if;
 
   -- Accounts for roster emails that don't have one (no email is sent; the person signs
@@ -611,16 +713,20 @@ begin
 
   for v_slate in
     select * from jsonb_to_recordset(v_data->'slates') s(
-      week int, label text, first_date date, end_date date, published_at timestamptz, games jsonb, picks jsonb)
+      week int, label text, first_date date, end_date date, published_at timestamptz, games jsonb, picks jsonb,
+      lock_at timestamptz, partial boolean)
   loop
+    -- Imported slates are 'locked' (never 'open'), so submit_picks refuses them, close_slates
+    -- skips them, and ingest_espn never calls refresh_slate_locks on them. An in-progress week
+    -- also carries its pick deadline (lock_at) on the slate and on every game; history has none.
     insert into slates (pool_id, week, label, window_start, window_end, lock_at, status, published_at)
     values (v_pool.id, v_slate.week, v_slate.label,
             v_slate.first_date::timestamp at time zone '${TZ}',
             v_slate.end_date::timestamp at time zone '${TZ}',
-            null, 'locked', v_slate.published_at)
+            v_slate.lock_at, 'locked', v_slate.published_at)
     on conflict (pool_id, week) do update
       set label = excluded.label, window_start = excluded.window_start, window_end = excluded.window_end,
-          lock_at = null, first_day_lock_at = null, status = 'locked', published_at = excluded.published_at
+          lock_at = excluded.lock_at, first_day_lock_at = null, status = 'locked', published_at = excluded.published_at
     returning id into v_slate_id;
 
     -- History is the sheet's: replace this week's picks and games wholesale.
@@ -632,12 +738,12 @@ begin
 
     insert into slate_games (slate_id, game_id, sort_order, locked_home_spread, locked_line_id, lock_at,
                              voided, override_home_score, override_away_score)
-    select v_slate_id, g.id, x.sort_order, x.home_spread, null, null, false, null, null
+    select v_slate_id, g.id, x.sort_order, x.home_spread, null, v_slate.lock_at, false, null, null
     from jsonb_to_recordset(v_slate.games) x(espn_id text, sort_order int, home_spread numeric)
     join games g on g.espn_id = x.espn_id
     on conflict (slate_id, game_id) do update
       set sort_order = excluded.sort_order, locked_home_spread = excluded.locked_home_spread,
-          locked_line_id = null, lock_at = null, voided = false,
+          locked_line_id = null, lock_at = excluded.lock_at, voided = false,
           override_home_score = null, override_away_score = null;
     get diagnostics v_n = row_count;
     if v_n <> jsonb_array_length(v_slate.games) then
@@ -654,12 +760,25 @@ begin
       raise exception 'Week %: % of % picks written', v_slate.week, v_n, jsonb_array_length(v_slate.picks);
     end if;
 
+    -- Grades every final game; an in-progress week stays 'locked' until its last game is
+    -- final, then the poller's grade_game moves it to 'graded'.
     perform grade_slate(v_slate_id);
-    if (select status from slates where id = v_slate_id) <> 'graded' then
-      raise exception 'Week % did not grade', v_slate.week;
+    if coalesce(v_slate.partial, false) then
+      if (select status from slates where id = v_slate_id) not in ('locked', 'graded') then
+        raise exception 'Week % ended up %', v_slate.week, (select status from slates where id = v_slate_id);
+      end if;
+      select count(*) into v_n from slate_games sg join games g on g.id = sg.game_id
+      where sg.slate_id = v_slate_id and g.status = 'final';
+      raise notice 'week %: % games (% final, % pending), % picks, %, picks locked at %', v_slate.week,
+        jsonb_array_length(v_slate.games), v_n, jsonb_array_length(v_slate.games) - v_n,
+        jsonb_array_length(v_slate.picks), (select status from slates where id = v_slate_id), v_slate.lock_at;
+    else
+      if (select status from slates where id = v_slate_id) <> 'graded' then
+        raise exception 'Week % did not grade', v_slate.week;
+      end if;
+      raise notice 'week %: % games, % picks, graded', v_slate.week,
+        jsonb_array_length(v_slate.games), jsonb_array_length(v_slate.picks);
     end if;
-    raise notice 'week %: % games, % picks, graded', v_slate.week,
-      jsonb_array_length(v_slate.games), jsonb_array_length(v_slate.picks);
   end loop;
 
   -- Placeholders that hold later week numbers (empty drafts; players don't see drafts).

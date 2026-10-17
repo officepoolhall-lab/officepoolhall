@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Parse Brooks's NCAA Supercontest workbook into JSON for build.mjs.
 
-    python -I parse.py <workbook.xlsx> <out.json> [--weeks 1-6]
+    python -I parse.py <workbook.xlsx> <out.json> [--weeks 1-6] [--partial 7]
+
+--partial N: week N (the last requested week) is in progress. Its games may have neither an
+outcome nor a cover yet ("not decided"); every other check stays strict.
 
 The workbook holds real people's names and emails: write <out.json> outside the repo.
 Exits non-zero, listing every problem, if anything doesn't parse or validate.
@@ -120,7 +123,7 @@ def parse_standings(wb):
     return out
 
 
-def parse_week(wb, n):
+def parse_week(wb, n, partial=False):
     ws = wb[f"Week {n}"]
     rows = list(ws.iter_rows(values_only=True))
     if ws_text(rows[1][0]) != "Matchup / Spread" or ws_text(rows[2][0]) != "Outcome" or ws_text(rows[4][0]) != "Entry":
@@ -143,13 +146,18 @@ def parse_week(wb, n):
             continue
         if with_spread[0]["spread"] % 1 == 0:
             warnings.append(f"{where}: whole-number spread {raw!r}")
-        g = {"col": col, "raw": raw, "teams": sides, "outcome": None, "cover": None}
+        g = {"col": col, "raw": raw, "teams": sides, "outcome": None, "cover": None, "decided": True}
 
         def team_spread(i):
             s = sides[i]["spread"]
             return s if s is not None else -sides[1 - i]["spread"]
 
         out_raw = ws_text(rows[2][col])
+        if partial and not out_raw and not ws_text(rows[3][col]):
+            # In-progress week: not played (or not entered) yet. build.mjs imports ESPN's status.
+            g["decided"] = False
+            games.append(g)
+            continue
         m = OUTCOME_RE.match(out_raw)
         if not m:
             problems.append(f"{where}: no/bad outcome {out_raw!r} for {raw!r}")
@@ -237,9 +245,13 @@ def main():
     ap.add_argument("xlsx")
     ap.add_argument("out")
     ap.add_argument("--weeks", default="1-6")
+    ap.add_argument("--partial", type=int, help="the last requested week, still in progress")
     a = ap.parse_args()
     wb = openpyxl.load_workbook(a.xlsx, data_only=True)
     weeks = week_range(a.weeks)
+    if a.partial is not None and a.partial != weeks[-1]:
+        print(f"--partial {a.partial} must be the last requested week ({weeks[-1]})", file=sys.stderr)
+        sys.exit(2)
     roster = parse_roster(wb)
     standings = parse_standings(wb)
     parsed = []
@@ -247,8 +259,9 @@ def main():
         if f"Week {n}" not in wb.sheetnames:
             problems.append(f"Week {n}: no sheet")
             continue
-        w = parse_week(wb, n)
+        w = parse_week(wb, n, partial=n == a.partial)
         if w:
+            w["partial"] = n == a.partial
             if not w["games"]:
                 problems.append(f"Week {n}: no games")
             parsed.append(w)
@@ -284,9 +297,11 @@ def main():
             print("  -", p, file=sys.stderr)
         sys.exit(1)
     with open(a.out, "w") as f:
-        json.dump({"roster": roster, "standings": standings, "weeks": parsed, "excluded_weeks": excluded}, f, indent=1)
+        json.dump({"roster": roster, "standings": standings, "weeks": parsed, "excluded_weeks": excluded,
+                   "partial_week": a.partial}, f, indent=1)
     print(f"ok: {len(roster)} roster, {len(standings)} standings, weeks {weeks}: "
           + ", ".join(f"W{w['week']} {len(w['games'])} games/{sum(len(e['picks']) for e in w['entries'])} picks"
+                      + (f" ({sum(g['decided'] for g in w['games'])} decided, in progress)" if w["partial"] else "")
                       for w in parsed))
 
 
