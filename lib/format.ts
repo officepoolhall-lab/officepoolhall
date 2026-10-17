@@ -1,4 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
+import { gameDateZone } from "./locks";
 
 const MINUS = "−";
 
@@ -12,6 +13,12 @@ export function formatSpread(spread: number | null | undefined) {
 /** "Tue 7:00 PM" in the pool's time zone. */
 export function gameTime(at: string | Date, timezone: string) {
   return formatInTimeZone(at, timezone, "EEE h:mm a");
+}
+
+/** "Sat 2:30p" / "Sat 7p" / "Sat TBD": for narrow column headers. */
+export function shortGameTime(at: string | Date, timezone: string, timeTbd = false) {
+  if (timeTbd) return `${formatInTimeZone(at, gameDateZone(true, timezone), "EEE")} TBD`;
+  return formatInTimeZone(at, timezone, "EEE h:mmaaaaa").replace(":00", "");
 }
 
 export function timeOnly(at: string | Date, timezone: string) {
