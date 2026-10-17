@@ -13,6 +13,8 @@ type Side = "home" | "away";
 type Draft = { side: Side | null; confidence: number | null };
 /** Server-graded result for one of the player's picks (picks.result / points / bonus). */
 type Graded = { result: string; points: number; bonus: number };
+/** The player's official total for the week (slate_scores). */
+type Score = { points: number; wins: number; losses: number; pushes: number };
 type Settings = {
   pickType: "straight_up" | "ats";
   picksPerSlate: number;
@@ -34,6 +36,8 @@ export function PickBoard({
   games,
   initialPicks,
   graded = {},
+  edited = [],
+  score = null,
   settings,
   forUserId,
 }: {
@@ -42,7 +46,11 @@ export function PickBoard({
   games: SlateGame[];
   initialPicks: PickInput[];
   graded?: Record<string, Graded>;
+  /** Games whose pick the commissioner changed for the player (picks.edited_by). */
+  edited?: string[];
+  score?: Score | null;
   settings: Settings;
+  /** Set when the commissioner is entering picks for this player; locks don't apply to them. */
   forUserId?: string;
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
@@ -60,16 +68,22 @@ export function PickBoard({
       (slate.lockAt !== null && new Date(slate.lockAt).getTime() <= now),
     [now, slate.status, slate.lockAt],
   );
+  // The commissioner can change any game for a player, locked or not (the database marks it).
+  const onBehalf = Boolean(forUserId);
+  const canEdit = (g: SlateGame) => !g.voided && (onBehalf || !isLocked(g));
+  // A past or fully locked week: the board is a read-only record with results.
+  const readOnly = !games.some(canEdit);
 
   // ---------- derived ----------
   const gamesById = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
   const isComplete = (d: Draft | undefined) => Boolean(d?.side && (!settings.tiers || d.confidence !== null));
   // What we send: complete picks, minus unlocked voided games (the server drops those).
+  // On the commissioner's edits nothing is locked, so a voided game's saved pick is resent.
   const payload = (state: Record<string, Draft>): PickInput[] =>
     Object.entries(state)
       .filter(([id, d]) => {
         const g = gamesById.get(id);
-        return g && isComplete(d) && (!g.voided || isGameLocked(g, Date.now()));
+        return g && isComplete(d) && (!g.voided || onBehalf || isGameLocked(g, Date.now()));
       })
       .map(([game_id, d]) => ({ game_id, picked_side: d.side!, confidence: settings.tiers ? d.confidence : null }));
 
@@ -79,6 +93,17 @@ export function PickBoard({
   const remaining = (points: number) =>
     (settings.tiers?.filter((t) => t.points === points).reduce((n, t) => n + t.count, 0) ?? 0) - (used.get(points) ?? 0);
   const openSlots = settings.tiers ? settings.tiers.reduce((n, t) => n + Math.max(0, remaining(t.points)), 0) : settings.picksPerSlate - pickedCount;
+
+  // Whether a pick on screen is still the one the server last sent (and graded and marked).
+  const saved = useMemo(() => toDrafts(initialPicks), [initialPicks]);
+  const isSaved = (id: string) => {
+    const d = picks[id];
+    const s = saved[id];
+    return Boolean(d && s && d.side === s.side && d.confidence === s.confidence);
+  };
+  // Marked "edited": the commissioner's saved change, plus anything they've changed here.
+  const editedIds = new Set(edited);
+  const isEdited = (id: string) => (isSaved(id) ? editedIds.has(id) : onBehalf && Boolean(picks[id]?.side));
 
   const nextLock = nextLockInfo(games, now, slate, settings);
   const msToNextLock = nextLock ? nextLock.at - now : null;
@@ -131,7 +156,7 @@ export function PickBoard({
   };
 
   const tapTeam = (g: SlateGame, side: Side) => {
-    if (isLocked(g) || g.voided) return;
+    if (!canEdit(g)) return;
     const cur = picks[g.id] ?? { side: null, confidence: null };
     if (cur.side === side) return update(g.id, { ...cur, side: null });
     if (!settings.tiers && !cur.side && pickedCount >= settings.picksPerSlate) {
@@ -145,7 +170,7 @@ export function PickBoard({
   };
 
   const tapChip = (g: SlateGame, points: number) => {
-    if (isLocked(g) || g.voided) return;
+    if (!canEdit(g)) return;
     const cur = picks[g.id] ?? { side: null, confidence: null };
     if (cur.confidence === points) return update(g.id, { ...cur, confidence: null });
     if (remaining(points) <= 0) {
@@ -157,13 +182,13 @@ export function PickBoard({
   };
 
   const clearPoints = (g: SlateGame) => {
-    if (isLocked(g) || g.voided) return;
+    if (!canEdit(g)) return;
     const cur = picks[g.id];
     if (cur && cur.confidence !== null) update(g.id, { ...cur, confidence: null });
   };
 
   const openSheet = (g: SlateGame) => {
-    if (isLocked(g) || g.voided) return;
+    if (!canEdit(g)) return;
     setSheetGameId(g.id);
   };
   const closeSheet = useCallback(() => setSheetGameId(null), []);
@@ -191,13 +216,17 @@ export function PickBoard({
   const urgent = msToNextLock !== null && msToNextLock > 0 && msToNextLock < 3_600_000 && openSlots > 0;
   // The sheet closes itself if its game locks while it's open.
   const sheetGame = sheetGameId ? gamesById.get(sheetGameId) : undefined;
-  const showSheet = settings.tiers && sheetGame && !isLocked(sheetGame) && !sheetGame.voided;
+  const showSheet = settings.tiers && sheetGame && canEdit(sheetGame);
 
   return (
     <div>
       {/* Urgency is plain ink weight: the live token is reserved for games in progress. */}
       <p className={`mb-1 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
-        {slate.status !== "open" ? (
+        {onBehalf ? (
+          <>
+            <strong className="font-semibold text-accent">Editing as commissioner</strong> · changes are marked, and locked games can be changed too.
+          </>
+        ) : slate.status !== "open" ? (
           <span className="flex items-center gap-1.5"><LockIcon /> All picks for this week are locked.</span>
         ) : nextLock && msToNextLock !== null && msToNextLock > 0 ? (
           <>
@@ -228,8 +257,11 @@ export function PickBoard({
                 key={g.id}
                 game={g}
                 draft={picks[g.id]}
-                graded={graded[g.id]}
+                // A commissioner's change on a final game shows the estimate until it's regraded.
+                graded={isSaved(g.id) ? graded[g.id] : undefined}
                 locked={isLocked(g)}
+                editable={canEdit(g)}
+                edited={isEdited(g.id)}
                 now={now}
                 settings={settings}
                 onTeam={(side) => tapTeam(g, side)}
@@ -268,7 +300,21 @@ export function PickBoard({
             <p className="mb-1.5 text-sm text-loss" role="alert">{save.state === "error" ? save.message : notice}</p>
           )}
           <div className="flex items-center gap-3">
-            {settings.tiers ? (
+            {readOnly ? (
+              // Nothing left to change: the week's result instead of what's left to pick.
+              <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-muted tabular-nums">
+                <LockIcon className="size-3.5 shrink-0" />
+                {score && (Object.keys(graded).length > 0 || slate.status === "graded") ? (
+                  <span className="truncate">
+                    <span className="font-semibold text-ink">{formatPoints(score.points)}</span> pts · {score.wins}–{score.losses}
+                    {score.pushes > 0 && `–${score.pushes}`}
+                    {slate.status !== "graded" && " so far"}
+                  </span>
+                ) : (
+                  "Locked"
+                )}
+              </p>
+            ) : settings.tiers ? (
               <div className="flex min-w-0 flex-1 gap-x-4 overflow-x-auto text-sm">
                 {settings.tiers.map((t) => {
                   const left = Math.max(0, remaining(t.points));
@@ -308,6 +354,8 @@ function GameRow({
   draft,
   graded,
   locked,
+  editable,
+  edited,
   now,
   settings,
   onTeam,
@@ -317,6 +365,9 @@ function GameRow({
   draft: Draft | undefined;
   graded: Graded | undefined;
   locked: boolean;
+  /** Tappable: unlocked, or the commissioner editing for the player. */
+  editable: boolean;
+  edited: boolean;
   now: number;
   settings: Settings;
   onTeam: (side: Side) => void;
@@ -327,7 +378,7 @@ function GameRow({
   const final = g.status === "final" || g.overridden;
   const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
   const msToLock = new Date(g.effectiveLockAt).getTime() - now;
-  const disabled = locked || g.voided;
+  const disabled = !editable;
   const confidence = Boolean(settings.tiers);
 
   // Prefer what grade_slate scored (it knows the upset bonus); until then, estimate from
@@ -367,7 +418,7 @@ function GameRow({
   } else {
     const missing =
       disabled || !confidence || !draft ? null : draft.confidence != null && !draft.side ? "Pick a team" : draft.side && draft.confidence === null ? "Pick a value" : null;
-    const countdown = !disabled && msToLock < 3 * 3_600_000;
+    const countdown = !locked && !disabled && msToLock < 3 * 3_600_000;
     if (missing || countdown) {
       footerRight = (
         <span className="tabular-nums">
@@ -401,6 +452,11 @@ function GameRow({
         {/* Where to watch stays visible through the whole game. */}
         {g.tv && <span className="truncate font-normal">· {g.tv}</span>}
         {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
+        {edited && (
+          <span title="Changed by the commissioner" className="shrink-0 rounded-full bg-surface px-1.5 py-px text-[11px] font-medium text-muted">
+            Edited<span className="sr-only"> by the commissioner</span>
+          </span>
+        )}
       </div>
       <span className="self-end text-center text-xs text-muted">{pickHeader}</span>
       {confidence && <span className="self-end text-center text-xs text-muted">Pts</span>}

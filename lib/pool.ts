@@ -86,15 +86,20 @@ export async function getSlateGames(ctx: PoolContext, slateId: string) {
 
 export type SlateGame = Awaited<ReturnType<typeof getSlateGames>>[number];
 
-/** The slate players should be looking at: the latest open/locked one, else the latest graded. */
+/** Every published (non-draft) slate, newest week first. */
 // Cached per request: the pool layout and its page both ask for it.
-export const getCurrentSlate = cache(async (ctx: PoolContext) => {
+export const getPublishedSlates = cache(async (ctx: PoolContext) => {
   const { data } = await ctx.supabase
     .from("slates")
     .select("*")
     .eq("pool_id", ctx.pool.id)
     .neq("status", "draft")
     .order("week", { ascending: false });
-  const slates = data ?? [];
+  return data ?? [];
+});
+
+/** The slate players should be looking at: the latest open/locked one, else the latest graded. */
+export const getCurrentSlate = cache(async (ctx: PoolContext) => {
+  const slates = await getPublishedSlates(ctx);
   return slates.find((s) => s.status === "open") ?? slates.find((s) => s.status === "locked") ?? slates[0] ?? null;
 });
