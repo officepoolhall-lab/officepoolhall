@@ -90,6 +90,9 @@ select lives_ok(
       {"game_id":"71000000-0000-0000-0000-000000000003","picked_side":"away"}]',
     'b1000000-0000-0000-0000-000000000000')$$,
   'commissioner can change a player''s pick on a locked, finished game');
+-- Read as the owner: RLS hides B's still-open g3 pick from everyone else, the commissioner
+-- included (the app's on-behalf view goes through member_picks instead).
+reset role;
 select results_eq(
   $$select game_id::text, picked_side from picks
     where user_id = 'b1000000-0000-0000-0000-000000000000' order by game_id$$,
@@ -104,6 +107,7 @@ select results_eq(
            ('71000000-0000-0000-0000-000000000002', null, false),
            ('71000000-0000-0000-0000-000000000003', 'a1000000-0000-0000-0000-000000000000', true)$$,
   'changed picks are marked with the commissioner; the untouched one isn''t');
+set local role authenticated;
 select is(
   (select result || ':' || points::text from picks
    where user_id = 'b1000000-0000-0000-0000-000000000000' and game_id = '71000000-0000-0000-0000-000000000001'),

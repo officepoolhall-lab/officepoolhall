@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/AppHeader";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Field, inputClass, PageTitle, Panel, SectionLabel } from "@/components/ui";
+import { Field, inputClass, PageTitle, SectionLabel } from "@/components/ui";
 import { getProfile, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { setPassword, updateName } from "./actions";
 import { NameFields } from "./NameFields";
 
 export const metadata: Metadata = { title: "Account" };
-
-// Inputs share bg-surface with the panel, so inside panels they drop to the page background.
-const panelFields = "[&_input]:bg-bg";
 
 export default async function AccountPage() {
   const user = await requireUser("/account");
@@ -20,19 +17,19 @@ export default async function AccountPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
+      <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-6">
         <PageTitle sub={user.email}>Account</PageTitle>
 
-        <Panel className={`p-4 ${panelFields}`}>
+        <section>
           <SectionLabel className="mb-3">Your name</SectionLabel>
           <ActionForm action={updateName} className="space-y-3">
             <NameFields first={profile?.first_name} last={profile?.last_name} />
             <p className="text-xs text-muted">Shown to everyone in your pools.</p>
             <SubmitButton kind="secondary" className="w-full sm:w-auto">Save name</SubmitButton>
           </ActionForm>
-        </Panel>
+        </section>
 
-        <Panel className={`p-4 ${panelFields}`}>
+        <section>
           <SectionLabel className="mb-3">{hasPassword ? "Change password" : "Set a password"}</SectionLabel>
           <ActionForm action={setPassword} className="space-y-3">
             {/* Lets password managers file the new password under this account. */}
@@ -51,7 +48,7 @@ export default async function AccountPage() {
             </p>
             <SubmitButton kind="secondary" className="w-full sm:w-auto">{hasPassword ? "Change password" : "Set password"}</SubmitButton>
           </ActionForm>
-        </Panel>
+        </section>
       </main>
     </>
   );

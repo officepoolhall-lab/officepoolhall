@@ -59,7 +59,7 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
         ))}
       </div>
       {/* Scrolls both ways: header row pinned top, player column left, side counts bottom. */}
-      <div className="-mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
+      <div className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
