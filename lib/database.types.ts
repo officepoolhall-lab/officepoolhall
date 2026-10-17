@@ -215,14 +215,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"display_name": string,"id": string
+                    "created_at": string,"display_name": string,"first_name": string | null,"id": string,"last_name": string | null,"name_confirmed": boolean
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"display_name": string,"id": string
+                    "created_at"?: string,"display_name": string,"first_name"?: string | null,"id": string,"last_name"?: string | null,"name_confirmed"?: boolean
                   }
                   Update: {
-                    "created_at"?: string,"display_name"?: string,"id"?: string
+                    "created_at"?: string,"display_name"?: string,"first_name"?: string | null,"id"?: string,"last_name"?: string | null,"name_confirmed"?: boolean
                   }
                   Relationships: [
                     
@@ -406,6 +406,9 @@ isOneToOne: false
 "grade_slate":
 { Args: { "p_slate_id": string }; Returns: undefined
                            },
+"has_password":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "ingest_espn":
 { Args: { "p_games": Json,"p_sport": string,"p_teams": Json }; Returns: string[]
                            },
@@ -459,6 +462,9 @@ isOneToOne: false
                            },
 "set_game_time":
 { Args: { "p_game_id": string,"p_slate_id": string,"p_start_at": string }; Returns: undefined
+                           },
+"set_my_name":
+{ Args: { "p_first_name": string,"p_last_name": string }; Returns: undefined
                            },
 "set_result_override":
 { Args: { "p_away_score": number,"p_game_id": string,"p_home_score": number,"p_slate_id": string }; Returns: undefined

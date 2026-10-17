@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Button, Field, inputClass } from "@/components/ui";
 import { openAuthChannel, type AuthMessage } from "@/lib/authChannel";
 import { createClient } from "@/lib/supabase/client";
-import { sendLink, verifyCode, type LoginState } from "./actions";
+import { sendLink, signInWithPassword, verifyCode, type LoginState } from "./actions";
 
 /**
  * While the "check your email" screen is up, continue as soon as the player signs in from
@@ -39,6 +39,9 @@ function useContinueWhenSignedIn(waiting: boolean, next: string) {
 export function LoginForm({ next, initialError }: { next: string; initialError?: string }) {
   const [sent, send, sending] = useActionState(sendLink, initialError ? { error: initialError } : null);
   const [verified, verify, verifying] = useActionState<LoginState, FormData>(verifyCode, null);
+  const [signedIn, signIn, signingIn] = useActionState<LoginState, FormData>(signInWithPassword, null);
+  const [usePassword, setUsePassword] = useState(false);
+  const [email, setEmail] = useState("");
   useContinueWhenSignedIn(Boolean(sent?.sentTo), next);
 
   if (sent?.sentTo) {
@@ -74,15 +77,49 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
     );
   }
 
+  const emailField = (
+    <Field label="Email">
+      <input
+        name="email" type="email" autoComplete={usePassword ? "username" : "email"} required className={inputClass}
+        placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}
+      />
+    </Field>
+  );
+  const switchMode = (password: boolean) => (
+    <button type="button" onClick={() => setUsePassword(password)} className="h-11 w-full text-sm text-muted hover:text-ink">
+      {password ? "Sign in with password" : <>Forgot your password? <span className="text-accent">Use the emailed code instead.</span></>}
+    </button>
+  );
+
+  // Passwords are optional (set on /account); the emailed code stays the default and is the
+  // only way to create an account.
+  if (usePassword) {
+    return (
+      <div className="space-y-3">
+        <form action={signIn} className="space-y-3">
+          <input type="hidden" name="next" value={next} />
+          {emailField}
+          <Field label="Password">
+            <input name="password" type="password" autoComplete="current-password" required autoFocus className={inputClass} />
+          </Field>
+          <Button className="w-full" disabled={signingIn}>{signingIn ? "Signing in…" : "Sign in"}</Button>
+          {signedIn?.error && <p className="text-sm text-loss" role="alert">{signedIn.error}</p>}
+        </form>
+        {switchMode(false)}
+      </div>
+    );
+  }
+
   return (
-    <form action={send} className="space-y-3">
-      <input type="hidden" name="next" value={next} />
-      <Field label="Email">
-        <input name="email" type="email" autoComplete="email" required className={inputClass} placeholder="you@example.com" />
-      </Field>
-      <Button className="w-full" disabled={sending}>{sending ? "Sending…" : "Email me a sign-in link"}</Button>
-      {sent?.error && <p className="text-sm text-loss" role="alert">{sent.error}</p>}
-      <p className="text-center text-xs text-muted">No password. New here? The same link creates your account.</p>
-    </form>
+    <div className="space-y-3">
+      <form action={send} className="space-y-3">
+        <input type="hidden" name="next" value={next} />
+        {emailField}
+        <Button className="w-full" disabled={sending}>{sending ? "Sending…" : "Email me a sign-in link"}</Button>
+        {sent?.error && <p className="text-sm text-loss" role="alert">{sent.error}</p>}
+        <p className="text-center text-xs text-muted">New here? The same link creates your account.</p>
+      </form>
+      {switchMode(true)}
+    </div>
   );
 }

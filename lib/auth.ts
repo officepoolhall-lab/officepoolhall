@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "./supabase/server";
 
@@ -10,9 +11,24 @@ export async function getUser() {
   return { id: data.claims.sub, email: (data.claims.email as string | undefined) ?? "" };
 }
 
+/** The signed-in user's own profile (name fields). Cached per request. */
+export const getProfile = cache(async (userId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("display_name, first_name, last_name, name_confirmed")
+    .eq("id", userId)
+    .maybeSingle();
+  return data;
+});
+
+/** Sends signed-out visitors to /login, and players who haven't given their name yet to /welcome. */
 export async function requireUser(next = "/pools") {
   const user = await getUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(next)}`);
+  const profile = await getProfile(user.id);
+  // A missing row (or a failed read) doesn't block the app; only a known-unnamed profile does.
+  if (profile && !profile.name_confirmed) redirect(`/welcome?next=${encodeURIComponent(next)}`);
   return user;
 }
 

@@ -684,7 +684,8 @@ begin
   -- profiles are global, so only name accounts nobody has named yet: ones this import
   -- created (already named via raw_user_meta_data) and ones still on handle_new_user's
   -- default (the email's local part). Someone's chosen name is left alone.
-  update profiles p set display_name = r.name
+  update profiles p set display_name = r.name, name_confirmed = true,
+    first_name = (split_display_name(r.name)).first_name, last_name = (split_display_name(r.name)).last_name
   from _roster r
   where p.id = r.user_id and p.display_name is distinct from r.name
     and (coalesce(trim(p.display_name), '') = '' or p.display_name = split_part(r.email, '@', 1));
