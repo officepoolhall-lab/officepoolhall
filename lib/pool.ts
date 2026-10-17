@@ -13,16 +13,18 @@ export const getPoolContext = cache(async (slug: string) => {
   const user = await requireUser(`/p/${slug}`);
   const supabase = await createClient();
 
-  const { data: pool } = await supabase.from("pools").select("*").eq("slug", slug).maybeSingle();
-  if (!pool) notFound();
-
-  const { data: me } = await supabase
-    .from("pool_members")
-    .select("role, paid")
-    .eq("pool_id", pool.id)
-    .eq("user_id", user.id)
+  // One round trip: the pool plus the caller's own membership row (RLS already hides
+  // pools the caller isn't in).
+  const { data: row } = await supabase
+    .from("pools")
+    .select("*, pool_members!inner ( role, paid, user_id )")
+    .eq("slug", slug)
+    .eq("pool_members.user_id", user.id)
     .maybeSingle();
+  if (!row) notFound();
 
+  const { pool_members: members, ...pool } = row;
+  const me = members[0];
   const settings = poolSettingsSchema.parse(pool.settings);
   return { supabase, user, pool, settings, isCommissioner: me?.role === "commissioner" };
 });
@@ -85,7 +87,8 @@ export async function getSlateGames(ctx: PoolContext, slateId: string) {
 export type SlateGame = Awaited<ReturnType<typeof getSlateGames>>[number];
 
 /** The slate players should be looking at: the latest open/locked one, else the latest graded. */
-export async function getCurrentSlate(ctx: PoolContext) {
+// Cached per request: the pool layout and its page both ask for it.
+export const getCurrentSlate = cache(async (ctx: PoolContext) => {
   const { data } = await ctx.supabase
     .from("slates")
     .select("*")
@@ -94,4 +97,4 @@ export async function getCurrentSlate(ctx: PoolContext) {
     .order("week", { ascending: false });
   const slates = data ?? [];
   return slates.find((s) => s.status === "open") ?? slates.find((s) => s.status === "locked") ?? slates[0] ?? null;
-}
+});
