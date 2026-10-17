@@ -3,6 +3,7 @@ import { Countdown } from "@/components/Countdown";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ChevronIcon, Empty, LinkButton, PageTitle, SectionLabel, StatusText } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
+import { isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { getStandings } from "@/lib/standings";
 
@@ -21,11 +22,15 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
     // Server render time is fine here; the countdown itself ticks client-side.
     // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
-    const next = games.find((g) => !g.voided && new Date(g.startAt).getTime() > now);
+    // The next moment any game stops taking picks: a deadline, or a tip before its deadline.
+    const nextLock = games
+      .filter((g) => !g.voided && !isGameLocked(g, now))
+      .map((g) => g.effectiveLockAt)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
     summary = {
       picked: mine?.length ?? 0,
       total: ctx.settings.picks_per_slate,
-      nextLock: slate.lock_at && new Date(slate.lock_at).getTime() > now ? slate.lock_at : next?.startAt ?? null,
+      nextLock: slate.status === "open" ? nextLock ?? null : null,
       games: games.length,
     };
   }

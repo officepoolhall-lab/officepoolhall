@@ -1,11 +1,16 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { formatInTimeZone } from "date-fns-tz";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm, SubmitButton, type ActionState } from "@/components/ActionForm";
-import { Button, Cell, Field, SectionLabel, TeamLogo, buttonClass, chipClass, inputClass } from "@/components/ui";
+import { Matchup } from "@/components/Matchup";
+import { Button, Cell, Field, SectionLabel, buttonClass, chipClass, inputClass } from "@/components/ui";
 import { dayKey, dayLabel, formatSpread, gameTime } from "@/lib/format";
+import { gameDateZone } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
+import type { PoolSettings } from "@/lib/poolSettings";
+import { slateWindow } from "@/lib/slateWindow";
 import {
   addGames,
   addManualGame,
@@ -14,6 +19,7 @@ import {
   publishSlate,
   refreshLines,
   removeGame,
+  setGameTime,
   setSpread,
   syncSchedule,
 } from "../actions";
@@ -27,11 +33,25 @@ export type Candidate = {
   homeRank: number | null;
   awayRank: number | null;
   neutral: boolean;
+  venue: string | null;
   home: Team;
   away: Team;
   line: number | null;
 };
-type Settings = { pickType: "straight_up" | "ats"; picksPerSlate: number; picksMode: "exact" | "max"; timezone: string; bookmaker: string };
+type Settings = {
+  pickType: "straight_up" | "ats";
+  picksPerSlate: number;
+  picksMode: "exact" | "max";
+  timezone: string;
+  bookmaker: string;
+  weeklyLock: boolean;
+};
+type EditorGame = SlateGame & { line: number | null };
+
+// ESPN parks TBD games at midnight Eastern on game day, so their date is read in Eastern
+// (in Central that instant is the previous evening).
+const TBD_TZ = "America/New_York";
+const LOCAL_INPUT = "yyyy-MM-dd'T'HH:mm";
 
 // Rough "national TV" check for the filter; regional/streaming-only games don't match.
 const NATIONAL = /^(ESPN|ESPN2|ESPNU|ABC|CBS|FOX|FS1|TNT|TBS|truTV|NBC|Peacock|BTN|SECN|ACCN|CBSSN)\b/i;
@@ -53,7 +73,7 @@ export function SlateEditor({
 }: {
   slug: string;
   slateId: string;
-  onSlate: (SlateGame & { line: number | null })[];
+  onSlate: EditorGame[];
   candidates: Candidate[];
   teams: { id: string; name: string }[];
   settings: Settings;
@@ -73,11 +93,16 @@ export function SlateEditor({
     () => [...new Set(candidates.flatMap((c) => [c.home.conference, c.away.conference]).filter(Boolean) as string[])].sort(),
     [candidates],
   );
-  const days = useMemo(() => [...new Map(candidates.map((c) => [dayKey(c.startAt, tz), dayLabel(c.startAt, tz)])).entries()], [candidates, tz]);
+  // A TBD game's placeholder is midnight Eastern, so its day is read in Eastern.
+  const zoneOf = (c: Candidate) => gameDateZone(c.timeTbd, tz);
+  const days = useMemo(
+    () => [...new Map(candidates.map((c) => [dayKey(c.startAt, gameDateZone(c.timeTbd, tz)), dayLabel(c.startAt, gameDateZone(c.timeTbd, tz))])).entries()],
+    [candidates, tz],
+  );
 
   const filtered = candidates.filter((c) => {
     if (conference && c.home.conference !== conference && c.away.conference !== conference) return false;
-    if (day && dayKey(c.startAt, tz) !== day) return false;
+    if (day && dayKey(c.startAt, zoneOf(c)) !== day) return false;
     if (rankedOnly && !c.homeRank && !c.awayRank) return false;
     if (tvOnly && !(c.tv && NATIONAL.test(c.tv))) return false;
     if (query) {
@@ -124,16 +149,20 @@ export function SlateEditor({
             {onSlate.map((g) => (
               <li key={g.id} className="flex min-h-14 items-center gap-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-semibold">
-                    {g.awayRank && <span className="mr-1 text-xs font-medium text-muted tabular-nums">{g.awayRank}</span>}
-                    {g.away.short_name} <span className="font-normal text-muted">{g.neutral ? "vs" : "@"}</span>{" "}
-                    {g.homeRank && <span className="mr-1 text-xs font-medium text-muted tabular-nums">{g.homeRank}</span>}
-                    {g.home.short_name}
-                  </div>
+                  <Matchup away={g.away} home={g.home} awayRank={g.awayRank} homeRank={g.homeRank} neutral={g.neutral} />
                   <div className="truncate text-xs text-muted tabular-nums">
-                    {g.timeTbd ? <span className="font-semibold text-ink">Time TBD</span> : gameTime(g.startAt, tz)}
+                    {g.timeTbd ? (
+                      <>
+                        {formatInTimeZone(g.startAt, TBD_TZ, "EEE")} <span className="font-semibold text-ink">Time TBD</span>
+                      </>
+                    ) : (
+                      gameTime(g.startAt, tz)
+                    )}
+                    {g.manualTime && !g.timeTbd && " (set by you)"}
                     {g.tv && ` · ${g.tv}`} · line {formatSpread(g.line)}
                   </div>
+                  {g.neutral && g.venue && <div className="truncate text-xs text-muted">{g.venue}</div>}
+                  {(g.timeTbd || g.manualTime) && <GameTimeInput slug={slug} slateId={slateId} game={g} timezone={tz} />}
                 </div>
                 {settings.pickType === "ats" && (
                   <SpreadInput slug={slug} slateId={slateId} gameId={g.id} value={g.spread} homeAbbr={g.home.abbreviation} />
@@ -148,7 +177,11 @@ export function SlateEditor({
         <div className="space-y-3 border-t border-line pt-4">
           {tbdCount > 0 && (
             <p className="text-sm font-semibold text-ink">
-              {tbdCount} game{tbdCount === 1 ? " has" : "s have"} no announced tip time. ESPN lists them at midnight Eastern, so picks on them lock then.
+              {tbdCount} game{tbdCount === 1 ? " has" : "s have"} no announced tip time.{" "}
+              {settings.weeklyLock
+                ? "They lock at the pick deadline, not ESPN's midnight placeholder."
+                : "ESPN lists them at midnight Eastern, so picks on them lock then."}{" "}
+              Set the real time if you know it.
             </p>
           )}
           {missingLines > 0 && <p className="text-sm text-loss">{missingLines} game{missingLines === 1 ? "" : "s"} still need a line.</p>}
@@ -207,20 +240,12 @@ export function SlateEditor({
               <li key={c.id}>
                 <label className="flex min-h-16 cursor-pointer items-center gap-3 py-2">
                   <input type="checkbox" className="size-5 shrink-0 accent-[var(--accent)]" checked={on} onChange={() => toggle(c.id)} />
-                  <span className="flex shrink-0 -space-x-1.5">
-                    <TeamLogo src={c.away.logo_url} abbr={c.away.abbreviation} className="size-7" />
-                    <TeamLogo src={c.home.logo_url} abbr={c.home.abbreviation} className="size-7" />
-                  </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold">
-                      {c.awayRank && <span className="mr-1 text-xs font-medium text-muted tabular-nums">{c.awayRank}</span>}
-                      {c.away.short_name ?? c.away.name} <span className="font-normal text-muted">{c.neutral ? "vs" : "@"}</span>{" "}
-                      {c.homeRank && <span className="mr-1 text-xs font-medium text-muted tabular-nums">{c.homeRank}</span>}
-                      {c.home.short_name ?? c.home.name}
-                    </span>
+                    <Matchup away={c.away} home={c.home} awayRank={c.awayRank} homeRank={c.homeRank} neutral={c.neutral} />
                     <span className="block truncate text-xs text-muted tabular-nums">
                       {c.timeTbd ? <span className="font-semibold text-ink">TBD</span> : gameTime(c.startAt, tz)}
                       {c.tv && ` · ${c.tv}`}
+                      {c.neutral && c.venue && ` · ${c.venue}`}
                       {(c.home.conference || c.away.conference) && ` · ${[...new Set([c.away.conference, c.home.conference].filter(Boolean))].join("/")}`}
                     </span>
                   </span>
@@ -315,5 +340,123 @@ function SpreadInput({ slug, slateId, gameId, value, homeAbbr }: { slug: string;
       </span>
       {error && <span className="max-w-32 text-right text-loss" role="alert">{error}</span>}
     </label>
+  );
+}
+
+/**
+ * Inline tip-time entry for a TBD game (or one whose time the commissioner already set).
+ * The game row is shared, so the time shows in every pool; ESPN's real time replaces it
+ * once announced.
+ */
+export function GameTimeInput({
+  slug,
+  slateId,
+  game,
+  timezone,
+}: {
+  slug: string;
+  slateId: string;
+  game: Pick<SlateGame, "id" | "startAt" | "timeTbd">;
+  timezone: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const initial = game.timeTbd ? `${formatInTimeZone(game.startAt, TBD_TZ, "yyyy-MM-dd")}T19:00` : formatInTimeZone(game.startAt, timezone, LOCAL_INPUT);
+  const [value, setValue] = useState(initial);
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="-my-1 inline-flex min-h-11 items-center text-sm font-medium text-accent">
+        {game.timeTbd ? "Set time" : "Change time"}
+      </button>
+    );
+  }
+  return (
+    <form
+      className="mt-1 flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        start(async () => {
+          const r = await setGameTime(slug, slateId, game.id, value);
+          setError(r?.error ?? null);
+          if (!r?.error) setOpen(false);
+        });
+      }}
+    >
+      <input
+        type="datetime-local" required value={value} onChange={(e) => setValue(e.target.value)}
+        aria-label={`Tip time (${timezone.replace("America/", "").replace("_", " ")})`}
+        className={`${filterInput} tabular-nums`}
+      />
+      <Button kind="secondary" disabled={pending} className={smallButton}>{pending ? "Saving…" : "Save"}</Button>
+      <button type="button" onClick={() => { setOpen(false); setError(null); setValue(initial); }} className={buttonClass("ghost", "!px-2 !text-sm")}>
+        Cancel
+      </button>
+      {error && <p className="w-full text-xs text-loss" role="alert">{error}</p>}
+    </form>
+  );
+}
+
+/**
+ * First/last day inputs for a new week. The last day follows the first (first + length − 1)
+ * until it's edited, for an odd week like Sun Nov 1 – Sun Nov 8. Previews the deadlines the
+ * draft will start with; they can be changed on the draft.
+ */
+export function WeekDates({
+  defaultStart,
+  settings,
+  inputClass: input,
+}: {
+  defaultStart: string;
+  settings: Pick<PoolSettings, "timezone" | "window" | "lock">;
+  inputClass: string;
+}) {
+  const plus = (d: string, n: number) => {
+    const t = new Date(`${d}T12:00:00Z`);
+    t.setUTCDate(t.getUTCDate() + n);
+    return t.toISOString().slice(0, 10);
+  };
+  const [start, setStart] = useState(defaultStart);
+  const [end, setEnd] = useState(plus(defaultStart, settings.window.length_days - 1));
+  const [endTouched, setEndTouched] = useState(false);
+  const tz = settings.timezone;
+
+  let preview: string | null = null;
+  try {
+    const w = start && end ? slateWindow(start, settings, end) : null;
+    if (w?.lock_at) {
+      const fmt = (d: Date) => formatInTimeZone(d, tz, "EEE MMM d, h:mm a");
+      preview = w.first_day_lock_at
+        ? `${formatInTimeZone(w.first_day_lock_at, tz, "EEEE")} games due ${fmt(w.first_day_lock_at)} · everything else ${fmt(w.lock_at)}`
+        : `Picks due ${fmt(w.lock_at)}`;
+    }
+  } catch {
+    preview = null; // last day before first; the server says so on submit
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="First day">
+          <input
+            type="date" name="start_date" required value={start} className={input}
+            onChange={(e) => {
+              setStart(e.target.value);
+              if (!endTouched && e.target.value) setEnd(plus(e.target.value, settings.window.length_days - 1));
+            }}
+          />
+        </Field>
+        <Field label="Last day">
+          <input
+            type="date" name="end_date" required value={end} min={start} className={input}
+            onChange={(e) => { setEndTouched(true); setEnd(e.target.value); }}
+          />
+        </Field>
+      </div>
+      <p className="text-xs text-muted tabular-nums">
+        Midnight to midnight, {tz.replace("America/", "").replace("_", " ")} time.{preview && ` ${preview}.`}
+      </p>
+    </div>
   );
 }

@@ -45,13 +45,21 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
       </PageTitle>
       <PickBoard
         slug={slug}
-        slate={{ id: slate.id, status: slate.status, lockAt: slate.lock_at }}
+        slate={{ id: slate.id, status: slate.status, lockAt: slate.lock_at, firstDayLockAt: slate.first_day_lock_at }}
         games={games}
         initialPicks={(picks ?? []).map((p) => ({ game_id: p.game_id, picked_side: p.picked_side as "home" | "away", confidence: p.confidence }))}
+        // What grade_slate actually scored, which the board prefers over its own estimate.
+        graded={Object.fromEntries(
+          (picks ?? [])
+            .filter((p) => p.result !== null)
+            .map((p) => [p.game_id, { result: p.result!, points: Number(p.points ?? 0), bonus: Number(p.bonus ?? 0) }]),
+        )}
         settings={{
           pickType: ctx.settings.pick_type,
           picksPerSlate: ctx.settings.picks_per_slate,
           tiers: ctx.settings.confidence?.tiers ?? null,
+          minusPoints: ctx.settings.confidence?.wrong_pick === "minus_points",
+          maxUpsetBonus: ctx.settings.upset_bonus ? Math.max(...ctx.settings.upset_bonus.tiers.map((t) => t.bonus)) : null,
           timezone: ctx.settings.timezone,
           bookmaker: ctx.settings.lines.bookmaker,
           lockMode: ctx.settings.lock.mode,

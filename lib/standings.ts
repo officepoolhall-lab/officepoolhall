@@ -1,7 +1,19 @@
 import "server-only";
 import type { PoolContext } from "./pool";
 
-export type StandingRow = { userId: string; name: string; points: number; wins: number; losses: number; pushes: number; rank: number };
+export type StandingRow = {
+  userId: string;
+  name: string;
+  /** Includes upset bonus; can be negative in minus-points pools. */
+  points: number;
+  bonus: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  /** Weeks with no picks at all (scored per settings.missed_week). One week: 0 or 1. */
+  missed: number;
+  rank: number;
+};
 
 /** Season (all published weeks) or one week. Ties share a rank (TODO(brooks): weekly tiebreaker? none in MVP). */
 export async function getStandings(ctx: PoolContext, slateId?: string): Promise<StandingRow[]> {
@@ -16,7 +28,7 @@ export async function getStandings(ctx: PoolContext, slateId?: string): Promise<
 
   const totals = new Map<string, StandingRow>();
   for (const m of members ?? []) {
-    totals.set(m.user_id, { userId: m.user_id, name: m.profile.display_name, points: 0, wins: 0, losses: 0, pushes: 0, rank: 0 });
+    totals.set(m.user_id, { userId: m.user_id, name: m.profile.display_name, points: 0, bonus: 0, wins: 0, losses: 0, pushes: 0, missed: 0, rank: 0 });
   }
   for (const s of scores ?? []) {
     const row = totals.get(s.user_id);
@@ -25,6 +37,8 @@ export async function getStandings(ctx: PoolContext, slateId?: string): Promise<
     row.wins += s.wins;
     row.losses += s.losses;
     row.pushes += s.pushes;
+    row.bonus += Number(s.bonus);
+    if (s.missed) row.missed += 1;
   }
 
   const rows = [...totals.values()].sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));

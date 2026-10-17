@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { evenTiers, type PoolSettings } from "@/lib/poolSettings";
+import { PRESETS, evenTiers, type PoolSettings } from "@/lib/poolSettings";
 import { Field, SectionLabel, inputClass } from "./ui";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -11,6 +11,10 @@ const BOOKMAKERS = ["draftkings", "fanduel", "betmgm", "williamhill_us", "espnbe
 // These fields always render inside a bg-surface panel, so inputs take the page color to stay visible.
 const field = inputClass.replace("bg-surface", "bg-bg");
 const checkbox = "size-5 shrink-0 accent-[var(--accent)]";
+
+// Turning the upset bonus on starts from the guidelines' tiers; editing tiers isn't offered yet.
+const DEFAULT_UPSET_TIERS = PRESETS.ncaab_confidence.settings.upset_bonus.tiers;
+const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
 
 /**
  * Editable pool settings. Serializes to a hidden `settings` input (JSON) that the
@@ -28,7 +32,8 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
       <input type="hidden" name="settings" value={JSON.stringify(value)} />
       {lockedCore && (
         <p className="rounded-[10px] bg-bg p-3 text-sm text-muted">
-          A week has opened, so pick type, pick count, and confidence tiers are locked for the season.
+          A week has opened, so pick type, pick count, confidence tiers, and the wrong-pick, upset and missed-week
+          rules are locked for the season.
         </p>
       )}
 
@@ -45,14 +50,14 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
             type="number" min={1} max={100} className={`${field} tabular-nums`} value={s.picks_per_slate}
             onChange={(e) => {
               const n = Number(e.target.value);
-              set({ picks_per_slate: n, confidence: s.confidence ? { tiers: evenTiers(n, s.confidence.tiers.map((t) => t.points)) } : null });
+              set({ picks_per_slate: n, confidence: s.confidence ? { ...s.confidence, tiers: evenTiers(n, s.confidence.tiers.map((t) => t.points)) } : null });
             }}
           />
         </Field>
         <label className="flex min-h-11 items-center gap-3 sm:col-span-2">
           <input
             type="checkbox" className={checkbox} checked={Boolean(s.confidence)}
-            onChange={(e) => set({ confidence: e.target.checked ? { tiers: evenTiers(s.picks_per_slate) } : null })}
+            onChange={(e) => set({ confidence: e.target.checked ? { tiers: evenTiers(s.picks_per_slate), wrong_pick: "zero" } : null })}
           />
           <span className="text-[15px]">Confidence points (assign a point value to each pick)</span>
         </label>
@@ -75,7 +80,7 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
                     value={t.count}
                     onChange={(e) => {
                       const tiers = s.confidence!.tiers.map((x, j) => (j === i ? { ...x, count: Number(e.target.value) } : x));
-                      set({ confidence: { tiers } });
+                      set({ confidence: { ...s.confidence!, tiers } });
                     }}
                   />
                 </div>
@@ -107,6 +112,42 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
         )}
       </div>
 
+      <fieldset className="grid gap-4 disabled:opacity-60 sm:grid-cols-2" disabled={lockedCore}>
+        {s.confidence && (
+          <label className="flex min-h-11 items-center gap-3 sm:col-span-2">
+            <input
+              type="checkbox" className={checkbox} checked={s.confidence.wrong_pick === "minus_points"}
+              onChange={(e) => set({ confidence: { ...s.confidence!, wrong_pick: e.target.checked ? "minus_points" : "zero" } })}
+            />
+            <span className="text-[15px]">Wrong picks lose their points</span>
+          </label>
+        )}
+        <div className="sm:col-span-2">
+          <label className="flex min-h-11 items-center gap-3">
+            <input
+              type="checkbox" className={checkbox} checked={Boolean(s.upset_bonus)}
+              onChange={(e) => set({ upset_bonus: e.target.checked ? { tiers: [...DEFAULT_UPSET_TIERS] } : null })}
+            />
+            <span className="text-[15px]">Upset bonus</span>
+          </label>
+          {s.upset_bonus && (
+            <p className="ml-8 text-sm text-muted tabular-nums">
+              {s.upset_bonus.tiers.map((t) => `+${t.bonus} over ${pct(t.min_share)}`).join(" · ")}
+              <span className="mt-0.5 block text-xs">
+                For a correct pick on the side the pool was against, by the other side&apos;s share of the pool&apos;s
+                {s.confidence ? " points" : " picks"} on that game.
+              </span>
+            </p>
+          )}
+        </div>
+        <Field label="No picks at all for a week">
+          <select className={field} value={s.missed_week} onChange={(e) => set({ missed_week: e.target.value as PoolSettings["missed_week"] })}>
+            <option value="zero">Score 0</option>
+            <option value="last_place">Same as last place</option>
+          </select>
+        </Field>
+      </fieldset>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <SectionLabel className="sm:col-span-2">Locks and weeks</SectionLabel>
         <Field label="Pick lock">
@@ -137,6 +178,22 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
               />
             </Field>
           </div>
+        )}
+        {s.lock.mode === "weekly" && s.lock.weekly && (
+          <Field
+            label={`${WEEKDAYS[s.window.start_weekday]} games due`}
+            hint={`Optional earlier deadline for the week's first ${WEEKDAYS[s.window.start_weekday]}, or that day's first tip if earlier. Blank = one deadline.`}
+          >
+            <input
+              type="time" className={`${field} tabular-nums`} value={s.lock.weekly.first_day_time ?? ""}
+              onChange={(e) => {
+                // An absent key, not "", means no first-day deadline (zod rejects "").
+                const weekly = { ...s.lock.weekly!, first_day_time: e.target.value || undefined };
+                if (!weekly.first_day_time) delete weekly.first_day_time;
+                set({ lock: { mode: "weekly", weekly } });
+              }}
+            />
+          </Field>
         )}
 
         <Field label="Time zone">

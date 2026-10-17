@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PRESETS, evenTiers, parsePoolSettings, settingsError } from "./poolSettings";
+import { LOCKED_AFTER_OPEN, PRESETS, evenTiers, parsePoolSettings, settingsError } from "./poolSettings";
 import { nextWindowStartDate, slateWindow } from "./slateWindow";
 
 const poolA = PRESETS.ncaab_confidence.settings;
@@ -38,14 +38,73 @@ describe("pool settings", () => {
   it("rejects an unknown time zone", () => {
     expect(settingsError({ ...poolA, timezone: "Mars/Olympus" })).toMatch(/time zone/);
   });
+
+  it("Pool A plays by Brooks's rules", () => {
+    expect(poolA.confidence.wrong_pick).toBe("minus_points");
+    expect(poolA.upset_bonus.tiers).toEqual([
+      { min_share: 0.8, bonus: 1 },
+      { min_share: 0.9, bonus: 2 },
+      { min_share: 0.95, bonus: 3 },
+    ]);
+    expect(poolA.missed_week).toBe("last_place");
+    expect(poolA.lock).toEqual({ mode: "weekly", weekly: { weekday: 3, time: "12:00" } });
+    expect(poolA.visibility.show_picks_after).toBe("lock");
+  });
+
+  it("fills defaults for settings saved before the pool rules existed", () => {
+    const legacy: Record<string, unknown> = { ...poolB, confidence: { tiers: evenTiers(5, [5]) } };
+    delete legacy.upset_bonus;
+    delete legacy.missed_week;
+    const r = parsePoolSettings(legacy);
+    expect(r.success).toBe(true);
+    if (!r.success) return;
+    expect(r.data.confidence?.wrong_pick).toBe("zero");
+    expect(r.data.upset_bonus).toBeNull();
+    expect(r.data.missed_week).toBe("zero");
+    expect(r.data.lock.weekly).toBeUndefined();
+  });
+
+  it("first_day_time is optional and must be HH:MM", () => {
+    const weekly = { mode: "weekly" as const, weekly: { weekday: 2, time: "17:00" } };
+    expect(parsePoolSettings({ ...poolA, lock: weekly }).success).toBe(true);
+    expect(settingsError({ ...poolA, lock: { ...weekly, weekly: { ...weekly.weekly, first_day_time: "5pm" } } })).toMatch(
+      /HH:MM/,
+    );
+  });
+
+  it("first_day_time only applies to a weekly lock", () => {
+    const lock = { mode: "per_game", weekly: { weekday: 2, time: "17:00", first_day_time: "17:00" } };
+    expect(settingsError({ ...poolA, lock })).toMatch(/only applies to a weekly lock/);
+  });
+
+  it("validates upset bonus tiers", () => {
+    const withTiers = (tiers: { min_share: number; bonus: number }[]) => ({ ...poolA, upset_bonus: { tiers } });
+    expect(parsePoolSettings({ ...poolA, upset_bonus: null }).success).toBe(true);
+    expect(settingsError(withTiers([{ min_share: 0.5, bonus: 1 }]))).toMatch(/above 50%/);
+    expect(settingsError(withTiers([{ min_share: 1, bonus: 1 }]))).toMatch(/below 100%/);
+    expect(settingsError(withTiers([{ min_share: 0.8, bonus: 0 }]))).not.toBeNull();
+    expect(settingsError(withTiers([]))).not.toBeNull();
+    expect(settingsError(withTiers([{ min_share: 0.9, bonus: 2 }, { min_share: 0.8, bonus: 1 }]))).toMatch(/increasing/);
+    expect(settingsError(withTiers([{ min_share: 0.8, bonus: 1 }, { min_share: 0.8, bonus: 2 }]))).toMatch(/increasing/);
+  });
+
+  it("rejects unknown wrong_pick / missed_week values", () => {
+    expect(settingsError({ ...poolA, confidence: { ...poolA.confidence, wrong_pick: "double" } })).not.toBeNull();
+    expect(settingsError({ ...poolA, missed_week: "average" })).not.toBeNull();
+  });
+
+  it("locks the scoring rules once a week opens", () => {
+    expect(LOCKED_AFTER_OPEN).toEqual(expect.arrayContaining(["confidence", "upset_bonus", "missed_week"]));
+  });
 });
 
 describe("slate window", () => {
   it("Mon 00:00 → next Mon 00:00 Central (CST)", () => {
-    const w = slateWindow("2026-11-02", poolA);
+    const w = slateWindow("2026-11-02", poolB);
     expect(w.window_start.toISOString()).toBe("2026-11-02T06:00:00.000Z");
     expect(w.window_end.toISOString()).toBe("2026-11-09T06:00:00.000Z");
     expect(w.lock_at).toBeNull();
+    expect(w.first_day_lock_at).toBeNull();
   });
 
   it("handles the DST change inside a window", () => {

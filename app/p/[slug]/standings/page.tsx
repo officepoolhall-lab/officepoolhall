@@ -46,7 +46,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
           ))}
         </div>
       )}
-      {slates?.length ? <StandingsTable rows={rows} me={ctx.user.id} /> : <Empty>Standings appear once the first week is published.</Empty>}
+      {slates?.length ? <StandingsTable rows={rows} me={ctx.user.id} weekly={Boolean(slate)} /> : <Empty>Standings appear once the first week is published.</Empty>}
     </>
   );
 }

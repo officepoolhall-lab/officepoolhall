@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fromZonedTime } from "date-fns-tz";
 import type { ActionState } from "@/components/ActionForm";
+import { formatDuration } from "@/lib/format";
 import { requireCommissioner } from "@/lib/pool";
 import { LOCKED_AFTER_OPEN, parsePoolSettings, settingsError } from "@/lib/poolSettings";
 import { slateWindow } from "@/lib/slateWindow";
@@ -19,16 +20,26 @@ const done = (slug: string, ok?: string): ActionState => {
 
 // ---------- Slates ----------
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function createSlate(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
   const startDate = String(form.get("start_date") ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: "Pick the first day of the week." };
+  if (!ISO_DATE.test(startDate)) return { error: "Pick the first day of the week." };
+  // Blank last day = the pool's usual window length.
+  const endDate = String(form.get("end_date") ?? "") || undefined;
+  if (endDate && !ISO_DATE.test(endDate)) return { error: "Pick the last day of the week." };
+  let w: ReturnType<typeof slateWindow>;
+  try {
+    w = slateWindow(startDate, ctx.settings, endDate);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Check the first and last day." };
+  }
 
   const { data: last } = await ctx.supabase
     .from("slates").select("week").eq("pool_id", ctx.pool.id).order("week", { ascending: false }).limit(1).maybeSingle();
   const week = (last?.week ?? 0) + 1;
   const label = String(form.get("label") ?? "").trim() || `Week ${week}`;
-  const w = slateWindow(startDate, ctx.settings);
 
   const { error } = await ctx.supabase.from("slates").insert({
     pool_id: ctx.pool.id,
@@ -37,10 +48,52 @@ export async function createSlate(slug: string, _: ActionState, form: FormData):
     window_start: w.window_start.toISOString(),
     window_end: w.window_end.toISOString(),
     lock_at: w.lock_at?.toISOString() ?? null,
+    first_day_lock_at: w.first_day_lock_at?.toISOString() ?? null,
   });
   if (error) return { error: error.message };
   revalidatePath(`/p/${slug}`, "layout");
   redirect(`/p/${slug}/admin/slate?week=${week}`);
+}
+
+/**
+ * The draft's two weekly-mode deadlines, entered as datetime-local in the pool's time zone.
+ * A blank first-day deadline means one deadline for every game. publish_slate turns these
+ * into per-game deadlines (and rejects any that have passed).
+ */
+export async function saveDeadlines(slug: string, slateId: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  if (ctx.settings.lock.mode !== "weekly") return { error: "This pool locks each game at its start." };
+  const main = String(form.get("lock_at") ?? "");
+  const firstDay = String(form.get("first_day_lock_at") ?? "");
+  if (!main) return { error: "Set the deadline for everything else." };
+  const lockAt = fromZonedTime(main, ctx.settings.timezone);
+  const firstDayAt = firstDay ? fromZonedTime(firstDay, ctx.settings.timezone) : null;
+  if (Number.isNaN(lockAt.getTime()) || (firstDayAt && Number.isNaN(firstDayAt.getTime()))) {
+    return { error: "Enter a date and time for each deadline." };
+  }
+  // The first-day group is meant to lock first; equal is fine (Week 1: both Mon 3pm).
+  if (firstDayAt && firstDayAt > lockAt) return { error: "The first-day deadline can't be after the main one." };
+
+  const { data, error } = await ctx.supabase
+    .from("slates")
+    .update({ lock_at: lockAt.toISOString(), first_day_lock_at: firstDayAt?.toISOString() ?? null })
+    .eq("id", slateId)
+    .eq("status", "draft")
+    .select("id");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "Only a draft's deadlines can change." };
+  return done(slug, "Deadlines saved.");
+}
+
+/** Give a TBD game its real tip time (datetime-local, pool time zone). Shared game row: every pool sees it. */
+export async function setGameTime(slug: string, slateId: string, gameId: string, local: string): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  if (!local) return { error: "Enter the tip time." };
+  const at = fromZonedTime(local, ctx.settings.timezone);
+  if (Number.isNaN(at.getTime())) return { error: "Enter the tip time." };
+  const { error } = await ctx.supabase.rpc("set_game_time", { p_slate_id: slateId, p_game_id: gameId, p_start_at: at.toISOString() });
+  if (error) return { error: error.message };
+  return done(slug);
 }
 
 export async function deleteSlate(slug: string, slateId: string) {
@@ -131,6 +184,15 @@ export async function refreshLines(slug: string): Promise<ActionState> {
   const r = await invoke("sync-lines", { sport: ctx.pool.sport, bookmaker: ctx.settings.lines.bookmaker });
   if ("error" in r) return { error: r.error };
   const res = r.data?.results?.[0];
+  // Lines are pulled at most once per sport per day to save API credits.
+  if (res?.skipped) {
+    const ago = res.last_pulled_at ? formatDuration(Date.now() - new Date(res.last_pulled_at).getTime()) : null;
+    return done(
+      slug,
+      `Lines were already pulled today${ago ? ` (${ago} ago)` : ""} — the next pull is available tomorrow. ` +
+        "You can still hand-edit any line before publishing.",
+    );
+  }
   return done(
     slug,
     `Pulled ${res?.lines ?? 0} lines from ${ctx.settings.lines.bookmaker}` +
@@ -237,7 +299,9 @@ export async function saveSettings(slug: string, _: ActionState, form: FormData)
   if (count) {
     for (const key of LOCKED_AFTER_OPEN) {
       if (JSON.stringify(parsed.data[key]) !== JSON.stringify(ctx.settings[key])) {
-        return { error: "Pick type, pick count and tiers can't change after the first week opens." };
+        return {
+          error: "Pick type, pick count, confidence tiers and scoring for wrong picks, upsets and missed weeks can't change after the first week opens.",
+        };
       }
     }
   }

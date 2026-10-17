@@ -8,12 +8,32 @@ const tier = z.object({
   count: z.number().int().min(1),
 });
 
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour HH:MM");
+
+// A bonus tier pays when the pool's majority side holds MORE than min_share of the
+// points on a game (strictly greater, so exactly 80% falls in the lower bracket).
+const upsetTier = z.object({
+  min_share: z.number().gt(0.5, "Share must be above 50%").lt(1, "Share must be below 100%"),
+  bonus: z.number().positive().max(100),
+});
+
 export const poolSettingsSchema = z
   .object({
     pick_type: z.enum(["straight_up", "ats"]),
     picks_per_slate: z.number().int().min(1).max(100),
     picks_mode: z.enum(["exact", "max"]),
-    confidence: z.object({ tiers: z.array(tier).min(1) }).nullable(),
+    confidence: z
+      .object({
+        tiers: z.array(tier).min(1),
+        // "zero": a wrong pick scores nothing; "minus_points": it costs its confidence value.
+        wrong_pick: z.enum(["zero", "minus_points"]).default("zero"),
+      })
+      .nullable(),
+    // Points for correctly picking the side the pool was against (RULES.md "Upset bonus").
+    // null = no bonus. Defaults keep pools saved before these keys existed working.
+    upset_bonus: z.object({ tiers: z.array(upsetTier).min(1) }).nullable().default(null),
+    // A member with no picks on a slate: "zero", or the week's lowest total among members who picked.
+    missed_week: z.enum(["zero", "last_place"]).default("zero"),
     scoring: z.object({
       win: z.number().min(0),
       push: z.number().min(0),
@@ -24,7 +44,10 @@ export const poolSettingsSchema = z
       weekly: z
         .object({
           weekday: z.number().int().min(0).max(6), // 0 = Sunday
-          time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use 24-hour HH:MM"),
+          time: hhmm,
+          // Earlier deadline for the games on the window's first day (Pool A: Monday 5pm),
+          // pulled earlier still by that day's first tip. Absent = one deadline for everything.
+          first_day_time: hhmm.optional(),
         })
         .optional(),
     }),
@@ -58,9 +81,29 @@ export const poolSettingsSchema = z
     if (s.lock.mode === "weekly" && !s.lock.weekly) {
       ctx.addIssue({ code: "custom", path: ["lock", "weekly"], message: "Weekly lock needs a day and time" });
     }
+    if (s.lock.mode !== "weekly" && s.lock.weekly?.first_day_time) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["lock", "weekly", "first_day_time"],
+        message: "A first-day deadline only applies to a weekly lock",
+      });
+    }
+    if (s.upset_bonus) {
+      const shares = s.upset_bonus.tiers.map((t) => t.min_share);
+      if (shares.some((share, i) => i > 0 && share <= shares[i - 1])) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["upset_bonus", "tiers"],
+          message: "Upset bonus tiers need increasing shares",
+        });
+      }
+    }
   });
 
+/** Parsed settings: every defaulted key is present. */
 export type PoolSettings = z.infer<typeof poolSettingsSchema>;
+/** What may be stored or submitted: keys added after launch can be missing. */
+export type PoolSettingsInput = z.input<typeof poolSettingsSchema>;
 
 function isValidTimeZone(tz: string) {
   try {
@@ -77,6 +120,15 @@ export function evenTiers(picksPerSlate: number, values = [5, 4, 3, 2, 1]) {
   return values.map((points) => ({ points, count: per }));
 }
 
+// Kept out of the `as const` preset object so the array stays mutable (PoolSettings expects one).
+// TODO(brooks): exactly 80/90/95% gets the lower bracket (> 80% needed for +1), and shares are
+// by confidence points, not by number of players — confirm both.
+const POOL_A_UPSET_TIERS = [
+  { min_share: 0.8, bonus: 1 },
+  { min_share: 0.9, bonus: 2 },
+  { min_share: 0.95, bonus: 3 },
+];
+
 export const PRESETS = {
   // Pool A — NCAAB Confidence Pool
   // TODO(brooks): 35 or 25 picks? 35 = 7 per tier; switch picks_per_slate to 25 for 5 per tier.
@@ -87,14 +139,21 @@ export const PRESETS = {
       pick_type: "straight_up",
       picks_per_slate: 35,
       picks_mode: "exact",
-      confidence: { tiers: evenTiers(35) },
+      // Correct pick = +its points, incorrect = −its points.
+      confidence: { tiers: evenTiers(35), wrong_pick: "minus_points" },
+      // Flat scoring is unused with confidence tiers but kept for the schema.
       scoring: { win: 1, push: 0, loss: 0 },
-      lock: { mode: "per_game" },
+      upset_bonus: { tiers: POOL_A_UPSET_TIERS },
+      missed_week: "last_place",
+      // Brooks: every pick is due Wednesday at noon Central; games before then lock at tip-off.
+      // (first_day_time can add an earlier deadline for the week's first day if that changes.)
+      lock: { mode: "weekly", weekly: { weekday: 3, time: "12:00" } },
       timezone: "America/Chicago",
       // TODO(brooks): week window defaults to Monday 00:00 – Sunday 23:59 Central.
       window: { start_weekday: 1, length_days: 7 },
       lines: { bookmaker: "draftkings", freeze_at: "publish", force_half_point: false },
-      visibility: { show_picks_after: "game_start" },
+      // Everyone's picks on a game are shown once it locks, for auditing.
+      visibility: { show_picks_after: "lock" },
     },
   },
   // Pool B — NCAAF Supercontest
@@ -107,6 +166,8 @@ export const PRESETS = {
       picks_mode: "exact",
       confidence: null,
       scoring: { win: 1, push: 0.5, loss: 0 },
+      upset_bonus: null,
+      missed_week: "zero",
       lock: { mode: "per_game" },
       timezone: "America/Chicago",
       window: { start_weekday: 1, length_days: 7 },
@@ -130,5 +191,9 @@ export function settingsError(input: unknown): string | null {
   return issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message;
 }
 
-/** Settings fields that can't change once any slate has opened (also enforced by a DB trigger). */
-export const LOCKED_AFTER_OPEN = ["pick_type", "picks_per_slate", "confidence"] as const;
+/**
+ * Settings fields that can't change once any slate has opened (also enforced by a DB trigger).
+ * confidence covers wrong_pick; upset_bonus and missed_week change what past weeks would have
+ * scored, so regrading a slate mid-season would rewrite the standings.
+ */
+export const LOCKED_AFTER_OPEN = ["pick_type", "picks_per_slate", "confidence", "upset_bonus", "missed_week"] as const;

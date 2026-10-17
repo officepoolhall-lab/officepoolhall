@@ -50,6 +50,7 @@ export type FeedGame = {
   tv_network: string | null;
   home_rank: number | null;
   away_rank: number | null;
+  venue: string | null;
 };
 
 async function getJson(url: string) {
@@ -86,6 +87,13 @@ function mapStatus(type: { name?: string; state?: string; completed?: boolean })
   if (type.completed || type.state === "post") return "final";
   if (type.state === "in" || name.includes("DELAYED") || name.includes("SUSPENDED")) return "in_progress";
   return "scheduled";
+}
+
+/** 'Las Vegas, NV', or 'Rome, Italy' abroad. Shown for neutral-site games. */
+function venueLabel(address: { city?: string; state?: string; country?: string } | undefined) {
+  if (!address?.city) return null;
+  const region = address.state || address.country;
+  return region ? `${address.city}, ${region}` : address.city;
 }
 
 function rank(r: { current?: number } | undefined) {
@@ -138,6 +146,7 @@ export async function fetchScoreboard(sport: Sport, date: string, conferences?: 
       tv_network: national?.names?.join("/") || null,
       home_rank: rank(home.curatedRank),
       away_rank: rank(away.curatedRank),
+      venue: venueLabel(c.venue?.address),
     });
   }
 

@@ -1,19 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatInTimeZone } from "date-fns-tz";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Field, LinkButton, Panel, SectionLabel, StatusText, chipClass, inputClass } from "@/components/ui";
-import { windowLabel } from "@/lib/format";
+import { dayKey, gameTime, windowLabel } from "@/lib/format";
+import { gameDateZone, isGameLocked } from "@/lib/locks";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
-import { createSlate, resolveTeamMatch } from "../actions";
-import { SlateEditor, type Candidate } from "./SlateEditor";
+import { createSlate, resolveTeamMatch, saveDeadlines } from "../actions";
+import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
+import { Matchup } from "@/components/Matchup";
 
 export const metadata: Metadata = { title: "Slate editor" };
 
 // Inputs sit on a bg-surface panel here, so they take the page color to stay visible.
 const panelInput = inputClass.replace("bg-surface", "bg-bg");
 
+// datetime-local input value format.
+const LOCAL_INPUT = "yyyy-MM-dd'T'HH:mm";
 const STATUS_LABEL: Record<string, string> = { draft: "Draft", open: "Open", locked: "Locked", graded: "Final" };
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// Margin around the window when fetching candidates (see DraftEditor).
+const EDGE_MS = 6 * 3_600_000;
+
+/** "Mon Nov 2, 3:00 PM" in the pool's time zone. */
+const deadline = (at: string, tz: string) => formatInTimeZone(at, tz, "EEE MMM d, h:mm a");
 
 export default async function SlateAdminPage({ params, searchParams }: PageProps<"/p/[slug]/admin/slate">) {
   const { slug } = await params;
@@ -55,14 +67,14 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         <Panel className="p-4">
           <h2 className="mb-3 text-[15px] font-semibold">New week</h2>
           <ActionForm action={createSlate.bind(null, slug)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="First day" hint={`${ctx.settings.window.length_days}-day window from midnight (${tz.replace("America/", "")})`}>
-                <input type="date" name="start_date" required defaultValue={suggestedStart} className={panelInput} />
-              </Field>
-              <Field label="Label (optional)">
-                <input name="label" placeholder={`Week ${(slates?.[0]?.week ?? 0) + 1}`} className={panelInput} />
-              </Field>
-            </div>
+            <WeekDates
+              defaultStart={suggestedStart}
+              settings={{ timezone: tz, window: ctx.settings.window, lock: ctx.settings.lock }}
+              inputClass={panelInput}
+            />
+            <Field label="Label (optional)">
+              <input name="label" placeholder={`Week ${(slates?.[0]?.week ?? 0) + 1}`} className={panelInput} />
+            </Field>
             <SubmitButton pending="Creating…">Create draft</SubmitButton>
           </ActionForm>
         </Panel>
@@ -76,18 +88,21 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
 
   async function DraftEditor({ slug, slateId }: { slug: string; slateId: string }) {
     const s = slate!;
+    const firstDay = WEEKDAYS[ctx.settings.window.start_weekday];
     const onSlate = await getSlateGames(ctx, slateId);
     const onSlateIds = new Set(onSlate.map((g) => g.id));
 
     const [{ data: games }, { data: lines }, { data: teams }, { data: queue }] = await Promise.all([
       ctx.supabase
         .from("games")
-        .select(`id, start_at, time_tbd, tv_network, home_rank, away_rank, neutral_site,
+        .select(`id, start_at, time_tbd, tv_network, home_rank, away_rank, neutral_site, venue,
           home:teams!games_home_team_id_fkey ( name, short_name, abbreviation, conference, logo_url ),
           away:teams!games_away_team_id_fkey ( name, short_name, abbreviation, conference, logo_url )`)
         .eq("sport", ctx.pool.sport)
-        .gte("start_at", new Date(Math.max(Date.now(), new Date(s.window_start).getTime())).toISOString())
-        .lt("start_at", s.window_end)
+        // Widened by a few hours: a TBD game's placeholder (midnight Eastern) sits outside
+        // the window's Central edges. The exact day filter is below.
+        .gte("start_at", new Date(new Date(s.window_start).getTime() - EDGE_MS).toISOString())
+        .lt("start_at", new Date(new Date(s.window_end).getTime() + EDGE_MS).toISOString())
         .order("start_at")
         .limit(1000),
       ctx.supabase.from("latest_game_lines").select("game_id, home_spread").eq("bookmaker", ctx.settings.lines.bookmaker),
@@ -96,8 +111,19 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     ]);
     const lineByGame = new Map((lines ?? []).map((l) => [l.game_id, l.home_spread === null ? null : Number(l.home_spread)]));
 
+    // In the window by the game's own date (TBD games by their Eastern date), and not yet
+    // locked: a real tip in the future, or for a TBD game, its deadline ahead.
+    const firstDate = localDate(new Date(s.window_start), tz);
+    const lastDate = localDate(new Date(new Date(s.window_end).getTime() - 1), tz);
+    const now = Date.now();
     const candidates: Candidate[] = (games ?? [])
-      .filter((g) => !onSlateIds.has(g.id))
+      .filter((g) => {
+        if (onSlateIds.has(g.id)) return false;
+        const date = dayKey(g.start_at, gameDateZone(g.time_tbd, tz));
+        if (date < firstDate || date > lastDate) return false;
+        const lock = g.time_tbd ? (s.lock_at ?? g.start_at) : g.start_at;
+        return new Date(lock).getTime() > now;
+      })
       .map((g) => ({
         id: g.id,
         startAt: g.start_at,
@@ -106,6 +132,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         homeRank: g.home_rank,
         awayRank: g.away_rank,
         neutral: g.neutral_site,
+        venue: g.venue,
         home: g.home,
         away: g.away,
         line: lineByGame.get(g.id) ?? null,
@@ -115,8 +142,34 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
       <>
         <p className="mb-4 text-sm text-muted">
           {s.label} · {windowLabel(s.window_start, s.window_end, tz)}
-          {s.lock_at && ` · weekly lock ${new Date(s.lock_at).toLocaleString("en-US", { timeZone: tz, weekday: "short", hour: "numeric", minute: "2-digit" })}`}
         </p>
+        {ctx.settings.lock.mode === "weekly" && (
+          <Panel className="mb-8 p-4">
+            <h2 className="mb-1 text-[15px] font-semibold">Deadlines</h2>
+            {/* TODO(brooks): all first-day games lock together at the first tip that day (RULES.md Q4). */}
+            <p className="mb-3 text-sm text-muted">
+              {firstDay} games lock together at the earlier of this time and the first {firstDay} tip. Any game that tips
+              earlier locks at tip-off.
+            </p>
+            <ActionForm action={saveDeadlines.bind(null, slug, slateId)} className="grid gap-3 sm:grid-cols-2">
+              <Field label={`${firstDay} games`} hint="Blank = everything locks at one deadline.">
+                <input
+                  type="datetime-local" name="first_day_lock_at" className={`${panelInput} tabular-nums`}
+                  defaultValue={s.first_day_lock_at ? formatInTimeZone(s.first_day_lock_at, tz, LOCAL_INPUT) : ""}
+                />
+              </Field>
+              <Field label="Everything else" hint={`${tz.replace("America/", "").replace("_", " ")} time`}>
+                <input
+                  type="datetime-local" name="lock_at" required className={`${panelInput} tabular-nums`}
+                  defaultValue={s.lock_at ? formatInTimeZone(s.lock_at, tz, LOCAL_INPUT) : ""}
+                />
+              </Field>
+              <SubmitButton kind="secondary" pending="Saving…" className="!px-4 !text-sm sm:col-span-2 sm:justify-self-start">
+                Save deadlines
+              </SubmitButton>
+            </ActionForm>
+          </Panel>
+        )}
         <SlateEditor
           slug={slug}
           slateId={slateId}
@@ -129,6 +182,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             picksMode: ctx.settings.picks_mode,
             timezone: tz,
             bookmaker: ctx.settings.lines.bookmaker,
+            weeklyLock: ctx.settings.lock.mode === "weekly",
           }}
           defaultManualStart={`${localDate(new Date(s.window_start), tz)}T19:00`}
         />
@@ -163,6 +217,19 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
       ctx.supabase.rpc("slate_progress", { p_slate_id: slate.id }),
     ]);
     const need = ctx.settings.picks_per_slate;
+    const firstDay = WEEKDAYS[ctx.settings.window.start_weekday];
+    // publish_slate pulls the first-day group's deadline to that day's first tip when it's
+    // earlier; any deadline before both slate-level ones is that group's.
+    const before = (at: string, than: string | null) => than === null || new Date(at) < new Date(than);
+    const groupLock = games
+      .map((g) => g.lockAt)
+      .filter((at): at is string => at !== null && slate.first_day_lock_at !== null && before(at, slate.first_day_lock_at) && before(at, slate.lock_at))
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+    // Tip times are often announced after publish, so TBD games (and ones the commissioner
+    // timed) can still be set until they lock. The database re-checks.
+    const now = Date.now();
+    const timeable =
+      slate.status === "open" ? games.filter((g) => !g.voided && (g.timeTbd || g.manualTime) && !isGameLocked(g, now)) : [];
     return (
       <div className="space-y-8">
         <div>
@@ -174,11 +241,44 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             {windowLabel(slate.window_start, slate.window_end, tz)} · {games.length} games · published{" "}
             {slate.published_at && new Date(slate.published_at).toLocaleString("en-US", { timeZone: tz, dateStyle: "medium", timeStyle: "short" })}
           </p>
+          {slate.lock_at && (
+            <p className="mt-0.5 text-sm text-muted tabular-nums">
+              {slate.first_day_lock_at && (
+                <>
+                  {firstDay} games due {deadline(groupLock ?? slate.first_day_lock_at, tz)}
+                  {groupLock && " (first tip)"} ·{" "}
+                </>
+              )}
+              {slate.first_day_lock_at ? "everything else" : "Picks due"} {deadline(slate.lock_at, tz)}
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="secondary">Results &amp; voids</LinkButton>
             <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">Grid</LinkButton>
           </div>
         </div>
+        {timeable.length > 0 && (
+          <section>
+            <SectionLabel className="border-b border-line pb-2">Tip times to set</SectionLabel>
+            <ul className="divide-y divide-line">
+              {timeable.map((g) => (
+                <li key={g.id} className="py-2">
+                  <Matchup away={g.away} home={g.home} neutral={g.neutral} />
+                  <div className="text-xs text-muted tabular-nums">
+                    {g.timeTbd ? (
+                      <>
+                        {formatInTimeZone(g.startAt, "America/New_York", "EEE")} <span className="font-semibold text-ink">Time TBD</span>
+                      </>
+                    ) : (
+                      <>{gameTime(g.startAt, tz)} (set by you)</>
+                    )}
+                  </div>
+                  <GameTimeInput slug={slug} slateId={slate.id} game={g} timezone={tz} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         <section>
           <SectionLabel className="border-b border-line pb-2">Pick progress</SectionLabel>
           <ul className="divide-y divide-line">

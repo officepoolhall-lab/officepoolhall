@@ -71,14 +71,14 @@ isOneToOne: false
                   ]
                 },"games": {
                   Row: {
-                    "away_rank": number | null,"away_score": number | null,"away_team_id": string,"espn_id": string | null,"home_rank": number | null,"home_score": number | null,"home_team_id": string,"id": string,"neutral_site": boolean,"odds_api_id": string | null,"season": number,"sport": string,"start_at": string,"status": string,"time_tbd": boolean,"tv_network": string | null,"updated_at": string
+                    "away_rank": number | null,"away_score": number | null,"away_team_id": string,"espn_id": string | null,"home_rank": number | null,"home_score": number | null,"home_team_id": string,"id": string,"manual_time": boolean,"neutral_site": boolean,"odds_api_id": string | null,"season": number,"sport": string,"start_at": string,"status": string,"time_tbd": boolean,"tv_network": string | null,"updated_at": string,"venue": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id": string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id": string,"id"?: string,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season": number,"sport": string,"start_at": string,"status"?: string,"time_tbd"?: boolean,"tv_network"?: string | null,"updated_at"?: string
+                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id": string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id": string,"id"?: string,"manual_time"?: boolean,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season": number,"sport": string,"start_at": string,"status"?: string,"time_tbd"?: boolean,"tv_network"?: string | null,"updated_at"?: string,"venue"?: string | null
                   }
                   Update: {
-                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id"?: string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id"?: string,"id"?: string,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season"?: number,"sport"?: string,"start_at"?: string,"status"?: string,"time_tbd"?: boolean,"tv_network"?: string | null,"updated_at"?: string
+                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id"?: string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id"?: string,"id"?: string,"manual_time"?: boolean,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season"?: number,"sport"?: string,"start_at"?: string,"status"?: string,"time_tbd"?: boolean,"tv_network"?: string | null,"updated_at"?: string,"venue"?: string | null
                   }
                   Relationships: [
                     {
@@ -117,14 +117,14 @@ isOneToOne: false
                   ]
                 },"picks": {
                   Row: {
-                    "confidence": number | null,"game_id": string,"id": string,"picked_side": string,"points": number | null,"result": string | null,"slate_id": string,"updated_at": string,"user_id": string
+                    "bonus": number | null,"confidence": number | null,"game_id": string,"id": string,"picked_side": string,"points": number | null,"result": string | null,"slate_id": string,"updated_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "confidence"?: number | null,"game_id": string,"id"?: string,"picked_side": string,"points"?: number | null,"result"?: string | null,"slate_id": string,"updated_at"?: string,"user_id": string
+                    "bonus"?: number | null,"confidence"?: number | null,"game_id": string,"id"?: string,"picked_side": string,"points"?: number | null,"result"?: string | null,"slate_id": string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "confidence"?: number | null,"game_id"?: string,"id"?: string,"picked_side"?: string,"points"?: number | null,"result"?: string | null,"slate_id"?: string,"updated_at"?: string,"user_id"?: string
+                    "bonus"?: number | null,"confidence"?: number | null,"game_id"?: string,"id"?: string,"picked_side"?: string,"points"?: number | null,"result"?: string | null,"slate_id"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -152,6 +152,20 @@ isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
+                  ]
+                },"pool_creators": {
+                  Row: {
+                    "added_at": string,"email": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "added_at"?: string,"email": string
+                  }
+                  Update: {
+                    "added_at"?: string,"email"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"pool_members": {
                   Row: {
@@ -215,14 +229,14 @@ isOneToOne: false
                   ]
                 },"slate_games": {
                   Row: {
-                    "game_id": string,"locked_home_spread": number | null,"locked_line_id": number | null,"override_away_score": number | null,"override_home_score": number | null,"slate_id": string,"sort_order": number | null,"voided": boolean
+                    "game_id": string,"lock_at": string | null,"locked_home_spread": number | null,"locked_line_id": number | null,"override_away_score": number | null,"override_home_score": number | null,"slate_id": string,"sort_order": number | null,"voided": boolean
                   }
                   ComputedFields: never
                   Insert: {
-                    "game_id": string,"locked_home_spread"?: number | null,"locked_line_id"?: number | null,"override_away_score"?: number | null,"override_home_score"?: number | null,"slate_id": string,"sort_order"?: number | null,"voided"?: boolean
+                    "game_id": string,"lock_at"?: string | null,"locked_home_spread"?: number | null,"locked_line_id"?: number | null,"override_away_score"?: number | null,"override_home_score"?: number | null,"slate_id": string,"sort_order"?: number | null,"voided"?: boolean
                   }
                   Update: {
-                    "game_id"?: string,"locked_home_spread"?: number | null,"locked_line_id"?: number | null,"override_away_score"?: number | null,"override_home_score"?: number | null,"slate_id"?: string,"sort_order"?: number | null,"voided"?: boolean
+                    "game_id"?: string,"lock_at"?: string | null,"locked_home_spread"?: number | null,"locked_line_id"?: number | null,"override_away_score"?: number | null,"override_home_score"?: number | null,"slate_id"?: string,"sort_order"?: number | null,"voided"?: boolean
                   }
                   Relationships: [
                     {
@@ -253,14 +267,14 @@ isOneToOne: false
                   ]
                 },"slate_scores": {
                   Row: {
-                    "losses": number,"points": number,"pushes": number,"slate_id": string,"user_id": string,"wins": number
+                    "bonus": number,"losses": number,"missed": boolean,"points": number,"pushes": number,"slate_id": string,"user_id": string,"wins": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "losses"?: number,"points"?: number,"pushes"?: number,"slate_id": string,"user_id": string,"wins"?: number
+                    "bonus"?: number,"losses"?: number,"missed"?: boolean,"points"?: number,"pushes"?: number,"slate_id": string,"user_id": string,"wins"?: number
                   }
                   Update: {
-                    "losses"?: number,"points"?: number,"pushes"?: number,"slate_id"?: string,"user_id"?: string,"wins"?: number
+                    "bonus"?: number,"losses"?: number,"missed"?: boolean,"points"?: number,"pushes"?: number,"slate_id"?: string,"user_id"?: string,"wins"?: number
                   }
                   Relationships: [
                     {
@@ -279,14 +293,14 @@ isOneToOne: false
                   ]
                 },"slates": {
                   Row: {
-                    "id": string,"label": string | null,"lock_at": string | null,"pool_id": string,"published_at": string | null,"status": string,"week": number,"window_end": string,"window_start": string
+                    "first_day_lock_at": string | null,"id": string,"label": string | null,"lock_at": string | null,"pool_id": string,"published_at": string | null,"status": string,"week": number,"window_end": string,"window_start": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "id"?: string,"label"?: string | null,"lock_at"?: string | null,"pool_id": string,"published_at"?: string | null,"status"?: string,"week": number,"window_end": string,"window_start": string
+                    "first_day_lock_at"?: string | null,"id"?: string,"label"?: string | null,"lock_at"?: string | null,"pool_id": string,"published_at"?: string | null,"status"?: string,"week": number,"window_end": string,"window_start": string
                   }
                   Update: {
-                    "id"?: string,"label"?: string | null,"lock_at"?: string | null,"pool_id"?: string,"published_at"?: string | null,"status"?: string,"week"?: number,"window_end"?: string,"window_start"?: string
+                    "first_day_lock_at"?: string | null,"id"?: string,"label"?: string | null,"lock_at"?: string | null,"pool_id"?: string,"published_at"?: string | null,"status"?: string,"week"?: number,"window_end"?: string,"window_start"?: string
                   }
                   Relationships: [
                     {
@@ -351,17 +365,35 @@ isOneToOne: false
 "apply_half_point":
 { Args: { "p_force": boolean,"p_spread": number }; Returns: number
                            },
+"can_create_pools":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "close_slates":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
 "create_pool":
 { Args: { "p_entry_fee": number,"p_name": string,"p_season": number,"p_settings": Json,"p_slug": string,"p_sport": string }; Returns: string
                            },
+"effective_lock_at":
+{ Args: { "p_deadline": string,"p_start": string,"p_time_tbd": boolean }; Returns: string
+                           },
 "freeze_slate_lines":
 { Args: { "p_slate_id": string }; Returns: undefined
                            },
 "game_label":
 { Args: { "p_game_id": string }; Returns: string
+                           },
+"game_local_date":
+{ Args: { "p_start": string,"p_time_tbd": boolean,"p_tz": string }; Returns: string
+                           },
+"game_locked":
+{ Args: { "p_deadline": string,"p_start": string,"p_status": string,"p_time_tbd": boolean }; Returns: boolean
+                           },
+"game_started":
+{ Args: { "p_start": string,"p_status": string,"p_time_tbd": boolean }; Returns: boolean
+                           },
+"game_time_frozen":
+{ Args: { "p_game_id": string,"p_new_start": string,"p_new_status": string,"p_new_time_tbd": boolean,"p_start": string,"p_status": string,"p_time_tbd": boolean }; Returns: boolean
                            },
 "games_to_poll":
 { Args: Record<PropertyKey, never>; Returns: {
@@ -396,7 +428,8 @@ isOneToOne: false
                            },
 "member_picks":
 { Args: { "p_slate_id": string,"p_user_id": string }; Returns: {
-              "confidence": number | null,
+              "bonus": number | null,
+"confidence": number | null,
 "game_id": string,
 "id": string,
 "picked_side": string,
@@ -412,11 +445,20 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"pool_settings_core":
+{ Args: { "s": Json }; Returns: Json
+                           },
 "publish_slate":
+{ Args: { "p_slate_id": string }; Returns: undefined
+                           },
+"refresh_slate_locks":
 { Args: { "p_slate_id": string }; Returns: undefined
                            },
 "resolve_team_match":
 { Args: { "p_queue_id": number,"p_team_id": string }; Returns: undefined
+                           },
+"set_game_time":
+{ Args: { "p_game_id": string,"p_slate_id": string,"p_start_at": string }; Returns: undefined
                            },
 "set_result_override":
 { Args: { "p_away_score": number,"p_game_id": string,"p_home_score": number,"p_slate_id": string }; Returns: undefined

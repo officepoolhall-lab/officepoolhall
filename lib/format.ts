@@ -50,7 +50,15 @@ export function formatDuration(ms: number) {
   return `${s}s`;
 }
 
+/** Totals can go negative in minus-points pools: "−17" with a true minus sign. */
 export function points(n: number | string | null | undefined) {
   const v = Number(n ?? 0);
-  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+  const abs = Number.isInteger(v) ? String(Math.abs(v)) : Math.abs(v).toFixed(1);
+  return v < 0 ? `${MINUS}${abs}` : abs;
+}
+
+/** "+5" / "−5" / "0" for one pick's points. */
+export function signedPoints(n: number | string | null | undefined) {
+  const v = Number(n ?? 0);
+  return v > 0 ? `+${points(v)}` : points(v);
 }

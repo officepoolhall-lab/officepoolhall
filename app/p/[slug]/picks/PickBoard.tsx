@@ -2,17 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Cell, CheckIcon, LiveDot, LockIcon, SectionLabel, TeamLogo } from "@/components/ui";
-import { dayKey, dayLabel, formatDuration, formatSpread, timeOnly } from "@/lib/format";
+import { formatInTimeZone } from "date-fns-tz";
+import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, signedPoints, timeOnly } from "@/lib/format";
+import { gameDateZone, hasStarted, isGameLocked } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 import { savePicks, type PickInput } from "./actions";
 import { PointsSheet } from "./PointsSheet";
 
 type Side = "home" | "away";
 type Draft = { side: Side | null; confidence: number | null };
+/** Server-graded result for one of the player's picks (picks.result / points / bonus). */
+type Graded = { result: string; points: number; bonus: number };
 type Settings = {
   pickType: "straight_up" | "ats";
   picksPerSlate: number;
   tiers: { points: number; count: number }[] | null;
+  /** confidence.wrong_pick = "minus_points": a wrong pick loses its value. */
+  minusPoints: boolean;
+  /** Largest upset bonus tier, or null when the pool has no upset bonus. */
+  maxUpsetBonus: number | null;
   timezone: string;
   bookmaker: string;
   lockMode: "per_game" | "weekly";
@@ -25,13 +33,15 @@ export function PickBoard({
   slate,
   games,
   initialPicks,
+  graded = {},
   settings,
   forUserId,
 }: {
   slug: string;
-  slate: { id: string; status: string; lockAt: string | null };
+  slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
   games: SlateGame[];
   initialPicks: PickInput[];
+  graded?: Record<string, Graded>;
   settings: Settings;
   forUserId?: string;
 }) {
@@ -41,10 +51,12 @@ export function PickBoard({
   const [sheetGameId, setSheetGameId] = useState<string | null>(null);
   const now = useNow(games, slate.lockAt);
 
+  // A game locks at its effective lock (deadline, or tip if earlier), not its start, or
+  // as soon as ESPN has it under way (a TBD game never gets a real time).
   const isLocked = useCallback(
     (g: SlateGame) =>
       slate.status !== "open" ||
-      new Date(g.startAt).getTime() <= now ||
+      isGameLocked(g, now) ||
       (slate.lockAt !== null && new Date(slate.lockAt).getTime() <= now),
     [now, slate.status, slate.lockAt],
   );
@@ -52,12 +64,12 @@ export function PickBoard({
   // ---------- derived ----------
   const gamesById = useMemo(() => new Map(games.map((g) => [g.id, g])), [games]);
   const isComplete = (d: Draft | undefined) => Boolean(d?.side && (!settings.tiers || d.confidence !== null));
-  // What we send: complete picks, minus unstarted voided games (the server drops those).
+  // What we send: complete picks, minus unlocked voided games (the server drops those).
   const payload = (state: Record<string, Draft>): PickInput[] =>
     Object.entries(state)
       .filter(([id, d]) => {
         const g = gamesById.get(id);
-        return g && isComplete(d) && (!g.voided || new Date(g.startAt).getTime() <= Date.now());
+        return g && isComplete(d) && (!g.voided || isGameLocked(g, Date.now()));
       })
       .map(([game_id, d]) => ({ game_id, picked_side: d.side!, confidence: settings.tiers ? d.confidence : null }));
 
@@ -68,8 +80,8 @@ export function PickBoard({
     (settings.tiers?.filter((t) => t.points === points).reduce((n, t) => n + t.count, 0) ?? 0) - (used.get(points) ?? 0);
   const openSlots = settings.tiers ? settings.tiers.reduce((n, t) => n + Math.max(0, remaining(t.points)), 0) : settings.picksPerSlate - pickedCount;
 
-  const nextLock = games.find((g) => !g.voided && new Date(g.startAt).getTime() > now);
-  const msToNextLock = slate.lockAt ? new Date(slate.lockAt).getTime() - now : nextLock ? new Date(nextLock.startAt).getTime() - now : null;
+  const nextLock = nextLockInfo(games, now, slate, settings);
+  const msToNextLock = nextLock ? nextLock.at - now : null;
 
   // ---------- saving ----------
   const latest = useRef(picks);
@@ -168,10 +180,12 @@ export function PickBoard({
   // ---------- render ----------
   const days: { key: string; label: string; games: SlateGame[] }[] = [];
   for (const g of games) {
-    const key = dayKey(g.startAt, settings.timezone);
-    const last = days[days.length - 1];
-    if (last?.key === key) last.games.push(g);
-    else days.push({ key, label: dayLabel(g.startAt, settings.timezone), games: [g] });
+    // A TBD game's placeholder is midnight Eastern: read its date there so it stays on its day.
+    const zone = gameDateZone(g.timeTbd, settings.timezone);
+    const key = dayKey(g.startAt, zone);
+    const day = days.find((d) => d.key === key);
+    if (day) day.games.push(g);
+    else days.push({ key, label: dayLabel(g.startAt, zone), games: [g] });
   }
 
   const urgent = msToNextLock !== null && msToNextLock > 0 && msToNextLock < 3_600_000 && openSlots > 0;
@@ -185,20 +199,24 @@ export function PickBoard({
       <p className={`mb-1 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
         {slate.status !== "open" ? (
           <span className="flex items-center gap-1.5"><LockIcon /> All picks for this week are locked.</span>
-        ) : msToNextLock !== null && msToNextLock > 0 ? (
+        ) : nextLock && msToNextLock !== null && msToNextLock > 0 ? (
           <>
-            {settings.lockMode === "weekly" ? "Picks lock" : "Next game locks"} in{" "}
+            {nextLock.label} in{" "}
             <strong className={`font-semibold tabular-nums ${urgent ? "" : "text-ink"}`}>{formatDuration(msToNextLock)}</strong>
             {urgent && <> · {openSlots} pick{openSlots === 1 ? "" : "s"} still open</>}
           </>
+        ) : settings.lockMode === "weekly" ? (
+          "Every game is locked."
         ) : (
           "Every game has started."
         )}
       </p>
       <p className="mb-4 text-xs text-muted">
         {settings.pickType === "ats" ? `Lines: ${settings.bookmaker} · frozen at publish · ` : `Straight up · `}
-        each game locks at {settings.lockMode === "weekly" ? "the weekly deadline" : "its start"}
+        each game locks at {settings.lockMode === "weekly" ? "its deadline, or tip-off if earlier" : "its start"}
         {settings.tiers ? ` · ${settings.tiers.map((t) => `${t.count}×${t.points}`).join(", ")}` : ` · ${settings.picksPerSlate} picks`}
+        {settings.minusPoints && " · wrong picks lose their points"}
+        {settings.maxUpsetBonus !== null && ` · upset bonus up to +${settings.maxUpsetBonus}`}
       </p>
 
       {days.map((day) => (
@@ -210,6 +228,7 @@ export function PickBoard({
                 key={g.id}
                 game={g}
                 draft={picks[g.id]}
+                graded={graded[g.id]}
                 locked={isLocked(g)}
                 now={now}
                 settings={settings}
@@ -287,6 +306,7 @@ export function PickBoard({
 function GameRow({
   game: g,
   draft,
+  graded,
   locked,
   now,
   settings,
@@ -295,47 +315,65 @@ function GameRow({
 }: {
   game: SlateGame;
   draft: Draft | undefined;
+  graded: Graded | undefined;
   locked: boolean;
   now: number;
   settings: Settings;
   onTeam: (side: Side) => void;
   onPoints: () => void;
 }) {
-  const started = new Date(g.startAt).getTime() <= now;
+  // A TBD game's start is ESPN's placeholder; it stays pickable past it until its deadline.
+  const started = hasStarted(g, now);
   const final = g.status === "final" || g.overridden;
   const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
-  const msToStart = new Date(g.startAt).getTime() - now;
+  const msToLock = new Date(g.effectiveLockAt).getTime() - now;
   const disabled = locked || g.voided;
   const confidence = Boolean(settings.tiers);
 
+  // Prefer what grade_slate scored (it knows the upset bonus); until then, estimate from
+  // the final score and the frozen spread.
   let result: "win" | "loss" | null = null;
-  if (final && draft?.side && g.homeScore !== null && g.awayScore !== null && !g.voided) {
+  let base: number | null = null;
+  let bonus = 0;
+  if (graded && draft?.side) {
+    if (graded.result === "win" || graded.result === "loss") {
+      result = graded.result;
+      bonus = graded.bonus;
+      base = graded.points - graded.bonus;
+    }
+  } else if (final && draft?.side && g.homeScore !== null && g.awayScore !== null && !g.voided) {
     const margin = g.homeScore - g.awayScore + (settings.pickType === "ats" ? (g.spread ?? 0) : 0);
     if (margin !== 0) result = (margin > 0) === (draft.side === "home") ? "win" : "loss";
+    const value = draft.confidence ?? 0;
+    base = result === "win" ? value : settings.minusPoints ? -value : 0;
   }
 
   const pickHeader = settings.pickType === "ats" ? "Spread" : confidence ? "Pick" : "Winner";
   const conf = conferenceLabel(g.away.conference, g.home.conference);
-  const meta = [conf, g.neutral ? "Neutral site" : null].filter(Boolean).join(" · ");
+  // Neutral site: the away team is listed first and the city stands in for "Home".
+  const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
 
   // A half-made pick doesn't count, so its warning shows alongside the countdown, not instead of it.
   let footerRight: ReactNode = null;
   if (result) {
     footerRight = (
-      <span className={`font-semibold tabular-nums ${result === "win" ? "text-win" : "text-loss"}`}>
-        {confidence ? (result === "win" ? `+${draft?.confidence ?? 0}` : "0") : result === "win" ? "Win" : "Loss"}
+      <span className="tabular-nums">
+        <span className={`font-semibold ${result === "win" ? "text-win" : "text-loss"}`}>
+          {confidence ? signedPoints(base) : result === "win" ? "Win" : "Loss"}
+        </span>
+        {bonus > 0 && <span className="font-semibold text-accent"> · +{formatPoints(bonus)} upset</span>}
       </span>
     );
   } else {
     const missing =
       disabled || !confidence || !draft ? null : draft.confidence != null && !draft.side ? "Pick a team" : draft.side && draft.confidence === null ? "Pick a value" : null;
-    const countdown = !disabled && msToStart < 3 * 3_600_000;
+    const countdown = !disabled && msToLock < 3 * 3_600_000;
     if (missing || countdown) {
       footerRight = (
         <span className="tabular-nums">
           {missing && <span className="font-semibold text-accent">{missing}</span>}
           {missing && countdown && " · "}
-          {countdown && <span className={msToStart < 15 * 60_000 ? "font-semibold text-live" : ""}>Locks in {formatDuration(msToStart)}</span>}
+          {countdown && <span className={msToLock < 15 * 60_000 ? "font-semibold text-live" : ""}>Locks in {formatDuration(msToLock)}</span>}
         </span>
       );
     }
@@ -459,13 +497,41 @@ function toDrafts(picks: PickInput[]): Record<string, Draft> {
 }
 
 /**
- * Current time, re-rendering every 15s and exactly when the next game (or the weekly
- * deadline) starts, so rows lock without a reload. The server re-checks with its own clock.
+ * The next time any open game locks, with what it covers. Per-game mode: "Next game locks".
+ * Weekly mode: the main deadline is "Picks lock"; the first-day group (lock_at earlier than
+ * the slate's) is "Monday picks lock"; a lone game tipping before its deadline is "Next game locks".
+ */
+function nextLockInfo(
+  games: SlateGame[],
+  now: number,
+  slate: { lockAt: string | null; firstDayLockAt: string | null },
+  settings: Settings,
+): { at: number; label: string } | null {
+  const open = games.filter((g) => !g.voided && !isGameLocked(g, now));
+  if (!open.length) return null;
+  const at = Math.min(...open.map((g) => new Date(g.effectiveLockAt).getTime()));
+  if (settings.lockMode !== "weekly") return { at, label: "Next game locks" };
+
+  const locking = open.filter((g) => new Date(g.effectiveLockAt).getTime() === at);
+  // Deadline-driven: some game locking now has this as its deadline (not just its tip).
+  const byDeadline = locking.filter((g) => g.lockAt !== null && new Date(g.lockAt).getTime() === at);
+  if (!byDeadline.length) return { at, label: "Next game locks" };
+  const main = slate.lockAt !== null && new Date(slate.lockAt).getTime() === at;
+  if (main || !slate.firstDayLockAt) return { at, label: "Picks lock" };
+  const g = byDeadline[0];
+  return { at, label: `${formatInTimeZone(g.startAt, gameDateZone(g.timeTbd, settings.timezone), "EEEE")} picks lock` };
+}
+
+/**
+ * Current time, re-rendering every 15s and exactly when the next game locks or starts (or
+ * the weekly deadline passes), so rows lock and go live without a reload. The server
+ * re-checks with its own clock.
  */
 function useNow(games: SlateGame[], lockAt: string | null) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const boundaries = [...games.map((g) => g.startAt), ...(lockAt ? [lockAt] : [])]
+    // A TBD placeholder isn't a tip, so it's not a boundary.
+    const boundaries = [...games.flatMap((g) => (g.timeTbd ? [g.effectiveLockAt] : [g.effectiveLockAt, g.startAt])), ...(lockAt ? [lockAt] : [])]
       .map((t) => new Date(t).getTime())
       .filter((t) => t > now);
     const next = Math.min(...boundaries);

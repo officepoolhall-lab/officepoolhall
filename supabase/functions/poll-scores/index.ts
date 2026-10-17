@@ -21,7 +21,7 @@ Deno.serve(handler(async (req) => {
     requests.set(`${g.sport}:${date}`, { sport: g.sport as Sport, date });
   }
 
-  const pendingIds = new Set(pending.map((g) => g.game_id));
+  const pendingIds = new Set((pending as { game_id: string }[]).map((g) => g.game_id));
   const toGrade = new Set<string>();
   for (const { sport, date } of requests.values()) {
     const feed = await fetchScoreboard(sport, date);
