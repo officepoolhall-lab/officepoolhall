@@ -15,13 +15,14 @@ export type OddsEvent = {
   bookmakers: { key: string; markets: { key: string; outcomes: Outcome[] }[] }[];
 };
 
-export async function fetchOdds(sport: Sport, bookmaker: string, apiKey: string) {
+/** One request for every bookmaker listed (up to 10 bookmakers cost the same as one). */
+export async function fetchOdds(sport: Sport, bookmakers: string[], apiKey: string) {
   const url = new URL(`https://api.the-odds-api.com/v4/sports/${SPORT_KEY[sport]}/odds`);
   url.searchParams.set("apiKey", apiKey);
   url.searchParams.set("regions", "us");
   url.searchParams.set("markets", "spreads,h2h");
   url.searchParams.set("oddsFormat", "american");
-  url.searchParams.set("bookmakers", bookmaker);
+  url.searchParams.set("bookmakers", bookmakers.join(","));
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Odds API ${res.status}: ${await res.text()}`);
   return {
