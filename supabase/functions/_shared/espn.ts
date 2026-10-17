@@ -62,21 +62,19 @@ async function getJson(url: string) {
   return res.json();
 }
 
-/** ESPN team id → conference name, from the groups endpoint (one request). */
+/**
+ * ESPN conference group id → conference name, from scoreboard/conferences (one request).
+ * Teams carry their conferenceId on every scoreboard. Only real conferences (with a parent
+ * group) are kept: division-level groups like "FBS (I-A)" or "NCAA Division I" are dropped,
+ * so ingest never overwrites a stored conference with a division label.
+ */
 export async function fetchConferences(sport: Sport): Promise<Map<string, string>> {
-  const data = await getJson(`${BASE}/${PATH[sport]}/groups`);
+  const data = await getJson(`${BASE}/${PATH[sport]}/scoreboard/conferences`);
   const out = new Map<string, string>();
-  // deno-lint-ignore no-explicit-any
-  const walk = (nodes: any[]) => {
-    for (const n of nodes ?? []) {
-      if (n.teams?.length && !/division/i.test(n.name)) {
-        const conf = SHORT_CONFERENCE[n.name] ?? String(n.name).replace(/ Conference$/, "");
-        for (const t of n.teams) out.set(String(t.id), conf);
-      }
-      if (n.children) walk(n.children);
-    }
-  };
-  walk(data.groups);
+  for (const c of data.conferences ?? []) {
+    if (!c.parentGroupId || !c.groupId || !c.name || /^(FBS|FCS)\b|division/i.test(c.name)) continue;
+    out.set(String(c.groupId), SHORT_CONFERENCE[c.name] ?? String(c.name).replace(/ Conference$/, ""));
+  }
   return out;
 }
 
@@ -122,7 +120,7 @@ export async function fetchScoreboard(sport: Sport, date: string, conferences?: 
         short_name: t.shortDisplayName ?? t.location ?? t.displayName,
         abbreviation: t.abbreviation,
         logo_url: t.logo ?? null,
-        conference: conferences?.get(String(t.id)) ?? null,
+        conference: t.conferenceId != null ? (conferences?.get(String(t.conferenceId)) ?? null) : null,
       });
     }
 
