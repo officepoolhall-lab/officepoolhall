@@ -35,8 +35,14 @@ export function TeamLogo({ src, abbr, className = "size-8" }: { src?: string | n
       </span>
     );
   }
-  // eslint-disable-next-line @next/next/no-img-element -- remote team logos; next/image adds config for little gain
-  return <img src={src} alt="" loading="lazy" className={`${className} shrink-0 object-contain`} />;
+  // ESPN publishes a dark-background variant of each logo (e.g. Iowa's black hawk turns gold).
+  const dark = src.includes("/teamlogos/ncaa/500/") ? src.replace("/500/", "/500-dark/") : null;
+  return (
+    <picture className="contents">
+      {dark && <source srcSet={dark} media="(prefers-color-scheme: dark)" />}
+      <img src={src} alt="" loading="lazy" className={`${className} shrink-0 object-contain`} />
+    </picture>
+  );
 }
 
 export function Wordmark({ className = "" }: { className?: string }) {
