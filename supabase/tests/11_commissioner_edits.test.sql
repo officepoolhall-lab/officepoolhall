@@ -1,6 +1,6 @@
 -- Commissioner pick edits (20261017000022). Run with: npx supabase test db
 begin;
-select plan(20);
+select plan(23);
 
 -- ---------- fixtures (as postgres) ----------
 -- A = commissioner, B and C = players
@@ -184,6 +184,32 @@ select is(
   (select picked_side from picks
    where user_id = 'a1000000-0000-0000-0000-000000000000' and game_id = '71000000-0000-0000-0000-000000000001'),
   'home', 'the commissioner''s own locked pick is untouched');
+
+-- ---------- week 2: closed with no finals, C texted their picks in late ----------
+insert into slates (id, pool_id, week, window_start, window_end, status, published_at) values
+  ('61000000-0000-0000-0000-000000000002', '51000000-0000-0000-0000-000000000000', 2,
+   now() - interval '1 day', now() + interval '6 days', 'locked', now() - interval '1 day');
+insert into slate_games (slate_id, game_id) values
+  ('61000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000003'),
+  ('61000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000004');
+select grade_slate('61000000-0000-0000-0000-000000000002');
+select is(
+  (select missed from slate_scores
+   where slate_id = '61000000-0000-0000-0000-000000000002' and user_id = 'c1000000-0000-0000-0000-000000000000'),
+  true, 'a player with no picks on a closed week is marked missed');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-0000-0000-000000000000","role":"authenticated"}', true);
+select lives_ok(
+  $$select submit_picks('61000000-0000-0000-0000-000000000002',
+    '[{"game_id":"71000000-0000-0000-0000-000000000003","picked_side":"home"}]',
+    'c1000000-0000-0000-0000-000000000000')$$,
+  'commissioner can enter late picks on a closed week with no finals');
+reset role;
+select is(
+  (select missed from slate_scores
+   where slate_id = '61000000-0000-0000-0000-000000000002' and user_id = 'c1000000-0000-0000-0000-000000000000'),
+  false, 'late picks entered by the commissioner clear the missed week');
 
 select * from finish();
 rollback;

@@ -19,7 +19,7 @@ alter table picks add column edited_at timestamptz;
 --   * add, change or drop picks on locked, started or final games.
 -- Shape, slate membership, pick count and confidence tiers are still enforced, and a
 -- voided game still can't take a new or changed pick. Changed rows get edited_by/at,
--- the audit log keeps the before and after, and a slate with results is regraded.
+-- the audit log keeps the before and after, and any change regrades the slate.
 create or replace function submit_picks(p_slate_id uuid, p_picks jsonb, p_user_id uuid default null)
 returns void
 language plpgsql security definer set search_path = public as $$
@@ -52,6 +52,10 @@ begin
     if not exists (select 1 from pool_members where pool_id = v_slate.pool_id and user_id = v_user) then
       raise exception 'That player is not in this pool';
     end if;
+    -- An on-behalf save regrades the slate below, and grade_slate (like the poller's
+    -- grade_game) locks the slate row before touching picks. Take it first here too, so
+    -- both paths lock in the same order and can't deadlock.
+    select * into v_slate from slates where id = p_slate_id for update;
   end if;
 
   if v_on_behalf then
@@ -225,14 +229,11 @@ begin
             jsonb_build_object('slate_id', p_slate_id, 'user_id', v_user, 'picks', p_picks,
                                'before', v_before, 'after', v_after));
 
-    -- A changed pick on a decided game (or one that moves an upset split) changes
-    -- results, points and standings. grade_slate recomputes all of it from scratch, and
-    -- a pick on an undecided game goes back to ungraded.
-    if v_before is distinct from v_after and exists (
-      select 1 from slate_games sg join games g on g.id = sg.game_id
-      where sg.slate_id = p_slate_id
-        and (sg.voided or sg.override_home_score is not null or g.status in ('final', 'cancelled'))
-    ) then
+    -- A changed pick can change results, points, the upset split, standings, and whether
+    -- the week counts as missed (a closed slate with no finals yet still scores that).
+    -- grade_slate recomputes all of it from scratch and is idempotent, and a pick on an
+    -- undecided game goes back to ungraded.
+    if v_before is distinct from v_after then
       perform grade_slate(p_slate_id);
     end if;
   end if;
