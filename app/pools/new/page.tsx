@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/AppHeader";
 import { PageTitle } from "@/components/ui";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { NewPoolForm } from "./NewPoolForm";
 
 export const metadata: Metadata = { title: "New pool" };
 
 export default async function NewPoolPage() {
   await requireUser("/pools/new");
+  const supabase = await createClient();
+  const { data: canCreate } = await supabase.rpc("can_create_pools");
+  if (!canCreate) redirect("/pools");
   const now = new Date();
   // College seasons straddle New Year: Jan–Jul belongs to last year's season.
   const defaultSeason = now.getMonth() < 7 ? now.getFullYear() - 1 : now.getFullYear();

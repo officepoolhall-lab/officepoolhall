@@ -10,11 +10,15 @@ export const metadata: Metadata = { title: "My pools" };
 export default async function PoolsPage() {
   const user = await requireUser("/pools");
   const supabase = await createClient();
-  const { data: memberships } = await supabase
-    .from("pool_members")
-    .select("role, paid, pool:pools!inner ( name, slug, sport, season, entry_fee )")
-    .eq("user_id", user.id)
-    .order("joined_at", { ascending: false });
+  const [{ data: memberships }, { data: canCreate }] = await Promise.all([
+    supabase
+      .from("pool_members")
+      .select("role, paid, pool:pools!inner ( name, slug, sport, season, entry_fee )")
+      .eq("user_id", user.id)
+      .order("joined_at", { ascending: false }),
+    // Only approved commissioners can start pools (enforced in create_pool too).
+    supabase.rpc("can_create_pools"),
+  ]);
 
   return (
     <>
@@ -43,11 +47,15 @@ export default async function PoolsPage() {
             ))}
           </ul>
         ) : (
-          <Empty>You&apos;re not in any pools yet. Ask your commissioner for an invite link, or start one.</Empty>
+          <Empty>
+            You&apos;re not in any pools yet. Ask your commissioner for an invite link{canCreate ? ", or start one" : ""}.
+          </Empty>
         )}
-        <LinkButton href="/pools/new" kind="secondary" className="mt-6 w-full">
-          Start a new pool
-        </LinkButton>
+        {canCreate && (
+          <LinkButton href="/pools/new" kind="secondary" className="mt-6 w-full">
+            Start a new pool
+          </LinkButton>
+        )}
       </main>
     </>
   );
