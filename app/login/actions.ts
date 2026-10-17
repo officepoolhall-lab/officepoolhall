@@ -15,7 +15,8 @@ export async function sendLink(_: LoginState, form: FormData): Promise<LoginStat
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${appUrl}${next}`, shouldCreateUser: true },
+    // Default Supabase emails land on /auth/callback (?code=); our templates use /auth/confirm.
+    options: { emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`, shouldCreateUser: true },
   });
   if (error) return { error: error.message };
   return { sentTo: email, next };
