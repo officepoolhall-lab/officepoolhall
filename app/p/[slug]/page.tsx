@@ -5,13 +5,21 @@ import { ChevronIcon, Empty, LinkButton, PageTitle, SectionLabel, StatusText } f
 import { windowLabel } from "@/lib/format";
 import { isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
+import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { getStandings } from "@/lib/standings";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   const slate = await getCurrentSlate(ctx);
-  const season = await getStandings(ctx);
+  // The current segment is the one holding the current week; none before a week is published.
+  const segment = slate ? segmentForWeek(ctx.settings, slate.week) : null;
+  const segmentIndex = segment ? segmentRanges(ctx.settings).findIndex((r) => r.first_week === segment.first_week) + 1 : 0;
+  const [season, segmentRows] = await Promise.all([
+    getStandings(ctx),
+    segment ? getStandings(ctx, { fromWeek: segment.first_week, toWeek: segment.last_week }) : null,
+  ]);
+  const flat = !ctx.settings.confidence;
 
   let summary = null;
   if (slate) {
@@ -88,8 +96,22 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
             All <ChevronIcon className="size-4" />
           </Link>
         </div>
-        <StandingsTable rows={season} me={ctx.user.id} limit={5} />
+        <StandingsTable rows={season} me={ctx.user.id} limit={5} flat={flat} />
       </section>
+
+      {segment && segmentRows && (
+        <section>
+          <div className="flex items-center justify-between">
+            <SectionLabel>
+              {segment.name} <span className="font-normal normal-case tracking-normal">· {segmentWeeksLabel(segment)}</span>
+            </SectionLabel>
+            <Link href={`/p/${slug}/standings?segment=${segmentIndex}`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
+              All <ChevronIcon className="size-4" />
+            </Link>
+          </div>
+          <StandingsTable rows={segmentRows} me={ctx.user.id} limit={5} flat={flat} />
+        </section>
+      )}
     </div>
   );
 }

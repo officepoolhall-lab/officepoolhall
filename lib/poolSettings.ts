@@ -17,6 +17,11 @@ const upsetTier = z.object({
   bonus: z.number().positive().max(100),
 });
 
+const segment = z.object({
+  name: z.string().trim().min(1, "Segment needs a name"),
+  first_week: z.number().int().min(1),
+});
+
 export const poolSettingsSchema = z
   .object({
     pick_type: z.enum(["straight_up", "ats"]),
@@ -62,6 +67,10 @@ export const poolSettingsSchema = z
       force_half_point: z.boolean(),
     }),
     visibility: z.object({ show_picks_after: z.enum(["game_start", "lock"]) }),
+    // The season split into segments with their own standings (Supercontest: weeks 1–5, 6–10,
+    // 11–end). Each runs from its first_week to the week before the next one's; the last is open-ended.
+    // null = no segments. Not locked after open: commissioners may move the boundaries.
+    segments: z.array(segment).min(1).nullable().default(null),
   })
   .superRefine((s, ctx) => {
     if (s.confidence) {
@@ -96,6 +105,12 @@ export const poolSettingsSchema = z
           path: ["upset_bonus", "tiers"],
           message: "Upset bonus tiers need increasing shares",
         });
+      }
+    }
+    if (s.segments) {
+      const weeks = s.segments.map((x) => x.first_week);
+      if (weeks.some((w, i) => i > 0 && w <= weeks[i - 1])) {
+        ctx.addIssue({ code: "custom", path: ["segments"], message: "Segments need increasing start weeks" });
       }
     }
   });
@@ -145,6 +160,7 @@ export const PRESETS = {
       scoring: { win: 1, push: 0, loss: 0 },
       upset_bonus: { tiers: POOL_A_UPSET_TIERS },
       missed_week: "last_place",
+      segments: null,
       // Brooks: every pick is due Wednesday at noon Central; games before then lock at tip-off.
       // (first_day_time can add an earlier deadline for the week's first day if that changes.)
       lock: { mode: "weekly", weekly: { weekday: 3, time: "12:00" } },
@@ -168,6 +184,7 @@ export const PRESETS = {
       scoring: { win: 1, push: 0.5, loss: 0 },
       upset_bonus: null,
       missed_week: "zero",
+      segments: null,
       lock: { mode: "per_game" },
       timezone: "America/Chicago",
       window: { start_weekday: 1, length_days: 7 },
@@ -189,6 +206,43 @@ export function settingsError(input: unknown): string | null {
   if (r.success) return null;
   const issue = r.error.issues[0];
   return issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message;
+}
+
+export type SegmentRange = { name: string; first_week: number; last_week: number | null };
+
+/**
+ * Each segment with the week range it covers. last_week is null for the final, open-ended segment,
+ * unless maxWeek is given (e.g. the latest published week), which caps it.
+ */
+export function segmentRanges(settings: Pick<PoolSettings, "segments">, maxWeek?: number): SegmentRange[] {
+  const segs = settings.segments ?? [];
+  return segs.map((seg, i) => {
+    const next = segs[i + 1];
+    const last = next ? next.first_week - 1 : maxWeek !== undefined ? Math.max(maxWeek, seg.first_week) : null;
+    return { name: seg.name, first_week: seg.first_week, last_week: last };
+  });
+}
+
+/** The segment a week falls in, or null (no segments, or a week before the first one starts). */
+export function segmentForWeek(settings: Pick<PoolSettings, "segments">, week: number): SegmentRange | null {
+  return segmentRanges(settings).find((r) => week >= r.first_week && (r.last_week === null || week <= r.last_week)) ?? null;
+}
+
+/** "Wks 1–5", "Wk 11", "Wks 11+" */
+export function segmentWeeksLabel(r: SegmentRange) {
+  if (r.last_week === null) return `Wks ${r.first_week}+`;
+  return r.last_week === r.first_week ? `Wk ${r.first_week}` : `Wks ${r.first_week}–${r.last_week}`;
+}
+
+/** "1, 6, 11" → Segment 1 from week 1, Segment 2 from week 6, … ; blank → no segments. */
+export function parseSegmentWeeks(text: string): { segments: PoolSettings["segments"]; error: string | null } {
+  const parts = text.split(/[\s,]+/).filter(Boolean);
+  if (!parts.length) return { segments: null, error: null };
+  const weeks = parts.map(Number);
+  const segments = weeks.map((first_week, i) => ({ name: `Segment ${i + 1}`, first_week }));
+  if (weeks.some((w) => !Number.isInteger(w) || w < 1)) return { segments, error: "Use whole week numbers, like 1, 6, 11" };
+  if (weeks.some((w, i) => i > 0 && w <= weeks[i - 1])) return { segments, error: "List start weeks in increasing order" };
+  return { segments, error: null };
 }
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PRESETS, evenTiers, type PoolSettings } from "@/lib/poolSettings";
+import { PRESETS, evenTiers, parseSegmentWeeks, type PoolSettings } from "@/lib/poolSettings";
 import { Field, SectionLabel, inputClass } from "./ui";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -23,6 +23,8 @@ const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
  */
 export function SettingsFields({ initial, lockedCore = false }: { initial: PoolSettings; lockedCore?: boolean }) {
   const [s, setS] = useState<PoolSettings>(initial);
+  const [segmentText, setSegmentText] = useState(() => (initial.segments ?? []).map((x) => x.first_week).join(", "));
+  const segmentError = parseSegmentWeeks(segmentText).error;
   const set = (patch: Partial<PoolSettings>) => setS((prev) => ({ ...prev, ...patch }));
   const tierTotal = s.confidence?.tiers.reduce((n, t) => n + t.count, 0) ?? 0;
   const value: PoolSettings = { ...s, visibility: { show_picks_after: s.lock.mode === "weekly" ? "lock" : "game_start" } };
@@ -208,6 +210,38 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
           >
             {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
           </select>
+        </Field>
+        <Field
+          label="Segments start at weeks"
+          hint={
+            segmentError ? (
+              <span className="text-loss">{segmentError}</span>
+            ) : s.segments ? (
+              <>
+                {s.segments.length} segment{s.segments.length === 1 ? "" : "s"} with their own standings.{" "}
+                <button
+                  type="button" className="font-medium text-accent"
+                  onClick={() => {
+                    setSegmentText("");
+                    set({ segments: null });
+                  }}
+                >
+                  Clear
+                </button>
+              </>
+            ) : (
+              "Optional. Split the season, like 1, 6, 11, for separate standings."
+            )
+          }
+        >
+          <input
+            type="text" inputMode="numeric" placeholder="1, 6, 11" className={`${field} tabular-nums`} value={segmentText}
+            onChange={(e) => {
+              setSegmentText(e.target.value);
+              // Invalid entries still serialize, so the server's validation message backs up the hint.
+              set({ segments: parseSegmentWeeks(e.target.value).segments });
+            }}
+          />
         </Field>
       </div>
 

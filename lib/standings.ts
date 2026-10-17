@@ -15,13 +15,24 @@ export type StandingRow = {
   rank: number;
 };
 
-/** Season (all published weeks) or one week. Ties share a rank (TODO(brooks): weekly tiebreaker? none in MVP). */
-export async function getStandings(ctx: PoolContext, slateId?: string): Promise<StandingRow[]> {
+/**
+ * Which published weeks to total: one slate by id, or a week range (a segment; toWeek null =
+ * open-ended). Omitted = the whole season.
+ */
+export type StandingsScope = string | { fromWeek: number; toWeek: number | null };
+
+/** Season (all published weeks), one week, or a segment. Ties share a rank (TODO(brooks): weekly tiebreaker? none in MVP). */
+export async function getStandings(ctx: PoolContext, scope?: StandingsScope): Promise<StandingRow[]> {
   const [{ data: members }, { data: slates }] = await Promise.all([
     ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
-    ctx.supabase.from("slates").select("id").eq("pool_id", ctx.pool.id).neq("status", "draft"),
+    ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).neq("status", "draft"),
   ]);
-  const slateIds = slateId ? [slateId] : (slates ?? []).map((s) => s.id);
+  const slateIds =
+    typeof scope === "string"
+      ? [scope]
+      : (slates ?? [])
+          .filter((s) => !scope || (s.week >= scope.fromWeek && (scope.toWeek === null || s.week <= scope.toWeek)))
+          .map((s) => s.id);
   const { data: scores } = slateIds.length
     ? await ctx.supabase.from("slate_scores").select("*").in("slate_id", slateIds)
     : { data: [] };
