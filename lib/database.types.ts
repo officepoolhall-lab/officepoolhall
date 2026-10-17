@@ -71,14 +71,14 @@ isOneToOne: false
                   ]
                 },"games": {
                   Row: {
-                    "away_rank": number | null,"away_score": number | null,"away_team_id": string,"espn_id": string | null,"home_rank": number | null,"home_score": number | null,"home_team_id": string,"id": string,"neutral_site": boolean,"odds_api_id": string | null,"season": number,"sport": string,"start_at": string,"status": string,"tv_network": string | null,"updated_at": string
+                    "away_rank": number | null,"away_score": number | null,"away_team_id": string,"espn_id": string | null,"home_rank": number | null,"home_score": number | null,"home_team_id": string,"id": string,"neutral_site": boolean,"odds_api_id": string | null,"season": number,"sport": string,"start_at": string,"status": string,"time_tbd": boolean,"tv_network": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id": string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id": string,"id"?: string,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season": number,"sport": string,"start_at": string,"status"?: string,"tv_network"?: string | null,"updated_at"?: string
+                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id": string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id": string,"id"?: string,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season": number,"sport": string,"start_at": string,"status"?: string,"time_tbd"?: boolean,"tv_network"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id"?: string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id"?: string,"id"?: string,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season"?: number,"sport"?: string,"start_at"?: string,"status"?: string,"tv_network"?: string | null,"updated_at"?: string
+                    "away_rank"?: number | null,"away_score"?: number | null,"away_team_id"?: string,"espn_id"?: string | null,"home_rank"?: number | null,"home_score"?: number | null,"home_team_id"?: string,"id"?: string,"neutral_site"?: boolean,"odds_api_id"?: string | null,"season"?: number,"sport"?: string,"start_at"?: string,"status"?: string,"time_tbd"?: boolean,"tv_network"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -343,11 +343,22 @@ isOneToOne: false
 "game_label":
 { Args: { "p_game_id": string }; Returns: string
                            },
+"games_to_poll":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "game_id": string,"sport": string,"start_at": string
+            }[]
+                           },
 "grade_game":
 { Args: { "p_game_id": string }; Returns: undefined
                            },
 "grade_slate":
 { Args: { "p_slate_id": string }; Returns: undefined
+                           },
+"ingest_espn":
+{ Args: { "p_games": Json,"p_sport": string,"p_teams": Json }; Returns: string[]
+                           },
+"invoke_edge_function":
+{ Args: { "p_body"?: Json,"p_name": string }; Returns: undefined
                            },
 "is_commissioner":
 { Args: { "p": string }; Returns: boolean
@@ -357,6 +368,11 @@ isOneToOne: false
                            },
 "join_pool":
 { Args: { "p_token": string }; Returns: string
+                           },
+"line_sync_targets":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "bookmaker": string,"sport": string
+            }[]
                            },
 "member_picks":
 { Args: { "p_slate_id": string,"p_user_id": string }; Returns: {
@@ -378,6 +394,9 @@ isOneToOne: false
       } },
 "publish_slate":
 { Args: { "p_slate_id": string }; Returns: undefined
+                           },
+"resolve_team_match":
+{ Args: { "p_queue_id": number,"p_team_id": string }; Returns: undefined
                            },
 "set_result_override":
 { Args: { "p_away_score": number,"p_game_id": string,"p_home_score": number,"p_slate_id": string }; Returns: undefined
