@@ -34,9 +34,13 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
                 {t.label}
                 {active && <span className="absolute bottom-2 size-1 rounded-full bg-accent" aria-hidden />}
               </Link>
-              <Link href={t.href} aria-current={active ? "page" : undefined} className={chipClass(active, "hidden sm:inline-flex")}>
-                {t.label}
-              </Link>
+              {/* Wider screens: pill. The wrapper does the hiding — chipClass sets its own
+                  display (inline-flex), which would override a "hidden" on the link itself. */}
+              <span className="hidden sm:block">
+                <Link href={t.href} aria-current={active ? "page" : undefined} className={chipClass(active)}>
+                  {t.label}
+                </Link>
+              </span>
             </li>
           );
         })}
