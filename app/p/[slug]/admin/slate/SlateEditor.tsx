@@ -256,7 +256,7 @@ export function SlateEditor({
           })}
         </ul>
         {selected.size > 0 && (
-          <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-line bg-bg/90 backdrop-blur sm:bottom-0 sm:pb-[env(safe-area-inset-bottom)]">
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
             <div className="mx-auto max-w-3xl py-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
               {/* The error gets its own line so a long one can't squeeze the buttons. */}
               {addResult?.error && <p className="mb-1.5 text-sm text-loss" role="alert">{addResult.error}</p>}

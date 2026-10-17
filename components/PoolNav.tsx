@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { chipClass } from "./ui";
 
-/** Bottom tab bar on phones, pill tabs under the header on wider screens. */
+/** Tabs under the header: a sticky underlined row on phones, pills on wider screens. */
 export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommissioner: boolean; week?: number }) {
   const pathname = usePathname();
   const base = `/p/${slug}`;
@@ -17,22 +17,22 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:pb-0 sm:backdrop-blur-none">
+    <nav className="sticky top-[calc(3rem+1px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
       <ul className="mx-auto flex max-w-3xl pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:gap-1.5 sm:px-4 sm:pt-3">
         {tabs.map((t) => {
           const active = t.match(pathname);
           return (
             <li key={t.label} className="flex-1 sm:flex-none">
-              {/* Phone: plain tab with a small accent dot under the active one. */}
+              {/* Phone: plain tab with an accent underline on the active one. */}
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-14 flex-col items-center justify-center text-xs font-medium sm:hidden ${
+                className={`relative flex h-11 items-center justify-center text-sm font-medium sm:hidden ${
                   active ? "text-ink" : "text-muted hover:text-ink"
                 }`}
               >
                 {t.label}
-                {active && <span className="absolute bottom-2 size-1 rounded-full bg-accent" aria-hidden />}
+                {active && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden />}
               </Link>
               {/* Wider screens: pill. The wrapper does the hiding — chipClass sets its own
                   display (inline-flex), which would override a "hidden" on the link itself. */}

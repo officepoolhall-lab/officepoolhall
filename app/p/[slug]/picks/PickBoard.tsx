@@ -221,7 +221,7 @@ export function PickBoard({
 
       {days.map((day) => (
         <section key={day.key} className="mb-2">
-          <SectionLabel className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-10 -mx-4 bg-bg/90 px-4 py-2 backdrop-blur">{day.label}</SectionLabel>
+          <SectionLabel className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] z-10 -mx-4 bg-bg/90 px-4 py-2 backdrop-blur">{day.label}</SectionLabel>
           <ul>
             {day.games.map((g) => (
               <GameRow
@@ -261,8 +261,8 @@ export function PickBoard({
       {/* The tracker grows by a line when a message shows; keep the last row clear of it. */}
       {(notice || save.state === "error") && <div aria-hidden className="h-12" />}
 
-      {/* Bet-slip style tracker, above the phone tab bar */}
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-line bg-bg/90 backdrop-blur sm:bottom-0 sm:pb-[env(safe-area-inset-bottom)]">
+      {/* Bet-slip style tracker */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="mx-auto max-w-3xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
           {(notice || save.state === "error") && (
             <p className="mb-1.5 text-sm text-loss" role="alert">{save.state === "error" ? save.message : notice}</p>
