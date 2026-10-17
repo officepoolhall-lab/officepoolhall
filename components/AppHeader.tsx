@@ -4,15 +4,15 @@ import { Wordmark } from "./ui";
 
 export function AppHeader({ children }: { children?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-30 bg-felt text-white shadow-sm pt-[env(safe-area-inset-top)]">
+    <header className="sticky top-0 z-30 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex h-12 max-w-3xl items-center gap-3 px-4">
-        <Link href="/pools" className="truncate text-lg">
-          <Wordmark />
+        <Link href="/pools" className="flex h-11 min-w-0 items-center truncate text-ink">
+          <Wordmark className="text-[15px]" />
         </Link>
-        <div className="ml-auto flex items-center gap-3 text-sm">
+        <div className="ml-auto flex items-center gap-4 text-sm text-muted">
           {children}
           <form action="/auth/signout" method="post">
-            <button className="text-white/70 hover:text-white">Sign out</button>
+            <button className="h-11 hover:text-ink">Sign out</button>
           </form>
         </div>
       </div>

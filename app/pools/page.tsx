@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
-import { Card, Empty, LinkButton, PageTitle } from "@/components/ui";
+import { ChevronIcon, Empty, LinkButton, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,24 +22,22 @@ export default async function PoolsPage() {
       <main className="mx-auto w-full max-w-3xl px-4 py-6">
         <PageTitle sub={user.email}>My pools</PageTitle>
         {memberships?.length ? (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-line border-y border-line">
             {memberships.map((m) => (
               <li key={m.pool.slug}>
-                <Link href={`/p/${m.pool.slug}`}>
-                  <Card className="flex items-center gap-4 p-4 transition hover:border-felt">
-                    <span className="grid size-11 place-items-center rounded-full bg-felt font-display text-sm font-bold uppercase text-brass">
-                      {m.pool.sport === "ncaab" ? "CBB" : "CFB"}
+                <Link href={`/p/${m.pool.slug}`} className="flex min-h-16 items-center gap-3 py-3 transition hover:opacity-80">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-xs font-medium text-muted">
+                    {m.pool.sport === "ncaab" ? "CBB" : "CFB"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">{m.pool.name}</span>
+                    <span className="block text-sm text-muted tabular-nums">
+                      {m.pool.season}–{String(m.pool.season + 1).slice(2)}
+                      {m.role === "commissioner" && " · Commissioner"}
+                      {!m.paid && Number(m.pool.entry_fee) > 0 && " · Unpaid"}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{m.pool.name}</span>
-                      <span className="text-sm text-muted">
-                        {m.pool.season}–{String(m.pool.season + 1).slice(2)}
-                        {m.role === "commissioner" && " · Commissioner"}
-                        {!m.paid && Number(m.pool.entry_fee) > 0 && " · Unpaid"}
-                      </span>
-                    </span>
-                    <span className="text-muted">›</span>
-                  </Card>
+                  </span>
+                  <ChevronIcon className="size-4 text-faint" />
                 </Link>
               </li>
             ))}
@@ -47,7 +45,7 @@ export default async function PoolsPage() {
         ) : (
           <Empty>You&apos;re not in any pools yet. Ask your commissioner for an invite link, or start one.</Empty>
         )}
-        <LinkButton href="/pools/new" kind="ghost" className="mt-6 w-full">
+        <LinkButton href="/pools/new" kind="secondary" className="mt-6 w-full">
           Start a new pool
         </LinkButton>
       </main>

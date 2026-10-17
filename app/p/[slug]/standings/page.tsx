@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { StandingsTable } from "@/components/StandingsTable";
-import { Empty, PageTitle } from "@/components/ui";
+import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { getPoolContext } from "@/lib/pool";
 import { getStandings } from "@/lib/standings";
 
@@ -23,22 +23,23 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const rows = await getStandings(ctx, slate?.id);
 
   const tab = (active: boolean) =>
-    `min-h-9 flex-1 rounded-md px-3 py-1.5 text-center font-display text-sm font-semibold uppercase ${active ? "bg-surface shadow-sm" : "text-muted"}`;
+    `flex h-11 flex-1 items-center justify-center rounded-full text-sm font-medium transition ${active ? "bg-ink text-bg" : "text-muted hover:text-ink"}`;
 
   return (
     <>
       <PageTitle>Standings</PageTitle>
-      <div className="mb-3 flex rounded-lg bg-raised p-1">
-        <Link href={`/p/${slug}/standings`} className={tab(!slate)}>Season</Link>
-        <Link href={`/p/${slug}/standings?week=${slates?.[0]?.week ?? 1}`} className={tab(Boolean(slate))}>Weekly</Link>
+      <div className="mb-4 flex rounded-full bg-surface p-0.5">
+        <Link href={`/p/${slug}/standings`} aria-current={!slate ? "page" : undefined} className={tab(!slate)}>Season</Link>
+        <Link href={`/p/${slug}/standings?week=${slates?.[0]?.week ?? 1}`} aria-current={slate ? "page" : undefined} className={tab(Boolean(slate))}>Weekly</Link>
       </div>
       {slate && (
-        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+        <div className="-mx-4 mb-2 flex gap-1.5 overflow-x-auto px-4 pb-1">
           {slates?.map((s) => (
             <Link
               key={s.id}
               href={`/p/${slug}/standings?week=${s.week}`}
-              className={`shrink-0 rounded-full border px-3 py-1 text-sm ${s.id === slate.id ? "border-felt bg-felt text-white" : "border-border"}`}
+              aria-current={s.id === slate.id ? "page" : undefined}
+              className={chipClass(s.id === slate.id, "min-h-11")}
             >
               {s.label ?? `Week ${s.week}`}
             </Link>

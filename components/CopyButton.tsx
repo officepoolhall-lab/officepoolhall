@@ -4,18 +4,23 @@ import { useState } from "react";
 import { buttonClass } from "./ui";
 
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   return (
     <button
       type="button"
-      className={buttonClass("brass")}
+      className={buttonClass("primary")}
       onClick={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        // writeText rejects outside HTTPS or without clipboard permission.
+        try {
+          await navigator.clipboard.writeText(text);
+          setState("copied");
+        } catch {
+          setState("failed");
+        }
+        setTimeout(() => setState("idle"), 2000);
       }}
     >
-      {copied ? "Copied ✓" : label}
+      <span aria-live="polite">{state === "copied" ? "Copied ✓" : state === "failed" ? "Copy failed" : label}</span>
     </button>
   );
 }

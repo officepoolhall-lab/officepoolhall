@@ -8,7 +8,7 @@ import { buttonClass } from "./ui";
 export function ActionButton({
   action,
   children,
-  kind = "ghost",
+  kind = "secondary",
   className = "",
   pendingLabel = "Working…",
 }: {

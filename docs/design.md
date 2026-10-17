@@ -1,43 +1,57 @@
-# Design direction
+# Design system
 
-From a survey of sportsbook, DFS pick'em, and prediction-market UIs (FanDuel's Formation
-design system, Polymarket/Kalshi, ESPN Tournament Challenge, Yahoo/Splash pick'em, Underdog).
-Goal: borrow their clarity, skip the casino feel.
+**Reference:** a prediction-market game list (black background, team rows, rounded gray
+"cells" with a white value and an accent sub-value, gray column headers, orange live status).
+Clean and minimal: no cards around games, no borders, no colored headers, one font, one accent.
 
-**Feel:** billiard felt + brass on warm paper. A friends' club, not a sportsbook.
+Earlier research (sportsbooks, DFS pick'em, ESPN/Yahoo pick'em) still applies for behavior:
+tabular numbers, the team line as the tap target, never color alone for selection, a
+bet-slip-style bottom tracker, per-game lock states, no casino tells.
 
-| Token | Light | Dark |
-|---|---|---|
-| bg | #F7F5EF | #0F1513 |
-| surface | #FFFFFF | #17201C |
-| raised | #F0EDE4 | #1F2A25 |
-| ink | #1B1F1D | #ECEFEA |
-| muted | #6B706C | #9AA59F |
-| border | #E3DFD4 | #2A3631 |
-| felt (brand chrome only) | #1E5B45 | #3FA37C |
-| brass (selection) | #F2B53A | #F2B53A |
-| win | #15803D | #22C55E |
-| loss | #B91C1C | #F87171 |
-| live | #EA580C | #FB923C |
+## Tokens (`app/globals.css`)
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `bg` | #ffffff | #000000 | page |
+| `surface` | #f2f2f5 | #1c1c1e | cells, inputs, panels |
+| `hover` | #e8e8ed | #2a2a2d | cell hover / pressed |
+| `ink` | #0a0a0a | #f5f5f7 | primary text, values |
+| `muted` | #6e6e73 | #8e8e93 | secondary text, column headers, records |
+| `faint` | #aeaeb2 | #48484a | disabled, spent, placeholders |
+| `line` | #e5e5ea | #1f1f22 | hairline separators |
+| `accent` | #0066d6 | #3b9eff | the one accent: sub-values, selection, links |
+| `live` | #c2410c | #ff7a1a | live status only |
+| `win` | #15803d | #3dd68c | graded win |
+| `loss` | #c8262c | #ff6369 | graded loss / destructive |
 
-Selection is brass, never green, so "my pick" never reads as "won".
+Font: **Inter** only (`font-sans`), `tabular-nums` on every number.
 
-**Type:** Barlow Condensed (team names, labels, chips, big numbers), Inter (body),
-Alfa Slab One (wordmark only).
+## Layout rules
+1. **No cards around list content.** Lists are rows on the page background separated by
+   `border-b border-line` hairlines (`divide-y divide-line`). Panels (`bg-surface rounded-2xl`)
+   only for forms and small summaries.
+2. **Cells** (`<Cell>` in `components/ui.tsx`) are the only filled interactive elements in a row:
+   `rounded-[10px] bg-surface`, value in `text-ink` (15–16px, medium), optional sub-value in
+   `text-accent` (15px, semibold). Selected: `bg-accent/15 ring-1 ring-accent` + the value in accent.
+   Disabled/locked: `text-faint`, no hover.
+3. **Team row:** 28–32px logo · name (`font-semibold`, 15–16px) with a muted second line
+   (record / rank / conference) · score right-aligned (`font-semibold tabular-nums`) · cells.
+4. **Column headers** above cell columns: `text-xs text-muted`, centered over the cells, shown
+   once per game block (like "Spread · Total · Winner").
+5. **Status line** above each game: `text-xs font-semibold`. Live = `text-live` with a small dot;
+   upcoming = `text-muted` time · TV; final = `text-muted "Final"`. Lock icon in `text-faint`.
+6. **Footer line** below a game, optional: `text-xs text-muted`, left meta (conference), right
+   action/meta ("locks in 2h", "›").
+7. **Page titles:** `text-2xl font-semibold tracking-tight`, sentence case. Section labels:
+   `text-xs font-medium uppercase tracking-wide text-muted`. No other uppercase.
+8. **Buttons:** primary = `bg-ink text-bg` (white-on-black in dark), secondary = `bg-surface`,
+   destructive = `bg-surface text-loss`. `rounded-full`, `h-11`, `font-semibold`, sentence case.
+9. **Segmented controls / chips:** `bg-surface rounded-full`, active = `bg-ink text-bg`.
+10. **Tracker bar** (bottom, fixed): `bg-bg/90 backdrop-blur border-t border-line`, plain text
+    counts — no colored pills. Accent only for the "active"/remaining emphasis.
+11. Win/loss shown as small `text-win`/`text-loss` text or a 2px left edge — never full-row fills.
+12. Header: `bg-bg border-b border-line`, wordmark in `font-semibold text-ink`. No brand color bars.
+13. Spacing: rows `py-3`, page gutter `px-4`, max width `max-w-3xl`. Touch targets ≥ 44px.
 
-## Rules
-1. `tabular-nums` on every score, spread, countdown, rank, and total. Spreads always signed with a true minus (−3.5, +3.5); 0 is "PK".
-2. The team line *is* the button: two stacked lines per game (away over home), ≥44px tall each.
-3. Selected side: brass fill + check icon — never color alone.
-4. Confidence chips are round, condensed numerals; spent tiers are greyed out.
-5. A sticky bottom tracker (bet-slip style) shows tier pills ("5s · 3 left") and "18/35 picked".
-6. Locked games: controls dimmed + lock icon; your own pick stays full strength. Countdown under 3h, orange under 15m.
-7. Autosave each change with an inline "Saved" state; toast only on errors. No confirm modals for picks.
-8. Grid: sticky name column + sticky header, 44px cells, win/loss tints, your row highlighted.
-9. Standings: rank, name, points (tabular). Your row highlighted. Weekly/Season segmented control.
-10. Hairline-divided rows grouped under sticky date headers; cards only for featured content.
-11. ATS: show the frozen spread on both team lines plus "Line frozen at publish".
-12. Commissioner editor: filter chips (conference, ranked, TV), checkbox list, sticky action bar.
-
-**Avoid:** neon-on-black, gold gradients, glowing CTAs, confetti, "+150" moneylines,
-"bet/wager/odds" copy, $ symbols outside entry fees.
+## Avoid
+Card borders, colored header bars, uppercase display type, multiple accent colors, gradients,
+glows, pills with fills for counts, "bet/wager/odds" copy, moneyline prices.

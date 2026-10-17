@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, LockIcon, TeamLogo } from "@/components/ui";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Cell, CheckIcon, LiveDot, LockIcon, SectionLabel, TeamLogo } from "@/components/ui";
 import { dayKey, dayLabel, formatDuration, formatSpread, timeOnly } from "@/lib/format";
 import type { SlateGame } from "@/lib/pool";
 import { savePicks, type PickInput } from "./actions";
+import { PointsSheet } from "./PointsSheet";
 
 type Side = "home" | "away";
 type Draft = { side: Side | null; confidence: number | null };
@@ -37,6 +38,7 @@ export function PickBoard({
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
   const [notice, setNotice] = useState<string | null>(null);
+  const [sheetGameId, setSheetGameId] = useState<string | null>(null);
   const now = useNow(games, slate.lockAt);
 
   const isLocked = useCallback(
@@ -126,6 +128,8 @@ export function PickBoard({
     }
     setNotice(null);
     update(g.id, { ...cur, side });
+    // Side tap, value tap: go straight to the points sheet when this game still needs a value.
+    if (settings.tiers && cur.confidence === null) setSheetGameId(g.id);
   };
 
   const tapChip = (g: SlateGame, points: number) => {
@@ -139,6 +143,18 @@ export function PickBoard({
     setNotice(null);
     update(g.id, { ...cur, confidence: points });
   };
+
+  const clearPoints = (g: SlateGame) => {
+    if (isLocked(g) || g.voided) return;
+    const cur = picks[g.id];
+    if (cur && cur.confidence !== null) update(g.id, { ...cur, confidence: null });
+  };
+
+  const openSheet = (g: SlateGame) => {
+    if (isLocked(g) || g.voided) return;
+    setSheetGameId(g.id);
+  };
+  const closeSheet = useCallback(() => setSheetGameId(null), []);
 
   // Warn before leaving with an unsaved change.
   useEffect(() => {
@@ -159,22 +175,26 @@ export function PickBoard({
   }
 
   const urgent = msToNextLock !== null && msToNextLock > 0 && msToNextLock < 3_600_000 && openSlots > 0;
+  // The sheet closes itself if its game locks while it's open.
+  const sheetGame = sheetGameId ? gamesById.get(sheetGameId) : undefined;
+  const showSheet = settings.tiers && sheetGame && !isLocked(sheetGame) && !sheetGame.voided;
 
   return (
     <div>
-      <div className={`mb-3 rounded-lg px-3 py-2 text-sm ${urgent ? "bg-live/15 text-live" : "bg-raised"}`}>
+      {/* Urgency is plain ink weight: the live token is reserved for games in progress. */}
+      <p className={`mb-1 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
         {slate.status !== "open" ? (
           <span className="flex items-center gap-1.5"><LockIcon /> All picks for this week are locked.</span>
         ) : msToNextLock !== null && msToNextLock > 0 ? (
           <>
             {settings.lockMode === "weekly" ? "Picks lock" : "Next game locks"} in{" "}
-            <strong className="tabular-nums">{formatDuration(msToNextLock)}</strong>
+            <strong className={`font-semibold tabular-nums ${urgent ? "" : "text-ink"}`}>{formatDuration(msToNextLock)}</strong>
             {urgent && <> · {openSlots} pick{openSlots === 1 ? "" : "s"} still open</>}
           </>
         ) : (
           "Every game has started."
         )}
-      </div>
+      </p>
       <p className="mb-4 text-xs text-muted">
         {settings.pickType === "ats" ? `Lines: ${settings.bookmaker} · frozen at publish · ` : `Straight up · `}
         each game locks at {settings.lockMode === "weekly" ? "the weekly deadline" : "its start"}
@@ -182,11 +202,9 @@ export function PickBoard({
       </p>
 
       {days.map((day) => (
-        <section key={day.key} className="mb-4">
-          <h2 className="sticky top-12 z-10 -mx-4 bg-bg/95 px-4 py-1.5 font-display text-sm font-semibold uppercase tracking-wider text-muted backdrop-blur">
-            {day.label}
-          </h2>
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+        <section key={day.key} className="mb-2">
+          <SectionLabel className="sticky top-[calc(3rem+env(safe-area-inset-top))] z-10 -mx-4 bg-bg/90 px-4 py-2 backdrop-blur">{day.label}</SectionLabel>
+          <ul>
             {day.games.map((g) => (
               <GameRow
                 key={g.id}
@@ -195,48 +213,68 @@ export function PickBoard({
                 locked={isLocked(g)}
                 now={now}
                 settings={settings}
-                remaining={remaining}
                 onTeam={(side) => tapTeam(g, side)}
-                onChip={(p) => tapChip(g, p)}
+                onPoints={() => openSheet(g)}
               />
             ))}
           </ul>
         </section>
       ))}
 
+      {showSheet && (
+        <PointsSheet
+          key={sheetGame.id}
+          title={`Points · ${teamName(sheetGame.away)} ${sheetGame.neutral ? "vs" : "@"} ${teamName(sheetGame.home)}`}
+          tiers={settings.tiers!.map((t) => ({ points: t.points, left: Math.max(0, remaining(t.points)) }))}
+          current={picks[sheetGame.id]?.confidence ?? null}
+          onChoose={(p) => {
+            tapChip(sheetGame, p);
+            closeSheet();
+          }}
+          onClear={() => {
+            clearPoints(sheetGame);
+            closeSheet();
+          }}
+          onClose={closeSheet}
+        />
+      )}
+
+      {/* The tracker grows by a line when a message shows; keep the last row clear of it. */}
+      {(notice || save.state === "error") && <div aria-hidden className="h-12" />}
+
       {/* Bet-slip style tracker, above the phone tab bar */}
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-border bg-surface/95 backdrop-blur sm:bottom-0 sm:pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto max-w-3xl px-4 py-2">
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-line bg-bg/90 backdrop-blur sm:bottom-0 sm:pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto max-w-3xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
           {(notice || save.state === "error") && (
             <p className="mb-1.5 text-sm text-loss" role="alert">{save.state === "error" ? save.message : notice}</p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {settings.tiers ? (
-              <div className="flex flex-1 gap-1.5 overflow-x-auto">
+              <div className="flex min-w-0 flex-1 gap-x-4 overflow-x-auto text-sm">
                 {settings.tiers.map((t) => {
-                  const left = remaining(t.points);
+                  const left = Math.max(0, remaining(t.points));
                   return (
-                    <span
-                      key={t.points}
-                      className={`flex shrink-0 items-baseline gap-1 rounded-full px-2.5 py-1 font-display text-sm font-semibold ${left === 0 ? "bg-raised text-muted" : "bg-brass/20"}`}
-                    >
-                      <span className="text-base">{t.points}s</span>
-                      <span className="tabular-nums text-muted">{left === 0 ? "done" : `${left} left`}</span>
+                    <span key={t.points} className="shrink-0 tabular-nums" aria-label={`${left} ${t.points}-point picks left`}>
+                      <span className="text-muted">{t.points}s</span>{" "}
+                      <span className={`font-semibold ${left === 0 ? "text-muted line-through" : "text-ink"}`}>{left}</span>
                     </span>
                   );
                 })}
               </div>
             ) : (
-              <div className="flex flex-1 gap-1.5">
-                {Array.from({ length: settings.picksPerSlate }, (_, i) => (
-                  <span key={i} className={`h-2 flex-1 rounded-full ${i < pickedCount ? "bg-brass" : "bg-raised"}`} />
-                ))}
-              </div>
+              // The picked count sits on the right; the left says what's still open.
+              <p className="min-w-0 flex-1 text-sm text-muted tabular-nums">
+                <span className="font-semibold text-ink">{Math.max(0, openSlots)}</span> pick{openSlots === 1 ? "" : "s"} left
+              </p>
             )}
-            <span className="shrink-0 text-right font-display text-sm font-semibold tabular-nums">
+            <span className="shrink-0 text-right text-[15px] font-semibold tabular-nums">
               {pickedCount}/{settings.picksPerSlate}
-              <span className="block text-xs font-normal text-muted">
-                {save.state === "saving" ? "Saving…" : save.state === "saved" ? "Saved ✓" : save.state === "error" ? "Not saved" : "picked"}
+              <span
+                role="status"
+                aria-live="polite"
+                className={`block text-xs font-normal ${save.state === "error" ? "text-loss" : "text-muted"}`}
+              >
+                {save.state === "saving" ? "Saving…" : save.state === "saved" ? "Saved" : save.state === "error" ? "Not saved" : "picked"}
               </span>
             </span>
           </div>
@@ -252,24 +290,23 @@ function GameRow({
   locked,
   now,
   settings,
-  remaining,
   onTeam,
-  onChip,
+  onPoints,
 }: {
   game: SlateGame;
   draft: Draft | undefined;
   locked: boolean;
   now: number;
   settings: Settings;
-  remaining: (points: number) => number;
   onTeam: (side: Side) => void;
-  onChip: (points: number) => void;
+  onPoints: () => void;
 }) {
   const started = new Date(g.startAt).getTime() <= now;
   const final = g.status === "final" || g.overridden;
   const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
   const msToStart = new Date(g.startAt).getTime() - now;
   const disabled = locked || g.voided;
+  const confidence = Boolean(settings.tiers);
 
   let result: "win" | "loss" | null = null;
   if (final && draft?.side && g.homeScore !== null && g.awayScore !== null && !g.voided) {
@@ -277,109 +314,144 @@ function GameRow({
     if (margin !== 0) result = (margin > 0) === (draft.side === "home") ? "win" : "loss";
   }
 
+  const pickHeader = settings.pickType === "ats" ? "Spread" : confidence ? "Pick" : "Winner";
+  const conf = conferenceLabel(g.away.conference, g.home.conference);
+  const meta = [conf, g.neutral ? "Neutral site" : null].filter(Boolean).join(" · ");
+
+  // A half-made pick doesn't count, so its warning shows alongside the countdown, not instead of it.
+  let footerRight: ReactNode = null;
+  if (result) {
+    footerRight = (
+      <span className={`font-semibold tabular-nums ${result === "win" ? "text-win" : "text-loss"}`}>
+        {confidence ? (result === "win" ? `+${draft?.confidence ?? 0}` : "0") : result === "win" ? "Win" : "Loss"}
+      </span>
+    );
+  } else {
+    const missing =
+      disabled || !confidence || !draft ? null : draft.confidence != null && !draft.side ? "Pick a team" : draft.side && draft.confidence === null ? "Pick a value" : null;
+    const countdown = !disabled && msToStart < 3 * 3_600_000;
+    if (missing || countdown) {
+      footerRight = (
+        <span className="tabular-nums">
+          {missing && <span className="font-semibold text-accent">{missing}</span>}
+          {missing && countdown && " · "}
+          {countdown && <span className={msToStart < 15 * 60_000 ? "font-semibold text-live" : ""}>Locks in {formatDuration(msToStart)}</span>}
+        </span>
+      );
+    }
+  }
+
   return (
-    <li className={`px-3 py-2.5 ${result === "win" ? "bg-win/5" : result === "loss" ? "bg-loss/5" : ""}`}>
-      <div className="mb-1.5 flex items-center gap-2 text-xs text-muted">
-        <span className="font-semibold tabular-nums text-ink">
-          {g.timeTbd ? "TBD" : timeOnly(g.startAt, settings.timezone)}
-        </span>
-        {g.tv && <span>{g.tv}</span>}
-        {g.neutral && <span>Neutral</span>}
-        <span className="ml-auto flex items-center gap-1">
-          {g.voided ? (
-            <span className="font-semibold uppercase text-loss">Void</span>
-          ) : final ? (
-            <span className="font-semibold uppercase">Final</span>
-          ) : live ? (
-            <span className="flex items-center gap-1 font-semibold uppercase text-live">
-              <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live
-            </span>
-          ) : !locked && msToStart < 3 * 3_600_000 ? (
-            <span className={`tabular-nums ${msToStart < 15 * 60_000 ? "font-semibold text-live" : ""}`}>
-              locks in {formatDuration(msToStart)}
-            </span>
-          ) : null}
-          {locked && <LockIcon className="size-3.5" />}
-        </span>
+    <li
+      className={`grid gap-x-2 gap-y-1.5 border-b border-line py-3 ${
+        confidence ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem]" : "grid-cols-[minmax(0,1fr)_auto_4.5rem]"
+      } ${g.voided ? "opacity-50" : ""}`}
+    >
+      {/* Status line + column headers */}
+      <div className="col-span-2 flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted">
+        {g.voided ? (
+          <span className="text-loss">Void</span>
+        ) : final ? (
+          <span>Final</span>
+        ) : live ? (
+          <LiveDot>Live</LiveDot>
+        ) : g.status === "postponed" || g.status === "cancelled" ? (
+          <span>{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>
+        ) : (
+          <span className={`tabular-nums ${g.timeTbd ? "text-ink" : ""}`}>{g.timeTbd ? "TBD" : timeOnly(g.startAt, settings.timezone)}</span>
+        )}
+        {/* Where to watch stays visible through the whole game. */}
+        {g.tv && <span className="truncate font-normal">· {g.tv}</span>}
+        {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
       </div>
+      <span className="self-end text-center text-xs text-muted">{pickHeader}</span>
+      {confidence && <span className="self-end text-center text-xs text-muted">Pts</span>}
 
-      <div className="space-y-1">
-        {(["away", "home"] as const).map((side) => {
-          const team = side === "home" ? g.home : g.away;
-          const rank = side === "home" ? g.homeRank : g.awayRank;
-          const score = side === "home" ? g.homeScore : g.awayScore;
-          const selected = draft?.side === side;
-          const spread = g.spread === null ? null : side === "home" ? g.spread : -g.spread;
-          return (
-            <button
-              key={side}
-              type="button"
-              disabled={disabled}
-              onClick={() => onTeam(side)}
-              aria-pressed={selected}
-              className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 text-left transition ${
-                selected ? "bg-brass text-[#1b1f1d] ring-2 ring-brass" : "hover:bg-raised"
-              } ${disabled && !selected ? "opacity-60" : ""} disabled:cursor-not-allowed`}
-            >
-              <TeamLogo src={team.logo_url} abbr={team.abbreviation} />
-              <span className="min-w-0 flex-1 truncate font-display text-lg font-semibold leading-tight">
-                {rank && <span className={`mr-1 text-xs font-medium ${selected ? "" : "text-muted"}`}>{rank}</span>}
-                {team.short_name ?? team.name}
-                {side === "home" && !g.neutral && <span className={`ml-1 text-xs font-normal ${selected ? "" : "text-muted"}`}>home</span>}
-              </span>
-              {settings.pickType === "ats" && (
-                <span className={`rounded-md px-2 py-0.5 font-display text-base font-bold tabular-nums ${selected ? "bg-black/10" : "bg-raised"}`}>
-                  {formatSpread(spread)}
+      {/* Team rows: the whole row (name, score and pick cell) is one button per side */}
+      {(["away", "home"] as const).map((side, i) => {
+        const team = side === "home" ? g.home : g.away;
+        const rank = side === "home" ? g.homeRank : g.awayRank;
+        const score = side === "home" ? g.homeScore : g.awayScore;
+        const selected = draft?.side === side;
+        const spread = g.spread === null ? null : side === "home" ? g.spread : -g.spread;
+        const sub = [rank ? `#${rank}` : null, team.conference, side === "home" && !g.neutral ? "Home" : null].filter(Boolean).join(" · ");
+        return (
+          <button
+            key={side}
+            type="button"
+            disabled={disabled}
+            onClick={() => onTeam(side)}
+            aria-pressed={selected}
+            className={`group col-span-3 grid grid-cols-subgrid items-center rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed ${
+              i === 0 ? "row-start-2" : "row-start-3"
+            }`}
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-8" />
+              <span className="min-w-0">
+                <span className={`block truncate text-[15px] font-semibold leading-tight ${g.voided ? "text-muted" : "text-ink"}`}>
+                  {team.short_name ?? team.name}
                 </span>
-              )}
-              {started && score !== null && <span className="w-8 text-right font-display text-lg font-bold tabular-nums">{score}</span>}
-              {selected && <CheckIcon className="size-5 shrink-0" />}
-            </button>
-          );
-        })}
-      </div>
-
-      {settings.tiers && (
-        <div className="mt-2 flex items-center gap-1.5 pl-2">
-          {settings.tiers.map((t) => {
-            const selected = draft?.confidence === t.points;
-            const spent = !selected && remaining(t.points) <= 0;
-            return (
-              <button
-                key={t.points}
-                type="button"
-                disabled={disabled}
-                onClick={() => onChip(t.points)}
-                aria-pressed={selected}
-                aria-label={`${t.points} points`}
-                className={`grid size-10 place-items-center rounded-full font-display text-lg font-bold tabular-nums transition ${
-                  selected
-                    ? "bg-brass text-[#1b1f1d] ring-2 ring-brass ring-offset-2 ring-offset-surface"
-                    : spent
-                      ? "border border-dashed border-border text-muted/50"
-                      : "border border-border hover:border-brass"
-                } ${disabled && !selected ? "opacity-50" : ""}`}
-              >
-                {t.points}
-              </button>
-            );
-          })}
-          {draft?.side && draft.confidence === null && !disabled && (
-            <span className="ml-1 text-xs text-live">pick a value</span>
-          )}
-          {!draft?.side && draft?.confidence != null && !disabled && <span className="ml-1 text-xs text-live">pick a team</span>}
-          {result && (
-            <span className={`ml-auto font-display text-sm font-bold uppercase ${result === "win" ? "text-win" : "text-loss"}`}>
-              {result === "win" ? `+${draft?.confidence ?? 0}` : "0"}
+                {sub && <span className="block truncate text-xs text-muted">{sub}</span>}
+              </span>
             </span>
-          )}
-        </div>
+            <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums">{started && score !== null ? score : ""}</span>
+            <Cell
+              value={
+                settings.pickType === "ats" ? (
+                  formatSpread(spread)
+                ) : selected ? (
+                  <CheckIcon className="size-5" />
+                ) : (
+                  <span className="block size-4 rounded-full border-2 border-faint" />
+                )
+              }
+              selected={selected}
+              disabled={disabled}
+              className={!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}
+            />
+          </button>
+        );
+      })}
+
+      {/* One points cell spanning both team rows */}
+      {confidence && (
+        <Cell
+          className="col-start-4 row-span-2 row-start-2 h-full"
+          value={
+            draft?.confidence != null ? (
+              draft.confidence
+            ) : draft?.side && !disabled ? (
+              <span className="font-semibold text-accent">Set</span>
+            ) : (
+              <span className="text-muted">—</span>
+            )
+          }
+          selected={draft?.confidence != null}
+          disabled={disabled}
+          onClick={onPoints}
+          label={draft?.confidence != null ? `${draft.confidence} points, change` : draft?.side ? "Points needed, set points" : "Set points"}
+        />
       )}
-      {!settings.tiers && result && (
-        <p className={`mt-1 pl-2 font-display text-sm font-bold uppercase ${result === "win" ? "text-win" : "text-loss"}`}>{result}</p>
+
+      {(meta || footerRight) && (
+        <div className="col-span-full flex items-center justify-between gap-3 text-xs text-muted">
+          <span className="truncate">{meta}</span>
+          {footerRight}
+        </div>
       )}
     </li>
   );
+}
+
+function teamName(team: SlateGame["home"]) {
+  return team.short_name ?? team.name;
+}
+
+/** "SEC game" for an in-conference matchup, "Nonconference" across conferences. */
+function conferenceLabel(away: string | null, home: string | null) {
+  if (!away || !home) return null;
+  return away === home ? `${away} game` : "Nonconference";
 }
 
 function toDrafts(picks: PickInput[]): Record<string, Draft> {

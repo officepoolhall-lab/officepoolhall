@@ -41,7 +41,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
     <>
       <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
         {slate.label ?? `Week ${slate.week}`}
-        {forName && <span className="ml-2 text-brass">· for {forName}</span>}
+        {forName && <span className="text-accent"> for {forName}</span>}
       </PageTitle>
       <PickBoard
         slug={slug}

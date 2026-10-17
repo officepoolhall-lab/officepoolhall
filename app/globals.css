@@ -1,33 +1,34 @@
 @import "tailwindcss";
 
-/* Design tokens — see docs/design.md. Felt + brass on warm paper. */
+/* Design tokens — see docs/design.md. One font, one accent, hairlines over borders. */
 :root {
-  --bg: #f7f5ef;
-  --surface: #ffffff;
-  --raised: #f0ede4;
-  --ink: #1b1f1d;
-  --muted: #6b706c;
-  --border: #e3dfd4;
-  --felt: #1e5b45;
-  --brass: #f2b53a;
+  --bg: #ffffff;
+  --surface: #f2f2f5;
+  --hover: #e8e8ed;
+  --ink: #0a0a0a;
+  --muted: #6e6e73;
+  --faint: #aeaeb2;
+  --line: #e5e5ea;
+  --accent: #0066d6;
+  --live: #c2410c;
   --win: #15803d;
-  --loss: #b91c1c;
-  --live: #ea580c;
+  --loss: #c8262c;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1513;
-    --surface: #17201c;
-    --raised: #1f2a25;
-    --ink: #eceeea;
-    --muted: #9aa59f;
-    --border: #2a3631;
-    --felt: #3fa37c;
-    --win: #22c55e;
-    --loss: #f87171;
-    --live: #fb923c;
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --hover: #2a2a2d;
+    --ink: #f5f5f7;
+    --muted: #8e8e93;
+    --faint: #48484a;
+    --line: #1f1f22;
+    --accent: #3b9eff;
+    --live: #ff7a1a;
+    --win: #3dd68c;
+    --loss: #ff6369;
     color-scheme: dark;
   }
 }
@@ -35,26 +36,24 @@
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
-  --color-raised: var(--raised);
+  --color-hover: var(--hover);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
-  --color-border: var(--border);
-  --color-felt: var(--felt);
-  --color-brass: var(--brass);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-live: var(--live);
   --color-win: var(--win);
   --color-loss: var(--loss);
-  --color-live: var(--live);
   --font-sans: var(--font-inter);
-  --font-display: var(--font-barlow);
-  --font-sign: var(--font-alfa);
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
+  font-feature-settings: "cv11", "ss01";
 }
 
-/* Form controls inherit the theme */
 input,
 select,
 textarea {

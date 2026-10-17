@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Countdown } from "@/components/Countdown";
 import { StandingsTable } from "@/components/StandingsTable";
-import { Card, Empty, LinkButton, StatusBadge } from "@/components/ui";
+import { ChevronIcon, Empty, LinkButton, PageTitle, SectionLabel, StatusText } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { getStandings } from "@/lib/standings";
@@ -31,56 +31,57 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold uppercase tracking-wide">{ctx.pool.name}</h1>
-        <p className="text-sm text-muted">
-          {ctx.settings.confidence ? "Confidence pool" : ctx.settings.pick_type === "ats" ? "Against the spread" : "Straight up"} ·{" "}
-          {ctx.settings.picks_per_slate} picks a week
-        </p>
-      </div>
+    <div className="space-y-8">
+      <PageTitle
+        sub={`${ctx.settings.confidence ? "Confidence pool" : ctx.settings.pick_type === "ats" ? "Against the spread" : "Straight up"} · ${ctx.settings.picks_per_slate} picks a week`}
+      >
+        {ctx.pool.name}
+      </PageTitle>
 
       {slate && summary ? (
-        <Card className="overflow-hidden">
-          <div className="flex items-center gap-2 bg-felt px-4 py-2 text-white">
-            <span className="font-display text-lg font-bold uppercase">{slate.label ?? `Week ${slate.week}`}</span>
-            <StatusBadge status={slate.status} />
-            <span className="ml-auto text-xs text-white/70">{windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}</span>
+        <section className="border-b border-line pb-4">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-semibold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
+            <span className="text-faint" aria-hidden>·</span>
+            <StatusText status={slate.status} />
+            <span className="ml-auto truncate text-muted">{windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}</span>
           </div>
-          <div className="grid grid-cols-2 divide-x divide-border">
-            <div className="p-4">
-              <div className="text-xs uppercase text-muted">My picks</div>
-              <div className="font-display text-4xl font-bold tabular-nums">
-                {summary.picked}<span className="text-xl text-muted">/{summary.total}</span>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted">My picks</div>
+              <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
+                {summary.picked}<span className="text-muted">/{summary.total}</span>
               </div>
             </div>
-            <div className="p-4">
-              <div className="text-xs uppercase text-muted">{summary.nextLock ? "Next lock" : "Status"}</div>
-              <div className="font-display text-4xl font-bold">
+            <div>
+              <div className="text-xs text-muted">{summary.nextLock ? "Next lock" : "Status"}</div>
+              <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
                 {summary.nextLock ? <Countdown to={summary.nextLock} done="locked" /> : slate.status === "graded" ? "Final" : "Locked"}
               </div>
             </div>
           </div>
-          <div className="flex gap-2 border-t border-border p-3">
-            <LinkButton href={`/p/${slug}/picks`} kind={slate.status === "open" ? "brass" : "ghost"} className="flex-1">
+          <div className="mt-4 flex gap-2">
+            <LinkButton href={`/p/${slug}/picks`} kind="primary" className="flex-1 whitespace-nowrap !px-3">
               {slate.status === "open" ? (summary.picked < summary.total ? "Make picks" : "Review picks") : "My picks"}
             </LinkButton>
-            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="ghost" className="flex-1">Everyone&apos;s picks</LinkButton>
+            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary" className="flex-1 whitespace-nowrap !px-3">Everyone&apos;s picks</LinkButton>
           </div>
-        </Card>
+        </section>
       ) : (
         <Empty>
           No week is published yet.
           {ctx.isCommissioner && (
-            <> <Link className="text-felt underline" href={`/p/${slug}/admin/slate`}>Build the first slate</Link>.</>
+            <> <Link className="text-accent" href={`/p/${slug}/admin/slate`}>Build the first slate</Link>.</>
           )}
         </Empty>
       )}
 
       <section>
-        <div className="mb-2 flex items-baseline justify-between">
-          <h2 className="font-display text-xl font-bold uppercase">Season standings</h2>
-          <Link href={`/p/${slug}/standings`} className="text-sm text-felt">All ›</Link>
+        <div className="flex items-center justify-between">
+          <SectionLabel>Season standings</SectionLabel>
+          <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
+            All <ChevronIcon className="size-4" />
+          </Link>
         </div>
         <StandingsTable rows={season} me={ctx.user.id} limit={5} />
       </section>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Card, Field, LinkButton, StatusBadge, inputClass } from "@/components/ui";
+import { Field, LinkButton, Panel, SectionLabel, StatusText, chipClass, inputClass } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
@@ -9,6 +9,11 @@ import { createSlate, resolveTeamMatch } from "../actions";
 import { SlateEditor, type Candidate } from "./SlateEditor";
 
 export const metadata: Metadata = { title: "Slate editor" };
+
+// Inputs sit on a bg-surface panel here, so they take the page color to stay visible.
+const panelInput = inputClass.replace("bg-surface", "bg-bg");
+
+const STATUS_LABEL: Record<string, string> = { draft: "Draft", open: "Open", locked: "Locked", graded: "Final" };
 
 export default async function SlateAdminPage({ params, searchParams }: PageProps<"/p/[slug]/admin/slate">) {
   const { slug } = await params;
@@ -28,36 +33,39 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
 
   return (
     <>
-      <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1">
+      <div className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1">
         {slates?.map((s) => (
           <Link
             key={s.id}
             href={`/p/${slug}/admin/slate?week=${s.week}`}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${s.id === slate?.id ? "border-felt bg-felt text-white" : "border-border"}`}
+            aria-current={s.id === slate?.id ? "page" : undefined}
+            className={chipClass(s.id === slate?.id, "min-h-11")}
           >
-            {s.label ?? `Week ${s.week}`} <StatusBadge status={s.status} />
+            {s.label ?? `Week ${s.week}`}{" "}
+            {/* Status colors fail contrast on the ink-filled active chip, so it inherits there. */}
+            {s.id === slate?.id ? <span className="text-xs font-semibold opacity-70">{STATUS_LABEL[s.status] ?? s.status}</span> : <StatusText status={s.status} />}
           </Link>
         ))}
-        <Link href={`/p/${slug}/admin/slate?new=1`} className={`shrink-0 rounded-full border border-dashed px-3 py-1 text-sm ${wantNew ? "border-felt" : "border-border"}`}>
+        <Link href={`/p/${slug}/admin/slate?new=1`} aria-current={wantNew ? "page" : undefined} className={chipClass(wantNew, "min-h-11")}>
           + New week
         </Link>
       </div>
 
       {wantNew || !slate ? (
-        <Card className="p-4">
-          <h2 className="mb-3 font-display text-xl font-bold uppercase">New week</h2>
-          <ActionForm action={createSlate.bind(null, slug)} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="First day" hint={`${ctx.settings.window.length_days}-day window from midnight (${tz.replace("America/", "")})`}>
-                    <input type="date" name="start_date" required defaultValue={suggestedStart} className={inputClass} />
-                  </Field>
-                  <Field label="Label (optional)">
-                    <input name="label" placeholder={`Week ${(slates?.[0]?.week ?? 0) + 1}`} className={inputClass} />
-                  </Field>
-                </div>
-                <SubmitButton pending="Creating…">Create draft</SubmitButton>
+        <Panel className="p-4">
+          <h2 className="mb-3 text-[15px] font-semibold">New week</h2>
+          <ActionForm action={createSlate.bind(null, slug)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First day" hint={`${ctx.settings.window.length_days}-day window from midnight (${tz.replace("America/", "")})`}>
+                <input type="date" name="start_date" required defaultValue={suggestedStart} className={panelInput} />
+              </Field>
+              <Field label="Label (optional)">
+                <input name="label" placeholder={`Week ${(slates?.[0]?.week ?? 0) + 1}`} className={panelInput} />
+              </Field>
+            </div>
+            <SubmitButton pending="Creating…">Create draft</SubmitButton>
           </ActionForm>
-        </Card>
+        </Panel>
       ) : slate.status === "draft" ? (
         <DraftEditor slug={slug} slateId={slate.id} />
       ) : (
@@ -105,7 +113,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
 
     return (
       <>
-        <p className="mb-3 text-sm text-muted">
+        <p className="mb-4 text-sm text-muted">
           {s.label} · {windowLabel(s.window_start, s.window_end, tz)}
           {s.lock_at && ` · weekly lock ${new Date(s.lock_at).toLocaleString("en-US", { timeZone: tz, weekday: "short", hour: "numeric", minute: "2-digit" })}`}
         </p>
@@ -125,25 +133,25 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           defaultManualStart={`${localDate(new Date(s.window_start), tz)}T19:00`}
         />
         {Boolean(queue?.length) && (
-          <Card className="mt-6 p-4">
-            <h2 className="mb-1 font-display text-lg font-bold uppercase">Unmatched team names</h2>
+          <Panel className="mt-8 p-4">
+            <h2 className="mb-1 text-[15px] font-semibold">Unmatched team names</h2>
             <p className="mb-3 text-sm text-muted">The line feed used these names. Match each to a team so its lines come through.</p>
             <ul className="space-y-2">
               {queue!.map((q) => (
                 <li key={q.id}>
                   <ActionForm action={resolveTeamMatch.bind(null, slug)} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="queue_id" value={q.id} />
-                    <span className="min-w-40 font-medium">{q.raw_name}</span>
-                    <select name="team_id" required className={`${inputClass} max-w-64 flex-1`}>
+                    <span className="min-w-40 text-[15px] font-medium">{q.raw_name}</span>
+                    <select name="team_id" required className={`${panelInput} max-w-64 flex-1`}>
                       <option value="">Choose team…</option>
                       {teams?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
-                    <SubmitButton kind="ghost" pending="…">Match</SubmitButton>
+                    <SubmitButton kind="primary" pending="…" className="!px-4 !text-sm">Match</SubmitButton>
                   </ActionForm>
                 </li>
               ))}
             </ul>
-          </Card>
+          </Panel>
         )}
       </>
     );
@@ -156,37 +164,39 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     ]);
     const need = ctx.settings.picks_per_slate;
     return (
-      <div className="space-y-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl font-bold uppercase">{slate.label}</h2>
-            <StatusBadge status={slate.status} />
+      <div className="space-y-8">
+        <div>
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-[15px] font-semibold">{slate.label}</h2>
+            <StatusText status={slate.status} />
           </div>
-          <p className="text-sm text-muted">
+          <p className="mt-0.5 text-sm text-muted tabular-nums">
             {windowLabel(slate.window_start, slate.window_end, tz)} · {games.length} games · published{" "}
             {slate.published_at && new Date(slate.published_at).toLocaleString("en-US", { timeZone: tz, dateStyle: "medium", timeStyle: "short" })}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="ghost">Results &amp; voids</LinkButton>
-            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="ghost">Grid</LinkButton>
+            <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="secondary">Results &amp; voids</LinkButton>
+            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">Grid</LinkButton>
           </div>
-        </Card>
-        <Card>
-          <h3 className="border-b border-border px-4 py-2 font-display text-lg font-bold uppercase">Pick progress</h3>
-          <ul className="divide-y divide-border">
+        </div>
+        <section>
+          <SectionLabel className="border-b border-line pb-2">Pick progress</SectionLabel>
+          <ul className="divide-y divide-line">
             {progress?.map((p) => (
-              <li key={p.user_id} className="flex min-h-11 items-center gap-3 px-4">
-                <span className="flex-1">{p.display_name}</span>
-                <span className={`font-display text-lg font-bold tabular-nums ${p.picks < need ? "text-live" : "text-win"}`}>
+              <li key={p.user_id} className="flex min-h-12 items-center gap-3 py-2">
+                <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{p.display_name}</span>
+                <span className={`text-[15px] font-semibold tabular-nums ${p.picks < need ? "text-loss" : "text-win"}`}>
                   {p.picks}/{need}
                 </span>
                 {slate.status === "open" && (
-                  <Link href={`/p/${slug}/picks?for=${p.user_id}`} className="text-sm text-felt">Enter picks</Link>
+                  <Link href={`/p/${slug}/picks?for=${p.user_id}`} className="-my-1 inline-flex min-h-11 items-center pl-2 text-sm font-medium text-accent">
+                    Enter picks
+                  </Link>
                 )}
               </li>
             ))}
           </ul>
-        </Card>
+        </section>
       </div>
     );
   }

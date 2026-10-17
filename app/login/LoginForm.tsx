@@ -11,8 +11,8 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
   if (sent?.sentTo) {
     return (
       <div className="space-y-4">
-        <p>
-          We sent a sign-in link to <strong>{sent.sentTo}</strong>. Tap it on this device, or enter the 6-digit code from the email.
+        <p className="text-center text-[15px] text-muted">
+          We sent a sign-in link to <strong className="font-semibold text-ink">{sent.sentTo}</strong>. Tap it on this device, or enter the 6-digit code from the email.
         </p>
         <form action={verify} className="space-y-3">
           <input type="hidden" name="email" value={sent.sentTo} />
@@ -24,16 +24,16 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
               autoComplete="one-time-code"
               pattern="[0-9 ]{6,8}"
               required
-              className={`${inputClass} text-center font-display text-2xl tracking-[0.4em] tabular-nums`}
+              className={`${inputClass} h-14 text-center text-2xl font-semibold tracking-widest tabular-nums`}
             />
           </Field>
           <Button className="w-full" disabled={verifying}>{verifying ? "Checking…" : "Sign in"}</Button>
           {verified?.error && <p className="text-sm text-loss" role="alert">{verified.error}</p>}
         </form>
-        <form action={send}>
+        <form action={send} className="text-center">
           <input type="hidden" name="email" value={sent.sentTo} />
           <input type="hidden" name="next" value={next} />
-          <button className="text-sm text-muted underline" disabled={sending}>Send a new link</button>
+          <button className="h-11 text-sm text-muted hover:text-ink disabled:opacity-40" disabled={sending}>{sending ? "Sending…" : "Send a new link"}</button>
         </form>
       </div>
     );
@@ -47,7 +47,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
       </Field>
       <Button className="w-full" disabled={sending}>{sending ? "Sending…" : "Email me a sign-in link"}</Button>
       {sent?.error && <p className="text-sm text-loss" role="alert">{sent.error}</p>}
-      <p className="text-xs text-muted">No password. New here? The same link creates your account.</p>
+      <p className="text-center text-xs text-muted">No password. New here? The same link creates your account.</p>
     </form>
   );
 }

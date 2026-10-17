@@ -7,11 +7,11 @@ export function StandingsTable({ rows, me, limit }: { rows: StandingRow[]; me: s
   const pinned = limit && mine && !shown.includes(mine) ? mine : null;
 
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+    <ul className="divide-y divide-line border-b border-line">
       {shown.map((r) => <Row key={r.userId} r={r} me={me} />)}
       {pinned && (
         <>
-          <li className="h-2 bg-raised" aria-hidden />
+          <li className="py-1 text-center text-xs leading-none text-faint" aria-hidden>···</li>
           <Row r={pinned} me={me} />
         </>
       )}
@@ -20,18 +20,19 @@ export function StandingsTable({ rows, me, limit }: { rows: StandingRow[]; me: s
 }
 
 function Row({ r, me }: { r: StandingRow; me: string }) {
+  const mine = r.userId === me;
   return (
-    <li className={`flex min-h-11 items-center gap-3 px-3 ${r.userId === me ? "bg-brass/15 font-semibold" : ""}`}>
-      <span className="w-6 text-right font-display text-lg font-bold tabular-nums text-muted">{r.rank}</span>
-      <span className="flex-1 truncate">
-        {r.name}
-        {r.userId === me && <span className="ml-1 text-xs font-normal text-muted">you</span>}
+    <li className="flex min-h-12 items-center gap-3 py-3">
+      <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
+      <span className="min-w-0 flex-1 truncate font-medium">
+        <span className={mine ? "text-accent" : ""}>{r.name}</span>
+        {mine && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
       </span>
       <span className="text-xs tabular-nums text-muted">
         {r.wins}–{r.losses}
         {r.pushes ? `–${r.pushes}` : ""}
       </span>
-      <span className="w-12 text-right font-display text-xl font-bold tabular-nums">{points(r.points)}</span>
+      <span className="w-12 text-right text-[17px] font-semibold tabular-nums">{points(r.points)}</span>
     </li>
   );
 }

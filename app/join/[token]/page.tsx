@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
-import { Card, LinkButton } from "@/components/ui";
+import { LinkButton } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,12 +14,10 @@ export default async function JoinPage({ params }: PageProps<"/join/[token]">) {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto w-full max-w-sm px-4 py-12">
-        <Card className="space-y-4 p-6 text-center">
-          <p className="font-display text-2xl font-bold uppercase">Couldn&apos;t join</p>
-          <p className="text-muted">{error?.message ?? "Something went wrong."}</p>
-          <LinkButton href="/pools" kind="ghost">My pools</LinkButton>
-        </Card>
+      <main className="mx-auto w-full max-w-sm px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold tracking-tight">Couldn&apos;t join</h1>
+        <p className="mt-1 text-sm text-muted">{error?.message ?? "Something went wrong."}</p>
+        <LinkButton href="/pools" kind="secondary" className="mt-6">My pools</LinkButton>
       </main>
     </>
   );

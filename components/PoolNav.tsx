@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { chipClass } from "./ui";
 
-/** Bottom tab bar on phones, top tabs on wider screens. */
+/** Bottom tab bar on phones, pill tabs under the header on wider screens. */
 export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommissioner: boolean; week?: number }) {
   const pathname = usePathname();
   const base = `/p/${slug}`;
@@ -16,19 +17,24 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] sm:static sm:border-0 sm:bg-transparent sm:pb-0">
-      <ul className="mx-auto flex max-w-3xl sm:gap-1 sm:px-4 sm:pt-3">
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:pb-0 sm:backdrop-blur-none">
+      <ul className="mx-auto flex max-w-3xl pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:gap-1.5 sm:px-4 sm:pt-3">
         {tabs.map((t) => {
           const active = t.match(pathname);
           return (
             <li key={t.label} className="flex-1 sm:flex-none">
+              {/* Phone: plain tab with a small accent dot under the active one. */}
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-14 items-center justify-center font-display text-sm font-semibold uppercase tracking-wide sm:h-9 sm:rounded-full sm:px-4 ${
-                  active ? "text-felt sm:bg-felt sm:text-white" : "text-muted hover:text-ink"
+                className={`relative flex h-14 flex-col items-center justify-center text-xs font-medium sm:hidden ${
+                  active ? "text-ink" : "text-muted hover:text-ink"
                 }`}
               >
+                {t.label}
+                {active && <span className="absolute bottom-2 size-1 rounded-full bg-accent" aria-hidden />}
+              </Link>
+              <Link href={t.href} aria-current={active ? "page" : undefined} className={chipClass(active, "hidden sm:inline-flex")}>
                 {t.label}
               </Link>
             </li>

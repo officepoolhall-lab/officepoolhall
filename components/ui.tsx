@@ -1,9 +1,11 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
-export function LockIcon({ className = "size-4" }: { className?: string }) {
+// Shared primitives. See docs/design.md: one font, one accent, hairlines, gray cells.
+
+export function LockIcon({ className = "size-3.5" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className={className}>
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-label="Locked" role="img" className={className}>
       <path fillRule="evenodd" d="M10 2a4 4 0 0 0-4 4v2H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V6a4 4 0 0 0-4-4Zm2 6V6a2 2 0 1 0-4 0v2h4Z" clipRule="evenodd" />
     </svg>
   );
@@ -17,10 +19,18 @@ export function CheckIcon({ className = "size-4" }: { className?: string }) {
   );
 }
 
-export function TeamLogo({ src, abbr, className = "size-7" }: { src?: string | null; abbr?: string | null; className?: string }) {
+export function ChevronIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className={className}>
+      <path fillRule="evenodd" d="M7.3 4.3a1 1 0 0 1 1.4 0l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 0 1-1.4-1.4L11.6 10 7.3 5.7a1 1 0 0 1 0-1.4Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+export function TeamLogo({ src, abbr, className = "size-8" }: { src?: string | null; abbr?: string | null; className?: string }) {
   if (!src) {
     return (
-      <span className={`${className} grid shrink-0 place-items-center rounded-full bg-raised font-display text-[10px] font-bold text-muted`}>
+      <span className={`${className} grid shrink-0 place-items-center rounded-full bg-surface text-[9px] font-semibold text-muted`}>
         {(abbr ?? "?").slice(0, 4)}
       </span>
     );
@@ -30,49 +40,107 @@ export function TeamLogo({ src, abbr, className = "size-7" }: { src?: string | n
 }
 
 export function Wordmark({ className = "" }: { className?: string }) {
+  return <span className={`font-semibold tracking-tight ${className}`}>The Office Pool Hall</span>;
+}
+
+/** Live status: small orange dot + label. */
+export function LiveDot({ children = "Live" }: { children?: ReactNode }) {
   return (
-    <span className={`font-sign leading-none tracking-tight ${className}`}>
-      The Office <span className="text-brass">Pool Hall</span>
+    <span className="inline-flex items-center gap-1.5 font-semibold text-live">
+      <span className="size-1.5 animate-pulse rounded-full bg-live" />
+      {children}
     </span>
+  );
+}
+
+/**
+ * The rounded gray "cell" from the reference design: a value in ink, an optional
+ * sub-value in accent. Renders a <button> when given onClick, else a <div>.
+ */
+export function Cell({
+  value,
+  sub,
+  selected = false,
+  disabled = false,
+  onClick,
+  className = "",
+  label,
+}: {
+  value: ReactNode;
+  sub?: ReactNode;
+  selected?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+  className?: string;
+  label?: string;
+}) {
+  const classes = `flex min-h-14 flex-col items-center justify-center rounded-[10px] px-2 text-center tabular-nums transition ${
+    selected ? "bg-accent/15 ring-1 ring-accent" : "bg-surface"
+  } ${onClick && !disabled ? "hover:bg-hover active:scale-[0.98]" : ""} ${disabled && !selected ? "text-muted" : ""} ${className}`;
+  const inner = (
+    <>
+      <span className={`text-[15px] font-medium leading-tight ${selected ? "text-accent" : disabled ? "" : "text-ink"}`}>{value}</span>
+      {sub !== undefined && <span className={`text-[15px] font-semibold leading-tight ${disabled && !selected ? "" : "text-accent"}`}>{sub}</span>}
+    </>
+  );
+  if (!onClick) return <div className={classes} aria-label={label}>{inner}</div>;
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selected} aria-label={label} className={`${classes} disabled:cursor-not-allowed`}>
+      {inner}
+    </button>
   );
 }
 
 export function PageTitle({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="mb-4">
-      <h1 className="font-display text-3xl font-bold uppercase tracking-wide">{children}</h1>
+    <div className="mb-5">
+      <h1 className="text-2xl font-semibold tracking-tight">{children}</h1>
       {sub && <p className="mt-0.5 text-sm text-muted">{sub}</p>}
     </div>
   );
 }
 
-export function Card({ className = "", ...props }: ComponentProps<"div">) {
-  return <div className={`rounded-xl border border-border bg-surface ${className}`} {...props} />;
+export function SectionLabel({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <h2 className={`text-xs font-medium uppercase tracking-wide text-muted ${className}`}>{children}</h2>;
+}
+
+/** Filled panel — for forms and small summaries only. Lists stay on the page background. */
+export function Panel({ className = "", ...props }: ComponentProps<"div">) {
+  return <div className={`rounded-2xl bg-surface ${className}`} {...props} />;
 }
 
 const BUTTON = {
-  primary: "bg-felt text-white hover:brightness-110",
-  brass: "bg-brass text-[#1b1f1d] hover:brightness-105",
-  ghost: "border border-border bg-surface hover:bg-raised",
-  danger: "border border-loss/40 text-loss hover:bg-loss/10",
+  primary: "bg-ink text-bg hover:opacity-90",
+  secondary: "bg-surface text-ink hover:bg-hover",
+  accent: "bg-accent text-white hover:opacity-90 dark:text-black",
+  danger: "bg-surface text-loss hover:bg-hover",
+  ghost: "text-muted hover:text-ink",
 };
+export type ButtonKind = keyof typeof BUTTON;
 
-export function buttonClass(kind: keyof typeof BUTTON = "primary", extra = "") {
-  return `inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 font-display text-base font-semibold uppercase tracking-wide transition disabled:opacity-50 ${BUTTON[kind]} ${extra}`;
+export function buttonClass(kind: ButtonKind = "primary", extra = "") {
+  return `inline-flex h-11 items-center justify-center gap-2 rounded-full px-5 text-[15px] font-semibold transition disabled:opacity-40 ${BUTTON[kind]} ${extra}`;
 }
 
-export function Button({ kind = "primary", className = "", ...props }: ComponentProps<"button"> & { kind?: keyof typeof BUTTON }) {
+export function Button({ kind = "primary", className = "", ...props }: ComponentProps<"button"> & { kind?: ButtonKind }) {
   return <button className={buttonClass(kind, className)} {...props} />;
 }
 
-export function LinkButton({ kind = "primary", className = "", ...props }: ComponentProps<typeof Link> & { kind?: keyof typeof BUTTON }) {
+export function LinkButton({ kind = "primary", className = "", ...props }: ComponentProps<typeof Link> & { kind?: ButtonKind }) {
   return <Link className={buttonClass(kind, className)} {...props} />;
+}
+
+/** Horizontal pill tabs / filter chips. Active = ink fill. */
+export function chipClass(active: boolean, extra = "") {
+  return `inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition ${
+    active ? "bg-ink text-bg" : "bg-surface text-ink hover:bg-hover"
+  } ${extra}`;
 }
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium">{label}</span>
+      <span className="mb-1.5 block text-sm text-muted">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
     </label>
@@ -80,22 +148,19 @@ export function Field({ label, hint, children }: { label: string; hint?: ReactNo
 }
 
 export const inputClass =
-  "w-full min-h-11 rounded-lg border border-border px-3 text-base outline-none focus:border-felt focus:ring-2 focus:ring-felt/30";
+  "w-full h-11 rounded-[10px] bg-surface px-3 text-[15px] text-ink outline-none placeholder:text-muted focus:ring-2 focus:ring-accent";
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusText({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    draft: "bg-raised text-muted",
-    open: "bg-brass/20 text-ink",
-    locked: "bg-raised text-ink",
-    graded: "bg-win/15 text-win",
+    draft: "text-muted",
+    open: "text-accent",
+    locked: "text-muted",
+    graded: "text-win",
   };
-  return (
-    <span className={`rounded px-1.5 py-0.5 font-display text-xs font-semibold uppercase tracking-wide ${styles[status] ?? ""}`}>
-      {status}
-    </span>
-  );
+  const labels: Record<string, string> = { draft: "Draft", open: "Open", locked: "Locked", graded: "Final" };
+  return <span className={`text-xs font-semibold ${styles[status] ?? "text-muted"}`}>{labels[status] ?? status}</span>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <Card className="p-6 text-center text-muted">{children}</Card>;
+  return <p className="py-10 text-center text-sm text-muted">{children}</p>;
 }
