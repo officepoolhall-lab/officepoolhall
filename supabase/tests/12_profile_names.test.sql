@@ -8,9 +8,11 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('e0000000-0000-0000-0000-000000000001', 'named@test.dev', '{"display_name":"Ada Lovelace"}'),
   ('e0000000-0000-0000-0000-000000000002', 'fresh@test.dev', '{}');
 
-select is((select count(*) from profiles where not name_confirmed and id not in
-           ('e0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000002')),
-          0::bigint, 'every profile from before the migration is confirmed');
+-- Only accounts created with a name: the local database is shared, so emailed-code sign-ups
+-- made after the migration are rightly unconfirmed and must not fail this check.
+select is((select count(*) from profiles p join auth.users u on u.id = p.id
+           where not p.name_confirmed and u.raw_user_meta_data ? 'display_name'),
+          0::bigint, 'every seeded or imported profile is confirmed');
 select results_eq(
   $$select first_name, last_name, name_confirmed from profiles where id = 'e0000000-0000-0000-0000-000000000001'$$,
   $$values ('Ada'::text, 'Lovelace'::text, true)$$,
