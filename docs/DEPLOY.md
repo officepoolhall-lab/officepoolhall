@@ -30,14 +30,17 @@ Resend Free, The Odds API Free) — see `docs/data-sources.md` for quotas.
    ```
    Check the jobs: `select jobname, schedule from cron.job;` and recent runs:
    `select * from cron.job_run_details order by start_time desc limit 20;`
-6. Auth (Authentication → URL Configuration):
-   - Site URL: `https://<your domain>`
-   - Redirect URLs: `https://<your domain>/**`
-7. Email templates (Authentication → Email Templates): paste
-   `supabase/templates/magic_link.html` into **Magic Link** and
-   `supabase/templates/confirmation.html` into **Confirm signup**. The hosted project does not
-   read `config.toml`. These use `token_hash` links so sign-in works even when the email
-   opens in a different browser (common on phones).
+6. Auth settings and email templates live in `supabase/config.toml`; the
+   `[remotes.production]` section holds the production-only values (site URL, redirect URLs,
+   email rate limit). Preview, then apply:
+   ```sh
+   npx supabase config diff
+   npx supabase config push
+   ```
+   The templates (`supabase/templates/*.html`) use `token_hash` links so sign-in works even
+   when the email opens in a different browser (common on phones). **Free-tier projects can
+   only change templates once custom SMTP is configured** (step 2 below), so set up Resend first.
+   `/auth/callback` also handles Supabase's default emails, so sign-in works either way.
 
 ## 2. Email via Resend
 Supabase's built-in sender is for testing only (heavily rate-limited), so real players need
