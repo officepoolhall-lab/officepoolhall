@@ -112,7 +112,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 <div className="flex items-end justify-between gap-3">
                   <span className="min-w-20">Player</span>
                   <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
-                    {sort === "season" ? "Season" : <>Pts<span className="text-faint">/poss</span></>}
+                    {sort === "season" ? "Season" : <>Pts<span className="text-faint">/Poss</span></>}
                   </span>
                 </div>
               </th>
