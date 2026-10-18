@@ -253,8 +253,9 @@ export function PickBoard({
     // Desktop (lg+): full width, My Picks pinned in a left column, the games scroll on the
     // right. Phones and tablets: one column, My Picks on top. data-wide lifts the layout's
     // width cap for this page.
-    <div data-wide className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-10">
-      <aside className="lg:sticky lg:top-[calc(3rem+1px+env(safe-area-inset-top)+1rem)] lg:max-h-[calc(100dvh-3rem-1px-env(safe-area-inset-top)-6rem)] lg:overflow-y-auto">
+    <div data-wide className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-10">
+      {/* Desktop: both columns fill the frozen screen; each scrolls on its own if it must. */}
+      <aside className="lg:min-h-0 lg:overflow-y-auto">
       {myPicks.length === 0 && (
         <section className="hidden lg:block" aria-labelledby="my-picks-empty">
           <h2 id="my-picks-empty" className="mb-1 text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
@@ -279,7 +280,7 @@ export function PickBoard({
       )}
       </aside>
 
-      <div className="min-w-0">
+      <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
       {/* Urgency is plain ink weight: the live token is reserved for games in progress. */}
       <p className={`mb-3 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
         {onBehalf ? (
@@ -303,8 +304,9 @@ export function PickBoard({
 
       {days.map((day) => (
         <section key={day.key} className="mb-2">
-          <SectionLabel className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] z-10 -mx-4 bg-bg/90 px-4 py-2 backdrop-blur">{day.label}</SectionLabel>
-          <ul>
+          <SectionLabel className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 backdrop-blur lg:mx-0 lg:px-0">{day.label}</SectionLabel>
+          {/* Wide screens: two games per row so the column isn't mostly empty. */}
+          <ul className="xl:grid xl:grid-cols-2 xl:gap-x-8">
             {day.games.map((g) => (
               <GameRow
                 key={g.id}
@@ -324,6 +326,8 @@ export function PickBoard({
           </ul>
         </section>
       ))}
+      {/* The tracker grows by a line when a message shows; keep the last row clear of it. */}
+      {(notice || save.state === "error") && <div aria-hidden className="h-12" />}
       </div>
 
       {showSheet && (
@@ -343,9 +347,6 @@ export function PickBoard({
           onClose={closeSheet}
         />
       )}
-
-      {/* The tracker grows by a line when a message shows; keep the last row clear of it. */}
-      {(notice || save.state === "error") && <div aria-hidden className="h-12" />}
 
       {/* Bet-slip style tracker */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
@@ -516,7 +517,7 @@ function GameRow({
 
   return (
     <li
-      className={`grid gap-x-2 gap-y-1.5 border-b border-line py-3 ${
+      className={`grid gap-x-2 gap-y-1 border-b border-line py-2 ${
         confidence ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem]" : "grid-cols-[minmax(0,1fr)_auto_4.5rem]"
       } ${g.voided ? "opacity-50" : ""}`}
     >
@@ -533,8 +534,9 @@ function GameRow({
         ) : (
           <span className={`tabular-nums ${g.timeTbd ? "text-ink" : ""}`}>{g.timeTbd ? "TBD" : timeOnly(g.startAt, settings.timezone)}</span>
         )}
-        {/* Where to watch stays visible through the whole game. */}
-        {g.tv && <span className="truncate font-normal">· {g.tv}</span>}
+        {/* Where to watch stays visible through the whole game; then conference or venue. */}
+        {g.tv && <span className="shrink-0 font-normal">· {g.tv}</span>}
+        {meta && <span className="truncate font-normal">· {meta}</span>}
         {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
         {edited && (
           <span title="Changed by the commissioner" className="shrink-0 rounded-full bg-surface px-1.5 py-px text-[11px] font-medium text-muted">
@@ -552,7 +554,6 @@ function GameRow({
         const score = side === "home" ? g.homeScore : g.awayScore;
         const selected = draft?.side === side;
         const spread = g.spread === null ? null : side === "home" ? g.spread : -g.spread;
-        const sub = [rank ? `#${rank}` : null, team.conference, side === "home" && !g.neutral ? "Home" : null].filter(Boolean).join(" · ");
         return (
           <button
             key={side}
@@ -564,13 +565,11 @@ function GameRow({
               i === 0 ? "row-start-2" : "row-start-3"
             }`}
           >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-8" />
-              <span className="min-w-0">
-                <span className={`block truncate text-[15px] font-semibold leading-tight ${g.voided ? "text-muted" : "text-ink"}`}>
-                  {team.short_name ?? team.name}
-                </span>
-                {sub && <span className="block truncate text-xs text-muted">{sub}</span>}
+            <span className="flex min-w-0 items-center gap-2">
+              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6" />
+              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight ${g.voided ? "text-muted" : "text-ink"}`}>
+                {rank ? <span className="mr-1 text-xs font-medium tabular-nums text-muted">{rank}</span> : null}
+                {team.short_name ?? team.name}
               </span>
             </span>
             <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums">{started && score !== null ? score : ""}</span>
@@ -586,6 +585,7 @@ function GameRow({
               }
               selected={selected}
               disabled={disabled}
+              compact
               className={!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}
             />
           </button>
@@ -596,6 +596,7 @@ function GameRow({
       {confidence && (
         <Cell
           className="col-start-4 row-span-2 row-start-2 h-full"
+          compact
           value={
             draft?.confidence != null ? (
               draft.confidence
@@ -612,12 +613,8 @@ function GameRow({
         />
       )}
 
-      {(meta || footerRight) && (
-        <div className="col-span-full flex items-center justify-between gap-3 text-xs text-muted">
-          <span className="truncate">{meta}</span>
-          {footerRight}
-        </div>
-      )}
+      {/* Only when there's something to say: a result, a countdown or a missing value. */}
+      {footerRight && <div className="col-span-full flex justify-end text-xs text-muted">{footerRight}</div>}
     </li>
   );
 }

@@ -71,6 +71,7 @@ export function Cell({
   onClick,
   className = "",
   label,
+  compact = false,
 }: {
   value: ReactNode;
   sub?: ReactNode;
@@ -79,8 +80,10 @@ export function Cell({
   onClick?: () => void;
   className?: string;
   label?: string;
+  /** 40px tall instead of 56px, for dense lists like the Picks board. */
+  compact?: boolean;
 }) {
-  const classes = `flex min-h-14 flex-col items-center justify-center rounded-[10px] px-2 text-center tabular-nums transition ${
+  const classes = `flex ${compact ? "min-h-10" : "min-h-14"} flex-col items-center justify-center rounded-[10px] px-2 text-center tabular-nums transition ${
     selected ? "bg-accent/15 ring-1 ring-accent" : "bg-surface"
   } ${onClick && !disabled ? "hover:bg-hover active:scale-[0.98]" : ""} ${disabled && !selected ? "text-muted" : ""} ${className}`;
   const inner = (

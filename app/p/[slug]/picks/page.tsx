@@ -67,12 +67,16 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   ]);
 
   return (
-    <>
-      <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
-        {slate.label ?? `Week ${slate.week}`}
-        {forName && <span className="text-accent"> for {forName}</span>}
-      </PageTitle>
-      {weekChips}
+    // Desktop: exactly one screen tall (viewport less the header, tabs, and the space the
+    // layout keeps clear for the pick tracker), so only the games column scrolls.
+    <div className="lg:flex lg:h-[calc(100dvh-13rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:min-h-96 lg:flex-col">
+      <div className="shrink-0">
+        <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
+          {slate.label ?? `Week ${slate.week}`}
+          {forName && <span className="text-accent"> for {forName}</span>}
+        </PageTitle>
+        {weekChips}
+      </div>
       <PickBoard
         // A fresh board per week and player: its draft state belongs to one slate.
         key={`${slate.id}:${userId}`}
@@ -101,6 +105,6 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         }}
         forUserId={forUserId}
       />
-    </>
+    </div>
   );
 }
