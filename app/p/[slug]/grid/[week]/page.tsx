@@ -102,7 +102,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           </Link>
         ))}
       </div>
-      {/* Scrolls both ways: header row pinned top, player column left, side counts bottom. */}
+      {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
       <div className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
@@ -246,7 +246,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           </tbody>
           <tfoot>
             <tr>
-              <th className="sticky bottom-0 left-0 z-30 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">
+              <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">
                 {standings.length} {standings.length === 1 ? "player" : "players"}
               </th>
               {games.map((g) => {
@@ -254,7 +254,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <td
                     key={g.id}
-                    className={`sticky bottom-0 z-20 border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight ${g.voided ? "opacity-50" : ""}`}
+                    className={`border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight ${g.voided ? "opacity-50" : ""}`}
                   >
                     {/* Before lock only the viewer's own pick is visible, so no partial counts. */}
                     {isLocked(g) ? (
