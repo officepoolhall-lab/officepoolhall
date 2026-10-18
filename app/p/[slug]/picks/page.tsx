@@ -97,6 +97,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           timezone: ctx.settings.timezone,
           bookmaker: ctx.settings.lines.bookmaker,
           lockMode: ctx.settings.lock.mode,
+          fullCard: ctx.settings.full_card,
         }}
         forUserId={forUserId}
       />

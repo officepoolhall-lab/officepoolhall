@@ -1,9 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Cell, CheckIcon, LiveDot, LockIcon, SectionLabel, TeamLogo } from "@/components/ui";
 import { formatInTimeZone } from "date-fns-tz";
-import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, signedPoints, timeOnly } from "@/lib/format";
+import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, shortGameTime, signedPoints, timeOnly } from "@/lib/format";
 import { gameDateZone, hasStarted, isGameLocked } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 import { savePicks, type PickInput } from "./actions";
@@ -26,6 +27,11 @@ type Settings = {
   timezone: string;
   bookmaker: string;
   lockMode: "per_game" | "weekly";
+  /**
+   * settings.full_card: picks save with a Save button once the card is full, instead of on
+   * every tap (the database refuses a partial card from the player).
+   */
+  fullCard: boolean;
 };
 
 const SAVE_DEBOUNCE_MS = 400;
@@ -58,6 +64,7 @@ export function PickBoard({
   const [notice, setNotice] = useState<string | null>(null);
   const [sheetGameId, setSheetGameId] = useState<string | null>(null);
   const now = useNow(games, slate.lockAt);
+  const router = useRouter();
 
   // A game locks at its effective lock (deadline, or tip if earlier), not its start, or
   // as soon as ESPN has it under way (a TBD game never gets a real time).
@@ -101,6 +108,16 @@ export function PickBoard({
     const s = saved[id];
     return Boolean(d && s && d.side === s.side && d.confidence === s.confidence);
   };
+  // Anything on screen that isn't what the server has: drives the full-card Save button.
+  const cardKey = (state: Record<string, Draft>) =>
+    JSON.stringify(payload(state).map((p) => `${p.game_id}:${p.picked_side}:${p.confidence}`).sort());
+  const dirty = cardKey(picks) !== cardKey(saved);
+  // Full card: the commissioner's edits for a player keep saving as they go.
+  const manualSave = settings.fullCard && !onBehalf;
+  const missingPicks = Math.max(0, settings.picksPerSlate - pickedCount);
+  const halfMade = Object.values(picks).some((d) => (d.side || d.confidence !== null) && !isComplete(d));
+  const canSave = manualSave && dirty && missingPicks === 0 && !halfMade && save.state !== "saving";
+
   // Marked "edited": the commissioner's saved change, plus anything they've changed here.
   const editedIds = new Set(edited);
   const isEdited = (id: string) => (isSaved(id) ? editedIds.has(id) : onBehalf && Boolean(picks[id]?.side));
@@ -127,6 +144,8 @@ export function PickBoard({
       const result = await savePicks(slug, slate.id, payload(latest.current), forUserId);
       if (result.ok) {
         setSave({ state: "saved" });
+        // Reload the saved card (My Picks, and what counts as unsaved) from the server.
+        if (manualSave) router.refresh();
       } else {
         // Resync to what the database actually has, keeping half-made picks on unlocked games.
         const server = toDrafts(result.picks);
@@ -148,6 +167,11 @@ export function PickBoard({
     else state[gameId] = next;
     latest.current = state;
     setPicks(state);
+    // Full card: nothing saves until the player taps Save.
+    if (manualSave) {
+      if (save.state === "saved") setSave({ state: "idle" });
+      return;
+    }
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       timer.current = null;
@@ -160,7 +184,7 @@ export function PickBoard({
     const cur = picks[g.id] ?? { side: null, confidence: null };
     if (cur.side === side) return update(g.id, { ...cur, side: null });
     if (!settings.tiers && !cur.side && pickedCount >= settings.picksPerSlate) {
-      setNotice(`You've used all ${settings.picksPerSlate} picks. Clear one to pick this game.`);
+      setNotice(`You've used all ${settings.picksPerSlate} picks. Tap one of them to clear it, then pick this game.`);
       return;
     }
     setNotice(null);
@@ -194,9 +218,13 @@ export function PickBoard({
   const closeSheet = useCallback(() => setSheetGameId(null), []);
 
   // Warn before leaving with an unsaved change.
+  const unsaved = useRef(false);
+  useEffect(() => {
+    unsaved.current = manualSave && dirty;
+  });
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (timer.current || inFlight.current) e.preventDefault();
+      if (timer.current || inFlight.current || unsaved.current) e.preventDefault();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
@@ -218,8 +246,28 @@ export function PickBoard({
   const sheetGame = sheetGameId ? gamesById.get(sheetGameId) : undefined;
   const showSheet = settings.tiers && sheetGame && canEdit(sheetGame);
 
+  // The saved card, in kickoff order (games come sorted by start).
+  const myPicks = games.filter((g) => saved[g.id]?.side);
+
   return (
     <div>
+      {myPicks.length > 0 && (
+        <section className="mb-5" aria-labelledby="my-picks">
+          <div className="mb-1 flex items-baseline justify-between gap-3">
+            <h2 id="my-picks" className="text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
+            <span className="text-xs tabular-nums text-muted">
+              {myPicks.length}/{settings.picksPerSlate}
+              {manualSave && dirty && " · unsaved changes below"}
+            </span>
+          </div>
+          <ul className="divide-y divide-line border-y border-line">
+            {myPicks.map((g) => (
+              <MyPickRow key={g.id} game={g} pick={saved[g.id]} graded={graded[g.id]} locked={isLocked(g)} now={now} settings={settings} />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Urgency is plain ink weight: the live token is reserved for games in progress. */}
       <p className={`mb-1 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
         {onBehalf ? (
@@ -339,9 +387,39 @@ export function PickBoard({
                 aria-live="polite"
                 className={`block text-xs font-normal ${save.state === "error" ? "text-loss" : "text-muted"}`}
               >
-                {save.state === "saving" ? "Saving…" : save.state === "saved" ? "Saved" : save.state === "error" ? "Not saved" : "picked"}
+                {save.state === "saving"
+                  ? "Saving…"
+                  : save.state === "error"
+                    ? "Not saved"
+                    : manualSave
+                      ? dirty
+                        ? "Not saved yet"
+                        : pickedCount > 0
+                          ? "Saved"
+                          : "picked"
+                      : save.state === "saved"
+                        ? "Saved"
+                        : "picked"}
               </span>
             </span>
+            {manualSave && !readOnly && (
+              <button
+                type="button"
+                onClick={() => void flush()}
+                disabled={!canSave}
+                className="h-11 shrink-0 rounded-full bg-ink px-5 text-[15px] font-semibold text-bg transition disabled:bg-surface disabled:text-faint"
+              >
+                {save.state === "saving"
+                  ? "Saving…"
+                  : missingPicks > 0
+                    ? `Pick ${missingPicks} more`
+                    : halfMade
+                      ? "Finish picks"
+                      : dirty
+                        ? "Save picks"
+                        : "Saved"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -534,6 +612,66 @@ function GameRow({
           {footerRight}
         </div>
       )}
+    </li>
+  );
+}
+
+/** One saved pick in the My Picks list: the side taken, the opponent, and where the game stands. */
+function MyPickRow({
+  game: g,
+  pick,
+  graded,
+  locked,
+  now,
+  settings,
+}: {
+  game: SlateGame;
+  pick: Draft;
+  graded: Graded | undefined;
+  locked: boolean;
+  now: number;
+  settings: Settings;
+}) {
+  const side = pick.side!;
+  const team = side === "home" ? g.home : g.away;
+  const opp = side === "home" ? g.away : g.home;
+  const spread = g.spread === null ? null : side === "home" ? g.spread : -g.spread;
+  const started = hasStarted(g, now);
+  const final = g.status === "final" || g.overridden;
+  const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
+  const mine = side === "home" ? g.homeScore : g.awayScore;
+  const theirs = side === "home" ? g.awayScore : g.homeScore;
+  const score = started && mine !== null && theirs !== null ? `${mine}–${theirs}` : null;
+  const result = graded?.result;
+
+  return (
+    <li className={`flex min-h-11 items-center gap-2.5 py-2 ${g.voided ? "opacity-50" : ""}`}>
+      <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6" />
+      <span className="min-w-0 flex-1 truncate text-[15px]">
+        <span className="font-semibold">{teamName(team)}</span>
+        {settings.pickType === "ats" && <span className="ml-1.5 font-semibold tabular-nums text-accent">{formatSpread(spread)}</span>}
+        {pick.confidence != null && <span className="ml-1.5 text-xs tabular-nums text-muted">{pick.confidence} pts</span>}
+        <span className="ml-1.5 text-sm text-muted">
+          {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted">
+        {g.voided ? (
+          <span className="font-semibold text-loss">Void</span>
+        ) : result === "win" || result === "loss" || result === "push" ? (
+          <span className={`font-semibold ${result === "win" ? "text-win" : result === "loss" ? "text-loss" : "text-ink"}`}>
+            {result === "win" ? "Win" : result === "loss" ? "Loss" : "Push"}
+          </span>
+        ) : final ? (
+          <span className="font-semibold">Final</span>
+        ) : live ? (
+          <LiveDot>Live</LiveDot>
+        ) : (
+          <span>{shortGameTime(g.startAt, settings.timezone, g.timeTbd)}</span>
+        )}
+        {score && <span className="font-semibold text-ink">{score}</span>}
+        {locked && !started && <LockIcon className="size-3 shrink-0" />}
+      </span>
     </li>
   );
 }
