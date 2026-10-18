@@ -70,7 +70,7 @@ export function PointsSheet({
         tabIndex={-1}
         className="relative rounded-t-2xl border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] outline-none"
       >
-        <div className="mx-auto max-w-3xl px-4 pb-4 pt-3">
+        <div className="mx-auto max-w-5xl px-4 pb-4 pt-3">
           <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-faint" aria-hidden />
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="points-sheet-title" className="min-w-0 truncate text-[15px] font-semibold">

@@ -50,7 +50,7 @@ Font: **Inter** only (`font-sans`), `tabular-nums` on every number.
     counts — no colored pills. Accent only for the "active"/remaining emphasis.
 11. Win/loss shown as small `text-win`/`text-loss` text or a 2px left edge — never full-row fills.
 12. Header: `bg-bg border-b border-line`, wordmark in `font-semibold text-ink`. No brand color bars.
-13. Spacing: rows `py-3`, page gutter `px-4`, max width `max-w-3xl`. Touch targets ≥ 44px.
+13. Spacing: rows `py-3`, page gutter `px-4`, max width `max-w-5xl` (the Grid uses the full width). Touch targets ≥ 44px.
 
 ## Avoid
 Card borders, colored header bars, uppercase display type, multiple accent colors, gradients,

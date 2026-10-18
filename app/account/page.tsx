@@ -17,7 +17,7 @@ export default async function AccountPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-6">
+      <main className="mx-auto w-full max-w-5xl space-y-8 px-4 py-6">
         <PageTitle sub={user.email}>Account</PageTitle>
 
         <section>

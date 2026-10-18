@@ -25,7 +25,7 @@ export default async function PoolsPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-6">
+      <main className="mx-auto w-full max-w-5xl px-4 py-6">
         <Suspense fallback={null}>
           <PasswordNudge />
         </Suspense>
