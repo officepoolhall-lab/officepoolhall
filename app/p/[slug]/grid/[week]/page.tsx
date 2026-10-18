@@ -63,8 +63,13 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-30 min-w-28 border-b border-r border-line bg-bg px-4 py-2 text-left align-bottom text-xs font-medium text-muted">Player</th>
-              <th className="sticky top-0 z-20 border-b border-line bg-bg px-2 py-2 align-bottom text-xs font-medium text-muted">Pts</th>
+              {/* Player and Pts share one pinned cell so the points never scroll away. */}
+              <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-2 text-left align-bottom text-xs font-medium text-muted">
+                <div className="flex items-end justify-between gap-3">
+                  <span className="min-w-20">Player</span>
+                  <span className="min-w-8 shrink-0 text-right">Pts</span>
+                </div>
+              </th>
               {games.map((g) => {
                 const locked = isLocked(g);
                 // Same live states as the Picks tab's status line.
@@ -122,13 +127,20 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
                 <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                   {/* "You" is the accent name plus a 2px edge, not a row fill. */}
                   <th
-                    className={`sticky left-0 z-10 max-w-36 truncate border-b border-r border-line bg-bg px-4 py-1 text-left font-medium ${mine ? "text-accent shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
+                    className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-1 text-left font-medium ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
                   >
-                    {r.name}
-                    {/* Their total is filled in per settings.missed_week. */}
-                    {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">No picks</span>}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`min-w-20 max-w-28 truncate sm:max-w-36 ${mine ? "text-accent" : ""}`}>
+                        {r.name}
+                        {/* Their total is filled in per settings.missed_week. */}
+                        {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">No picks</span>}
+                      </span>
+                      <span className="min-w-8 shrink-0 text-right font-semibold tabular-nums text-ink">
+                        {points(r.points)}
+                        <span className="sr-only"> points</span>
+                      </span>
+                    </div>
                   </th>
-                  <td className="border-b border-line px-2 text-center font-semibold tabular-nums">{points(r.points)}</td>
                   {games.map((g) => {
                     const p = byCell.get(`${r.userId}:${g.id}`);
                     const team = p ? (p.picked_side === "home" ? g.home : g.away) : null;
@@ -181,7 +193,6 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
               <th className="sticky bottom-0 left-0 z-30 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">
                 {standings.length} {standings.length === 1 ? "player" : "players"}
               </th>
-              <td className="sticky bottom-0 z-20 border-t border-line bg-bg" />
               {games.map((g) => {
                 const c = sides.get(g.id) ?? { away: 0, home: 0 };
                 return (
