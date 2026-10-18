@@ -250,14 +250,24 @@ export function PickBoard({
   const myPicks = games.filter((g) => saved[g.id]?.side);
 
   return (
-    <div>
+    // Desktop (lg+): full width, My Picks pinned in a left column, the games scroll on the
+    // right. Phones and tablets: one column, My Picks on top. data-wide lifts the layout's
+    // width cap for this page.
+    <div data-wide className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-10">
+      <aside className="lg:sticky lg:top-[calc(3rem+1px+env(safe-area-inset-top)+1rem)] lg:max-h-[calc(100dvh-3rem-1px-env(safe-area-inset-top)-6rem)] lg:overflow-y-auto">
+      {myPicks.length === 0 && (
+        <section className="hidden lg:block" aria-labelledby="my-picks-empty">
+          <h2 id="my-picks-empty" className="mb-1 text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
+          <p className="border-y border-line py-3 text-sm text-muted">Saved picks show up here.</p>
+        </section>
+      )}
       {myPicks.length > 0 && (
         <section className="mb-5" aria-labelledby="my-picks">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 id="my-picks" className="text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
             <span className="text-xs tabular-nums text-muted">
               {myPicks.length}/{settings.picksPerSlate}
-              {manualSave && dirty && " · unsaved changes below"}
+              {manualSave && dirty && " · unsaved changes"}
             </span>
           </div>
           <ul className="divide-y divide-line border-y border-line">
@@ -267,9 +277,11 @@ export function PickBoard({
           </ul>
         </section>
       )}
+      </aside>
 
+      <div className="min-w-0">
       {/* Urgency is plain ink weight: the live token is reserved for games in progress. */}
-      <p className={`mb-1 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
+      <p className={`mb-3 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
         {onBehalf ? (
           <>
             <strong className="font-semibold text-accent">Editing as commissioner</strong> · changes are marked, and locked games can be changed too.
@@ -287,13 +299,6 @@ export function PickBoard({
         ) : (
           "Every game has started."
         )}
-      </p>
-      <p className="mb-4 text-xs text-muted">
-        {settings.pickType === "ats" ? `Lines: ${settings.bookmaker} · frozen at publish · ` : `Straight up · `}
-        each game locks at {settings.lockMode === "weekly" ? "its deadline, or tip-off if earlier" : "its start"}
-        {settings.tiers ? ` · ${settings.tiers.map((t) => `${t.count}×${t.points}`).join(", ")}` : ` · ${settings.picksPerSlate} picks`}
-        {settings.minusPoints && " · wrong picks lose their points"}
-        {settings.maxUpsetBonus !== null && ` · upset bonus up to +${settings.maxUpsetBonus}`}
       </p>
 
       {days.map((day) => (
@@ -319,6 +324,7 @@ export function PickBoard({
           </ul>
         </section>
       ))}
+      </div>
 
       {showSheet && (
         <PointsSheet
@@ -343,7 +349,7 @@ export function PickBoard({
 
       {/* Bet-slip style tracker */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto max-w-5xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
+        <div className="mx-auto max-w-5xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:max-w-none">
           {(notice || save.state === "error") && (
             <p className="mb-1.5 text-sm text-loss" role="alert">{save.state === "error" ? save.message : notice}</p>
           )}
