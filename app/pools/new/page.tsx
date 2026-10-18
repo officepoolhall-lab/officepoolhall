@@ -19,7 +19,7 @@ export default async function NewPoolPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto w-full max-w-3xl px-4 py-6">
+      <main className="mx-auto w-full max-w-5xl px-4 py-6">
         <PageTitle sub="You'll be the commissioner. You can tweak rules until the first week opens.">Start a pool</PageTitle>
         <NewPoolForm defaultSeason={defaultSeason} />
       </main>

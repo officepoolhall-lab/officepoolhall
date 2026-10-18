@@ -18,7 +18,8 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
 
   return (
     <nav className="sticky top-[calc(3rem+1px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
-      <ul className="mx-auto flex max-w-3xl pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:gap-1.5 sm:px-4 sm:pt-3">
+      {/* Wider screens: the pills start at the page's left edge rather than a centered column. */}
+      <ul className="flex pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:gap-1.5 sm:pl-[max(1rem,env(safe-area-inset-left))] sm:pt-3">
         {tabs.map((t) => {
           const active = t.match(pathname);
           return (
