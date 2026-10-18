@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { chipClass, Empty, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
+import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
-import { isGameLocked } from "@/lib/locks";
+import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getPoolContext, getSlateGames } from "@/lib/pool";
 import { getStandings } from "@/lib/standings";
 
@@ -67,8 +67,13 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
               <th className="sticky top-0 z-20 border-b border-line bg-bg px-2 py-2 align-bottom text-xs font-medium text-muted">Pts</th>
               {games.map((g) => {
                 const locked = isLocked(g);
+                // Same live states as the Picks tab's status line.
+                const started = hasStarted(g, now);
+                const final = g.status === "final" || g.overridden;
+                const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
+                const showScore = started && g.homeScore !== null && g.awayScore !== null;
                 const winner =
-                  (g.status === "final" || g.overridden) && g.homeScore !== null && g.awayScore !== null
+                  final && g.homeScore !== null && g.awayScore !== null
                     ? g.homeScore - g.awayScore + (ats ? (g.spread ?? 0) : 0)
                     : null;
                 return (
@@ -77,13 +82,30 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
                     className={`sticky top-0 z-20 min-w-14 border-b border-line bg-bg px-1 py-2 text-center align-bottom text-xs font-medium leading-tight text-muted ${g.voided ? "line-through opacity-50" : ""}`}
                   >
                     <div className="mb-1 whitespace-nowrap text-[10px] font-normal tabular-nums">
-                      {shortGameTime(g.startAt, tz, g.timeTbd)}
+                      {g.voided ? (
+                        <span className="font-semibold text-loss">Void</span>
+                      ) : final ? (
+                        <span className="font-semibold">Final</span>
+                      ) : live ? (
+                        <LiveDot>Live</LiveDot>
+                      ) : g.status === "postponed" || g.status === "cancelled" ? (
+                        <span className="font-semibold">{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>
+                      ) : (
+                        shortGameTime(g.startAt, tz, g.timeTbd)
+                      )}
+                      {/* Where to watch stays visible through the whole game, as on Picks. */}
                       {g.tv && <div className="mx-auto max-w-14 truncate">{g.tv}</div>}
                     </div>
                     <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="mx-auto mb-0.5 size-5" />
-                    <div className={winner !== null && winner < 0 ? "font-semibold text-ink" : ""}>{g.away.abbreviation}</div>
+                    <div className={`whitespace-nowrap ${winner !== null && winner < 0 ? "font-semibold text-ink" : ""}`}>
+                      {g.away.abbreviation}
+                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink">{g.awayScore}</span>}
+                    </div>
                     <div className="text-faint">{g.neutral ? "vs" : "@"}</div>
-                    <div className={winner !== null && winner > 0 ? "font-semibold text-ink" : ""}>{g.home.abbreviation}</div>
+                    <div className={`whitespace-nowrap ${winner !== null && winner > 0 ? "font-semibold text-ink" : ""}`}>
+                      {g.home.abbreviation}
+                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink">{g.homeScore}</span>}
+                    </div>
                     <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-0.5 size-5" />
                     {ats && <div className="mt-0.5 tabular-nums">{formatSpread(g.spread)}</div>}
                     {/* Picks in this column are still hidden. */}
