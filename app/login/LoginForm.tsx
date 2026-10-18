@@ -40,7 +40,8 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
   const [sent, send, sending] = useActionState(sendLink, initialError ? { error: initialError } : null);
   const [verified, verify, verifying] = useActionState<LoginState, FormData>(verifyCode, null);
   const [signedIn, signIn, signingIn] = useActionState<LoginState, FormData>(signInWithPassword, null);
-  const [usePassword, setUsePassword] = useState(false);
+  // Password first. A failed emailed link lands here with an error, so show the link form for it.
+  const [usePassword, setUsePassword] = useState(!initialError);
   const [email, setEmail] = useState("");
   useContinueWhenSignedIn(Boolean(sent?.sentTo), next);
 
@@ -86,13 +87,19 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
     </Field>
   );
   const switchMode = (password: boolean) => (
-    <button type="button" onClick={() => setUsePassword(password)} className="h-11 w-full text-sm text-muted hover:text-ink">
-      {password ? "Sign in with password" : <>Forgot your password? <span className="text-accent">Use the emailed code instead.</span></>}
+    <button type="button" onClick={() => setUsePassword(password)} className="min-h-11 w-full text-sm text-muted hover:text-ink">
+      {password ? (
+        "Sign in with your password instead"
+      ) : (
+        <>
+          New here, or no password? <span className="text-accent">Email me a sign-in link</span>
+        </>
+      )}
     </button>
   );
 
-  // Passwords are optional (set on /account); the emailed code stays the default and is the
-  // only way to create an account.
+  // Password is the default. The emailed link is the alternative, and still the only way to
+  // create an account (passwords are set on /account or at sign-up).
   if (usePassword) {
     return (
       <div className="space-y-3">
@@ -100,7 +107,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           <input type="hidden" name="next" value={next} />
           {emailField}
           <Field label="Password">
-            <input name="password" type="password" autoComplete="current-password" required autoFocus className={inputClass} />
+            <input name="password" type="password" autoComplete="current-password" required className={inputClass} />
           </Field>
           <Button className="w-full" disabled={signingIn}>{signingIn ? "Signing in…" : "Sign in"}</Button>
           {signedIn?.error && <p className="text-sm text-loss" role="alert">{signedIn.error}</p>}
