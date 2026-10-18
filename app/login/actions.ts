@@ -45,9 +45,9 @@ export async function signInWithPassword(_: LoginState, form: FormData): Promise
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     if (error.code === "invalid_credentials") {
-      return { error: "Wrong email or password. No password yet? Sign in with an emailed code, then set one under Account." };
+      return { error: "Wrong email or password. No password yet? Use the email link option below, then set one under Account." };
     }
-    if (error.code === "over_request_rate_limit") return { error: "Too many tries. Wait a minute, or use an emailed code." };
+    if (error.code === "over_request_rate_limit") return { error: "Too many tries. Wait a minute, or use the email link option below." };
     return { error: error.message };
   }
   redirect(next);
