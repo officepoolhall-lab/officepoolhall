@@ -108,7 +108,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           <thead>
             <tr>
               {/* Player and Pts share one pinned cell so the points never scroll away. */}
-              <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-2 text-left align-bottom text-xs font-medium text-muted">
+              <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted">
                 <div className="flex items-end justify-between gap-3">
                   <span className="min-w-20">Player</span>
                   <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
@@ -130,9 +130,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <th
                     key={g.id}
-                    className={`sticky top-0 z-20 min-w-14 border-b border-line bg-bg px-1 py-2 text-center align-bottom text-xs font-medium leading-tight text-muted ${g.voided ? "line-through opacity-50" : ""}`}
+                    className={`sticky top-0 z-20 min-w-12 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted ${g.voided ? "line-through opacity-50" : ""}`}
                   >
-                    <div className="mb-1 whitespace-nowrap text-[10px] font-normal tabular-nums">
+                    <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
                       {g.voided ? (
                         <span className="font-semibold text-loss">Void</span>
                       ) : final ? (
@@ -147,20 +147,20 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       {/* Where to watch stays visible through the whole game, as on Picks. */}
                       {g.tv && <div className="mx-auto max-w-14 truncate">{g.tv}</div>}
                     </div>
-                    <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="mx-auto mb-0.5 size-5" />
+                    <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="mx-auto mb-px size-4" />
                     <div className={`whitespace-nowrap ${winner !== null && winner < 0 ? "font-semibold text-ink" : ""}`}>
                       {g.away.abbreviation}
                       {showScore && <span className="ml-1 font-semibold tabular-nums text-ink">{g.awayScore}</span>}
                     </div>
-                    <div className="text-faint">{g.neutral ? "vs" : "@"}</div>
+                    <div className="text-[10px] leading-none text-faint">{g.neutral ? "vs" : "@"}</div>
                     <div className={`whitespace-nowrap ${winner !== null && winner > 0 ? "font-semibold text-ink" : ""}`}>
                       {g.home.abbreviation}
                       {showScore && <span className="ml-1 font-semibold tabular-nums text-ink">{g.homeScore}</span>}
                     </div>
-                    <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-0.5 size-5" />
-                    {ats && <div className="mt-0.5 tabular-nums">{formatSpread(g.spread)}</div>}
+                    <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-px size-4" />
+                    {ats && <div className="mt-px tabular-nums">{formatSpread(g.spread)}</div>}
                     {/* Picks in this column are still hidden. */}
-                    {!locked && <LockIcon className="mx-auto mt-1 size-3 text-muted" />}
+                    {!locked && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
                   </th>
                 );
               })}
@@ -173,7 +173,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                   {/* "You" is the accent name plus a 2px edge, not a row fill. */}
                   <th
-                    className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-1 text-left font-medium ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
+                    className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-0.5 text-left text-[13px] font-medium ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className={`min-w-20 max-w-28 truncate sm:max-w-36 ${mine ? "text-accent" : ""}`}>
@@ -206,10 +206,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     // loss reads "−5"; a zero-points loss keeps its value, struck through.
                     const base = p?.result != null && p.points != null ? Number(p.points) - bonus : null;
                     return (
-                      <td key={g.id} className={`h-11 min-w-14 border-b border-line px-1 text-center ${tone}`}>
+                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center ${tone}`}>
                         {team && (
                           <div className="leading-tight">
-                            <div className={`text-xs font-medium ${p?.result === "loss" ? "line-through" : ""}`}>
+                            <div className={`text-[11px] font-medium ${p?.result === "loss" ? "line-through" : ""}`}>
                               {team.abbreviation}
                               {/* Color isn't the only signal for the result. */}
                               {p?.result === "win" && <span className="sr-only">, won</span>}
@@ -221,7 +221,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                               )}
                             </div>
                             {p?.confidence != null && (
-                              <div className="text-sm font-semibold tabular-nums">
+                              <div className="text-[13px] font-semibold tabular-nums">
                                 {base !== null && base < 0 ? (
                                   signedPoints(base)
                                 ) : (
