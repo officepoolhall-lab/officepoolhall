@@ -94,12 +94,19 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
 
       <div className="grid gap-4 sm:grid-cols-2">
         <SectionLabel className="sm:col-span-2">Scoring</SectionLabel>
-        <Field label="Players must make" hint="Partial weeks are always saved; unpicked slots score 0.">
+        <Field label="Players must make" hint={s.full_card ? "Picks save only as a full card." : "Partial weeks are saved; unpicked slots score 0."}>
           <select className={field} value={s.picks_mode} onChange={(e) => set({ picks_mode: e.target.value as PoolSettings["picks_mode"] })}>
             <option value="exact">Exactly {s.picks_per_slate} picks</option>
             <option value="max">Up to {s.picks_per_slate} picks</option>
           </select>
         </Field>
+        <label className="flex min-h-11 items-center gap-3 sm:col-span-2">
+          <input type="checkbox" className={checkbox} checked={s.full_card} onChange={(e) => set({ full_card: e.target.checked })} />
+          <span className="text-[15px]">
+            Require all {s.picks_per_slate} picks to save
+            <span className="block text-xs text-muted">Players save a full card; picks on games that haven&apos;t locked can still be changed.</span>
+          </span>
+        </label>
         {!s.confidence && (
           <div className="grid grid-cols-3 gap-2">
             {(["win", "push", "loss"] as const).map((k) => (

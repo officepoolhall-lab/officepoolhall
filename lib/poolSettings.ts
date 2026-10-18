@@ -27,6 +27,10 @@ export const poolSettingsSchema = z
     pick_type: z.enum(["straight_up", "ats"]),
     picks_per_slate: z.number().int().min(1).max(100),
     picks_mode: z.enum(["exact", "max"]),
+    // A player's picks only save as a full card (picks_per_slate at once), never part-way.
+    // Later edits are still per game: picks on locked games stay, open ones can be swapped.
+    // The commissioner's on-behalf edits are exempt. Defaults keep older pools as they were.
+    full_card: z.boolean().default(false),
     confidence: z
       .object({
         tiers: z.array(tier).min(1),
@@ -160,6 +164,7 @@ export const PRESETS = {
       scoring: { win: 1, push: 0, loss: 0 },
       upset_bonus: { tiers: POOL_A_UPSET_TIERS },
       missed_week: "last_place",
+      full_card: false,
       segments: null,
       // Brooks: every pick is due Wednesday at noon Central; games before then lock at tip-off.
       // (first_day_time can add an earlier deadline for the week's first day if that changes.)
@@ -184,6 +189,7 @@ export const PRESETS = {
       scoring: { win: 1, push: 0.5, loss: 0 },
       upset_bonus: null,
       missed_week: "zero",
+      full_card: true,
       segments: null,
       lock: { mode: "per_game" },
       timezone: "America/Chicago",
