@@ -13,12 +13,15 @@ export function StandingsTable({
   limit,
   weekly = false,
   flat = false,
+  total = false,
 }: {
   rows: StandingRow[];
   me: string;
   limit?: number;
   weekly?: boolean;
   flat?: boolean;
+  /** Add a "Pool total" row under the last player: everyone's record and points combined. */
+  total?: boolean;
 }) {
   const shown = limit ? rows.slice(0, limit) : rows;
   const mine = rows.find((r) => r.userId === me);
@@ -33,7 +36,34 @@ export function StandingsTable({
           <Row r={pinned} me={me} weekly={weekly} flat={flat} />
         </>
       )}
+      {total && rows.length > 0 && <TotalRow rows={rows} flat={flat} />}
     </ul>
+  );
+}
+
+function TotalRow({ rows, flat }: { rows: StandingRow[]; flat: boolean }) {
+  const t = rows.reduce(
+    (sum, r) => ({ points: sum.points + r.points, wins: sum.wins + r.wins, losses: sum.losses + r.losses, pushes: sum.pushes + r.pushes }),
+    { points: 0, wins: 0, losses: 0, pushes: 0 },
+  );
+  const record = `${t.wins}–${t.losses}${t.pushes ? `–${t.pushes}` : ""}`;
+  return (
+    <li className="flex min-h-12 items-center gap-3 py-3 text-muted">
+      <span className="w-6" aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">Pool total</span>
+      {flat ? (
+        <>
+          {t.points !== t.wins && <span className="text-xs tabular-nums">{points(t.points)} pts</span>}
+          <span className="w-10 text-right text-xs tabular-nums" aria-label="Win percentage">{winPct(t.wins, t.losses)}</span>
+          <span className="min-w-14 text-right text-[17px] font-semibold tabular-nums text-ink" aria-label="Record">{record}</span>
+        </>
+      ) : (
+        <>
+          <span className="text-xs tabular-nums">{record}</span>
+          <span className="w-12 text-right text-[17px] font-semibold tabular-nums text-ink">{points(t.points)}</span>
+        </>
+      )}
+    </li>
   );
 }
 
