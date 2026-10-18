@@ -45,6 +45,21 @@ describe("possiblePoints", () => {
     expect(possiblePoints({ points: 1, picks, openGameIds: ["d", "e", "f"], slotValues: flat })).toBe(4);
   });
 
+  it("never goes above 5 in the NCAAF Supercontest, however many games are open", () => {
+    const sc = slotValuesFor({ picks_per_slate: 5, confidence: null, scoring: { win: 1 } });
+    const twenty = Array.from({ length: 20 }, (_, i) => `g${i}`);
+    expect(possiblePoints({ points: 0, picks: [], openGameIds: twenty, slotValues: sc })).toBe(5);
+    // 2 wins + a push (0.5) = 2.5 so far; a loss is gone; one pick still to play.
+    const picks = [
+      { game_id: "a", confidence: null, result: "win" },
+      { game_id: "b", confidence: null, result: "win" },
+      { game_id: "c", confidence: null, result: "push" },
+      { game_id: "d", confidence: null, result: "loss" },
+      { game_id: "e", confidence: null, result: null },
+    ];
+    expect(possiblePoints({ points: 2.5, picks, openGameIds: twenty, slotValues: sc })).toBe(3.5);
+  });
+
   it("is the current total once everything is decided and locked", () => {
     expect(possiblePoints({ points: 7.5, picks: [], openGameIds: [], slotValues: tiers })).toBe(7.5);
   });
