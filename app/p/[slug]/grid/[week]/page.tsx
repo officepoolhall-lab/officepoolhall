@@ -80,21 +80,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       className="flex max-h-[max(24rem,calc(100dvh-7.75rem-2px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <h1 className="sr-only">Selections</h1>
-      {/* One row: weeks scroll on the left, sort sits on the right. */}
+      {/* One row: sort on the left, weeks on the right (they scroll when there are many). */}
       <div className="-mx-4 mb-1 flex shrink-0 items-center gap-2 px-4">
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-1">
-          {slates?.map((s) => (
-            <Link
-              key={s.id}
-              href={`/p/${slug}/grid/${s.week}${sortQuery}`}
-              aria-current={s.id === slate.id ? "page" : undefined}
-              className={chipClass(s.id === slate.id, "", "xs")}
-            >
-              {s.label ?? `Week ${s.week}`}
-            </Link>
-          ))}
-        </div>
-        <div className="flex shrink-0 items-center gap-1 border-l border-line py-1 pl-2">
+        <div className="flex shrink-0 items-center gap-1 border-r border-line py-1 pr-2">
           <span className="mr-0.5 text-[11px] font-medium text-muted">Sort</span>
           {SORTS.map((s) => (
             <Link
@@ -107,6 +95,21 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               {s.label}
             </Link>
           ))}
+        </div>
+        <div className="flex min-w-0 flex-1 overflow-x-auto py-1">
+          {/* ml-auto pushes the weeks right; it collapses to 0 once they overflow, so all stay reachable. */}
+          <div className="ml-auto flex gap-1">
+            {slates?.map((s) => (
+              <Link
+                key={s.id}
+                href={`/p/${slug}/grid/${s.week}${sortQuery}`}
+                aria-current={s.id === slate.id ? "page" : undefined}
+                className={chipClass(s.id === slate.id, "", "xs")}
+              >
+                {s.label ?? `Week ${s.week}`}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
