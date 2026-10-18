@@ -138,14 +138,17 @@ export function LinkButton({ kind = "primary", className = "", ...props }: Compo
 
 /** Horizontal pill tabs / filter chips. Active = ink fill. */
 /**
- * "sm" is the compact chip for week/sort pickers above dense views: 28px tall, with the tap
- * area stretched 6px above and below so it stays easy to hit.
+ * "sm" is the compact chip for week pickers above dense views: 28px tall, with the tap area
+ * stretched 6px above and below so it stays easy to hit. "xs" (24px, stretched 4px) is the
+ * Grid's, where every row of players counts.
  */
-export function chipClass(active: boolean, extra = "", size: "md" | "sm" = "md") {
+export function chipClass(active: boolean, extra = "", size: "md" | "sm" | "xs" = "md") {
   const shape =
-    size === "sm"
-      ? "relative h-7 px-2.5 text-xs after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
-      : "h-9 px-3.5 text-sm";
+    size === "xs"
+      ? "relative h-6 px-2 text-[11px] after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']"
+      : size === "sm"
+        ? "relative h-7 px-2.5 text-xs after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
+        : "h-9 px-3.5 text-sm";
   return `inline-flex ${shape} shrink-0 items-center gap-1.5 rounded-full font-medium transition ${
     active ? "bg-ink text-bg" : "bg-surface text-ink hover:bg-hover"
   } ${extra}`;
