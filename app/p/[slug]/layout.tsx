@@ -2,17 +2,25 @@ import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { PasswordNudge } from "@/components/PasswordNudge";
 import { PoolNav } from "@/components/PoolNav";
+import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { getCurrentSlate, getPoolContext } from "@/lib/pool";
 
 export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
-  const current = await getCurrentSlate(ctx);
+  const [current, { data: memberships }] = await Promise.all([
+    getCurrentSlate(ctx),
+    // The player's other pools, for the switcher in the header.
+    ctx.supabase.from("pool_members").select("pool:pools!inner ( name, slug )").eq("user_id", ctx.user.id).order("joined_at", { ascending: false }),
+  ]);
+  const pools = (memberships ?? []).map((m) => ({ name: m.pool.name, slug: m.pool.slug }));
 
   return (
     <>
       <AppHeader>
-        <span className="hidden max-w-48 truncate text-muted sm:inline">{ctx.pool.name}</span>
+        <div className="hidden sm:block">
+          <PoolSwitcher current={{ name: ctx.pool.name, slug: ctx.pool.slug }} pools={pools} />
+        </div>
       </AppHeader>
       <PoolNav slug={slug} isCommissioner={ctx.isCommissioner} week={current?.week} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
