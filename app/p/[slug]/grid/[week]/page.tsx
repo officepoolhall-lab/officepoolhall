@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: "Selections grid" };
 
 /** Row order: this week's score (default), season total, or name. */
 const SORTS = [
-  { id: "week", label: "Week score" },
-  { id: "season", label: "Season score" },
+  { id: "week", label: "Week" },
+  { id: "season", label: "Season" },
   { id: "name", label: "A–Z" },
 ] as const;
 type Sort = (typeof SORTS)[number]["id"];
@@ -32,7 +32,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     getSlateGames(ctx, slate.id),
     getStandings(ctx, slate.id),
     sort === "season" ? getStandings(ctx) : null,
-    // RLS only returns other players' picks on games that have locked (deadline or tip).
+    // RLS only returns other players' picks on games that have kicked off (or a graded week).
     ctx.supabase.from("picks").select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by").eq("slate_id", slate.id),
   ]);
   const byCell = new Map((picks ?? []).map((p) => [`${p.user_id}:${p.game_id}`, p]));
@@ -42,6 +42,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const ats = ctx.settings.pick_type === "ats";
   const tz = ctx.settings.timezone;
   const isLocked = (g: (typeof games)[number]) => slate.status !== "open" || isGameLocked(g, now);
+  // A column's picks (the viewer's own included) show once its game kicks off: started
+  // games are always locked too. A graded week shows everything, cancelled games included.
+  const isRevealed = (g: (typeof games)[number]) => slate.status === "graded" || hasStarted(g, now);
 
   // Week score sorts by this week's standings; the others reorder the same rows.
   const seasonById = new Map((season ?? []).map((r) => [r.userId, r]));
@@ -77,30 +80,34 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       className="flex max-h-[max(24rem,calc(100dvh-7.75rem-2px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <h1 className="sr-only">Selections</h1>
-      <div className="-mx-4 mb-1.5 flex shrink-0 gap-1 overflow-x-auto px-4 py-1.5">
-        {slates?.map((s) => (
-          <Link
-            key={s.id}
-            href={`/p/${slug}/grid/${s.week}${sortQuery}`}
-            aria-current={s.id === slate.id ? "page" : undefined}
-            className={chipClass(s.id === slate.id, "", "sm")}
-          >
-            {s.label ?? `Week ${s.week}`}
-          </Link>
-        ))}
-      </div>
-      <div className="-mx-4 mb-2 flex shrink-0 items-center gap-1 overflow-x-auto px-4 py-1.5">
-        <span className="mr-1 shrink-0 text-xs font-medium text-muted">Sort</span>
-        {SORTS.map((s) => (
-          <Link
-            key={s.id}
-            href={`/p/${slug}/grid/${slate.week}${s.id === "week" ? "" : `?sort=${s.id}`}`}
-            aria-current={s.id === sort ? "true" : undefined}
-            className={chipClass(s.id === sort, "", "sm")}
-          >
-            {s.label}
-          </Link>
-        ))}
+      {/* One row: weeks scroll on the left, sort sits on the right. */}
+      <div className="-mx-4 mb-1 flex shrink-0 items-center gap-2 px-4">
+        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto py-1">
+          {slates?.map((s) => (
+            <Link
+              key={s.id}
+              href={`/p/${slug}/grid/${s.week}${sortQuery}`}
+              aria-current={s.id === slate.id ? "page" : undefined}
+              className={chipClass(s.id === slate.id, "", "xs")}
+            >
+              {s.label ?? `Week ${s.week}`}
+            </Link>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-1 border-l border-line py-1 pl-2">
+          <span className="mr-0.5 text-[11px] font-medium text-muted">Sort</span>
+          {SORTS.map((s) => (
+            <Link
+              key={s.id}
+              href={`/p/${slug}/grid/${slate.week}${s.id === "week" ? "" : `?sort=${s.id}`}`}
+              aria-current={s.id === sort ? "true" : undefined}
+              aria-label={s.id === "week" ? "Sort by week score" : s.id === "season" ? "Sort by season score" : "Sort by name"}
+              className={chipClass(s.id === sort, "", "xs")}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
       <div className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
@@ -117,7 +124,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 </div>
               </th>
               {games.map((g) => {
-                const locked = isLocked(g);
+                const revealed = isRevealed(g);
                 // Same live states as the Picks tab's status line.
                 const started = hasStarted(g, now);
                 const final = g.status === "final" || g.overridden;
@@ -159,8 +166,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     </div>
                     <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-px size-4" />
                     {ats && <div className="mt-px tabular-nums">{formatSpread(g.spread)}</div>}
-                    {/* Picks in this column are still hidden. */}
-                    {!locked && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
+                    {/* Picks in this column are still hidden (until kickoff). */}
+                    {!revealed && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
                   </th>
                 );
               })}
@@ -198,7 +205,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     </div>
                   </th>
                   {games.map((g) => {
-                    const p = byCell.get(`${r.userId}:${g.id}`);
+                    // Nothing shows before kickoff, the viewer's own pick included.
+                    const p = isRevealed(g) ? byCell.get(`${r.userId}:${g.id}`) : undefined;
                     const team = p ? (p.picked_side === "home" ? g.home : g.away) : null;
                     const tone = p?.result === "win" ? "text-win" : p?.result === "loss" ? "text-loss" : "text-ink";
                     const bonus = Number(p?.bonus ?? 0);
@@ -256,8 +264,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     key={g.id}
                     className={`border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight ${g.voided ? "opacity-50" : ""}`}
                   >
-                    {/* Before lock only the viewer's own pick is visible, so no partial counts. */}
-                    {isLocked(g) ? (
+                    {/* Counted from kickoff, when every player's pick is visible. */}
+                    {isRevealed(g) ? (
                       <>
                         <div className="whitespace-nowrap"><span className="text-muted">{g.away.abbreviation}</span> <span className="font-semibold tabular-nums">{c.away}</span></div>
                         <div className="whitespace-nowrap"><span className="text-muted">{g.home.abbreviation}</span> <span className="font-semibold tabular-nums">{c.home}</span></div>
