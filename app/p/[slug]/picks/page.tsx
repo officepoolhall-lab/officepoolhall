@@ -29,13 +29,13 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const weekHref = (week: number) => `/p/${slug}/picks?week=${week}${forUserId ? `&for=${forUserId}` : ""}`;
 
   const weekChips = slates.length > 1 && (
-    <div className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1">
+    <div className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 py-1.5">
       {[...slates].reverse().map((s) => (
         <Link
           key={s.id}
           href={weekHref(s.week)}
           aria-current={s.id === slate?.id ? "page" : undefined}
-          className={chipClass(s.id === slate?.id, "min-h-11")}
+          className={chipClass(s.id === slate?.id, "", "sm")}
         >
           {s.label ?? `Week ${s.week}`}
         </Link>

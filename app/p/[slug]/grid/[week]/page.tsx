@@ -76,27 +76,27 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       data-fill-viewport
       className="flex max-h-[max(24rem,calc(100dvh-7.75rem-2px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
-      <PageTitle sub="Each game's column fills in once it locks.">Selections</PageTitle>
-      <div className="-mx-4 mb-4 flex shrink-0 gap-1.5 overflow-x-auto px-4 pb-1">
+      <h1 className="sr-only">Selections</h1>
+      <div className="-mx-4 mb-1.5 flex shrink-0 gap-1 overflow-x-auto px-4 py-1.5">
         {slates?.map((s) => (
           <Link
             key={s.id}
             href={`/p/${slug}/grid/${s.week}${sortQuery}`}
             aria-current={s.id === slate.id ? "page" : undefined}
-            className={chipClass(s.id === slate.id, "min-h-11")}
+            className={chipClass(s.id === slate.id, "", "sm")}
           >
             {s.label ?? `Week ${s.week}`}
           </Link>
         ))}
       </div>
-      <div className="-mx-4 mb-3 flex shrink-0 items-center gap-1.5 overflow-x-auto px-4 pb-1">
+      <div className="-mx-4 mb-2 flex shrink-0 items-center gap-1 overflow-x-auto px-4 py-1.5">
         <span className="mr-1 shrink-0 text-xs font-medium text-muted">Sort</span>
         {SORTS.map((s) => (
           <Link
             key={s.id}
             href={`/p/${slug}/grid/${slate.week}${s.id === "week" ? "" : `?sort=${s.id}`}`}
             aria-current={s.id === sort ? "true" : undefined}
-            className={chipClass(s.id === sort, "min-h-11")}
+            className={chipClass(s.id === sort, "", "sm")}
           >
             {s.label}
           </Link>
