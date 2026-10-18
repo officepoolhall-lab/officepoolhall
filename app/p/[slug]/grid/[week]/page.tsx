@@ -4,21 +4,34 @@ import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/comp
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getPoolContext, getSlateGames } from "@/lib/pool";
+import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 
 export const metadata: Metadata = { title: "Selections grid" };
 
-export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[week]">) {
+/** Row order: this week's score (default), season total, or name. */
+const SORTS = [
+  { id: "week", label: "Week score" },
+  { id: "season", label: "Season score" },
+  { id: "name", label: "A–Z" },
+] as const;
+type Sort = (typeof SORTS)[number]["id"];
+
+export default async function GridPage({ params, searchParams }: PageProps<"/p/[slug]/grid/[week]">) {
   const { slug, week } = await params;
+  const { sort: sortParam } = await searchParams;
+  const sort: Sort = SORTS.find((s) => s.id === sortParam)?.id ?? "week";
+  const sortQuery = sort === "week" ? "" : `?sort=${sort}`;
   const ctx = await getPoolContext(slug);
   const { data: slates } = await ctx.supabase
     .from("slates").select("id, week, label, status").eq("pool_id", ctx.pool.id).neq("status", "draft").order("week");
   const slate = slates?.find((s) => s.week === Number(week));
   if (!slate) return (<><PageTitle>Selections</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
 
-  const [games, standings, { data: picks }] = await Promise.all([
+  const [games, standings, season, { data: picks }] = await Promise.all([
     getSlateGames(ctx, slate.id),
     getStandings(ctx, slate.id),
+    sort === "season" ? getStandings(ctx) : null,
     // RLS only returns other players' picks on games that have locked (deadline or tip).
     ctx.supabase.from("picks").select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by").eq("slate_id", slate.id),
   ]);
@@ -29,6 +42,24 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
   const ats = ctx.settings.pick_type === "ats";
   const tz = ctx.settings.timezone;
   const isLocked = (g: (typeof games)[number]) => slate.status !== "open" || isGameLocked(g, now);
+
+  // Week score sorts by this week's standings; the others reorder the same rows.
+  const seasonById = new Map((season ?? []).map((r) => [r.userId, r]));
+  const rows =
+    sort === "season"
+      ? [...standings].sort((a, b) => (seasonById.get(a.userId)?.rank ?? Infinity) - (seasonById.get(b.userId)?.rank ?? Infinity) || a.name.localeCompare(b.name))
+      : sort === "name"
+        ? [...standings].sort((a, b) => a.name.localeCompare(b.name))
+        : standings;
+
+  // Possible points: the most each player can still finish this week with (lib/possible.ts).
+  const slotValues = slotValuesFor(ctx.settings);
+  const openGameIds = games.filter((g) => !g.voided && !isLocked(g)).map((g) => g.id);
+  const picksByUser = new Map<string, NonNullable<typeof picks>>();
+  for (const p of picks ?? []) picksByUser.set(p.user_id, [...(picksByUser.get(p.user_id) ?? []), p]);
+  const possible = (r: (typeof standings)[number]) =>
+    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues });
+
   // Picks per side, for the footer. Only meaningful once a game locks: before that RLS
   // returns just the viewer's own pick.
   const sides = new Map<string, { away: number; home: number }>();
@@ -50,11 +81,24 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
         {slates?.map((s) => (
           <Link
             key={s.id}
-            href={`/p/${slug}/grid/${s.week}`}
+            href={`/p/${slug}/grid/${s.week}${sortQuery}`}
             aria-current={s.id === slate.id ? "page" : undefined}
             className={chipClass(s.id === slate.id, "min-h-11")}
           >
             {s.label ?? `Week ${s.week}`}
+          </Link>
+        ))}
+      </div>
+      <div className="-mx-4 mb-3 flex shrink-0 items-center gap-1.5 overflow-x-auto px-4 pb-1">
+        <span className="mr-1 shrink-0 text-xs font-medium text-muted">Sort</span>
+        {SORTS.map((s) => (
+          <Link
+            key={s.id}
+            href={`/p/${slug}/grid/${slate.week}${s.id === "week" ? "" : `?sort=${s.id}`}`}
+            aria-current={s.id === sort ? "true" : undefined}
+            className={chipClass(s.id === sort, "min-h-11")}
+          >
+            {s.label}
           </Link>
         ))}
       </div>
@@ -67,7 +111,9 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
               <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-2 text-left align-bottom text-xs font-medium text-muted">
                 <div className="flex items-end justify-between gap-3">
                   <span className="min-w-20">Player</span>
-                  <span className="min-w-8 shrink-0 text-right">Pts</span>
+                  <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
+                    {sort === "season" ? "Season" : <>Pts<span className="text-faint">/poss</span></>}
+                  </span>
                 </div>
               </th>
               {games.map((g) => {
@@ -121,7 +167,7 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
             </tr>
           </thead>
           <tbody>
-            {standings.map((r) => {
+            {rows.map((r) => {
               const mine = r.userId === ctx.user.id;
               return (
                 <tr key={r.userId} className="[&:last-child>*]:border-b-0">
@@ -135,9 +181,19 @@ export default async function GridPage({ params }: PageProps<"/p/[slug]/grid/[we
                         {/* Their total is filled in per settings.missed_week. */}
                         {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">No picks</span>}
                       </span>
-                      <span className="min-w-8 shrink-0 text-right font-semibold tabular-nums text-ink">
-                        {points(r.points)}
-                        <span className="sr-only"> points</span>
+                      <span className="min-w-8 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-ink">
+                        {sort === "season" ? (
+                          <>
+                            {points(seasonById.get(r.userId)?.points ?? 0)}
+                            <span className="sr-only"> season points</span>
+                          </>
+                        ) : (
+                          <>
+                            {points(r.points)}
+                            <span className="font-normal text-muted">/{points(possible(r))}</span>
+                            <span className="sr-only"> points this week, {points(possible(r))} possible</span>
+                          </>
+                        )}
                       </span>
                     </div>
                   </th>
