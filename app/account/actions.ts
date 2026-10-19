@@ -85,6 +85,34 @@ export async function setPassword(_: ActionState, form: FormData): Promise<Actio
   return { ok: "Password saved. You can sign in with it next time." };
 }
 
+// ---------- Email ----------
+
+/**
+ * Starts an email change. Supabase's secure email change (config.toml double_confirm_changes)
+ * emails a link to both the current and the new address; the change applies once both are
+ * clicked. The links come back to /account.
+ */
+export async function changeEmail(_: ActionState, form: FormData): Promise<ActionState> {
+  const user = await getUser();
+  if (!user) return { error: "You're signed out. Sign in again." };
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
+  if (email === user.email?.toLowerCase()) return { error: "That's already your email." };
+
+  const supabase = await createClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const { error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: `${appUrl}/account?email=confirmed` });
+  if (error) {
+    if (/already (been )?registered|already exists/i.test(error.message)) {
+      return { error: "Another account already uses that email." };
+    }
+    if (error.code === "over_email_send_rate_limit") return { error: "Too many emails just now. Try again in a few minutes." };
+    return { error: error.message };
+  }
+  revalidatePath("/account");
+  return { ok: `Check both inboxes: we sent a confirmation link to ${user.email} and to ${email}. Click both to finish the change.` };
+}
+
 // ---------- Co-managers ----------
 
 export type InviteState = { token?: string; error?: string } | null;
