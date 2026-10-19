@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "My pools" };
 export default async function PoolsPage() {
   const user = await requireUser("/pools");
   const supabase = await createClient();
-  const [{ data: memberships }, { data: canCreate }] = await Promise.all([
+  const [{ data: memberships }, { data: canCreate }, { data: profile }] = await Promise.all([
     supabase
       .from("pool_members")
       .select("role, paid, pool:pools!inner ( name, slug, sport, season, entry_fee )")
@@ -20,6 +20,7 @@ export default async function PoolsPage() {
       .order("joined_at", { ascending: false }),
     // Only approved commissioners can start pools (enforced in create_pool too).
     supabase.rpc("can_create_pools"),
+    supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
   ]);
 
   return (
@@ -29,7 +30,8 @@ export default async function PoolsPage() {
         <Suspense fallback={null}>
           <PasswordNudge />
         </Suspense>
-        <PageTitle sub={user.email}>My pools</PageTitle>
+        {/* The player's name ("First Last"); the email only if no name is set yet. */}
+        <PageTitle sub={profile?.display_name?.trim() || user.email}>My pools</PageTitle>
         {memberships?.length ? (
           <ul className="divide-y divide-line border-y border-line">
             {memberships.map((m) => (
