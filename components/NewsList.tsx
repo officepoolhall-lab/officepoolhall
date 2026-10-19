@@ -1,4 +1,5 @@
 import type { NewsStory } from "@/lib/news";
+import { NewsThumb } from "./NewsThumb";
 import { SectionLabel } from "./ui";
 
 /** "12m ago" / "3h ago" / "2d ago". */
@@ -26,12 +27,7 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
           {stories.map((s) => (
             <li key={s.id}>
               <a href={s.url} target="_blank" rel="noopener noreferrer" className="group flex gap-3 py-2.5">
-                {s.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote thumbnails, sized by CSS
-                  <img src={s.image} alt="" loading="lazy" className="h-14 w-24 shrink-0 rounded-lg bg-surface object-cover" />
-                ) : (
-                  <span className="h-14 w-24 shrink-0 rounded-lg bg-surface" aria-hidden />
-                )}
+                <NewsThumb src={s.image} source={s.source} />
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 text-sm font-semibold leading-snug text-ink group-hover:underline">{s.headline}</span>
                   {s.description && <span className="mt-0.5 line-clamp-1 text-xs text-muted">{s.description}</span>}
