@@ -22,6 +22,7 @@ export function SeasonStandings({
   playerHref,
   compact = false,
   weekly = false,
+  header = true,
 }: {
   rows: StandingRow[];
   me: string;
@@ -36,25 +37,17 @@ export function SeasonStandings({
   compact?: boolean;
   /** A one-week table: a player without picks reads "No picks" instead of "1 missed". */
   weekly?: boolean;
+  /** Draw the Player · Record · Win % row. Off when the page puts it in a frozen header. */
+  header?: boolean;
 }) {
   const total = rows.reduce(
     (t, r) => ({ wins: t.wins + r.wins, losses: t.losses + r.losses, pushes: t.pushes + r.pushes }),
     { wins: 0, losses: 0, pushes: 0 },
   );
-  const head = "text-[11px] font-medium text-muted";
-
   return (
-    <ul className="divide-y divide-line border-b border-line">
-      <li className="flex items-end gap-3 pb-1.5 pt-2" aria-hidden>
-        <span className="w-6" />
-        <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-        <span className={`w-16 text-right ${head}`}>Record</span>
-        {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
-        <span className={`w-14 text-right ${head}`}>Win %</span>
-        {week && <span className={`hidden w-20 text-right sm:block ${head}`}>{week.label}</span>}
-        {bonus && <span className={`hidden w-20 text-right sm:block ${head}`}>{bonus.label}</span>}
-      </li>
-
+    <>
+      {header && <SeasonHeaderRow flat={flat} week={week} bonus={bonus} />}
+      <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => {
         const mine = r.userId === me;
         const w = week?.scores.get(r.userId);
@@ -115,6 +108,36 @@ export function SeasonStandings({
           {bonus && <span className="hidden w-20 sm:block" aria-hidden />}
         </li>
       )}
-    </ul>
+      </ul>
+    </>
+  );
+}
+
+/** Pins a column's heading, buttons and column labels under the app's top bar (and, on
+ *  phones, the tab row) while its rows scroll. */
+export const FROZEN_HEAD =
+  "sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] z-10 bg-bg";
+
+/** The Player · Record · Win % (· week · bonus) labels, matching SeasonStandings' columns. */
+export function SeasonHeaderRow({
+  flat,
+  week,
+  bonus,
+}: {
+  flat: boolean;
+  week: { label: string } | null;
+  bonus: { label: string } | null;
+}) {
+  const head = "text-[11px] font-medium text-muted";
+  return (
+<div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
+    <span className="w-6" />
+    <span className={`min-w-0 flex-1 ${head}`}>Player</span>
+    <span className={`w-16 text-right ${head}`}>Record</span>
+    {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
+    <span className={`w-14 text-right ${head}`}>Win %</span>
+    {week && <span className={`hidden w-20 text-right sm:block ${head}`}>{week.label}</span>}
+    {bonus && <span className={`hidden w-20 text-right sm:block ${head}`}>{bonus.label}</span>}
+  </div>
   );
 }
