@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -114,7 +115,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
         </div>
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
-      <div className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
+      {/* On touch screens each swipe scrolls one way only (up/down or left/right). */}
+      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
         <table className="border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
@@ -283,7 +285,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             </tr>
           </tfoot>
         </table>
-      </div>
+      </AxisLockScroll>
     </div>
   );
 }
