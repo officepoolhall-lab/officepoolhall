@@ -456,6 +456,15 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"pool_member_accounts":
+{ Args: { "p_pool_id": string }; Returns: {
+              "email": string,
+"last_sign_in_at": string | null,
+"name_confirmed": boolean,
+"password_set": boolean,
+"user_id": string
+            }[]
+                           },
 "pool_member_emails":
 { Args: { "p_pool_id": string }; Returns: {
               "email": string,

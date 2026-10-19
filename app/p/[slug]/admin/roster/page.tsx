@@ -9,18 +9,39 @@ export const metadata: Metadata = { title: "Roster" };
 export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/roster">) {
   const { slug } = await params;
   const ctx = await requireCommissioner(slug);
-  const [{ data: members }, { data: invite }, { data: emails, error: emailError }] = await Promise.all([
+  const [{ data: members }, { data: invite }, { data: accounts, error: accountsError }] = await Promise.all([
     ctx.supabase
       .from("pool_members")
       .select("user_id, role, paid, joined_at, profile:profiles!inner ( display_name )")
       .eq("pool_id", ctx.pool.id)
       .order("joined_at"),
     ctx.supabase.from("invites").select("token").eq("pool_id", ctx.pool.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    // Sign-in emails, which only the commissioner may read (pool_member_emails checks).
-    ctx.supabase.rpc("pool_member_emails", { p_pool_id: ctx.pool.id }),
+    // Emails and account status, which only the commissioner may read (the function checks).
+    ctx.supabase.rpc("pool_member_accounts", { p_pool_id: ctx.pool.id }),
   ]);
-  if (emailError) console.error("Roster: member emails unavailable", emailError);
-  const emailOf = new Map<string, string>((emails ?? []).map((e: { user_id: string; email: string }) => [e.user_id, e.email]));
+  // Until the account-status migration reaches the database, fall back to emails alone.
+  let emailRows: { user_id: string; email: string }[] = accounts ?? [];
+  let emailFailed = false;
+  if (accountsError) {
+    console.error("Roster: member accounts unavailable", accountsError);
+    const { data: emails, error } = await ctx.supabase.rpc("pool_member_emails", { p_pool_id: ctx.pool.id });
+    emailRows = emails ?? [];
+    emailFailed = Boolean(error);
+    if (error) console.error("Roster: member emails unavailable", error);
+  }
+  const emailOf = new Map<string, string>(emailRows.map((e: { user_id: string; email: string }) => [e.user_id, e.email]));
+  type Account = { password_set: boolean; name_confirmed: boolean; last_sign_in_at: string | null };
+  const accountOf = new Map<string, Account>(
+    (accounts ?? []).map((a: Account & { user_id: string }) => [a.user_id, a]),
+  );
+  // "Set up": they chose a password and confirmed their name.
+  const setUp = (id: string) => {
+    const a = accountOf.get(id);
+    return Boolean(a?.password_set && a.name_confirmed);
+  };
+  const setUpCount = (members ?? []).filter((m) => setUp(m.user_id)).length;
+  const signedIn = (iso: string | null) =>
+    iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: ctx.settings.timezone })}` : "Never signed in";
   // Everyone's address in one line, for pasting into an email's To: field.
   const allEmails = (members ?? [])
     .map((m) => emailOf.get(m.user_id))
@@ -57,6 +78,7 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
           <span className="text-xs text-muted tabular-nums">
             {members?.length ?? 0}
             {fee > 0 && ` · ${paidCount} paid · $${(paidCount * fee).toFixed(0)} collected`}
+            {accountOf.size > 0 && ` · ${setUpCount} set up`}
           </span>
           {allEmails && (
             <span className="ml-auto">
@@ -65,7 +87,7 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
           )}
         </div>
         {/* Most likely the pool_member_emails migration hasn't reached the database yet. */}
-        {emailError && (
+        {emailFailed && (
           <p className="border-b border-line py-2 text-sm text-muted">Members&apos; emails can&apos;t be shown right now (the database needs its latest update).</p>
         )}
         <ul className="divide-y divide-line">
@@ -80,6 +102,26 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
                   <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">
                     {emailOf.get(m.user_id)}
                   </a>
+                )}
+                {/* Account status: password chosen and name confirmed = set up. */}
+                {accountOf.get(m.user_id) && (
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                    {setUp(m.user_id) ? (
+                      <span className="inline-flex items-center gap-0.5 font-semibold text-win">
+                        <CheckIcon className="size-3.5" /> Account set up
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-muted">
+                        {[
+                          !accountOf.get(m.user_id)!.password_set && "No password yet",
+                          !accountOf.get(m.user_id)!.name_confirmed && "Name not confirmed",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    )}
+                    <span className="text-faint">{signedIn(accountOf.get(m.user_id)!.last_sign_in_at)}</span>
+                  </span>
                 )}
               </span>
               <form action={setPaid.bind(null, slug, m.user_id, !m.paid)}>
