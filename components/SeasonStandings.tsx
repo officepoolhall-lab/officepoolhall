@@ -4,7 +4,9 @@ import { winPct } from "@/lib/record";
 import type { StandingRow } from "@/lib/standings";
 
 type WinLoss = Pick<StandingRow, "wins" | "losses" | "pushes">;
-const recordText = (r: WinLoss) => `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
+// "1,052–987–34": thousands separators (pool totals get big), one line always.
+const n = (x: number) => x.toLocaleString("en-US");
+const recordText = (r: WinLoss) => `${n(r.wins)}–${n(r.losses)}${r.pushes ? `–${n(r.pushes)}` : ""}`;
 
 export type WeekScore = { points: number; possible: number };
 
@@ -65,7 +67,7 @@ export function SeasonStandings({
               {/* Their score comes from settings.missed_week (0 or the week's last place). */}
               {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{weekly ? "No picks" : `${r.missed} missed`}</span>}
             </span>
-            <span className={`w-16 text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
+            <span className={`min-w-16 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
               {recordText(r)}
               <span className="sr-only"> season record</span>
             </span>
@@ -101,7 +103,7 @@ export function SeasonStandings({
         <li className={`flex items-center gap-3 text-muted ${compact ? "min-h-9 py-1.5" : "min-h-12 py-2.5"}`}>
           <span className="w-6" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-sm font-medium">Pool total</span>
-          <span className={`w-16 text-right font-semibold tabular-nums text-ink ${compact ? "text-[15px]" : "text-[17px]"}`}>{recordText(total)}</span>
+          <span className={`min-w-16 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-ink ${compact ? "text-[15px]" : "text-[17px]"}`}>{recordText(total)}</span>
           {!flat && <span className="w-14" aria-hidden />}
           <span className="w-14 text-right text-sm tabular-nums">{winPct(total.wins, total.losses)}</span>
           {week && <span className="hidden w-20 sm:block lg:hidden" aria-hidden />}
@@ -133,7 +135,7 @@ export function SeasonHeaderRow({
 <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
     <span className="w-6" />
     <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-    <span className={`w-16 text-right ${head}`}>Record</span>
+    <span className={`min-w-16 shrink-0 text-right ${head}`}>Record</span>
     {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
     <span className={`w-14 text-right ${head}`}>Win %</span>
     {week && <span className={`hidden w-20 text-right sm:block lg:hidden ${head}`}>{week.label}</span>}
