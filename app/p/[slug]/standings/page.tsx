@@ -8,6 +8,8 @@ import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
+import { SPLITS, type Split } from "@/lib/splits";
+import { getSplitStandings } from "@/lib/splitsData";
 import { getStandings } from "@/lib/standings";
 
 export const metadata: Metadata = { title: "Standings" };
@@ -20,7 +22,9 @@ export const metadata: Metadata = { title: "Standings" };
  */
 export default async function StandingsPage({ params, searchParams }: PageProps<"/p/[slug]/standings">) {
   const { slug } = await params;
-  const { week: weekParam, segment: segmentParam } = await searchParams;
+  const { week: weekParam, segment: segmentParam, split: splitParam } = await searchParams;
+  // The season table's pick-type filter: All, Favorites, Underdogs, Home, Away.
+  const split: Split = SPLITS.find((x) => x.id === splitParam)?.id ?? "all";
   const ctx = await getPoolContext(slug);
   const { data: slates } = await ctx.supabase
     .from("slates")
@@ -49,7 +53,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
 
   const flat = !ctx.settings.confidence;
   const [seasonRows, weekRows, segmentRows, games, currentWeekRows, currentSegmentRows, picks] = await Promise.all([
-    getStandings(ctx),
+    split === "all" ? getStandings(ctx) : getSplitStandings(ctx, split),
     panelSlate ? getStandings(ctx, panelSlate.id) : null,
     panelSegment ? getStandings(ctx, { fromWeek: panelSegment.first_week, toWeek: panelSegment.last_week }) : null,
     current ? getSlateGames(ctx, current.id) : [],
@@ -95,8 +99,9 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       : null;
 
   // Links keep the other panel's choice.
-  const href = (week: number | null, segment: number | null) => {
+  const href = (week: number | null, segment: number | null, splitTo: Split = split) => {
     const q = new URLSearchParams();
+    if (splitTo !== "all") q.set("split", splitTo);
     if (week) q.set("week", String(week));
     if (segment) q.set("segment", String(segment));
     const s = q.toString();
@@ -104,6 +109,16 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   };
   const keepSegment = askedSegment ? askedSegmentNumber : null;
   const keepWeek = askedWeek ? askedWeek.week : null;
+  const splitLabel = SPLITS.find((x) => x.id === split)!.label;
+  const splitChips = (
+    <div className="-mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1" aria-label="Filter season records by pick type">
+      {SPLITS.map((x) => (
+        <Link key={x.id} href={href(keepWeek, keepSegment, x.id)} aria-current={x.id === split ? "true" : undefined} className={chipClass(x.id === split, "", "xs")}>
+          {x.label}
+        </Link>
+      ))}
+    </div>
+  );
   const playerHref = (userId: string) => `/p/${slug}/standings/${userId}`;
   const weekLabel = (s: { week: number; label: string | null }) => s.label ?? `Week ${s.week}`;
 
@@ -156,11 +171,13 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
           <div className="hidden lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
             <section aria-labelledby="season-standings">
               <SectionLabel className="flex min-h-9 items-center">
-                <span id="season-standings">Season</span>
+                <span id="season-standings">
+                  Season
+                  {split !== "all" && <span className="font-normal normal-case tracking-normal"> · {splitLabel} picks</span>}
+                </span>
               </SectionLabel>
-              {/* The week and bonus columns have their own tables here. Spacer keeps the
-                  header level with the other columns' pickers. */}
-              <div className="mb-1 h-8" aria-hidden />
+              {/* The pick-type filter sits where the other columns have their pickers. */}
+              {splitChips}
               <SeasonStandings rows={seasonRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact />
             </section>
             <>
@@ -200,8 +217,17 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
             </div>
             {view === "segment" && segmentChips}
             {view === "weekly" && weekChips}
+            {view === "season" && splitChips}
             {view === "season" ? (
-              <SeasonStandings rows={seasonRows} me={ctx.user.id} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} />
+              <SeasonStandings
+                rows={seasonRows}
+                me={ctx.user.id}
+                flat={flat}
+                // This week's and the bonus columns are about all picks; a filtered table drops them.
+                week={split === "all" ? weekColumn : null}
+                bonus={split === "all" ? bonusColumn : null}
+                playerHref={playerHref}
+              />
             ) : view === "weekly" && weekRows ? (
               <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} weekly />
             ) : segmentRows ? (
