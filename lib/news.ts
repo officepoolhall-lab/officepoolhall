@@ -16,7 +16,7 @@ export type NewsStory = {
   published: string | null;
   image: string | null;
   video: boolean;
-  /** Who published it: "ESPN", "CBS Sports", "Yahoo Sports". */
+  /** Who published it: "ESPN", "CBS Sports", "Fox Sports". */
   source: string;
 };
 
@@ -26,7 +26,8 @@ type Sport = "ncaaf" | "ncaab";
 const RSS_FEEDS: Record<Sport, { source: string; url: string }[]> = {
   ncaaf: [
     { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/college-football/" },
-    { source: "Yahoo Sports", url: "https://sports.yahoo.com/college-football/rss/" },
+    // Fox Sports' public college football feed (the key is the one foxsports.com itself uses).
+    { source: "Fox Sports", url: "https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/cfb" },
   ],
   ncaab: [],
 };

@@ -63,6 +63,7 @@ feed (a `rankings[]` entry named "College Football Playoff Rankings"); `getApPol
 once; each source is cached 15 minutes and skipped if it fails. Stories open on their own site.
 - ESPN: site API `.../{sport path}/news` (`articles[]`, `type` Story or Media); ESPN+ (`premium`) skipped.
 - CBS Sports: RSS `https://www.cbssports.com/rss/headlines/college-football/` (image in `<enclosure>`).
-- Yahoo Sports: RSS `https://sports.yahoo.com/college-football/rss/` (partner stories; image in `content:encoded`).
+- Fox Sports: RSS `https://api.foxsports.com/v2/content/optimized-rss?partnerKey=…&tags=fs/cfb` (image in `media:content`).
+- Removed: Yahoo Sports (Oct 2026).
 - Not added: NBC Sports (has a college football feed, but its address couldn't be confirmed) and
   The Athletic (subscription; most links are paywalled). Add a feed to `RSS_FEEDS` once its URL is known.
