@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { points } from "@/lib/format";
 import { winPct } from "@/lib/record";
 import type { StandingRow } from "@/lib/standings";
@@ -18,6 +19,7 @@ export function SeasonStandings({
   flat,
   week,
   bonus,
+  playerHref,
 }: {
   rows: StandingRow[];
   me: string;
@@ -26,6 +28,8 @@ export function SeasonStandings({
   week: { label: string; scores: Map<string, WeekScore> } | null;
   /** The current bonus segment's label and each player's record there, or null without segments. */
   bonus: { label: string; records: Map<string, WinLoss> } | null;
+  /** Where a player's name links (their week-by-week history). */
+  playerHref?: (userId: string) => string;
 }) {
   const total = rows.reduce(
     (t, r) => ({ wins: t.wins + r.wins, losses: t.losses + r.losses, pushes: t.pushes + r.pushes }),
@@ -53,7 +57,11 @@ export function SeasonStandings({
           <li key={r.userId} className="flex min-h-12 items-center gap-3 py-2.5">
             <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
             <span className="min-w-0 flex-1 truncate font-medium">
-              <span className={mine ? "text-accent" : ""}>{r.name}</span>
+              {playerHref ? (
+                <Link href={playerHref(r.userId)} className={`hover:underline ${mine ? "text-accent" : ""}`}>{r.name}</Link>
+              ) : (
+                <span className={mine ? "text-accent" : ""}>{r.name}</span>
+              )}
               {mine && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
               {/* Their score comes from settings.missed_week (0 or the week's last place). */}
               {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{r.missed} missed</span>}
