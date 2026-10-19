@@ -20,6 +20,7 @@ export function SeasonStandings({
   week,
   bonus,
   playerHref,
+  compact = false,
 }: {
   rows: StandingRow[];
   me: string;
@@ -30,6 +31,8 @@ export function SeasonStandings({
   bonus: { label: string; records: Map<string, WinLoss> } | null;
   /** Where a player's name links (their week-by-week history). */
   playerHref?: (userId: string) => string;
+  /** 36px rows, to sit beside the compact week and segment tables on desktop. */
+  compact?: boolean;
 }) {
   const total = rows.reduce(
     (t, r) => ({ wins: t.wins + r.wins, losses: t.losses + r.losses, pushes: t.pushes + r.pushes }),
@@ -54,7 +57,7 @@ export function SeasonStandings({
         const w = week?.scores.get(r.userId);
         const b = bonus?.records.get(r.userId);
         return (
-          <li key={r.userId} className="flex min-h-12 items-center gap-3 py-2.5">
+          <li key={r.userId} className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-2.5"}`}>
             <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
             <span className="min-w-0 flex-1 truncate font-medium">
               {playerHref ? (
@@ -66,7 +69,7 @@ export function SeasonStandings({
               {/* Their score comes from settings.missed_week (0 or the week's last place). */}
               {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{r.missed} missed</span>}
             </span>
-            <span className="w-16 text-right text-[17px] font-semibold tabular-nums">
+            <span className={`w-16 text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
               {recordText(r)}
               <span className="sr-only"> season record</span>
             </span>
@@ -99,10 +102,10 @@ export function SeasonStandings({
       })}
 
       {rows.length > 0 && (
-        <li className="flex min-h-12 items-center gap-3 py-2.5 text-muted">
+        <li className={`flex items-center gap-3 text-muted ${compact ? "min-h-9 py-1.5" : "min-h-12 py-2.5"}`}>
           <span className="w-6" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-sm font-medium">Pool total</span>
-          <span className="w-16 text-right text-[17px] font-semibold tabular-nums text-ink">{recordText(total)}</span>
+          <span className={`w-16 text-right font-semibold tabular-nums text-ink ${compact ? "text-[15px]" : "text-[17px]"}`}>{recordText(total)}</span>
           {!flat && <span className="w-14" aria-hidden />}
           <span className="w-14 text-right text-sm tabular-nums">{winPct(total.wins, total.losses)}</span>
           {week && <span className="hidden w-20 sm:block" aria-hidden />}
