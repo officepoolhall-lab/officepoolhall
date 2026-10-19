@@ -3,13 +3,14 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
 import { SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
+import { SplitSwitcher } from "@/components/SplitSwitcher";
 import { chipClass, Empty, PageTitle, SectionLabel } from "@/components/ui";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { SPLITS, type Split } from "@/lib/splits";
-import { getSplitStandings } from "@/lib/splitsData";
+import { getAllSplitStandings } from "@/lib/splitsData";
 import { getStandings } from "@/lib/standings";
 
 export const metadata: Metadata = { title: "Standings" };
@@ -53,7 +54,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
 
   const flat = !ctx.settings.confidence;
   const [seasonRows, weekRows, segmentRows, games, currentWeekRows, currentSegmentRows, picks] = await Promise.all([
-    split === "all" ? getStandings(ctx) : getSplitStandings(ctx, split),
+    getStandings(ctx),
     panelSlate ? getStandings(ctx, panelSlate.id) : null,
     panelSegment ? getStandings(ctx, { fromWeek: panelSegment.first_week, toWeek: panelSegment.last_week }) : null,
     current ? getSlateGames(ctx, current.id) : [],
@@ -65,6 +66,13 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       ? ctx.supabase.from("picks").select("user_id, game_id, confidence, result").eq("slate_id", current.id).then(({ data }) => data ?? [])
       : [],
   ]);
+
+  // Every pick-type breakdown, so the Season filter switches instantly. A failure here only
+  // costs the filter (logged for the Vercel logs), never the page.
+  const splits = await getAllSplitStandings(ctx).catch((err) => {
+    console.error("Standings: pick-type breakdown failed", err);
+    return null;
+  });
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or open
   const now = Date.now();
@@ -99,9 +107,9 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       : null;
 
   // Links keep the other panel's choice.
-  const href = (week: number | null, segment: number | null, splitTo: Split = split) => {
+  const href = (week: number | null, segment: number | null) => {
     const q = new URLSearchParams();
-    if (splitTo !== "all") q.set("split", splitTo);
+    if (split !== "all") q.set("split", split);
     if (week) q.set("week", String(week));
     if (segment) q.set("segment", String(segment));
     const s = q.toString();
@@ -109,17 +117,31 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   };
   const keepSegment = askedSegment ? askedSegmentNumber : null;
   const keepWeek = askedWeek ? askedWeek.week : null;
-  const splitLabel = SPLITS.find((x) => x.id === split)!.label;
-  const splitChips = (
-    <div className="-mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1" aria-label="Filter season records by pick type">
-      {SPLITS.map((x) => (
-        <Link key={x.id} href={href(keepWeek, keepSegment, x.id)} aria-current={x.id === split ? "true" : undefined} className={chipClass(x.id === split, "", "xs")}>
-          {x.label}
-        </Link>
-      ))}
-    </div>
-  );
   const playerHref = (userId: string) => `/p/${slug}/standings/${userId}`;
+  // The Season table for each pick type, rendered here; SplitSwitcher shows one at a time.
+  const seasonViews = (compact: boolean) =>
+    Object.fromEntries(
+      SPLITS.map((x) => [
+        x.id,
+        x.id === "all" ? (
+          <SeasonStandings
+            rows={seasonRows}
+            me={ctx.user.id}
+            flat={flat}
+            // This week's and the bonus columns are about all picks (phones only; desktop has
+            // its own columns for them).
+            week={compact ? null : weekColumn}
+            bonus={compact ? null : bonusColumn}
+            playerHref={playerHref}
+            compact={compact}
+          />
+        ) : splits ? (
+          <SeasonStandings rows={splits[x.id]} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact={compact} />
+        ) : (
+          <p className="border-y border-line py-3 text-sm text-muted">This breakdown couldn&apos;t load right now. Try again in a minute.</p>
+        ),
+      ]),
+    );
   const weekLabel = (s: { week: number; label: string | null }) => s.label ?? `Week ${s.week}`;
 
   const weekChips = (
@@ -169,16 +191,9 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
           {/* ---------- Desktop: season | week | bonus segment, all in the same table format
                 (Player · Record · Win %, then the pool total) ---------- */}
           <div className="hidden lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
-            <section aria-labelledby="season-standings">
-              <SectionLabel className="flex min-h-9 items-center">
-                <span id="season-standings">
-                  Season
-                  {split !== "all" && <span className="font-normal normal-case tracking-normal"> · {splitLabel} picks</span>}
-                </span>
-              </SectionLabel>
+            <section aria-label="Season standings">
               {/* The pick-type filter sits where the other columns have their pickers. */}
-              {splitChips}
-              <SeasonStandings rows={seasonRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact />
+              <SplitSwitcher options={[...SPLITS]} initial={split} views={seasonViews(true)} title="Season" />
             </section>
             <>
               {panelSlate && weekRows && (
@@ -217,17 +232,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
             </div>
             {view === "segment" && segmentChips}
             {view === "weekly" && weekChips}
-            {view === "season" && splitChips}
             {view === "season" ? (
-              <SeasonStandings
-                rows={seasonRows}
-                me={ctx.user.id}
-                flat={flat}
-                // This week's and the bonus columns are about all picks; a filtered table drops them.
-                week={split === "all" ? weekColumn : null}
-                bonus={split === "all" ? bonusColumn : null}
-                playerHref={playerHref}
-              />
+              <SplitSwitcher options={[...SPLITS]} initial={split} views={seasonViews(false)} />
             ) : view === "weekly" && weekRows ? (
               <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} weekly />
             ) : segmentRows ? (
