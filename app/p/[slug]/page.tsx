@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { ApPollList } from "@/components/ApPollList";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
+import { LiveTicker } from "@/components/LiveTicker";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ChevronIcon, Empty, SectionLabel, chipClass } from "@/components/ui";
+import { getApPoll } from "@/lib/apPoll";
 import { points, windowLabel } from "@/lib/format";
-import { isGameLocked } from "@/lib/locks";
+import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
-import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 
@@ -13,25 +16,26 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   const slate = await getCurrentSlate(ctx);
-  // The current segment is the one holding the current week; none before a week is published.
-  const segment = slate ? segmentForWeek(ctx.settings, slate.week) : null;
-  const segmentIndex = segment ? segmentRanges(ctx.settings).findIndex((r) => r.first_week === segment.first_week) + 1 : 0;
-  const [season, segmentRows] = await Promise.all([
+  const [season, poll, games] = await Promise.all([
     getStandings(ctx),
-    segment ? getStandings(ctx, { fromWeek: segment.first_week, toWeek: segment.last_week }) : null,
+    getApPoll(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf"),
+    slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const flat = !ctx.settings.confidence;
+  const tz = ctx.settings.timezone;
+  // Server render time is fine here; the countdown itself ticks client-side.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const anyLive = games.some(
+    (g) => !g.voided && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled",
+  );
 
   let summary = null;
   if (slate) {
-    const [games, { data: mine }, { data: score }] = await Promise.all([
-      getSlateGames(ctx, slate.id),
+    const [{ data: mine }, { data: score }] = await Promise.all([
       ctx.supabase.from("picks").select("game_id, confidence, result").eq("slate_id", slate.id).eq("user_id", ctx.user.id),
       ctx.supabase.from("slate_scores").select("points").eq("slate_id", slate.id).eq("user_id", ctx.user.id).maybeSingle(),
     ]);
-    // Server render time is fine here; the countdown itself ticks client-side.
-    // eslint-disable-next-line react-hooks/purity
-    const now = Date.now();
     // The next moment any game stops taking picks: a deadline, or a tip before its deadline.
     const nextLock = games
       .filter((g) => !g.voided && !isGameLocked(g, now))
@@ -53,16 +57,20 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
 
   return (
     // data-wide: full screen width on desktop, like the Picks and Grid tabs.
-    <div data-wide className="space-y-8">
+    <div data-wide className="space-y-6">
+      {/* The week's scores across the top; refreshed every minute while a game is live. */}
+      {games.length > 0 && <LiveTicker games={games} now={now} timezone={tz} />}
+      <AutoRefresh active={anyLive} />
+
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{ctx.pool.name}</h1>
 
       {slate && summary ? (
         <section className="border-b border-line pb-4">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-semibold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
-            <span className="ml-auto truncate text-muted">{windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-bold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
+            <span className="ml-auto truncate text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-4">
+          <div className="mt-2 grid grid-cols-2 gap-4">
             <div>
               <div className="text-xs text-muted">My Picks</div>
               <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
@@ -103,29 +111,21 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
         </Empty>
       )}
 
-      <section>
-        <div className="flex items-center justify-between">
-          <SectionLabel>Season standings</SectionLabel>
-          <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
-            All <ChevronIcon className="size-4" />
-          </Link>
-        </div>
-        <StandingsTable rows={season} me={ctx.user.id} limit={5} flat={flat} />
-      </section>
-
-      {segment && segmentRows && (
+      {/* Desktop: standings on the left, the AP poll on the right. Phones: one after the other. */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
         <section>
           <div className="flex items-center justify-between">
-            <SectionLabel>
-              {segment.name} <span className="font-normal normal-case tracking-normal">· {segmentWeeksLabel(segment)}</span>
-            </SectionLabel>
-            <Link href={`/p/${slug}/standings?segment=${segmentIndex}`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
+            <SectionLabel>Season standings</SectionLabel>
+            <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
               All <ChevronIcon className="size-4" />
             </Link>
           </div>
-          <StandingsTable rows={segmentRows} me={ctx.user.id} limit={5} flat={flat} />
+          <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact />
         </section>
-      )}
+        <div className="lg:ml-auto lg:w-full lg:max-w-md">
+          <ApPollList poll={poll} timezone={tz} />
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ export function StandingsTable({
   weekly = false,
   flat = false,
   total = false,
+  compact = false,
 }: {
   rows: StandingRow[];
   me: string;
@@ -22,6 +23,8 @@ export function StandingsTable({
   flat?: boolean;
   /** Add a "Pool total" row under the last player: everyone's combined record and win %. */
   total?: boolean;
+  /** Tighter rows (36px) for side panels like Home. */
+  compact?: boolean;
 }) {
   const shown = limit ? rows.slice(0, limit) : rows;
   const mine = rows.find((r) => r.userId === me);
@@ -29,11 +32,11 @@ export function StandingsTable({
 
   return (
     <ul className="divide-y divide-line border-b border-line">
-      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} />)}
+      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} />)}
       {pinned && (
         <>
           <li className="py-1 text-center text-xs leading-none text-faint" aria-hidden>···</li>
-          <Row r={pinned} me={me} weekly={weekly} flat={flat} />
+          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} />
         </>
       )}
       {total && rows.length > 0 && <TotalRow rows={rows} />}
@@ -58,11 +61,11 @@ function TotalRow({ rows }: { rows: StandingRow[] }) {
   );
 }
 
-function Row({ r, me, weekly, flat }: { r: StandingRow; me: string; weekly: boolean; flat: boolean }) {
+function Row({ r, me, weekly, flat, compact }: { r: StandingRow; me: string; weekly: boolean; flat: boolean; compact: boolean }) {
   const mine = r.userId === me;
   const record = `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
   return (
-    <li className="flex min-h-12 items-center gap-3 py-3">
+    <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"}`}>
       <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
       <span className="min-w-0 flex-1 truncate font-medium">
         <span className={mine ? "text-accent" : ""}>{r.name}</span>
@@ -77,12 +80,12 @@ function Row({ r, me, weekly, flat }: { r: StandingRow; me: string; weekly: bool
           {/* Points only differ from wins when pushes or custom scoring count. */}
           {r.points !== r.wins && <span className="text-xs tabular-nums text-muted">{points(r.points)} pts</span>}
           <span className="w-10 text-right text-xs tabular-nums text-muted" aria-label="Win percentage">{winPct(r.wins, r.losses)}</span>
-          <span className="min-w-14 text-right text-[17px] font-semibold tabular-nums" aria-label="Record">{record}</span>
+          <span className={`min-w-14 text-right ${compact ? "text-[15px]" : "text-[17px]"} font-semibold tabular-nums`} aria-label="Record">{record}</span>
         </>
       ) : (
         <>
           <span className="text-xs tabular-nums text-muted">{record}</span>
-          <span className="w-12 text-right text-[17px] font-semibold tabular-nums">{points(r.points)}</span>
+          <span className={`w-12 text-right ${compact ? "text-[15px]" : "text-[17px]"} font-semibold tabular-nums`}>{points(r.points)}</span>
         </>
       )}
     </li>

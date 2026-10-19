@@ -49,3 +49,9 @@ for NCAAB and 2,900/mo for NCAAF, ~7,400/mo at the Nov–Dec overlap [I].
 ($5/mo) behind a provider interface in `supabase/functions/_shared/` with automatic failover
 after 3 consecutive ESPN failures, and hold grading on a fallback-only final until a second
 source confirms. Commissioners can always fix a result by hand meanwhile.
+
+## AP Top 25 (Home page)
+ESPN's site API `.../{sport path}/rankings`, the `rankings[]` entry with `type: "ap"`
+(`ranks[].current/previous/recordSummary/firstPlaceVotes/team`). Fetched by the Home page
+itself (`lib/apPoll.ts`) and cached for an hour, so a new poll (AP releases Sundays) shows up
+within the hour. No table or cron job; if ESPN is down the panel says so and the page still loads.
