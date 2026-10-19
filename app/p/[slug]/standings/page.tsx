@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AutoRefresh } from "@/components/AutoRefresh";
+import { LiveTicker } from "@/components/LiveTicker";
 import { SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
 import { StandingsTable } from "@/components/StandingsTable";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
-import { isGameLocked } from "@/lib/locks";
+import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
@@ -38,16 +40,23 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
 
   // Season view: each player's points/possible this week (as on the Grid) and their record
   // in the current bonus segment, beside their season numbers.
+  // The current week's games: the ticker beside the title, and the Season tab's week column.
+  const current = await getCurrentSlate(ctx);
+  const games = current ? await getSlateGames(ctx, current.id) : [];
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or open
+  const now = Date.now();
+  const anyLive = games.some(
+    (g) => !g.voided && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled",
+  );
+
   let weekColumn: { label: string; scores: Map<string, WeekScore> } | null = null;
   let bonus: { label: string; records: Map<string, { wins: number; losses: number; pushes: number }> } | null = null;
   if (view === "season") {
-    const current = await getCurrentSlate(ctx);
     const seg = current ? segmentForWeek(ctx.settings, current.week) : null;
     const segNumber = seg ? segments.findIndex((r) => r.first_week === seg.first_week) + 1 : 0;
-    const [weekRows, segRows, games, picks] = await Promise.all([
+    const [weekRows, segRows, picks] = await Promise.all([
       current ? getStandings(ctx, current.id) : null,
       seg ? getStandings(ctx, { fromWeek: seg.first_week, toWeek: seg.last_week }) : null,
-      current ? getSlateGames(ctx, current.id) : [],
       // RLS returns other players' picks once their games kick off; possible points treat
       // hidden ones as unused slots, which comes out the same.
       current
@@ -55,8 +64,6 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
         : [],
     ]);
     if (current && weekRows) {
-      // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are still open
-      const now = Date.now();
       const openGameIds = games.filter((g) => !g.voided && current.status === "open" && !isGameLocked(g, now)).map((g) => g.id);
       const slotValues = slotValuesFor(ctx.settings);
       weekColumn = {
@@ -87,7 +94,14 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   return (
     // data-wide: full screen width on desktop.
     <div data-wide>
-      <PageTitle>Standings</PageTitle>
+      {/* Title on the left; the week's scores fill the space to its right (below it on phones). */}
+      <div className="sm:flex sm:items-start sm:gap-6">
+        <div className="shrink-0">
+          <PageTitle>Standings</PageTitle>
+        </div>
+        {games.length > 0 && <LiveTicker games={games} now={now} timezone={ctx.settings.timezone} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />}
+      </div>
+      <AutoRefresh active={anyLive} />
       <div className="mb-4 inline-flex rounded-full bg-surface p-0.5">
         <Link href={`/p/${slug}/standings`} aria-current={view === "season" ? "page" : undefined} className={tab(view === "season")}>Season</Link>
         {segments.length > 0 && (
