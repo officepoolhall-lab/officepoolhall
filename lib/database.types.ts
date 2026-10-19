@@ -539,6 +539,12 @@ isOneToOne: false
               "display_name": string,"picks": number,"user_id": string
             }[]
                            },
+"slate_submissions":
+{ Args: { "p_slate_id": string }; Returns: {
+              "picks": number,
+"user_id": string
+            }[]
+                           },
 "submit_picks":
 { Args: { "p_picks": Json,"p_slate_id": string,"p_user_id"?: string }; Returns: undefined
                            },

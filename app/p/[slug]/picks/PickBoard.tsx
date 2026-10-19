@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Cell, CheckIcon, LiveDot, LockIcon, TeamLogo } from "@/components/ui";
+import Link from "next/link";
+import { Cell, CheckIcon, ChevronIcon, chipClass, LiveDot, LockIcon, TeamLogo } from "@/components/ui";
 import { formatInTimeZone } from "date-fns-tz";
 import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, signedPoints, timeOnly } from "@/lib/format";
 import { gameDateZone, hasStarted, isGameLocked } from "@/lib/locks";
@@ -52,6 +53,7 @@ export function PickBoard({
   forUserId,
   saveAs,
   records = {},
+  historyHref,
 }: {
   slug: string;
   slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
@@ -68,6 +70,8 @@ export function PickBoard({
   saveAs?: string;
   /** ESPN team id → overall record ("6-0"), shown next to team names. */
   records?: Record<string, string>;
+  /** This entry's Pick History page, linked under My Picks. */
+  historyHref?: string;
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
@@ -287,6 +291,11 @@ export function PickBoard({
             ))}
           </ul>
         </section>
+      )}
+      {historyHref && (
+        <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3", "sm")}>
+          View Pick History <ChevronIcon className="size-3.5" />
+        </Link>
       )}
       </aside>
 

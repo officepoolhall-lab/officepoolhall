@@ -29,13 +29,18 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const slate = slates?.find((s) => s.week === Number(week));
   if (!slate) return (<><PageTitle>Selections</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
 
-  const [games, standings, season, { data: picks }] = await Promise.all([
+  const [games, standings, season, { data: picks }, { data: submissions }] = await Promise.all([
     getSlateGames(ctx, slate.id),
     getStandings(ctx, slate.id),
     sort === "season" ? getStandings(ctx) : null,
     // RLS only returns other players' picks on games that have kicked off (or a graded week).
     ctx.supabase.from("picks").select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by").eq("slate_id", slate.id),
+    // Who has submitted this week (counts only; picks stay hidden until kickoff).
+    ctx.supabase.rpc("slate_submissions", { p_slate_id: slate.id }),
   ]);
+  // Until that database function exists, fall back to "missed" from the week's scores.
+  const submitted = submissions ? new Map<string, number>((submissions as { user_id: string; picks: number }[]).map((x) => [x.user_id, x.picks])) : null;
+  const noPicks = (r: { userId: string; missed: number }) => (submitted ? (submitted.get(r.userId) ?? 0) === 0 : r.missed > 0);
   const byCell = new Map((picks ?? []).map((p) => [`${p.user_id}:${p.game_id}`, p]));
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which columns have locked
   const now = Date.now();
@@ -189,10 +194,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-0.5 text-left text-[13px] font-medium ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className={`min-w-20 max-w-28 truncate sm:max-w-36 ${mine ? "text-accent" : ""}`}>
-                        {r.name}
-                        {/* Their total is filled in per settings.missed_week. */}
-                        {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">No picks</span>}
+                      <span className={`min-w-20 max-w-28 sm:max-w-36 ${mine ? "text-accent" : ""}`}>
+                        <span className="block truncate">{r.name}</span>
+                        {/* Nothing in for this week yet (a missed week is scored per settings.missed_week). */}
+                        {noPicks(r) && <span className="block truncate text-[10px] font-normal leading-tight text-muted">No picks submitted</span>}
                       </span>
                       <span className="min-w-8 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-ink">
                         {sort === "season" ? (
