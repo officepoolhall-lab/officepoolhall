@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Cell, CheckIcon, LiveDot, LockIcon, TeamLogo } from "@/components/ui";
 import { formatInTimeZone } from "date-fns-tz";
-import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, shortGameTime, signedPoints, timeOnly } from "@/lib/format";
+import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, signedPoints, timeOnly } from "@/lib/format";
 import { gameDateZone, hasStarted, isGameLocked } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 import { savePicks, type PickInput } from "./actions";
 import { PointsSheet } from "./PointsSheet";
+import { PickSummaryRow } from "@/components/PickSummaryRow";
 
 type Side = "home" | "away";
 type Draft = { side: Side | null; confidence: number | null };
@@ -626,9 +627,9 @@ function GameRow({
   );
 }
 
-/** One saved pick in the My Picks list: the side taken, the opponent, and where the game stands. */
+/** One saved pick in the My Picks list (the shared PickSummaryRow). */
 function MyPickRow({
-  game: g,
+  game,
   pick,
   graded,
   locked,
@@ -642,47 +643,17 @@ function MyPickRow({
   now: number;
   settings: Settings;
 }) {
-  const side = pick.side!;
-  const team = side === "home" ? g.home : g.away;
-  const opp = side === "home" ? g.away : g.home;
-  const spread = g.spread === null ? null : side === "home" ? g.spread : -g.spread;
-  const started = hasStarted(g, now);
-  const final = g.status === "final" || g.overridden;
-  const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
-  const mine = side === "home" ? g.homeScore : g.awayScore;
-  const theirs = side === "home" ? g.awayScore : g.homeScore;
-  const score = started && mine !== null && theirs !== null ? `${mine}–${theirs}` : null;
-  const result = graded?.result;
-
   return (
-    <li className={`flex min-h-11 items-center gap-2.5 py-2 ${g.voided ? "opacity-50" : ""}`}>
-      <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6" />
-      <span className="min-w-0 flex-1 truncate text-[15px]">
-        <span className="font-semibold">{teamName(team)}</span>
-        {settings.pickType === "ats" && <span className="ml-1.5 font-semibold tabular-nums text-accent">{formatSpread(spread)}</span>}
-        {pick.confidence != null && <span className="ml-1.5 text-xs tabular-nums text-muted">{pick.confidence} pts</span>}
-        <span className="ml-1.5 text-sm text-muted">
-          {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
-        </span>
-      </span>
-      <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted">
-        {g.voided ? (
-          <span className="font-semibold text-loss">Void</span>
-        ) : result === "win" || result === "loss" || result === "push" ? (
-          <span className={`font-semibold ${result === "win" ? "text-win" : result === "loss" ? "text-loss" : "text-ink"}`}>
-            {result === "win" ? "Win" : result === "loss" ? "Loss" : "Push"}
-          </span>
-        ) : final ? (
-          <span className="font-semibold">Final</span>
-        ) : live ? (
-          <LiveDot>Live</LiveDot>
-        ) : (
-          <span>{shortGameTime(g.startAt, settings.timezone, g.timeTbd)}</span>
-        )}
-        {score && <span className="font-semibold text-ink">{score}</span>}
-        {locked && !started && <LockIcon className="size-3 shrink-0" />}
-      </span>
-    </li>
+    <PickSummaryRow
+      game={game}
+      side={pick.side!}
+      confidence={pick.confidence}
+      result={graded?.result}
+      locked={locked}
+      now={now}
+      pickType={settings.pickType}
+      timezone={settings.timezone}
+    />
   );
 }
 
