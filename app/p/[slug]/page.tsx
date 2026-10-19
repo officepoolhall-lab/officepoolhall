@@ -22,7 +22,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const [season, poll, news, games] = await Promise.all([
     getStandings(ctx),
     getApPoll(sport),
-    getNews(sport, 12),
+    getNews(sport, 10),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const flat = !ctx.settings.confidence;
@@ -65,8 +65,6 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       {/* The week's scores across the top; refreshed every minute while a game is live. */}
       {games.length > 0 && <LiveTicker games={games} now={now} timezone={tz} />}
       <AutoRefresh active={anyLive} />
-
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{ctx.pool.name}</h1>
 
       {slate && summary ? (
         <section className="border-b border-line pb-4">
@@ -115,12 +113,12 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
         </Empty>
       )}
 
-      {/* Desktop: standings | top stories | rankings. The rankings column sets the height;
-          the other two scroll inside it if they're ever taller, so the page ends with the
-          Top 25. Phones: standings, rankings, then stories. */}
-      <div className="grid gap-8 lg:min-h-[32rem] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
-        <div className="lg:relative">
-          <section className="lg:absolute lg:inset-0 lg:overflow-y-auto">
+      {/* Desktop: standings | top stories | rankings, each its natural height with no inner
+          scrolling: the top 10 standings and 10 stories both fit beside the Top 25.
+          Phones: standings, rankings, then stories. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
+        <div>
+          <section>
             <div className="flex items-center justify-between">
               <SectionLabel>Season standings</SectionLabel>
               <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
@@ -131,8 +129,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
             <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact limit={10} />
           </section>
         </div>
-        <div className="order-last lg:relative lg:order-none">
-          <div className="lg:absolute lg:inset-0 lg:overflow-y-auto">
+        <div className="order-last lg:order-none">
+          <div>
             <NewsList stories={news} now={now} title={sport === "ncaaf" ? "College football news" : "College basketball news"} />
           </div>
         </div>

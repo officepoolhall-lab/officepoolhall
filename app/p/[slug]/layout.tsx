@@ -3,6 +3,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { PasswordNudge } from "@/components/PasswordNudge";
 import { PoolNav } from "@/components/PoolNav";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
+import { PoolTitle } from "@/components/PoolTitle";
 import { getCurrentSlate, getPoolContext } from "@/lib/pool";
 
 export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
@@ -22,6 +23,7 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
           <PoolSwitcher current={{ name: ctx.pool.name, slug: ctx.pool.slug }} pools={pools} />
         </div>
       </AppHeader>
+      <PoolTitle slug={slug} name={ctx.pool.name} />
       <PoolNav slug={slug} isCommissioner={ctx.isCommissioner} week={current?.week} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
