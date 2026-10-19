@@ -90,7 +90,8 @@ function TotalRow({ rows, extras, flat }: { rows: StandingRow[]; extras?: Extra[
     (sum, r) => ({ wins: sum.wins + r.wins, losses: sum.losses + r.losses, pushes: sum.pushes + r.pushes }),
     { wins: 0, losses: 0, pushes: 0 },
   );
-  const record = `${t.wins}–${t.losses}${t.pushes ? `–${t.pushes}` : ""}`;
+  const n = (x: number) => x.toLocaleString("en-US");
+  const record = `${n(t.wins)}–${n(t.losses)}${t.pushes ? `–${n(t.pushes)}` : ""}`;
   // Record and win % only: a combined points total doesn't mean much.
   return (
     <li className="flex min-h-12 items-center gap-3 py-3 text-muted">
@@ -100,7 +101,7 @@ function TotalRow({ rows, extras, flat }: { rows: StandingRow[]; extras?: Extra[
       {extras?.map((e) => <span key={e.label} className="w-16" aria-hidden />)}
       {extras?.length && flat ? <span className="w-14" aria-hidden /> : null}
       <span className="w-10 text-right text-xs tabular-nums" aria-label="Win percentage">{winPct(t.wins, t.losses)}</span>
-      <span className="min-w-14 text-right text-[17px] font-semibold tabular-nums text-ink" aria-label="Record">{record}</span>
+      <span className="min-w-14 shrink-0 whitespace-nowrap text-right text-[17px] font-semibold tabular-nums text-ink" aria-label="Record">{record}</span>
     </li>
   );
 }
