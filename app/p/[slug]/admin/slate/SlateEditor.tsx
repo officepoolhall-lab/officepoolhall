@@ -24,7 +24,7 @@ import {
   syncSchedule,
 } from "../actions";
 
-type Team = { name: string; short_name: string | null; abbreviation: string | null; conference: string | null; logo_url: string | null };
+type Team = { name: string; short_name: string | null; abbreviation: string | null; conference: string | null; logo_url: string | null; espn_id?: string | null };
 export type Candidate = {
   id: string;
   startAt: string;
@@ -70,6 +70,7 @@ export function SlateEditor({
   teams,
   settings,
   defaultManualStart,
+  records = {},
 }: {
   slug: string;
   slateId: string;
@@ -78,6 +79,8 @@ export function SlateEditor({
   teams: { id: string; name: string }[];
   settings: Settings;
   defaultManualStart: string;
+  /** ESPN team id → overall record, shown next to team names. */
+  records?: Record<string, string>;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [conference, setConference] = useState("");
@@ -149,7 +152,7 @@ export function SlateEditor({
             {onSlate.map((g) => (
               <li key={g.id} className="flex min-h-14 items-center gap-3 py-2">
                 <div className="min-w-0 flex-1">
-                  <Matchup away={g.away} home={g.home} awayRank={g.awayRank} homeRank={g.homeRank} neutral={g.neutral} />
+                  <Matchup away={g.away} home={g.home} awayRank={g.awayRank} homeRank={g.homeRank} neutral={g.neutral} records={records} />
                   <div className="truncate text-xs text-muted tabular-nums">
                     {g.timeTbd ? (
                       <>
@@ -241,7 +244,7 @@ export function SlateEditor({
                 <label className="flex min-h-16 cursor-pointer items-center gap-3 py-2">
                   <input type="checkbox" className="size-5 shrink-0 accent-[var(--accent)]" checked={on} onChange={() => toggle(c.id)} />
                   <span className="min-w-0 flex-1">
-                    <Matchup away={c.away} home={c.home} awayRank={c.awayRank} homeRank={c.homeRank} neutral={c.neutral} />
+                    <Matchup away={c.away} home={c.home} awayRank={c.awayRank} homeRank={c.homeRank} neutral={c.neutral} records={records} />
                     <span className="block truncate text-xs text-muted tabular-nums">
                       {c.timeTbd ? <span className="font-semibold text-ink">TBD</span> : gameTime(c.startAt, tz)}
                       {c.tv && ` · ${c.tv}`}
