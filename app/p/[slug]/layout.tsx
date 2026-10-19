@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { PasswordNudge } from "@/components/PasswordNudge";
 import { PoolNav } from "@/components/PoolNav";
+import { PoolPresence } from "@/components/PoolPresence";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { PoolTitle } from "@/components/PoolTitle";
 import { getCurrentSlate, getPoolContext } from "@/lib/pool";
@@ -21,7 +22,8 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
   ];
 
   return (
-    <>
+    // Reports the viewer as on the site while any of this pool's pages is open (Roster's green dots).
+    <PoolPresence poolId={ctx.pool.id} userId={ctx.user.id}>
       <AppHeader>
         <div className="hidden sm:block">
           <PoolSwitcher current={{ name: ctx.pool.name, slug: ctx.pool.slug }} pools={pools} />
@@ -38,6 +40,6 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
         </Suspense>
         {children}
       </main>
-    </>
+    </PoolPresence>
   );
 }
