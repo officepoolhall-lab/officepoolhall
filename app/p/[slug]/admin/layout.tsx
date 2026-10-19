@@ -10,8 +10,9 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/p/
       <AdminNav
         base={`/p/${slug}/admin`}
         tabs={[
-          ["slate", "Slate"],
+          // Roster first: it's where Admin opens.
           ["roster", "Roster"],
+          ["slate", "Slate"],
           ["results", "Results"],
           ["settings", "Settings"],
         ]}
