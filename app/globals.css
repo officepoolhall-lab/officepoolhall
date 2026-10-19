@@ -60,3 +60,23 @@ textarea {
   background: var(--surface);
   color: var(--ink);
 }
+
+/* Live score ticker (components/LiveTicker.tsx): the track holds the scores twice and slides
+   by half its width, so the loop is seamless. Hover pauses it; reduced motion makes it a
+   plain row you can scroll. */
+@keyframes ticker-slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker-slide var(--ticker-duration, 40s) linear infinite;
+}
+.ticker:hover .ticker-track,
+.ticker:focus-within .ticker-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker { overflow-x: auto; }
+  .ticker-track { animation: none; }
+  .ticker-copy { display: none; }
+}
