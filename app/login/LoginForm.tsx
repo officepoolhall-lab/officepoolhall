@@ -42,6 +42,21 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
   const [signedIn, signIn, signingIn] = useActionState<LoginState, FormData>(signInWithPassword, null);
   // Password first. A failed emailed link lands here with an error, so show the link form for it.
   const [usePassword, setUsePassword] = useState(!initialError);
+  // "Keep me signed in": on by default; off signs the player out when the browser closes.
+  const [remember, setRemember] = useState(true);
+  const rememberField = (
+    <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-muted">
+      <input
+        type="checkbox"
+        name="remember"
+        value="1"
+        checked={remember}
+        onChange={(e) => setRemember(e.target.checked)}
+        className="size-4 accent-[var(--accent)]"
+      />
+      Keep me signed in
+    </label>
+  );
   const [email, setEmail] = useState("");
   useContinueWhenSignedIn(Boolean(sent?.sentTo), next);
 
@@ -53,6 +68,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           link in the email — this page continues on its own once you&apos;re in.
         </p>
         <form action={verify} className="space-y-3">
+          <input type="hidden" name="remember" value={remember ? "1" : "0"} />
           <input type="hidden" name="email" value={sent.sentTo} />
           <input type="hidden" name="next" value={next} />
           <Field label="Code">
@@ -70,6 +86,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           {verified?.error && <p className="text-sm text-loss" role="alert">{verified.error}</p>}
         </form>
         <form action={send} className="text-center">
+          <input type="hidden" name="remember" value={remember ? "1" : "0"} />
           <input type="hidden" name="email" value={sent.sentTo} />
           <input type="hidden" name="next" value={next} />
           <button className="h-11 text-sm text-muted hover:text-ink disabled:opacity-40" disabled={sending}>{sending ? "Sending…" : "Send a new link"}</button>
@@ -109,6 +126,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
           <Field label="Password">
             <input name="password" type="password" autoComplete="current-password" required className={inputClass} />
           </Field>
+          {rememberField}
           <Button className="w-full" disabled={signingIn}>{signingIn ? "Signing in…" : "Sign in"}</Button>
           {signedIn?.error && <p className="text-sm text-loss" role="alert">{signedIn.error}</p>}
         </form>
@@ -122,6 +140,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError?:
       <form action={send} className="space-y-3">
         <input type="hidden" name="next" value={next} />
         {emailField}
+        {rememberField}
         <Button className="w-full" disabled={sending}>{sending ? "Sending…" : "Email me a sign-in link"}</Button>
         {sent?.error && <p className="text-sm text-loss" role="alert">{sent.error}</p>}
         <p className="text-center text-xs text-muted">New here? The same link creates your account.</p>
