@@ -55,3 +55,14 @@ ESPN's site API `.../{sport path}/rankings`, the `rankings[]` entry with `type: 
 (`ranks[].current/previous/recordSummary/firstPlaceVotes/team`). Fetched by the Home page
 itself (`lib/apPoll.ts`) and cached for an hour, so a new poll (AP releases Sundays) shows up
 within the hour. No table or cron job; if ESPN is down the panel says so and the page still loads.
+Once the College Football Playoff committee releases its rankings, ESPN adds them to the same
+feed (a `rankings[]` entry named "College Football Playoff Rankings"); `getApPoll` prefers it.
+
+## Top stories (Home page)
+`lib/news.ts` mixes several free sources, newest first, at most 4 per source, repeated headlines
+once; each source is cached 15 minutes and skipped if it fails. Stories open on their own site.
+- ESPN: site API `.../{sport path}/news` (`articles[]`, `type` Story or Media); ESPN+ (`premium`) skipped.
+- CBS Sports: RSS `https://www.cbssports.com/rss/headlines/college-football/` (image in `<enclosure>`).
+- Yahoo Sports: RSS `https://sports.yahoo.com/college-football/rss/` (partner stories; image in `content:encoded`).
+- Not added: NBC Sports (has a college football feed, but its address couldn't be confirmed) and
+  The Athletic (subscription; most links are paywalled). Add a feed to `RSS_FEEDS` once its URL is known.

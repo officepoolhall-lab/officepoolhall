@@ -3,10 +3,12 @@ import { ApPollList } from "@/components/ApPollList";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
 import { LiveTicker } from "@/components/LiveTicker";
+import { NewsList } from "@/components/NewsList";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ChevronIcon, Empty, SectionLabel, chipClass } from "@/components/ui";
 import { getApPoll } from "@/lib/apPoll";
 import { points, windowLabel } from "@/lib/format";
+import { getNews } from "@/lib/news";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
@@ -16,9 +18,11 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   const slate = await getCurrentSlate(ctx);
-  const [season, poll, games] = await Promise.all([
+  const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
+  const [season, poll, news, games] = await Promise.all([
     getStandings(ctx),
-    getApPoll(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf"),
+    getApPoll(sport),
+    getNews(sport, 12),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const flat = !ctx.settings.confidence;
@@ -68,7 +72,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
         <section className="border-b border-line pb-4">
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-bold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
-            <span className="ml-auto truncate text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</span>
+            <span className="truncate text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</span>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-4">
             <div>
@@ -111,20 +115,28 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
         </Empty>
       )}
 
-      {/* Desktop: standings on the left, the AP poll on the right. Phones: one after the other. */}
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
-        <section>
-          <div className="flex items-center justify-between">
-            <SectionLabel>Season standings</SectionLabel>
-            <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
-              All <ChevronIcon className="size-4" />
-            </Link>
-          </div>
-          <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact />
-        </section>
-        <div className="lg:ml-auto lg:w-full lg:max-w-md">
-          <ApPollList poll={poll} timezone={tz} />
+      {/* Desktop: standings | top stories | rankings. The rankings column sets the height;
+          the other two scroll inside it if they're ever taller, so the page ends with the
+          Top 25. Phones: standings, rankings, then stories. */}
+      <div className="grid gap-8 lg:min-h-[32rem] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="lg:relative">
+          <section className="lg:absolute lg:inset-0 lg:overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <SectionLabel>Season standings</SectionLabel>
+              <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
+                All <ChevronIcon className="size-4" />
+              </Link>
+            </div>
+            {/* Top 10, plus the viewer's own row when they're further down. */}
+            <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact limit={10} />
+          </section>
         </div>
+        <div className="order-last lg:relative lg:order-none">
+          <div className="lg:absolute lg:inset-0 lg:overflow-y-auto">
+            <NewsList stories={news} now={now} title={sport === "ncaaf" ? "College football news" : "College basketball news"} />
+          </div>
+        </div>
+        <ApPollList poll={poll} timezone={tz} />
       </div>
     </div>
   );

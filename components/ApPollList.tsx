@@ -2,13 +2,15 @@ import { formatInTimeZone } from "date-fns-tz";
 import type { ApPoll } from "@/lib/apPoll";
 import { SectionLabel, TeamLogo } from "./ui";
 
-/** The AP Top 25 as compact rows: rank, logo, team, record and the move since last week. */
+/** The AP Top 25 (or the CFP rankings once out) as compact rows: rank, logo, team, record and the move since last week. */
 export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: string }) {
+  // The first CFP release (and a preseason poll) has nothing to compare against.
+  const showMove = Boolean(poll?.teams.some((t) => t.previous !== null));
   return (
     <section aria-labelledby="ap-poll">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
         <SectionLabel>
-          <span id="ap-poll">AP Top 25</span>
+          <span id="ap-poll">{poll?.title ?? "AP Top 25"}</span>
           {poll && <span className="font-normal normal-case tracking-normal"> · {poll.label}</span>}
         </SectionLabel>
         {poll?.date && <span className="text-xs text-muted">Released {formatInTimeZone(poll.date, timezone, "MMM d")}</span>}
@@ -29,6 +31,7 @@ export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: 
                 </span>
                 {t.record && <span className="text-xs tabular-nums text-muted">{t.record}</span>}
                 {/* Movement since last week: up in win green, down in loss red, NEW when unranked before. */}
+                {showMove && (
                 <span
                   className={`w-9 text-right text-xs font-semibold tabular-nums ${
                     move === null ? "text-accent" : move > 0 ? "text-win" : move < 0 ? "text-loss" : "text-faint"
@@ -39,6 +42,7 @@ export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: 
                     {move === null ? ", new this week" : move > 0 ? `, up ${move}` : move < 0 ? `, down ${-move}` : ", unchanged"}
                   </span>
                 </span>
+                )}
               </li>
             );
           })}
