@@ -88,7 +88,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
               {forName && <span className="text-accent"> for {forName}</span>}
             </PageTitle>
           </div>
-          <LiveTicker games={games} now={now} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
+          <LiveTicker games={games} now={now} timezone={ctx.settings.timezone} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
         </div>
         {weekChips}
         <AutoRefresh active={anyLive} />
