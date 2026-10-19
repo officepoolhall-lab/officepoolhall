@@ -38,7 +38,7 @@ export function SeasonStandings({
       <li className="flex items-end gap-3 pb-1.5 pt-2" aria-hidden>
         <span className="w-6" />
         <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-        <span className={`w-16 text-right ${head}`}>WinLoss</span>
+        <span className={`w-16 text-right ${head}`}>Record</span>
         {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
         <span className={`w-14 text-right ${head}`}>Win %</span>
         {week && <span className={`hidden w-20 text-right sm:block ${head}`}>{week.label}</span>}

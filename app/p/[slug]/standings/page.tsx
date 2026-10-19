@@ -38,7 +38,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
 
   // Season view: each player's points/possible this week (as on the Grid) and their record
   // in the current bonus segment, beside their season numbers.
-  let week: { label: string; scores: Map<string, WeekScore> } | null = null;
+  let weekColumn: { label: string; scores: Map<string, WeekScore> } | null = null;
   let bonus: { label: string; records: Map<string, { wins: number; losses: number; pushes: number }> } | null = null;
   if (view === "season") {
     const current = await getCurrentSlate(ctx);
@@ -59,7 +59,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       const now = Date.now();
       const openGameIds = games.filter((g) => !g.voided && current.status === "open" && !isGameLocked(g, now)).map((g) => g.id);
       const slotValues = slotValuesFor(ctx.settings);
-      week = {
+      weekColumn = {
         label: current.label ?? `Wk ${current.week}`,
         scores: new Map(
           weekRows.map((r) => [
@@ -131,7 +131,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       )}
       {slates?.length ? (
         view === "season" ? (
-          <SeasonStandings rows={rows} me={ctx.user.id} flat={!ctx.settings.confidence} week={week} bonus={bonus} />
+          <SeasonStandings rows={rows} me={ctx.user.id} flat={!ctx.settings.confidence} week={weekColumn} bonus={bonus} />
         ) : (
           <StandingsTable rows={rows} me={ctx.user.id} weekly={Boolean(slate)} flat={!ctx.settings.confidence} total />
         )
