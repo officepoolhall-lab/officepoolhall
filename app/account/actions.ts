@@ -84,3 +84,29 @@ export async function setPassword(_: ActionState, form: FormData): Promise<Actio
   revalidatePath("/account");
   return { ok: "Password saved. You can sign in with it next time." };
 }
+
+// ---------- Co-managers ----------
+
+export type InviteState = { token?: string; error?: string } | null;
+
+/** A fresh co-manager invite link for the player's entry in a pool (replaces their unused one). */
+export async function createComanagerInvite(poolId: string, _: InviteState): Promise<InviteState> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_comanager_invite", { p_pool_id: poolId });
+  return error ? { error: error.message } : { token: data };
+}
+
+/** The owner removes a co-manager, or a co-manager steps down (managerId = themselves). */
+export async function removeComanager(poolId: string, managerId: string) {
+  const supabase = await createClient();
+  await supabase.rpc("remove_comanager", { p_pool_id: poolId, p_manager_id: managerId });
+  revalidatePath("/account");
+}
+
+/** /comanage/[token]: accept, then go to the pool. */
+export async function acceptComanagerInvite(token: string): Promise<{ error: string }> {
+  const supabase = await createClient();
+  const { data: slug, error } = await supabase.rpc("accept_comanager_invite", { p_token: token });
+  if (error || !slug) return { error: error?.message ?? "Something went wrong." };
+  return redirect(`/p/${slug}`);
+}

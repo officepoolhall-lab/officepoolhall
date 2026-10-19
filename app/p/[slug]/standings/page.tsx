@@ -95,7 +95,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       }
     : null;
 
-  const me = ctx.user.id;
+  // The viewer's entry (a co-manager's is the owner's) is the highlighted row.
+  const me = ctx.entryUserId;
   const playerHref = (userId: string) => `/p/${slug}/standings/${userId}`;
   const weekLabel = (s: { week: number; label: string | null }) => s.label ?? `Week ${s.week}`;
   const plainHeader = <SeasonHeaderRow flat={flat} week={null} bonus={null} />;

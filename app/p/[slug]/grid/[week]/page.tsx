@@ -178,7 +178,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           </thead>
           <tbody>
             {rows.map((r) => {
-              const mine = r.userId === ctx.user.id;
+              const mine = r.userId === ctx.entryUserId;
               return (
                 <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                   {/* "You" is the accent name plus a 2px edge, not a row fill. */}

@@ -46,6 +46,7 @@ export function PickBoard({
   score = null,
   settings,
   forUserId,
+  saveAs,
 }: {
   slug: string;
   slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
@@ -58,6 +59,8 @@ export function PickBoard({
   settings: Settings;
   /** Set when the commissioner is entering picks for this player; locks don't apply to them. */
   forUserId?: string;
+  /** A co-manager's board: saves go to this entry (the owner's), under the player's rules. */
+  saveAs?: string;
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
@@ -141,7 +144,7 @@ export function PickBoard({
     do {
       queued.current = false;
       setSave({ state: "saving" });
-      const result = await savePicks(slug, slate.id, payload(latest.current), forUserId);
+      const result = await savePicks(slug, slate.id, payload(latest.current), forUserId ?? saveAs);
       if (result.ok) {
         setSave({ state: "saved" });
         // Reload the saved card (My Picks, and what counts as unsaved) from the server.

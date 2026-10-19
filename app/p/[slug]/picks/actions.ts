@@ -26,7 +26,12 @@ export async function savePicks(slug: string, slateId: string, picks: PickInput[
 
   let saved;
   if (forUserId) {
-    ({ data: saved } = await supabase.rpc("member_picks", { p_slate_id: slateId, p_user_id: forUserId }));
+    // The commissioner reads any entry through member_picks; a co-manager reads the entry
+    // they run directly (RLS lets them).
+    const viaCommissioner = await supabase.rpc("member_picks", { p_slate_id: slateId, p_user_id: forUserId });
+    saved = viaCommissioner.error
+      ? (await supabase.from("picks").select("*").eq("slate_id", slateId).eq("user_id", forUserId)).data
+      : viaCommissioner.data;
   } else {
     const { data: auth } = await supabase.auth.getClaims();
     ({ data: saved } = await supabase

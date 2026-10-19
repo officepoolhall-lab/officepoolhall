@@ -9,12 +9,16 @@ import { getCurrentSlate, getPoolContext } from "@/lib/pool";
 export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
-  const [current, { data: memberships }] = await Promise.all([
+  const [current, { data: memberships }, { data: managed }] = await Promise.all([
     getCurrentSlate(ctx),
-    // The player's other pools, for the switcher in the header.
+    // The player's other pools, for the switcher in the header, plus entries they co-manage.
     ctx.supabase.from("pool_members").select("pool:pools!inner ( name, slug )").eq("user_id", ctx.user.id).order("joined_at", { ascending: false }),
+    ctx.supabase.rpc("my_comanaged_entries"),
   ]);
-  const pools = (memberships ?? []).map((m) => ({ name: m.pool.name, slug: m.pool.slug }));
+  const pools = [
+    ...(memberships ?? []).map((m) => ({ name: m.pool.name, slug: m.pool.slug })),
+    ...(managed ?? []).map((m: { pool_name: string; slug: string }) => ({ name: m.pool_name, slug: m.slug })),
+  ];
 
   return (
     <>

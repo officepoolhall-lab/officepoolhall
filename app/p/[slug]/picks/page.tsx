@@ -56,11 +56,13 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
     );
   }
 
-  const userId = forUserId ?? ctx.user.id;
+  // The entry on screen: the commissioner's pick for a player, else the viewer's own entry
+  // (for a co-manager, the owner's).
+  const userId = forUserId ?? ctx.entryUserId;
   const [{ data: picks }, forName, { data: score }, games] = await Promise.all([
     forUserId
       ? ctx.supabase.rpc("member_picks", { p_slate_id: slate.id, p_user_id: forUserId })
-      : ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.user.id),
+      : ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId),
     forUserId
       ? ctx.supabase.from("profiles").select("display_name").eq("id", forUserId).maybeSingle().then(({ data }) => data?.display_name ?? "player")
       : null,
@@ -86,6 +88,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
             <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
               {slate.label ?? `Week ${slate.week}`}
               {forName && <span className="text-accent"> for {forName}</span>}
+          {!forName && ctx.managing && <span className="text-accent"> · {ctx.managing.ownerName}&apos;s entry</span>}
             </PageTitle>
           </div>
           <LiveTicker games={games} now={now} timezone={ctx.settings.timezone} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
@@ -120,6 +123,8 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           fullCard: ctx.settings.full_card,
         }}
         forUserId={forUserId}
+        // A co-manager saves the owner's entry, with the player's own rules (not the commissioner's).
+        saveAs={ctx.managing ? ctx.entryUserId : undefined}
       />
     </div>
   );

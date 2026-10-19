@@ -8,25 +8,40 @@ import { poolSettingsSchema } from "./poolSettings";
 
 export { effectiveLockAt } from "./locks";
 
-/** The pool for /p/[slug], the signed-in user, and their role. 404s for non-members (RLS hides the pool). */
+/**
+ * The pool for /p/[slug], the signed-in user, their role, and the entry they act for: their
+ * own, or the one they co-manage (`managing`). 404s for anyone who is neither (RLS hides the
+ * pool). Pages use `entryUserId` for "my picks / my row" so co-managers see the owner's entry.
+ */
 export const getPoolContext = cache(async (slug: string) => {
   const user = await requireUser(`/p/${slug}`);
   const supabase = await createClient();
 
-  // One round trip: the pool plus the caller's own membership row (RLS already hides
-  // pools the caller isn't in).
-  const { data: row } = await supabase
-    .from("pools")
-    .select("*, pool_members!inner ( role, paid, user_id )")
-    .eq("slug", slug)
-    .eq("pool_members.user_id", user.id)
-    .maybeSingle();
+  // The pool plus the caller's own membership row (RLS already hides pools the caller can't
+  // see), and the entries they co-manage. If the co-manager migration isn't in the database
+  // yet, that call fails and members carry on as before.
+  const [{ data: row }, { data: managed }] = await Promise.all([
+    supabase.from("pools").select("*, pool_members ( role, paid, user_id )").eq("slug", slug).eq("pool_members.user_id", user.id).maybeSingle(),
+    supabase.rpc("my_comanaged_entries"),
+  ]);
   if (!row) notFound();
 
   const { pool_members: members, ...pool } = row;
-  const me = members[0];
+  const me = members?.[0];
+  const co = me ? null : (managed ?? []).find((m: { pool_id: string }) => m.pool_id === pool.id) ?? null;
+  if (!me && !co) notFound();
   const settings = poolSettingsSchema.parse(pool.settings);
-  return { supabase, user, pool, settings, isCommissioner: me?.role === "commissioner" };
+  return {
+    supabase,
+    user,
+    pool,
+    settings,
+    isCommissioner: me?.role === "commissioner",
+    /** Whose picks, scores and standings row are "mine" here. */
+    entryUserId: me ? user.id : co!.owner_id,
+    /** Set when the viewer co-manages someone else's entry in this pool. */
+    managing: co ? { ownerId: co.owner_id, ownerName: co.owner_name } : null,
+  };
 });
 
 export async function requireCommissioner(slug: string) {
