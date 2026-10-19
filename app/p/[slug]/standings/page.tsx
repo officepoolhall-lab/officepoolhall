@@ -33,7 +33,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const rows = await getStandings(ctx, slate?.id ?? (segment ? { fromWeek: segment.first_week, toWeek: segment.last_week } : undefined));
   const view = slate ? "weekly" : segment ? "segment" : "season";
 
-  // Season view: each player's score this week and in the current bonus segment, beside
+  // Season view: each player's record this week and in the current bonus segment, beside
   // their overall numbers.
   let extras: Extra[] | undefined;
   if (view === "season") {
@@ -44,7 +44,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       current ? getStandings(ctx, current.id) : null,
       seg ? getStandings(ctx, { fromWeek: seg.first_week, toWeek: seg.last_week }) : null,
     ]);
-    const byUser = (list: typeof rows) => new Map(list.map((r) => [r.userId, r.points]));
+    const byUser = (list: typeof rows) => new Map(list.map((r) => [r.userId, { wins: r.wins, losses: r.losses, pushes: r.pushes }]));
     extras = [
       ...(current && weekRows ? [{ label: `Wk ${current.week}`, values: byUser(weekRows) }] : []),
       ...(seg && segRows ? [{ label: segNumber > 0 ? `Bonus ${segNumber}` : "Bonus", values: byUser(segRows) }] : []),

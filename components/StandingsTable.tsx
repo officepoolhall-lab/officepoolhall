@@ -7,7 +7,10 @@ import type { StandingRow } from "@/lib/standings";
  * season table counts the weeks they missed instead, since those totals are filled in.
  * `flat` (no confidence points) leads with the W–L record and win %; points stay secondary.
  */
-export type Extra = { label: string; values: Map<string, number> };
+/** An extra record column: each player's W–L(–P) over another span (this week, a bonus segment). */
+export type Extra = { label: string; values: Map<string, Pick<StandingRow, "wins" | "losses" | "pushes">> };
+
+const recordText = (r: Pick<StandingRow, "wins" | "losses" | "pushes">) => `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
 
 export function StandingsTable({
   rows,
@@ -29,8 +32,8 @@ export function StandingsTable({
   /** Tighter rows (36px) for side panels like Home. */
   compact?: boolean;
   /**
-   * Extra point columns before the overall numbers, e.g. this week's and this bonus segment's
-   * scores on the season table. Adds a header row so the columns read clearly.
+   * Extra record columns before the overall numbers, e.g. this week's and this bonus segment's
+   * records on the season table. Adds a header row so the columns read clearly.
    */
   extras?: Extra[];
 }) {
@@ -60,11 +63,11 @@ function HeaderRow({ extras, flat }: { extras: Extra[]; flat: boolean }) {
       <span className="w-6" />
       <span className="min-w-0 flex-1">Player</span>
       {extras.map((e) => (
-        <span key={e.label} className="w-14 text-right">{e.label}</span>
+        <span key={e.label} className="w-16 text-right">{e.label}</span>
       ))}
       {flat ? (
         <>
-          <span className="w-14 text-right">Pts</span>
+          <span className="w-14" />
           <span className="w-10 text-right">Win %</span>
           <span className="min-w-14 text-right">Record</span>
         </>
@@ -90,7 +93,7 @@ function TotalRow({ rows, extras, flat }: { rows: StandingRow[]; extras?: Extra[
       <span className="w-6" aria-hidden />
       <span className="min-w-0 flex-1 truncate text-sm font-medium">Pool total</span>
       {/* Keep the record under the record column when extra columns are on. */}
-      {extras?.map((e) => <span key={e.label} className="w-14" aria-hidden />)}
+      {extras?.map((e) => <span key={e.label} className="w-16" aria-hidden />)}
       {extras?.length && flat ? <span className="w-14" aria-hidden /> : null}
       <span className="w-10 text-right text-xs tabular-nums" aria-label="Win percentage">{winPct(t.wins, t.losses)}</span>
       <span className="min-w-14 text-right text-[17px] font-semibold tabular-nums text-ink" aria-label="Record">{record}</span>
@@ -130,18 +133,20 @@ function Row({
       {extras?.map((e) => {
         const v = e.values.get(r.userId);
         return (
-          <span key={e.label} className="w-14 text-right text-sm tabular-nums text-muted">
-            {v === undefined ? "—" : points(v)}
-            <span className="sr-only"> {e.label}</span>
+          <span key={e.label} className="w-16 text-right text-sm tabular-nums text-muted">
+            {v === undefined ? "—" : recordText(v)}
+            <span className="sr-only"> {e.label} record</span>
           </span>
         );
       })}
       {flat ? (
         <>
           {/* Points only differ from wins when pushes or custom scoring count. With columns
-              on, the points always show, in a fixed-width column. */}
+              on they sit in a fixed-width column so the records line up. */}
           {columns ? (
-            <span className="w-14 text-right text-sm tabular-nums text-muted">{points(r.points)}<span className="sr-only"> season points</span></span>
+            <span className="w-14 text-right text-xs tabular-nums text-muted">
+              {r.points !== r.wins && <>{points(r.points)} pts</>}
+            </span>
           ) : (
             r.points !== r.wins && <span className="text-xs tabular-nums text-muted">{points(r.points)} pts</span>
           )}
