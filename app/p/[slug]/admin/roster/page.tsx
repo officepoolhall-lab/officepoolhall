@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Roster" };
 export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/roster">) {
   const { slug } = await params;
   const ctx = await requireCommissioner(slug);
-  const [{ data: members }, { data: invite }, { data: emails }] = await Promise.all([
+  const [{ data: members }, { data: invite }, { data: emails, error: emailError }] = await Promise.all([
     ctx.supabase
       .from("pool_members")
       .select("user_id, role, paid, joined_at, profile:profiles!inner ( display_name )")
@@ -19,6 +19,7 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
     // Sign-in emails, which only the commissioner may read (pool_member_emails checks).
     ctx.supabase.rpc("pool_member_emails", { p_pool_id: ctx.pool.id }),
   ]);
+  if (emailError) console.error("Roster: member emails unavailable", emailError);
   const emailOf = new Map<string, string>((emails ?? []).map((e: { user_id: string; email: string }) => [e.user_id, e.email]));
   // Everyone's address in one line, for pasting into an email's To: field.
   const allEmails = (members ?? [])
@@ -63,6 +64,10 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
             </span>
           )}
         </div>
+        {/* Most likely the pool_member_emails migration hasn't reached the database yet. */}
+        {emailError && (
+          <p className="border-b border-line py-2 text-sm text-muted">Members&apos; emails can&apos;t be shown right now (the database needs its latest update).</p>
+        )}
         <ul className="divide-y divide-line">
           {members?.map((m) => (
             <li key={m.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
