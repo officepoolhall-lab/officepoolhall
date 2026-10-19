@@ -6,6 +6,7 @@ import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { hasStarted } from "@/lib/locks";
 import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } from "@/lib/pool";
+import { getTeamRecords } from "@/lib/teamRecords";
 import { PickBoard } from "./PickBoard";
 
 export const metadata: Metadata = { title: "My picks" };
@@ -71,6 +72,9 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
     getSlateGames(ctx, slate.id),
   ]);
 
+  // Teams' current records (ESPN), shown next to each team name.
+  const records = await getTeamRecords(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf", games.map((g) => g.startAt));
+
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
   const now = Date.now();
   const anyLive = games.some(
@@ -125,6 +129,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           fullCard: ctx.settings.full_card,
         }}
         forUserId={forUserId}
+        records={records}
         // A co-manager saves the owner's entry, with the player's own rules (not the commissioner's).
         saveAs={ctx.managing ? ctx.entryUserId : undefined}
       />

@@ -61,8 +61,8 @@ const GAME_SELECT = `
   slate:slates!inner ( lock_at ),
   game:games!inner (
     id, start_at, time_tbd, manual_time, status, home_score, away_score, neutral_site, venue, tv_network, home_rank, away_rank,
-    home:teams!games_home_team_id_fkey ( id, name, short_name, abbreviation, logo_url, conference ),
-    away:teams!games_away_team_id_fkey ( id, name, short_name, abbreviation, logo_url, conference )
+    home:teams!games_home_team_id_fkey ( id, espn_id, name, short_name, abbreviation, logo_url, conference ),
+    away:teams!games_away_team_id_fkey ( id, espn_id, name, short_name, abbreviation, logo_url, conference )
   )
 `;
 

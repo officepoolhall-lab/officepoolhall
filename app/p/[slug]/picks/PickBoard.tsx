@@ -51,6 +51,7 @@ export function PickBoard({
   settings,
   forUserId,
   saveAs,
+  records = {},
 }: {
   slug: string;
   slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
@@ -65,6 +66,8 @@ export function PickBoard({
   forUserId?: string;
   /** A co-manager's board: saves go to this entry (the owner's), under the player's rules. */
   saveAs?: string;
+  /** ESPN team id → overall record ("6-0"), shown next to team names. */
+  records?: Record<string, string>;
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
@@ -328,6 +331,7 @@ export function PickBoard({
                 now={now}
                 settings={settings}
                 onTeam={(side) => tapTeam(g, side)}
+                records={records}
                 onPoints={() => openSheet(g)}
               />
             ))}
@@ -453,6 +457,7 @@ function GameRow({
   settings,
   onTeam,
   onPoints,
+  records,
 }: {
   game: SlateGame;
   draft: Draft | undefined;
@@ -465,6 +470,7 @@ function GameRow({
   settings: Settings;
   onTeam: (side: Side) => void;
   onPoints: () => void;
+  records: Record<string, string>;
 }) {
   // A TBD game's start is ESPN's placeholder; it stays pickable past it until its deadline.
   const started = hasStarted(g, now);
@@ -578,6 +584,9 @@ function GameRow({
               <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight ${g.voided ? "text-muted" : "text-ink"}`}>
                 {rank ? <span className="mr-1 text-xs font-medium tabular-nums text-muted">{rank}</span> : null}
                 {team.short_name ?? team.name}
+                {team.espn_id && records[team.espn_id] && (
+                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
+                )}
               </span>
             </span>
             <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums">{started && score !== null ? score : ""}</span>

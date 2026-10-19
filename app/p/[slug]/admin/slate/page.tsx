@@ -7,6 +7,7 @@ import { dayKey, gameTime, windowLabel } from "@/lib/format";
 import { gameDateZone, isGameLocked } from "@/lib/locks";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
+import { getTeamRecords } from "@/lib/teamRecords";
 import { createSlate, resolveTeamMatch, saveDeadlines } from "../actions";
 import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
 import { Matchup } from "@/components/Matchup";
@@ -96,8 +97,8 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
       ctx.supabase
         .from("games")
         .select(`id, start_at, time_tbd, tv_network, home_rank, away_rank, neutral_site, venue,
-          home:teams!games_home_team_id_fkey ( name, short_name, abbreviation, conference, logo_url ),
-          away:teams!games_away_team_id_fkey ( name, short_name, abbreviation, conference, logo_url )`)
+          home:teams!games_home_team_id_fkey ( espn_id, name, short_name, abbreviation, conference, logo_url ),
+          away:teams!games_away_team_id_fkey ( espn_id, name, short_name, abbreviation, conference, logo_url )`)
         .eq("sport", ctx.pool.sport)
         // Widened by a few hours: a TBD game's placeholder (midnight Eastern) sits outside
         // the window's Central edges. The exact day filter is below.
@@ -137,6 +138,11 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         away: g.away,
         line: lineByGame.get(g.id) ?? null,
       }));
+    // Teams' current records (ESPN), for every game on the slate or available to add.
+    const records = await getTeamRecords(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf", [
+      ...onSlate.map((g) => g.startAt),
+      ...candidates.map((c) => c.startAt),
+    ]);
 
     return (
       <>
@@ -175,6 +181,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           slateId={slateId}
           onSlate={onSlate.map((g) => ({ ...g, line: lineByGame.get(g.id) ?? null }))}
           candidates={candidates}
+          records={records}
           teams={teams ?? []}
           settings={{
             pickType: ctx.settings.pick_type,
