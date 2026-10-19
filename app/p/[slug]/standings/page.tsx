@@ -14,9 +14,10 @@ import { getStandings } from "@/lib/standings";
 export const metadata: Metadata = { title: "Standings" };
 
 /**
- * Desktop: season standings in the main column, with the week and bonus segment standings
- * side by side on the right (each with its own week/segment picker). Phones: one table at a
- * time behind Season / Bonus Segments / Weekly tabs. Both read ?week= and ?segment=.
+ * Desktop: three columns. Season standings (rank, name, record, win %) on the left, a
+ * week's standings in the middle and a bonus segment's on the right, each with its own
+ * picker. Phones: one table at a time behind Season / Bonus Segments / Weekly tabs. Both
+ * read ?week= and ?segment=.
  */
 export default async function StandingsPage({ params, searchParams }: PageProps<"/p/[slug]/standings">) {
   const { slug } = await params;
@@ -151,15 +152,18 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
         <Empty>Standings appear once the first week is published.</Empty>
       ) : (
         <>
-          {/* ---------- Desktop: everything side by side ---------- */}
-          <div className="hidden lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-10">
+          {/* ---------- Desktop: season | week | bonus segment ---------- */}
+          <div className="hidden lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
             <section aria-labelledby="season-standings">
               <SectionLabel className="flex min-h-9 items-center">
                 <span id="season-standings">Season</span>
               </SectionLabel>
-              <SeasonStandings rows={seasonRows} me={ctx.user.id} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} />
+              {/* The week and bonus columns have their own tables here. Spacer keeps the
+                  header level with the other columns' pickers. */}
+              <div className="mb-1 h-8" aria-hidden />
+              <SeasonStandings rows={seasonRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact />
             </section>
-            <div className="space-y-8">
+            <>
               {panelSlate && weekRows && (
                 <section aria-labelledby="week-standings">
                   <SectionLabel className="flex min-h-9 items-center">
@@ -180,7 +184,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                   <StandingsTable rows={segmentRows} me={ctx.user.id} flat={flat} compact total playerHref={playerHref} />
                 </section>
               )}
-            </div>
+            </>
           </div>
 
           {/* ---------- Phones and tablets: one table at a time ---------- */}
