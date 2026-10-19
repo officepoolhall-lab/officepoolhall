@@ -17,7 +17,7 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
         <SectionLabel>
           <span id="news">{title}</span>
         </SectionLabel>
-        <span className="text-xs text-muted">From ESPN</span>
+
       </div>
       {!stories.length ? (
         <p className="border-y border-line py-3 text-sm text-muted">Stories aren&apos;t available right now. Check back soon.</p>
@@ -36,8 +36,9 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
                   <span className="line-clamp-2 text-sm font-semibold leading-snug text-ink group-hover:underline">{s.headline}</span>
                   {s.description && <span className="mt-0.5 line-clamp-1 text-xs text-muted">{s.description}</span>}
                   <span className="mt-0.5 block text-[11px] text-faint">
-                    {s.video && <span className="mr-1 font-semibold text-muted">Video ·</span>}
-                    {s.published ? ago(s.published, now) : null}
+                    <span className="font-semibold text-muted">{s.source}</span>
+                    {s.video && <span className="text-muted"> · Video</span>}
+                    {s.published && <> · {ago(s.published, now)}</>}
                     <span className="sr-only"> (opens in a new tab)</span>
                   </span>
                 </span>

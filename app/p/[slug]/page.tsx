@@ -22,7 +22,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const [season, poll, news, games] = await Promise.all([
     getStandings(ctx),
     getApPoll(sport),
-    getNews(sport, 10),
+    getNews(sport, 12),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const flat = !ctx.settings.confidence;
