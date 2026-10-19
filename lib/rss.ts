@@ -53,12 +53,13 @@ export function parseRss(xml: string): RssItem[] {
     const date = pub ? new Date(pub) : null;
     // Image: <media:content|media:thumbnail url>, an image <enclosure>, or the first <img> in the body.
     const enclosureType = attr(block, "enclosure", "type");
+    const bodyImg = (tag(block, "content:encoded") ?? description ?? "").match(/<img[^>]+src=["']([^"']+)["']/i)?.[1];
     const image =
       attr(block, "media:content", "url") ??
       attr(block, "media:thumbnail", "url") ??
       (!enclosureType || enclosureType.startsWith("image/") ? attr(block, "enclosure", "url") : null) ??
-      (tag(block, "content:encoded") ?? description ?? "").match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ??
-      null;
+      // HTML inside the body still escapes & in URLs.
+      (bodyImg ? decode(bodyImg) : null);
 
     items.push({
       title: stripHtml(title),

@@ -48,6 +48,12 @@ describe("parseRss", () => {
     expect(items[0].image).toBe("https://s.yimg.com/ny/api/res/1.2/x.jpg");
   });
 
+  it("decodes &amp; in an image URL taken from the body", () => {
+    const xml = `<rss><channel><item><title>T</title><link>https://example.com/a</link>
+      <content:encoded><![CDATA[<img src="https://s.yimg.com/ny/api/res/1.2/a?w=960&amp;h=540"/>]]></content:encoded></item></channel></rss>`;
+    expect(parseRss(xml)[0].image).toBe("https://s.yimg.com/ny/api/res/1.2/a?w=960&h=540");
+  });
+
   it("decodes entities in titles", () => {
     const xml = `<rss><channel><item><title>Texas A&amp;M&#39;s &quot;big&quot; win</title><link>https://example.com/a</link></item></channel></rss>`;
     expect(parseRss(xml)[0].title).toBe(`Texas A&M's "big" win`);
