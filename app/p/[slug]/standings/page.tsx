@@ -3,7 +3,6 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
 import { SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
-import { StandingsTable } from "@/components/StandingsTable";
 import { chipClass, Empty, PageTitle, SectionLabel } from "@/components/ui";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
@@ -152,7 +151,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
         <Empty>Standings appear once the first week is published.</Empty>
       ) : (
         <>
-          {/* ---------- Desktop: season | week | bonus segment ---------- */}
+          {/* ---------- Desktop: season | week | bonus segment, all in the same table format
+                (Player · Record · Win %, then the pool total) ---------- */}
           <div className="hidden lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
             <section aria-labelledby="season-standings">
               <SectionLabel className="flex min-h-9 items-center">
@@ -170,7 +170,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                     <span id="week-standings">{weekLabel(panelSlate)} standings</span>
                   </SectionLabel>
                   {weekChips}
-                  <StandingsTable rows={weekRows} me={ctx.user.id} weekly flat={flat} compact total playerHref={playerHref} />
+                  <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact weekly />
                 </section>
               )}
               {panelSegment && segmentRows && (
@@ -181,7 +181,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                     </span>
                   </SectionLabel>
                   {segmentChips}
-                  <StandingsTable rows={segmentRows} me={ctx.user.id} flat={flat} compact total playerHref={playerHref} />
+                  <SeasonStandings rows={segmentRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact />
                 </section>
               )}
             </>
@@ -203,9 +203,9 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
             {view === "season" ? (
               <SeasonStandings rows={seasonRows} me={ctx.user.id} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} />
             ) : view === "weekly" && weekRows ? (
-              <StandingsTable rows={weekRows} me={ctx.user.id} weekly flat={flat} total playerHref={playerHref} />
+              <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} weekly />
             ) : segmentRows ? (
-              <StandingsTable rows={segmentRows} me={ctx.user.id} flat={flat} total playerHref={playerHref} />
+              <SeasonStandings rows={segmentRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} />
             ) : null}
           </div>
         </>
