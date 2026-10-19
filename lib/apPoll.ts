@@ -1,8 +1,9 @@
 import "server-only";
 
 // The AP Top 25 from ESPN's undocumented site API (same source as the schedule and scores;
-// shape checked Oct 2026). Cached for an hour, so a new poll (AP releases Sundays) shows
-// up within the hour without any job or table.
+// shape checked Oct 2026). Once the College Football Playoff committee publishes its
+// rankings (from early November), ESPN adds them to the same feed and they take over.
+// Cached for an hour, so a new poll or CFP release shows up within the hour, no job or table.
 
 const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
 const REVALIDATE_SECONDS = 3600;
@@ -17,7 +18,14 @@ export type PollTeam = {
   record: string | null;
   firstPlaceVotes: number;
 };
-export type ApPoll = { label: string; date: string | null; teams: PollTeam[] };
+export type ApPoll = {
+  /** "CFP Rankings" once the committee has released them, else "AP Top 25". */
+  title: string;
+  cfp: boolean;
+  label: string;
+  date: string | null;
+  teams: PollTeam[];
+};
 
 type EspnRank = {
   current?: number;
@@ -28,7 +36,7 @@ type EspnRank = {
 };
 type EspnRanking = { type?: string; name?: string; shortName?: string; date?: string; occurrence?: { displayValue?: string }; ranks?: EspnRank[] };
 
-/** The latest AP poll for the sport, or null if ESPN is unreachable or has none yet. */
+/** CFP rankings when out (football), else the latest AP poll; null if ESPN is unreachable or has none yet. */
 export async function getApPoll(sport: "ncaaf" | "ncaab"): Promise<ApPoll | null> {
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/rankings`, {
@@ -37,7 +45,13 @@ export async function getApPoll(sport: "ncaaf" | "ncaab"): Promise<ApPoll | null
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { rankings?: EspnRanking[] };
-    const ap = body.rankings?.find((r) => r.type === "ap") ?? body.rankings?.find((r) => /\bAP\b/.test(r.name ?? ""));
+    const rankings = body.rankings ?? [];
+    const hasRanks = (r: EspnRanking) => Boolean(r.ranks?.some((x) => (x.current ?? 0) > 0));
+    const cfp =
+      sport === "ncaaf"
+        ? rankings.find((r) => hasRanks(r) && (r.type === "cfp" || /playoff|\bcfp\b/i.test(`${r.name ?? ""} ${r.shortName ?? ""}`)))
+        : undefined;
+    const ap = cfp ?? rankings.find((r) => r.type === "ap" && hasRanks(r)) ?? rankings.find((r) => /\bAP\b/.test(r.name ?? "") && hasRanks(r));
     if (!ap?.ranks?.length) return null;
 
     const teams = ap.ranks
@@ -53,7 +67,13 @@ export async function getApPoll(sport: "ncaaf" | "ncaab"): Promise<ApPoll | null
       }))
       .sort((a, b) => a.rank - b.rank);
 
-    return { label: ap.occurrence?.displayValue ?? ap.shortName ?? "Latest", date: ap.date ?? null, teams };
+    return {
+      title: cfp ? "CFP Rankings" : "AP Top 25",
+      cfp: Boolean(cfp),
+      label: ap.occurrence?.displayValue ?? ap.shortName ?? "Latest",
+      date: ap.date ?? null,
+      teams,
+    };
   } catch {
     return null;
   }

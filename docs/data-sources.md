@@ -55,3 +55,10 @@ ESPN's site API `.../{sport path}/rankings`, the `rankings[]` entry with `type: 
 (`ranks[].current/previous/recordSummary/firstPlaceVotes/team`). Fetched by the Home page
 itself (`lib/apPoll.ts`) and cached for an hour, so a new poll (AP releases Sundays) shows up
 within the hour. No table or cron job; if ESPN is down the panel says so and the page still loads.
+Once the College Football Playoff committee releases its rankings, ESPN adds them to the same
+feed (a `rankings[]` entry named "College Football Playoff Rankings"); `getApPoll` prefers it.
+
+## Top stories (Home page)
+ESPN's site API `.../{sport path}/news` (`articles[].headline/description/published/images/links.web.href`,
+`type` Story or Media). `lib/news.ts`, cached 15 minutes; premium stories are skipped. Each
+story opens on espn.com in a new tab.
