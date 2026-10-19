@@ -37,7 +37,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
     `flex h-11 flex-1 items-center justify-center rounded-full text-sm font-medium transition ${active ? "bg-ink text-bg" : "text-muted hover:text-ink"}`;
 
   return (
-    <>
+    // data-wide: full screen width on desktop.
+    <div data-wide>
       <PageTitle>Standings</PageTitle>
       <div className="mb-4 flex rounded-full bg-surface p-0.5">
         <Link href={`/p/${slug}/standings`} aria-current={view === "season" ? "page" : undefined} className={tab(view === "season")}>Season</Link>
@@ -85,6 +86,6 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       ) : (
         <Empty>Standings appear once the first week is published.</Empty>
       )}
-    </>
+    </div>
   );
 }
