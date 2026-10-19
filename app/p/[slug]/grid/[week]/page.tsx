@@ -40,7 +40,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const now = Date.now();
 
   const ats = ctx.settings.pick_type === "ats";
-  const tz = ctx.settings.timezone;
+  // Column times in the viewer's own zone.
+  const tz = ctx.displayTz;
   const isLocked = (g: (typeof games)[number]) => slate.status !== "open" || isGameLocked(g, now);
   // A column's picks (the viewer's own included) show once its game kicks off: started
   // games are always locked too. A graded week shows everything, cancelled games included.

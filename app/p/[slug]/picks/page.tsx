@@ -91,7 +91,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           {!forName && ctx.managing && <span className="text-accent"> · {ctx.managing.ownerName}&apos;s entry</span>}
             </PageTitle>
           </div>
-          <LiveTicker games={games} now={now} timezone={ctx.settings.timezone} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
+          <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
         </div>
         {weekChips}
         <AutoRefresh active={anyLive} />
@@ -117,7 +117,9 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           tiers: ctx.settings.confidence?.tiers ?? null,
           minusPoints: ctx.settings.confidence?.wrong_pick === "minus_points",
           maxUpsetBonus: ctx.settings.upset_bonus ? Math.max(...ctx.settings.upset_bonus.tiers.map((t) => t.bonus)) : null,
-          timezone: ctx.settings.timezone,
+          // Times and day headings in the viewer's zone; deadline labels in the pool's.
+          timezone: ctx.displayTz,
+          poolTimezone: ctx.settings.timezone,
           bookmaker: ctx.settings.lines.bookmaker,
           lockMode: ctx.settings.lock.mode,
           fullCard: ctx.settings.full_card,

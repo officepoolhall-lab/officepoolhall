@@ -24,7 +24,10 @@ type Settings = {
   minusPoints: boolean;
   /** Largest upset bonus tier, or null when the pool has no upset bonus. */
   maxUpsetBonus: number | null;
+  /** The viewer's time zone: game times and day headings. */
   timezone: string;
+  /** The pool's time zone: which day a weekly deadline belongs to ("Monday picks lock"). */
+  poolTimezone: string;
   bookmaker: string;
   lockMode: "per_game" | "weekly";
   /**
@@ -720,7 +723,7 @@ function nextLockInfo(
   const main = slate.lockAt !== null && new Date(slate.lockAt).getTime() === at;
   if (main || !slate.firstDayLockAt) return { at, label: "Picks lock" };
   const g = byDeadline[0];
-  return { at, label: `${formatInTimeZone(g.startAt, gameDateZone(g.timeTbd, settings.timezone), "EEEE")} picks lock` };
+  return { at, label: `${formatInTimeZone(g.startAt, gameDateZone(g.timeTbd, settings.poolTimezone), "EEEE")} picks lock` };
 }
 
 /**

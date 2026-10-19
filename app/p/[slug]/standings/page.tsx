@@ -152,7 +152,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
         <div className="shrink-0">
           <PageTitle>Standings</PageTitle>
         </div>
-        {games.length > 0 && <LiveTicker games={games} now={now} timezone={ctx.settings.timezone} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />}
+        {games.length > 0 && <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />}
       </div>
       <AutoRefresh active={anyLive} />
 
