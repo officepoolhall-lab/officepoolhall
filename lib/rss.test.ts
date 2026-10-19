@@ -54,6 +54,20 @@ describe("parseRss", () => {
     expect(parseRss(xml)[0].image).toBe("https://s.yimg.com/ny/api/res/1.2/a?w=960&h=540");
   });
 
+  it("reads a Fox Sports item: image from media:content, not its nested thumbnail", () => {
+    const xml = `<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><item>
+      <title>AP Top 25: Miami Claims No. 1</title>
+      <link>https://www.foxsports.com/stories/college-football/ap-top-25</link>
+      <pubDate>Sun, 18 Oct 2026 15:01:51 -0400</pubDate>
+      <media:content url="https://a57.foxsports.com/full.jpg" width="1280" height="720">
+        <media:thumbnail url="https://a57.foxsports.com/thumb.jpg" width="128" height="72"/>
+      </media:content>
+    </item></channel></rss>`;
+    const [item] = parseRss(xml);
+    expect(item.image).toBe("https://a57.foxsports.com/full.jpg");
+    expect(item.published).toBe("2026-10-18T19:01:51.000Z");
+  });
+
   it("decodes entities in titles", () => {
     const xml = `<rss><channel><item><title>Texas A&amp;M&#39;s &quot;big&quot; win</title><link>https://example.com/a</link></item></channel></rss>`;
     expect(parseRss(xml)[0].title).toBe(`Texas A&M's "big" win`);
