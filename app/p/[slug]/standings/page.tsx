@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { StandingsTable } from "@/components/StandingsTable";
+import { StandingsTable, type Extra } from "@/components/StandingsTable";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
-import { getPoolContext } from "@/lib/pool";
+import { getCurrentSlate, getPoolContext } from "@/lib/pool";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { getStandings } from "@/lib/standings";
 
@@ -33,14 +33,33 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const rows = await getStandings(ctx, slate?.id ?? (segment ? { fromWeek: segment.first_week, toWeek: segment.last_week } : undefined));
   const view = slate ? "weekly" : segment ? "segment" : "season";
 
+  // Season view: each player's score this week and in the current bonus segment, beside
+  // their overall numbers.
+  let extras: Extra[] | undefined;
+  if (view === "season") {
+    const current = await getCurrentSlate(ctx);
+    const seg = current ? segmentForWeek(ctx.settings, current.week) : null;
+    const segNumber = seg ? segments.findIndex((r) => r.first_week === seg.first_week) + 1 : 0;
+    const [weekRows, segRows] = await Promise.all([
+      current ? getStandings(ctx, current.id) : null,
+      seg ? getStandings(ctx, { fromWeek: seg.first_week, toWeek: seg.last_week }) : null,
+    ]);
+    const byUser = (list: typeof rows) => new Map(list.map((r) => [r.userId, r.points]));
+    extras = [
+      ...(current && weekRows ? [{ label: `Wk ${current.week}`, values: byUser(weekRows) }] : []),
+      ...(seg && segRows ? [{ label: segNumber > 0 ? `Bonus ${segNumber}` : "Bonus", values: byUser(segRows) }] : []),
+    ];
+  }
+
+  // A small segmented control: compact tabs sized to their labels.
   const tab = (active: boolean) =>
-    `flex h-11 flex-1 items-center justify-center rounded-full text-sm font-medium transition ${active ? "bg-ink text-bg" : "text-muted hover:text-ink"}`;
+    `flex h-8 items-center justify-center rounded-full px-3.5 text-xs font-medium transition ${active ? "bg-ink text-bg" : "text-muted hover:text-ink"}`;
 
   return (
     // data-wide: full screen width on desktop.
     <div data-wide>
       <PageTitle>Standings</PageTitle>
-      <div className="mb-4 flex rounded-full bg-surface p-0.5">
+      <div className="mb-4 inline-flex rounded-full bg-surface p-0.5">
         <Link href={`/p/${slug}/standings`} aria-current={view === "season" ? "page" : undefined} className={tab(view === "season")}>Season</Link>
         {segments.length > 0 && (
           <Link
@@ -48,7 +67,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
             aria-current={view === "segment" ? "page" : undefined}
             className={tab(view === "segment")}
           >
-            Segments
+            Bonus Segments
           </Link>
         )}
         <Link href={`/p/${slug}/standings?week=${latestWeek ?? 1}`} aria-current={view === "weekly" ? "page" : undefined} className={tab(view === "weekly")}>Weekly</Link>
@@ -82,7 +101,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
         </div>
       )}
       {slates?.length ? (
-        <StandingsTable rows={rows} me={ctx.user.id} weekly={Boolean(slate)} flat={!ctx.settings.confidence} total />
+        <StandingsTable rows={rows} me={ctx.user.id} weekly={Boolean(slate)} flat={!ctx.settings.confidence} total extras={extras} />
       ) : (
         <Empty>Standings appear once the first week is published.</Empty>
       )}

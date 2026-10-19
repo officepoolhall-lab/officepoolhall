@@ -7,6 +7,8 @@ import type { StandingRow } from "@/lib/standings";
  * season table counts the weeks they missed instead, since those totals are filled in.
  * `flat` (no confidence points) leads with the W–L record and win %; points stay secondary.
  */
+export type Extra = { label: string; values: Map<string, number> };
+
 export function StandingsTable({
   rows,
   me,
@@ -15,6 +17,7 @@ export function StandingsTable({
   flat = false,
   total = false,
   compact = false,
+  extras,
 }: {
   rows: StandingRow[];
   me: string;
@@ -25,6 +28,11 @@ export function StandingsTable({
   total?: boolean;
   /** Tighter rows (36px) for side panels like Home. */
   compact?: boolean;
+  /**
+   * Extra point columns before the overall numbers, e.g. this week's and this bonus segment's
+   * scores on the season table. Adds a header row so the columns read clearly.
+   */
+  extras?: Extra[];
 }) {
   const shown = limit ? rows.slice(0, limit) : rows;
   const mine = rows.find((r) => r.userId === me);
@@ -32,19 +40,45 @@ export function StandingsTable({
 
   return (
     <ul className="divide-y divide-line border-b border-line">
-      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} />)}
+      {extras?.length ? <HeaderRow extras={extras} flat={flat} /> : null}
+      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} />)}
       {pinned && (
         <>
           <li className="py-1 text-center text-xs leading-none text-faint" aria-hidden>···</li>
-          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} />
+          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} />
         </>
       )}
-      {total && rows.length > 0 && <TotalRow rows={rows} />}
+      {total && rows.length > 0 && <TotalRow rows={rows} extras={extras} flat={flat} />}
     </ul>
   );
 }
 
-function TotalRow({ rows }: { rows: StandingRow[] }) {
+/** Column labels, shown only when extra columns are on (widths match Row's). */
+function HeaderRow({ extras, flat }: { extras: Extra[]; flat: boolean }) {
+  return (
+    <li className="flex items-end gap-3 pb-1.5 pt-2 text-[11px] font-medium text-muted" aria-hidden>
+      <span className="w-6" />
+      <span className="min-w-0 flex-1">Player</span>
+      {extras.map((e) => (
+        <span key={e.label} className="w-14 text-right">{e.label}</span>
+      ))}
+      {flat ? (
+        <>
+          <span className="w-14 text-right">Pts</span>
+          <span className="w-10 text-right">Win %</span>
+          <span className="min-w-14 text-right">Record</span>
+        </>
+      ) : (
+        <>
+          <span className="w-16 text-right">Record</span>
+          <span className="w-12 text-right">Pts</span>
+        </>
+      )}
+    </li>
+  );
+}
+
+function TotalRow({ rows, extras, flat }: { rows: StandingRow[]; extras?: Extra[]; flat: boolean }) {
   const t = rows.reduce(
     (sum, r) => ({ wins: sum.wins + r.wins, losses: sum.losses + r.losses, pushes: sum.pushes + r.pushes }),
     { wins: 0, losses: 0, pushes: 0 },
@@ -55,13 +89,31 @@ function TotalRow({ rows }: { rows: StandingRow[] }) {
     <li className="flex min-h-12 items-center gap-3 py-3 text-muted">
       <span className="w-6" aria-hidden />
       <span className="min-w-0 flex-1 truncate text-sm font-medium">Pool total</span>
+      {/* Keep the record under the record column when extra columns are on. */}
+      {extras?.map((e) => <span key={e.label} className="w-14" aria-hidden />)}
+      {extras?.length && flat ? <span className="w-14" aria-hidden /> : null}
       <span className="w-10 text-right text-xs tabular-nums" aria-label="Win percentage">{winPct(t.wins, t.losses)}</span>
       <span className="min-w-14 text-right text-[17px] font-semibold tabular-nums text-ink" aria-label="Record">{record}</span>
     </li>
   );
 }
 
-function Row({ r, me, weekly, flat, compact }: { r: StandingRow; me: string; weekly: boolean; flat: boolean; compact: boolean }) {
+function Row({
+  r,
+  me,
+  weekly,
+  flat,
+  compact,
+  extras,
+}: {
+  r: StandingRow;
+  me: string;
+  weekly: boolean;
+  flat: boolean;
+  compact: boolean;
+  extras?: Extra[];
+}) {
+  const columns = Boolean(extras?.length);
   const mine = r.userId === me;
   const record = `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
   return (
@@ -75,16 +127,30 @@ function Row({ r, me, weekly, flat, compact }: { r: StandingRow; me: string; wee
           <span className="ml-1.5 text-xs font-normal text-muted">{weekly ? "No picks" : `${r.missed} missed`}</span>
         )}
       </span>
+      {extras?.map((e) => {
+        const v = e.values.get(r.userId);
+        return (
+          <span key={e.label} className="w-14 text-right text-sm tabular-nums text-muted">
+            {v === undefined ? "—" : points(v)}
+            <span className="sr-only"> {e.label}</span>
+          </span>
+        );
+      })}
       {flat ? (
         <>
-          {/* Points only differ from wins when pushes or custom scoring count. */}
-          {r.points !== r.wins && <span className="text-xs tabular-nums text-muted">{points(r.points)} pts</span>}
+          {/* Points only differ from wins when pushes or custom scoring count. With columns
+              on, the points always show, in a fixed-width column. */}
+          {columns ? (
+            <span className="w-14 text-right text-sm tabular-nums text-muted">{points(r.points)}<span className="sr-only"> season points</span></span>
+          ) : (
+            r.points !== r.wins && <span className="text-xs tabular-nums text-muted">{points(r.points)} pts</span>
+          )}
           <span className="w-10 text-right text-xs tabular-nums text-muted" aria-label="Win percentage">{winPct(r.wins, r.losses)}</span>
           <span className={`min-w-14 text-right ${compact ? "text-[15px]" : "text-[17px]"} font-semibold tabular-nums`} aria-label="Record">{record}</span>
         </>
       ) : (
         <>
-          <span className="text-xs tabular-nums text-muted">{record}</span>
+          <span className={`text-xs tabular-nums text-muted ${columns ? "w-16 text-right" : ""}`}>{record}</span>
           <span className={`w-12 text-right ${compact ? "text-[15px]" : "text-[17px]"} font-semibold tabular-nums`}>{points(r.points)}</span>
         </>
       )}
