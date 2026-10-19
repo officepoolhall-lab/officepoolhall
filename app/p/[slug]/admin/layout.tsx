@@ -5,7 +5,8 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/p/
   const { slug } = await params;
   await requireCommissioner(slug);
   return (
-    <>
+    // data-wide: every admin page uses the full screen width on desktop.
+    <div data-wide>
       <AdminNav
         base={`/p/${slug}/admin`}
         tabs={[
@@ -16,6 +17,6 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/p/
         ]}
       />
       {children}
-    </>
+    </div>
   );
 }
