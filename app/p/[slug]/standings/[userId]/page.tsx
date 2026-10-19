@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PickSummaryRow } from "@/components/PickSummaryRow";
-import { ChevronIcon, PageTitle, SectionLabel } from "@/components/ui";
+import { ChevronIcon, PageTitle } from "@/components/ui";
 import { points } from "@/lib/format";
 import { isGameLocked } from "@/lib/locks";
 import { type HistoryWeek, getPlayerHistory } from "@/lib/playerHistory";
 import { getPoolContext, getSlateGames, type SlateGame } from "@/lib/pool";
-import { segmentForWeek } from "@/lib/poolSettings";
 import { winPct } from "@/lib/record";
 import { getStandings } from "@/lib/standings";
 
@@ -21,8 +20,8 @@ const ordinal = (x: number) => `${x}${x % 100 >= 11 && x % 100 <= 13 ? "th" : ["
 type Pick = { slate_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null };
 
 /**
- * Pick History: one player's season summary, then every week at once, newest first and grouped
- * by bonus segment, each with its record, rank and the picks themselves (like My Picks).
+ * Pick History: one player's season summary, then every week at once in order (Week 1 first),
+ * each with its record, rank and the picks themselves (like My Picks).
  * Another player's picks show from each game's kickoff (RLS), so an open week can be partial.
  */
 export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/standings/[userId]">) {
@@ -49,22 +48,8 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or locked
   const now = Date.now();
 
-  // Newest week first, grouped by bonus segment when the pool has them.
-  const groups: { name: string | null; weeks: HistoryWeek[] }[] = [];
-  for (const w of [...history.weeks].reverse()) {
-    const seg = segmentForWeek(ctx.settings, w.week);
-    const name = seg ? seg.name : null;
-    const last = groups[groups.length - 1];
-    if (last && last.name === name) last.weeks.push(w);
-    else groups.push({ name, weeks: [w] });
-  }
-  const totals = (weeks: HistoryWeek[]) =>
-    weeks.reduce((t, w) => ({ wins: t.wins + w.wins, losses: t.losses + w.losses, pushes: t.pushes + w.pushes, points: t.points + w.points }), {
-      wins: 0,
-      losses: 0,
-      pushes: 0,
-      points: 0,
-    });
+  // Every week in order, Week 1 first (history.weeks is oldest first).
+  const weeks = history.weeks;
 
   const weekPicks = (w: HistoryWeek) => {
     const games = gamesBySlate.get(w.slateId);
@@ -104,22 +89,9 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
         </dl>
       )}
 
-      {groups.map((grp) => {
-        const t = totals(grp.weeks);
-        return (
-          <section key={grp.name ?? "season"} className="mb-8">
-            <div className="mb-2 flex min-h-9 items-center justify-between gap-3 border-b border-line">
-              <SectionLabel>{grp.name ?? "All weeks"}</SectionLabel>
-              {grp.name && (
-                <span className="text-xs tabular-nums text-muted">
-                  {recordText(t)} · {winPct(t.wins, t.losses)}
-                  {!flat && <> · {points(t.points)} pts</>}
-                </span>
-              )}
-            </div>
-            {/* Every week at once: one card per week, side by side on wider screens. */}
+      {/* Every week at once, in order: one card per week, side by side on wider screens. */}
             <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-              {grp.weeks.map((w) => {
+              {weeks.map((w) => {
                 const list = weekPicks(w);
                 return (
                   <article key={w.slateId} aria-label={w.label}>
@@ -165,9 +137,6 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
                 );
               })}
             </div>
-          </section>
-        );
-      })}
     </div>
   );
 }
