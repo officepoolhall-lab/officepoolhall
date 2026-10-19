@@ -23,7 +23,7 @@ export default async function PlayerHistoryPage({ params }: PageProps<"/p/[slug]
   const [history, season] = await Promise.all([getPlayerHistory(ctx, userId), getStandings(ctx)]);
   if (!history) notFound();
 
-  const me = userId === ctx.user.id;
+  const me = userId === ctx.entryUserId;
   const row = season.find((r) => r.userId === userId);
   const flat = !ctx.settings.confidence;
 

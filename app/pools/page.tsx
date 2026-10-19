@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "My pools" };
 export default async function PoolsPage() {
   const user = await requireUser("/pools");
   const supabase = await createClient();
-  const [{ data: memberships }, { data: canCreate }, { data: profile }] = await Promise.all([
+  const [{ data: memberships }, { data: canCreate }, { data: profile }, { data: managed }] = await Promise.all([
     supabase
       .from("pool_members")
       .select("role, paid, pool:pools!inner ( name, slug, sport, season, entry_fee )")
@@ -21,7 +21,10 @@ export default async function PoolsPage() {
     // Only approved commissioners can start pools (enforced in create_pool too).
     supabase.rpc("can_create_pools"),
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    // Entries they help run for someone else (co-manager).
+    supabase.rpc("my_comanaged_entries"),
   ]);
+  const coManaged = (managed ?? []) as { slug: string; pool_name: string; sport: string; season: number; owner_name: string }[];
 
   return (
     <>
@@ -32,9 +35,9 @@ export default async function PoolsPage() {
         </Suspense>
         {/* The player's name ("First Last"); the email only if no name is set yet. */}
         <PageTitle sub={profile?.display_name?.trim() || user.email}>My pools</PageTitle>
-        {memberships?.length ? (
+        {memberships?.length || coManaged.length ? (
           <ul className="divide-y divide-line border-y border-line">
-            {memberships.map((m) => (
+            {(memberships ?? []).map((m) => (
               <li key={m.pool.slug}>
                 <Link href={`/p/${m.pool.slug}`} className="flex min-h-16 items-center gap-3 py-3 transition hover:opacity-80">
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-xs font-medium text-muted">
@@ -46,6 +49,22 @@ export default async function PoolsPage() {
                       {m.pool.season}–{String(m.pool.season + 1).slice(2)}
                       {m.role === "commissioner" && " · Commissioner"}
                       {!m.paid && Number(m.pool.entry_fee) > 0 && " · Unpaid"}
+                    </span>
+                  </span>
+                  <ChevronIcon className="size-4 text-faint" />
+                </Link>
+              </li>
+            ))}
+            {coManaged.map((m) => (
+              <li key={`co-${m.slug}`}>
+                <Link href={`/p/${m.slug}`} className="flex min-h-16 items-center gap-3 py-3 transition hover:opacity-80">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-xs font-medium text-muted">
+                    {m.sport === "ncaab" ? "CBB" : "CFB"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">{m.pool_name}</span>
+                    <span className="block text-sm text-muted tabular-nums">
+                      {m.season}–{String(m.season + 1).slice(2)} · Co-managing {m.owner_name}&apos;s entry
                     </span>
                   </span>
                   <ChevronIcon className="size-4 text-faint" />

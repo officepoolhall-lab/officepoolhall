@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Roster" };
 export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/roster">) {
   const { slug } = await params;
   const ctx = await requireCommissioner(slug);
-  const [{ data: members }, { data: invite }, { data: accounts, error: accountsError }] = await Promise.all([
+  const [{ data: members }, { data: invite }, { data: accounts, error: accountsError }, { data: comanagers }] = await Promise.all([
     ctx.supabase
       .from("pool_members")
       .select("user_id, role, paid, joined_at, profile:profiles!inner ( display_name )")
@@ -18,7 +18,13 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
     ctx.supabase.from("invites").select("token").eq("pool_id", ctx.pool.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     // Emails and account status, which only the commissioner may read (the function checks).
     ctx.supabase.rpc("pool_member_accounts", { p_pool_id: ctx.pool.id }),
+    // Each entry's co-managers with their emails (none until that migration is in).
+    ctx.supabase.rpc("pool_comanagers", { p_pool_id: ctx.pool.id }),
   ]);
+  const comanagersOf = new Map<string, { manager_id: string; manager_name: string; email: string }[]>();
+  for (const c of (comanagers ?? []) as { owner_id: string; manager_id: string; manager_name: string; email: string }[]) {
+    comanagersOf.set(c.owner_id, [...(comanagersOf.get(c.owner_id) ?? []), c]);
+  }
   // Until the account-status migration reaches the database, fall back to emails alone.
   let emailRows: { user_id: string; email: string }[] = accounts ?? [];
   let emailFailed = false;
@@ -123,6 +129,13 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
                     <span className="text-faint">{signedIn(accountOf.get(m.user_id)!.last_sign_in_at)}</span>
                   </span>
                 )}
+                {/* People this player invited to help run their entry. */}
+                {(comanagersOf.get(m.user_id) ?? []).map((c) => (
+                  <span key={c.manager_id} className="mt-0.5 block truncate text-xs text-muted">
+                    <span className="font-semibold">Co-manager:</span> {c.manager_name} ·{" "}
+                    <a href={`mailto:${c.email}`} className="hover:text-ink hover:underline">{c.email}</a>
+                  </span>
+                ))}
               </span>
               <form action={setPaid.bind(null, slug, m.user_id, !m.paid)}>
                 {/* Visible text is the accessible name (label-in-name); the title says what a tap does. */}

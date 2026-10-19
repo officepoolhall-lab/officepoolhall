@@ -38,8 +38,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   let summary = null;
   if (slate) {
     const [{ data: mine }, { data: score }] = await Promise.all([
-      ctx.supabase.from("picks").select("game_id, confidence, result").eq("slate_id", slate.id).eq("user_id", ctx.user.id),
-      ctx.supabase.from("slate_scores").select("points").eq("slate_id", slate.id).eq("user_id", ctx.user.id).maybeSingle(),
+      ctx.supabase.from("picks").select("game_id, confidence, result").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId),
+      ctx.supabase.from("slate_scores").select("points").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId).maybeSingle(),
     ]);
     // The next moment any game stops taking picks: a deadline, or a tip before its deadline.
     const nextLock = games
@@ -79,7 +79,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
               </div>
               <div className="mt-2 grid grid-cols-2 gap-4">
                 <div>
-                  <div className="text-xs text-muted">My Picks</div>
+                  <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s picks (you co-manage)` : "My Picks"}</div>
                   <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
                     {summary.picked === 0 ? (
                       // Nothing in yet: the number becomes the way to the picks screen.
@@ -125,7 +125,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
               </Link>
             </div>
             {/* Top 8, plus the viewer's own row when they're further down. */}
-            <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
+            <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
           </section>
           {slate && weekly && (
             <section className="mt-6">
@@ -135,7 +135,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   All <ChevronIcon className="size-4" />
                 </Link>
               </div>
-              <StandingsTable rows={weekly} me={ctx.user.id} flat={flat} compact weekly limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
+              <StandingsTable rows={weekly} me={ctx.entryUserId} flat={flat} compact weekly limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
             </section>
           )}
         </div>

@@ -4,7 +4,8 @@ import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Field, inputClass, PageTitle, SectionLabel } from "@/components/ui";
 import { getProfile, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { setPassword, updateName } from "./actions";
+import { removeComanager, setPassword, updateName } from "./actions";
+import { ComanagerInvite } from "./ComanagerInvite";
 import { NameFields } from "./NameFields";
 
 export const metadata: Metadata = { title: "Account" };
@@ -12,7 +13,19 @@ export const metadata: Metadata = { title: "Account" };
 export default async function AccountPage() {
   const user = await requireUser("/account");
   const supabase = await createClient();
-  const [profile, { data: hasPassword }] = await Promise.all([getProfile(user.id), supabase.rpc("has_password")]);
+  const [profile, { data: hasPassword }, { data: memberships }, comanagers, managed] = await Promise.all([
+    getProfile(user.id),
+    supabase.rpc("has_password"),
+    supabase.from("pool_members").select("pool:pools!inner ( id, name )").eq("user_id", user.id).order("joined_at", { ascending: false }),
+    // Co-managers of the player's entries, and entries they co-manage (null until the
+    // co-manager migration is in the database; the section is hidden then).
+    supabase.rpc("my_entry_comanagers"),
+    supabase.rpc("my_comanaged_entries"),
+  ]);
+  const coReady = !comanagers.error && !managed.error;
+  const myPools = (memberships ?? []).map((m) => ({ id: m.pool.id, name: m.pool.name }));
+  const helpers = (comanagers.data ?? []) as { pool_id: string; manager_id: string; manager_name: string }[];
+  const running = (managed.data ?? []) as { pool_id: string; pool_name: string; owner_name: string }[];
 
   return (
     <>
@@ -49,6 +62,51 @@ export default async function AccountPage() {
             <SubmitButton kind="secondary" className="w-full sm:w-auto">{hasPassword ? "Change password" : "Set password"}</SubmitButton>
           </ActionForm>
         </section>
+
+        {coReady && (myPools.length > 0 || running.length > 0) && (
+          <section>
+            <SectionLabel className="mb-1">Co-managers</SectionLabel>
+            <p className="mb-3 text-xs text-muted">
+              A co-manager can make and change picks for your entry, with the same locks as you. They can&apos;t have their own entry in that pool.
+            </p>
+            <ul className="divide-y divide-line border-y border-line">
+              {myPools.map((p) => {
+                const mine = helpers.filter((h) => h.pool_id === p.id);
+                return (
+                  <li key={p.id} className="space-y-2 py-3">
+                    <div className="text-[15px] font-semibold">{p.name}</div>
+                    {mine.length > 0 ? (
+                      <ul className="space-y-1">
+                        {mine.map((h) => (
+                          <li key={h.manager_id} className="flex items-center gap-3 text-sm">
+                            <span className="min-w-0 flex-1 truncate">{h.manager_name}</span>
+                            <form action={removeComanager.bind(null, p.id, h.manager_id)}>
+                              <button className="min-h-11 text-sm text-loss hover:underline">Remove</button>
+                            </form>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted">No co-managers yet.</p>
+                    )}
+                    <ComanagerInvite poolId={p.id} />
+                  </li>
+                );
+              })}
+              {running.map((r) => (
+                <li key={`co-${r.pool_id}`} className="flex items-center gap-3 py-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold">{r.pool_name}</span>
+                    <span className="block text-sm text-muted">You co-manage {r.owner_name}&apos;s entry</span>
+                  </span>
+                  <form action={removeComanager.bind(null, r.pool_id, user.id)}>
+                    <button className="min-h-11 text-sm text-loss hover:underline">Step down</button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
     </>
   );

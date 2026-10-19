@@ -371,11 +371,24 @@ isOneToOne: false
 "apply_half_point":
 { Args: { "p_force": boolean,"p_spread": number }; Returns: number
                            },
+"accept_comanager_invite":
+{ Args: { "p_token": string }; Returns: string
+                           },
 "can_create_pools":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "close_slates":
 { Args: Record<PropertyKey, never>; Returns: number
+                           },
+"comanager_invite_info":
+{ Args: { "p_token": string }; Returns: {
+              "owner_name": string,
+"pool_name": string,
+"usable": boolean
+            }[]
+                           },
+"create_comanager_invite":
+{ Args: { "p_pool_id": string }; Returns: string
                            },
 "create_pool":
 { Args: { "p_entry_fee": number,"p_name": string,"p_season": number,"p_settings": Json,"p_slug": string,"p_sport": string }; Returns: string
@@ -456,6 +469,35 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"my_comanaged_entries":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "owner_id": string,
+"owner_name": string,
+"pool_id": string,
+"pool_name": string,
+"season": number,
+"slug": string,
+"sport": string
+            }[]
+                           },
+"my_entry_comanagers":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "manager_id": string,
+"manager_name": string,
+"pool_id": string
+            }[]
+                           },
+"pool_comanagers":
+{ Args: { "p_pool_id": string }; Returns: {
+              "email": string,
+"manager_id": string,
+"manager_name": string,
+"owner_id": string
+            }[]
+                           },
+"remove_comanager":
+{ Args: { "p_manager_id": string,"p_pool_id": string }; Returns: undefined
+                           },
 "pool_member_accounts":
 { Args: { "p_pool_id": string }; Returns: {
               "email": string,
