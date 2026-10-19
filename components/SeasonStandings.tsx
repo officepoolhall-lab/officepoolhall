@@ -21,6 +21,7 @@ export function SeasonStandings({
   bonus,
   playerHref,
   compact = false,
+  weekly = false,
 }: {
   rows: StandingRow[];
   me: string;
@@ -31,8 +32,10 @@ export function SeasonStandings({
   bonus: { label: string; records: Map<string, WinLoss> } | null;
   /** Where a player's name links (their week-by-week history). */
   playerHref?: (userId: string) => string;
-  /** 36px rows, to sit beside the compact week and segment tables on desktop. */
+  /** 36px rows, for the three desktop columns. */
   compact?: boolean;
+  /** A one-week table: a player without picks reads "No picks" instead of "1 missed". */
+  weekly?: boolean;
 }) {
   const total = rows.reduce(
     (t, r) => ({ wins: t.wins + r.wins, losses: t.losses + r.losses, pushes: t.pushes + r.pushes }),
@@ -67,7 +70,7 @@ export function SeasonStandings({
               )}
               {mine && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
               {/* Their score comes from settings.missed_week (0 or the week's last place). */}
-              {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{r.missed} missed</span>}
+              {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{weekly ? "No picks" : `${r.missed} missed`}</span>}
             </span>
             <span className={`w-16 text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
               {recordText(r)}
