@@ -9,14 +9,22 @@ export const metadata: Metadata = { title: "Roster" };
 export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/roster">) {
   const { slug } = await params;
   const ctx = await requireCommissioner(slug);
-  const [{ data: members }, { data: invite }] = await Promise.all([
+  const [{ data: members }, { data: invite }, { data: emails }] = await Promise.all([
     ctx.supabase
       .from("pool_members")
       .select("user_id, role, paid, joined_at, profile:profiles!inner ( display_name )")
       .eq("pool_id", ctx.pool.id)
       .order("joined_at"),
     ctx.supabase.from("invites").select("token").eq("pool_id", ctx.pool.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    // Sign-in emails, which only the commissioner may read (pool_member_emails checks).
+    ctx.supabase.rpc("pool_member_emails", { p_pool_id: ctx.pool.id }),
   ]);
+  const emailOf = new Map<string, string>((emails ?? []).map((e: { user_id: string; email: string }) => [e.user_id, e.email]));
+  // Everyone's address in one line, for pasting into an email's To: field.
+  const allEmails = (members ?? [])
+    .map((m) => emailOf.get(m.user_id))
+    .filter((e): e is string => Boolean(e))
+    .join(", ");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const link = invite ? `${appUrl}/join/${invite.token}` : null;
   const fee = Number(ctx.pool.entry_fee);
@@ -49,13 +57,25 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
             {members?.length ?? 0}
             {fee > 0 && ` · ${paidCount} paid · $${(paidCount * fee).toFixed(0)} collected`}
           </span>
+          {allEmails && (
+            <span className="ml-auto">
+              <CopyButton text={allEmails} label="Copy all emails" subtle />
+            </span>
+          )}
         </div>
         <ul className="divide-y divide-line">
           {members?.map((m) => (
             <li key={m.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
-                {m.profile.display_name}
-                {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-medium">
+                  {m.profile.display_name}
+                  {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
+                </span>
+                {emailOf.get(m.user_id) && (
+                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">
+                    {emailOf.get(m.user_id)}
+                  </a>
+                )}
               </span>
               <form action={setPaid.bind(null, slug, m.user_id, !m.paid)}>
                 {/* Visible text is the accessible name (label-in-name); the title says what a tap does. */}

@@ -456,6 +456,12 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"pool_member_emails":
+{ Args: { "p_pool_id": string }; Returns: {
+              "email": string,
+"user_id": string
+            }[]
+                           },
 "pool_settings_core":
 { Args: { "s": Json }; Returns: Json
                            },
