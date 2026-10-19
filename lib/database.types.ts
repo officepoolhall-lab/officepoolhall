@@ -23,7 +23,59 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "audit_log": {
+            "board_posts": {
+                  Row: {
+                    "author_id": string,"body": string,"created_at": string,"id": string,"last_activity_at": string,"pinned": boolean,"pool_id": string,"title": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string,"body": string,"created_at"?: string,"id"?: string,"last_activity_at"?: string,"pinned"?: boolean,"pool_id": string,"title": string
+                  }
+                  Update: {
+                    "author_id"?: string,"body"?: string,"created_at"?: string,"id"?: string,"last_activity_at"?: string,"pinned"?: boolean,"pool_id"?: string,"title"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "board_posts_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "board_posts_pool_id_fkey"
+      columns: ["pool_id"]
+isOneToOne: false
+      referencedRelation: "pools"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"board_replies": {
+                  Row: {
+                    "author_id": string,"body": string,"created_at": string,"id": string,"post_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string,"body": string,"created_at"?: string,"id"?: string,"post_id": string
+                  }
+                  Update: {
+                    "author_id"?: string,"body"?: string,"created_at"?: string,"id"?: string,"post_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "board_replies_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "board_replies_post_id_fkey"
+      columns: ["post_id"]
+isOneToOne: false
+      referencedRelation: "board_posts"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"audit_log": {
                   Row: {
                     "action": string,"actor_id": string | null,"created_at": string,"detail": Json | null,"id": number,"pool_id": string | null
                   }
@@ -538,6 +590,9 @@ isOneToOne: false
 { Args: { "p_slate_id": string }; Returns: {
               "display_name": string,"picks": number,"user_id": string
             }[]
+                           },
+"set_post_pinned":
+{ Args: { "p_pinned": boolean,"p_post_id": string }; Returns: undefined
                            },
 "slate_submissions":
 { Args: { "p_slate_id": string }; Returns: {

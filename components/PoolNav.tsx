@@ -13,6 +13,7 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
     { href: `${base}/picks`, label: "Picks", match: (p: string) => p.startsWith(`${base}/picks`) },
     { href: `${base}/standings`, label: "Standings", match: (p: string) => p.startsWith(`${base}/standings`) },
     { href: `${base}/grid/${week ?? 1}`, label: "Grid", match: (p: string) => p.startsWith(`${base}/grid`) },
+    { href: `${base}/board`, label: "Board", match: (p: string) => p.startsWith(`${base}/board`) },
     ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Admin", match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
   ];
 
