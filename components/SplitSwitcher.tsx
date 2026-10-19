@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { FROZEN_HEAD } from "./SeasonStandings";
 import { chipClass, SectionLabel } from "./ui";
 
 /**
@@ -12,13 +13,19 @@ export function SplitSwitcher({
   options,
   initial,
   views,
+  headers,
   title,
+  lead,
 }: {
   options: { id: string; label: string }[];
   initial: string;
   views: Record<string, ReactNode>;
+  /** Each view's column labels; frozen with the heading and buttons while the rows scroll. */
+  headers: Record<string, ReactNode>;
   /** Column heading ("Season"); the active filter is added to it. Omit for no heading. */
   title?: string;
+  /** Anything to freeze above the heading, such as the phone tabs. */
+  lead?: ReactNode;
 }) {
   const [active, setActive] = useState(views[initial] ? initial : options[0].id);
   const label = options.find((o) => o.id === active)?.label;
@@ -37,6 +44,8 @@ export function SplitSwitcher({
 
   return (
     <>
+      <div className={FROZEN_HEAD}>
+      {lead}
       {title && (
         <SectionLabel className="flex min-h-9 items-center">
           <span>
@@ -51,6 +60,8 @@ export function SplitSwitcher({
             {o.label}
           </button>
         ))}
+      </div>
+      {headers[active]}
       </div>
       {views[active]}
     </>

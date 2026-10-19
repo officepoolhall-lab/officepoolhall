@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
-import { SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
+import { FROZEN_HEAD, SeasonHeaderRow, SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
 import { SplitSwitcher } from "@/components/SplitSwitcher";
 import { chipClass, Empty, PageTitle, SectionLabel } from "@/components/ui";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -134,12 +134,25 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
             bonus={compact ? null : bonusColumn}
             playerHref={playerHref}
             compact={compact}
+            header={false}
           />
         ) : splits ? (
-          <SeasonStandings rows={splits[x.id]} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact={compact} />
+          <SeasonStandings rows={splits[x.id]} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact={compact} header={false} />
         ) : (
           <p className="border-y border-line py-3 text-sm text-muted">This breakdown couldn&apos;t load right now. Try again in a minute.</p>
         ),
+      ]),
+    );
+  // Each Season view's column labels (frozen with the heading and filter buttons).
+  const seasonHeaders = (compact: boolean) =>
+    Object.fromEntries(
+      SPLITS.map((x) => [
+        x.id,
+        x.id === "all" ? (
+          <SeasonHeaderRow flat={flat} week={compact ? null : weekColumn} bonus={compact ? null : bonusColumn} />
+        ) : splits ? (
+          <SeasonHeaderRow flat={flat} week={null} bonus={null} />
+        ) : null,
       ]),
     );
   const weekLabel = (s: { week: number; label: string | null }) => s.label ?? `Week ${s.week}`;
@@ -193,27 +206,34 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
           <div className="hidden lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
             <section aria-label="Season standings">
               {/* The pick-type filter sits where the other columns have their pickers. */}
-              <SplitSwitcher options={[...SPLITS]} initial={split} views={seasonViews(true)} title="Season" />
+              <SplitSwitcher options={[...SPLITS]} initial={split} views={seasonViews(true)} headers={seasonHeaders(true)} title="Season" />
             </section>
             <>
               {panelSlate && weekRows && (
                 <section aria-labelledby="week-standings">
-                  <SectionLabel className="flex min-h-9 items-center">
-                    <span id="week-standings">{weekLabel(panelSlate)} standings</span>
-                  </SectionLabel>
-                  {weekChips}
-                  <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact weekly />
+                  {/* Heading, week buttons and labels stay put while the rows scroll. */}
+                  <div className={FROZEN_HEAD}>
+                    <SectionLabel className="flex min-h-9 items-center">
+                      <span id="week-standings">{weekLabel(panelSlate)} standings</span>
+                    </SectionLabel>
+                    {weekChips}
+                    <SeasonHeaderRow flat={flat} week={null} bonus={null} />
+                  </div>
+                  <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact weekly header={false} />
                 </section>
               )}
               {panelSegment && segmentRows && (
                 <section aria-labelledby="segment-standings">
-                  <SectionLabel className="flex min-h-9 items-center">
-                    <span id="segment-standings">
-                      Bonus segment <span className="font-normal normal-case tracking-normal">· {panelSegment.name}</span>
-                    </span>
-                  </SectionLabel>
-                  {segmentChips}
-                  <SeasonStandings rows={segmentRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact />
+                  <div className={FROZEN_HEAD}>
+                    <SectionLabel className="flex min-h-9 items-center">
+                      <span id="segment-standings">
+                        Bonus segment <span className="font-normal normal-case tracking-normal">· {panelSegment.name}</span>
+                      </span>
+                    </SectionLabel>
+                    {segmentChips}
+                    <SeasonHeaderRow flat={flat} week={null} bonus={null} />
+                  </div>
+                  <SeasonStandings rows={segmentRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} compact header={false} />
                 </section>
               )}
             </>
@@ -221,7 +241,10 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
 
           {/* ---------- Phones and tablets: one table at a time ---------- */}
           <div className="lg:hidden">
-            <div className="mb-4 inline-flex rounded-full bg-surface p-0.5">
+            {/* The tabs, the table's buttons and its labels freeze together while rows scroll. */}
+            {(() => {
+              const tabs = (
+            <div className="mb-3 mt-1 inline-flex rounded-full bg-surface p-0.5">
               <Link href={`/p/${slug}/standings`} aria-current={view === "season" ? "page" : undefined} className={tab(view === "season")}>Season</Link>
               {segments.length > 0 && (
                 <Link href={href(null, panelSegmentNumber)} aria-current={view === "segment" ? "page" : undefined} className={tab(view === "segment")}>
@@ -230,15 +253,24 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
               )}
               <Link href={href(latestWeek ?? 1, null)} aria-current={view === "weekly" ? "page" : undefined} className={tab(view === "weekly")}>Weekly</Link>
             </div>
-            {view === "segment" && segmentChips}
-            {view === "weekly" && weekChips}
-            {view === "season" ? (
-              <SplitSwitcher options={[...SPLITS]} initial={split} views={seasonViews(false)} />
-            ) : view === "weekly" && weekRows ? (
-              <SeasonStandings rows={weekRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} weekly />
-            ) : segmentRows ? (
-              <SeasonStandings rows={segmentRows} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} />
-            ) : null}
+              );
+              if (view === "season") {
+                return <SplitSwitcher options={[...SPLITS]} initial={split} views={seasonViews(false)} headers={seasonHeaders(false)} lead={tabs} />;
+              }
+              const rowsShown = view === "weekly" ? weekRows : segmentRows;
+              return (
+                <>
+                  <div className={FROZEN_HEAD}>
+                    {tabs}
+                    {view === "weekly" ? weekChips : segmentChips}
+                    <SeasonHeaderRow flat={flat} week={null} bonus={null} />
+                  </div>
+                  {rowsShown && (
+                    <SeasonStandings rows={rowsShown} me={ctx.user.id} flat={flat} week={null} bonus={null} playerHref={playerHref} weekly={view === "weekly"} header={false} />
+                  )}
+                </>
+              );
+            })()}
           </div>
         </>
       )}
