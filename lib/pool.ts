@@ -5,6 +5,7 @@ import { requireUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { effectiveLockAt } from "./locks";
 import { poolSettingsSchema } from "./poolSettings";
+import { getViewerTimeZone } from "./viewerTime";
 
 export { effectiveLockAt } from "./locks";
 
@@ -31,7 +32,10 @@ export const getPoolContext = cache(async (slug: string) => {
   const co = me ? null : (managed ?? []).find((m: { pool_id: string }) => m.pool_id === pool.id) ?? null;
   if (!me && !co) notFound();
   const settings = poolSettingsSchema.parse(pool.settings);
+  // Where game times are shown: the viewer's own zone once their browser has reported it.
+  const displayTz = await getViewerTimeZone(settings.timezone);
   return {
+    displayTz,
     supabase,
     user,
     pool,

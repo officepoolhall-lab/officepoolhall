@@ -64,7 +64,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
     // data-wide: full screen width on desktop, like the Picks and Grid tabs.
     <div data-wide className="space-y-6">
       {/* The week's scores across the top; refreshed every minute while a game is live. */}
-      {games.length > 0 && <LiveTicker games={games} now={now} timezone={tz} />}
+      {games.length > 0 && <LiveTicker games={games} now={now} timezone={ctx.displayTz} />}
       <AutoRefresh active={anyLive} />
 
       {/* Desktop: this week + standings | top stories | rankings, each its natural height,
@@ -144,7 +144,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
             <NewsList stories={news} now={now} title={sport === "ncaaf" ? "College football news" : "College basketball news"} />
           </div>
         </div>
-        <ApPollList poll={poll} timezone={tz} />
+        <ApPollList poll={poll} timezone={ctx.displayTz} />
       </div>
     </div>
   );
