@@ -1,6 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { rememberCookieOptions, REMEMBER_COOKIE } from "@/lib/remember";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/auth";
 
@@ -11,7 +13,7 @@ export async function sendLink(_: LoginState, form: FormData): Promise<LoginStat
   const next = safeNext(String(form.get("next") ?? ""));
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
 
-  const supabase = await createClient();
+  const supabase = await createClient({ remember: await keepSignedIn(form) });
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -27,7 +29,7 @@ export async function verifyCode(_: LoginState, form: FormData): Promise<LoginSt
   const token = String(form.get("code") ?? "").replace(/\s/g, "");
   const next = safeNext(String(form.get("next") ?? ""));
 
-  const supabase = await createClient();
+  const supabase = await createClient({ remember: await keepSignedIn(form) });
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error) return { sentTo: email, next, error: "That code didn't work. Check it, or request a new link." };
   redirect(next);
@@ -41,7 +43,7 @@ export async function signInWithPassword(_: LoginState, form: FormData): Promise
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
   if (!password) return { error: "Enter your password." };
 
-  const supabase = await createClient();
+  const supabase = await createClient({ remember: await keepSignedIn(form) });
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     if (error.code === "invalid_credentials") {
@@ -51,4 +53,14 @@ export async function signInWithPassword(_: LoginState, form: FormData): Promise
     return { error: error.message };
   }
   redirect(next);
+}
+
+/**
+ * The "Keep me signed in" box (absent = unticked; the code and resend forms send "1"/"0").
+ * Records the choice in its own cookie, which later token refreshes follow (lib/remember.ts).
+ */
+async function keepSignedIn(form: FormData) {
+  const remember = form.get("remember") === "1";
+  (await cookies()).set(REMEMBER_COOKIE, remember ? "1" : "0", rememberCookieOptions(remember));
+  return remember;
 }
