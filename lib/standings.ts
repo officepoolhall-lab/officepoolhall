@@ -1,5 +1,5 @@
 import "server-only";
-import type { PoolContext } from "./pool";
+import { getPublishedSlates, type PoolContext } from "./pool";
 
 export type StandingRow = {
   userId: string;
@@ -71,9 +71,10 @@ export function tally(members: MemberRow[], scores: ScoreRow[]): StandingRow[] {
  * bonus segments instantly instead of asking the server again.
  */
 export async function getStandingsBook(ctx: PoolContext) {
-  const [{ data: members }, { data: slates }] = await Promise.all([
+  const [{ data: members }, slates] = await Promise.all([
     ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
-    ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).neq("status", "draft"),
+    // Shared, per-request cache: the page asks for the same list.
+    getPublishedSlates(ctx),
   ]);
   const ids = (slates ?? []).map((s: { id: string }) => s.id);
   // Members × weeks can pass PostgREST's 1000-row cap late in a big pool's season: page through.

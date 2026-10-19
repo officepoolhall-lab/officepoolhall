@@ -75,7 +75,7 @@ export function SeasonStandings({
               <span className="sr-only"> win percentage</span>
             </span>
             {week && (
-              <span className="hidden w-20 text-right text-sm tabular-nums sm:block">
+              <span className="hidden w-20 text-right text-sm tabular-nums sm:block lg:hidden">
                 {w ? (
                   <>
                     <span className="font-semibold text-ink">{points(w.points)}</span>
@@ -88,7 +88,7 @@ export function SeasonStandings({
               </span>
             )}
             {bonus && (
-              <span className="hidden w-20 text-right text-sm tabular-nums text-muted sm:block">
+              <span className="hidden w-20 text-right text-sm tabular-nums text-muted sm:block lg:hidden">
                 {b ? recordText(b) : "—"}
                 <span className="sr-only"> {bonus.label} record</span>
               </span>
@@ -104,8 +104,8 @@ export function SeasonStandings({
           <span className={`w-16 text-right font-semibold tabular-nums text-ink ${compact ? "text-[15px]" : "text-[17px]"}`}>{recordText(total)}</span>
           {!flat && <span className="w-14" aria-hidden />}
           <span className="w-14 text-right text-sm tabular-nums">{winPct(total.wins, total.losses)}</span>
-          {week && <span className="hidden w-20 sm:block" aria-hidden />}
-          {bonus && <span className="hidden w-20 sm:block" aria-hidden />}
+          {week && <span className="hidden w-20 sm:block lg:hidden" aria-hidden />}
+          {bonus && <span className="hidden w-20 sm:block lg:hidden" aria-hidden />}
         </li>
       )}
       </ul>
@@ -136,8 +136,8 @@ export function SeasonHeaderRow({
     <span className={`w-16 text-right ${head}`}>Record</span>
     {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
     <span className={`w-14 text-right ${head}`}>Win %</span>
-    {week && <span className={`hidden w-20 text-right sm:block ${head}`}>{week.label}</span>}
-    {bonus && <span className={`hidden w-20 text-right sm:block ${head}`}>{bonus.label}</span>}
+    {week && <span className={`hidden w-20 text-right sm:block lg:hidden ${head}`}>{week.label}</span>}
+    {bonus && <span className={`hidden w-20 text-right sm:block lg:hidden ${head}`}>{bonus.label}</span>}
   </div>
   );
 }
