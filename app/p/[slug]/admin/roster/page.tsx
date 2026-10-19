@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/CopyButton";
+import { OnlineDot } from "@/components/PoolPresence";
 import { Button, CheckIcon, Panel, SectionLabel } from "@/components/ui";
 import { requireCommissioner } from "@/lib/pool";
 import { removeMember, rotateInvite, setPaid } from "../actions";
@@ -106,6 +107,8 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium">
                   {m.profile.display_name}
+                  {/* Green when they're on the site right now (components/PoolPresence). */}
+                  <OnlineDot userId={m.user_id} className="ml-1.5 align-middle" />
                   {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
                 </span>
                 {emailOf.get(m.user_id) && (
@@ -136,7 +139,8 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
                 {/* People this player invited to help run their entry. */}
                 {(comanagersOf.get(m.user_id) ?? []).map((c) => (
                   <span key={c.manager_id} className="mt-0.5 block truncate text-xs text-muted">
-                    <span className="font-semibold">Co-manager:</span> {c.manager_name} ·{" "}
+                    <span className="font-semibold">Co-manager:</span> {c.manager_name}
+                    <OnlineDot userId={c.manager_id} className="mx-1 align-middle" /> ·{" "}
                     <a href={`mailto:${c.email}`} className="hover:text-ink hover:underline">{c.email}</a>
                   </span>
                 ))}
