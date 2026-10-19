@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { points } from "@/lib/format";
 import { winPct } from "@/lib/record";
 import type { StandingRow } from "@/lib/standings";
@@ -21,6 +22,7 @@ export function StandingsTable({
   total = false,
   compact = false,
   extras,
+  playerHref,
 }: {
   rows: StandingRow[];
   me: string;
@@ -36,6 +38,8 @@ export function StandingsTable({
    * records on the season table. Adds a header row so the columns read clearly.
    */
   extras?: Extra[];
+  /** Where a player's name links (their week-by-week history). */
+  playerHref?: (userId: string) => string;
 }) {
   const shown = limit ? rows.slice(0, limit) : rows;
   const mine = rows.find((r) => r.userId === me);
@@ -44,11 +48,11 @@ export function StandingsTable({
   return (
     <ul className="divide-y divide-line border-b border-line">
       {extras?.length ? <HeaderRow extras={extras} flat={flat} /> : null}
-      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} />)}
+      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} />)}
       {pinned && (
         <>
           <li className="py-1 text-center text-xs leading-none text-faint" aria-hidden>···</li>
-          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} />
+          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} />
         </>
       )}
       {total && rows.length > 0 && <TotalRow rows={rows} extras={extras} flat={flat} />}
@@ -108,6 +112,7 @@ function Row({
   flat,
   compact,
   extras,
+  playerHref,
 }: {
   r: StandingRow;
   me: string;
@@ -115,6 +120,7 @@ function Row({
   flat: boolean;
   compact: boolean;
   extras?: Extra[];
+  playerHref?: (userId: string) => string;
 }) {
   const columns = Boolean(extras?.length);
   const mine = r.userId === me;
@@ -123,7 +129,11 @@ function Row({
     <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"}`}>
       <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
       <span className="min-w-0 flex-1 truncate font-medium">
-        <span className={mine ? "text-accent" : ""}>{r.name}</span>
+        {playerHref ? (
+          <Link href={playerHref(r.userId)} className={`hover:underline ${mine ? "text-accent" : ""}`}>{r.name}</Link>
+        ) : (
+          <span className={mine ? "text-accent" : ""}>{r.name}</span>
+        )}
         {mine && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
         {/* Their score comes from settings.missed_week (0 or the week's last place). */}
         {r.missed > 0 && (

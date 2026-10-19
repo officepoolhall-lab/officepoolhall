@@ -125,7 +125,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
               </Link>
             </div>
             {/* Top 8, plus the viewer's own row when they're further down. */}
-            <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact limit={8} />
+            <StandingsTable rows={season} me={ctx.user.id} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
           </section>
           {slate && weekly && (
             <section className="mt-6">
@@ -135,7 +135,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   All <ChevronIcon className="size-4" />
                 </Link>
               </div>
-              <StandingsTable rows={weekly} me={ctx.user.id} flat={flat} compact weekly limit={8} />
+              <StandingsTable rows={weekly} me={ctx.user.id} flat={flat} compact weekly limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
             </section>
           )}
         </div>
