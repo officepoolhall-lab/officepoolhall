@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Countdown } from "@/components/Countdown";
 import { StandingsTable } from "@/components/StandingsTable";
-import { ChevronIcon, Empty, LinkButton, PageTitle, SectionLabel, StatusText } from "@/components/ui";
-import { windowLabel } from "@/lib/format";
+import { ChevronIcon, Empty, SectionLabel, chipClass } from "@/components/ui";
+import { points, windowLabel } from "@/lib/format";
 import { isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
+import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
@@ -23,9 +24,10 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
 
   let summary = null;
   if (slate) {
-    const [games, { data: mine }] = await Promise.all([
+    const [games, { data: mine }, { data: score }] = await Promise.all([
       getSlateGames(ctx, slate.id),
-      ctx.supabase.from("picks").select("game_id").eq("slate_id", slate.id).eq("user_id", ctx.user.id),
+      ctx.supabase.from("picks").select("game_id, confidence, result").eq("slate_id", slate.id).eq("user_id", ctx.user.id),
+      ctx.supabase.from("slate_scores").select("points").eq("slate_id", slate.id).eq("user_id", ctx.user.id).maybeSingle(),
     ]);
     // Server render time is fine here; the countdown itself ticks client-side.
     // eslint-disable-next-line react-hooks/purity
@@ -35,49 +37,61 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       .filter((g) => !g.voided && !isGameLocked(g, now))
       .map((g) => g.effectiveLockAt)
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+    const picks = mine ?? [];
+    const weekPoints = Number(score?.points ?? 0);
+    // Same "possible" as the Grid: the most this week can still end at (lib/possible.ts).
+    const openGameIds = games.filter((g) => !g.voided && slate.status === "open" && !isGameLocked(g, now)).map((g) => g.id);
     summary = {
-      picked: mine?.length ?? 0,
-      total: ctx.settings.picks_per_slate,
+      picked: picks.length,
+      // Something to score: at least one of the player's picks has been decided.
+      decided: picks.some((p) => p.result !== null),
+      points: weekPoints,
+      possible: possiblePoints({ points: weekPoints, picks, openGameIds, slotValues: slotValuesFor(ctx.settings) }),
       nextLock: slate.status === "open" ? nextLock ?? null : null,
-      games: games.length,
     };
   }
 
   return (
-    <div className="space-y-8">
-      <PageTitle
-        sub={`${ctx.settings.confidence ? "Confidence pool" : ctx.settings.pick_type === "ats" ? "Against the spread" : "Straight up"} · ${ctx.settings.picks_per_slate} picks a week`}
-      >
-        {ctx.pool.name}
-      </PageTitle>
+    // data-wide: full screen width on desktop, like the Picks and Grid tabs.
+    <div data-wide className="space-y-8">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{ctx.pool.name}</h1>
 
       {slate && summary ? (
         <section className="border-b border-line pb-4">
           <div className="flex items-center gap-2 text-xs">
             <span className="font-semibold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
-            <span className="text-faint" aria-hidden>·</span>
-            <StatusText status={slate.status} />
             <span className="ml-auto truncate text-muted">{windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-4">
             <div>
-              <div className="text-xs text-muted">My picks</div>
+              <div className="text-xs text-muted">My Picks</div>
               <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
-                {summary.picked}<span className="text-muted">/{summary.total}</span>
+                {summary.picked === 0 ? (
+                  // Nothing in yet: the number becomes the way to the picks screen.
+                  <Link href={`/p/${slug}/picks`} className="text-accent hover:underline">Make Picks</Link>
+                ) : !summary.decided ? (
+                  "Submitted"
+                ) : (
+                  <>
+                    {points(summary.points)}
+                    <span className="text-muted">/{points(summary.possible)}</span>
+                    <span className="sr-only"> points of {points(summary.possible)} possible</span>
+                  </>
+                )}
               </div>
             </div>
-            <div>
-              <div className="text-xs text-muted">{summary.nextLock ? "Next lock" : "Status"}</div>
-              <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
-                {summary.nextLock ? <Countdown to={summary.nextLock} done="locked" /> : slate.status === "graded" ? "Final" : "Locked"}
+            {summary.nextLock && (
+              <div>
+                <div className="text-xs text-muted">Next lock</div>
+                <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
+                  <Countdown to={summary.nextLock} done="locked" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
-          <div className="mt-4 flex gap-2">
-            <LinkButton href={`/p/${slug}/picks`} kind="primary" className="flex-1 whitespace-nowrap !px-3">
-              {slate.status === "open" ? (summary.picked < summary.total ? "Make picks" : "Review picks") : "My picks"}
-            </LinkButton>
-            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary" className="flex-1 whitespace-nowrap !px-3">Everyone&apos;s picks</LinkButton>
+          <div className="mt-3 flex gap-1.5">
+            <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>
+            <Link href={`/p/${slug}/grid/${slate.week}`} className={chipClass(false, "", "sm")}>Everyone&apos;s picks</Link>
           </div>
         </section>
       ) : (
