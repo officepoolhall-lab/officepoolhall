@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { StandingsTable, type Extra } from "@/components/StandingsTable";
+import { SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
+import { StandingsTable } from "@/components/StandingsTable";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
-import { getCurrentSlate, getPoolContext } from "@/lib/pool";
+import { isGameLocked } from "@/lib/locks";
+import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
+import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { getStandings } from "@/lib/standings";
 
@@ -33,22 +36,48 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const rows = await getStandings(ctx, slate?.id ?? (segment ? { fromWeek: segment.first_week, toWeek: segment.last_week } : undefined));
   const view = slate ? "weekly" : segment ? "segment" : "season";
 
-  // Season view: each player's record this week and in the current bonus segment, beside
-  // their overall numbers.
-  let extras: Extra[] | undefined;
+  // Season view: each player's points/possible this week (as on the Grid) and their record
+  // in the current bonus segment, beside their season numbers.
+  let weekColumn: { label: string; scores: Map<string, WeekScore> } | null = null;
+  let bonus: { label: string; records: Map<string, { wins: number; losses: number; pushes: number }> } | null = null;
   if (view === "season") {
     const current = await getCurrentSlate(ctx);
     const seg = current ? segmentForWeek(ctx.settings, current.week) : null;
     const segNumber = seg ? segments.findIndex((r) => r.first_week === seg.first_week) + 1 : 0;
-    const [weekRows, segRows] = await Promise.all([
+    const [weekRows, segRows, games, picks] = await Promise.all([
       current ? getStandings(ctx, current.id) : null,
       seg ? getStandings(ctx, { fromWeek: seg.first_week, toWeek: seg.last_week }) : null,
+      current ? getSlateGames(ctx, current.id) : [],
+      // RLS returns other players' picks once their games kick off; possible points treat
+      // hidden ones as unused slots, which comes out the same.
+      current
+        ? ctx.supabase.from("picks").select("user_id, game_id, confidence, result").eq("slate_id", current.id).then(({ data }) => data ?? [])
+        : [],
     ]);
-    const byUser = (list: typeof rows) => new Map(list.map((r) => [r.userId, { wins: r.wins, losses: r.losses, pushes: r.pushes }]));
-    extras = [
-      ...(current && weekRows ? [{ label: `Wk ${current.week}`, values: byUser(weekRows) }] : []),
-      ...(seg && segRows ? [{ label: segNumber > 0 ? `Bonus ${segNumber}` : "Bonus", values: byUser(segRows) }] : []),
-    ];
+    if (current && weekRows) {
+      // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are still open
+      const now = Date.now();
+      const openGameIds = games.filter((g) => !g.voided && current.status === "open" && !isGameLocked(g, now)).map((g) => g.id);
+      const slotValues = slotValuesFor(ctx.settings);
+      weekColumn = {
+        label: current.label ?? `Wk ${current.week}`,
+        scores: new Map(
+          weekRows.map((r) => [
+            r.userId,
+            {
+              points: r.points,
+              possible: possiblePoints({ points: r.points, picks: picks.filter((p) => p.user_id === r.userId), openGameIds, slotValues }),
+            },
+          ]),
+        ),
+      };
+    }
+    if (seg && segRows) {
+      bonus = {
+        label: segNumber > 0 ? `Bonus ${segNumber}` : "Bonus",
+        records: new Map(segRows.map((r) => [r.userId, { wins: r.wins, losses: r.losses, pushes: r.pushes }])),
+      };
+    }
   }
 
   // A small segmented control: compact tabs sized to their labels.
@@ -101,7 +130,11 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
         </div>
       )}
       {slates?.length ? (
-        <StandingsTable rows={rows} me={ctx.user.id} weekly={Boolean(slate)} flat={!ctx.settings.confidence} total extras={extras} />
+        view === "season" ? (
+          <SeasonStandings rows={rows} me={ctx.user.id} flat={!ctx.settings.confidence} week={weekColumn} bonus={bonus} />
+        ) : (
+          <StandingsTable rows={rows} me={ctx.user.id} weekly={Boolean(slate)} flat={!ctx.settings.confidence} total />
+        )
       ) : (
         <Empty>Standings appear once the first week is published.</Empty>
       )}
