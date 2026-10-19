@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AutoRefresh } from "@/components/AutoRefresh";
+import { LiveTicker } from "@/components/LiveTicker";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
+import { hasStarted } from "@/lib/locks";
 import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } from "@/lib/pool";
 import { PickBoard } from "./PickBoard";
@@ -66,16 +69,29 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
     getSlateGames(ctx, slate.id),
   ]);
 
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
+  const now = Date.now();
+  const anyLive = games.some(
+    (g) => !g.voided && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled",
+  );
+
   return (
     // Desktop: exactly one screen tall (viewport less the header, tabs, and the space the
     // layout keeps clear for the pick tracker), so only the games column scrolls.
     <div className="lg:flex lg:h-[calc(100dvh-13rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:min-h-96 lg:flex-col">
       <div className="shrink-0">
-        <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
-          {slate.label ?? `Week ${slate.week}`}
-          {forName && <span className="text-accent"> for {forName}</span>}
-        </PageTitle>
+        {/* Week and dates on the left; live scores fill the space to their right. */}
+        <div className="sm:flex sm:items-start sm:gap-6">
+          <div className="shrink-0">
+            <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
+              {slate.label ?? `Week ${slate.week}`}
+              {forName && <span className="text-accent"> for {forName}</span>}
+            </PageTitle>
+          </div>
+          <LiveTicker games={games} now={now} timezone={ctx.settings.timezone} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
+        </div>
         {weekChips}
+        <AutoRefresh active={anyLive} />
       </div>
       <PickBoard
         // A fresh board per week and player: its draft state belongs to one slate.

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Cell, CheckIcon, LiveDot, LockIcon, SectionLabel, TeamLogo } from "@/components/ui";
+import { Cell, CheckIcon, LiveDot, LockIcon, TeamLogo } from "@/components/ui";
 import { formatInTimeZone } from "date-fns-tz";
 import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, shortGameTime, signedPoints, timeOnly } from "@/lib/format";
 import { gameDateZone, hasStarted, isGameLocked } from "@/lib/locks";
@@ -304,7 +304,8 @@ export function PickBoard({
 
       {days.map((day) => (
         <section key={day.key} className="mb-2">
-          <SectionLabel className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 backdrop-blur lg:mx-0 lg:px-0">{day.label}</SectionLabel>
+          {/* The game date: bold ink, a step up from the small section labels. */}
+          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 text-base font-bold text-ink backdrop-blur lg:mx-0 lg:px-0">{day.label}</h3>
           {/* Wide screens: two games per row so the column isn't mostly empty. */}
           <ul className="xl:grid xl:grid-cols-2 xl:gap-x-8">
             {day.games.map((g) => (
