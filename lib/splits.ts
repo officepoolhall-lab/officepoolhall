@@ -1,14 +1,15 @@
 // Season records split by the kind of pick: favorites, underdogs, home or away teams.
 // Pure: the Standings page loads the rows (lib/splitsData.ts) and this does the counting.
 
-export const SPLITS = [
+/** Every split this module can count. */
+export type Split = "all" | "fav" | "dog" | "home" | "away";
+
+/** The filters offered on Standings (home/away are counted but not shown). */
+export const SPLITS: readonly { id: Split; label: string }[] = [
   { id: "all", label: "All" },
   { id: "fav", label: "Favorites" },
   { id: "dog", label: "Underdogs" },
-  { id: "home", label: "Home" },
-  { id: "away", label: "Away" },
-] as const;
-export type Split = (typeof SPLITS)[number]["id"];
+];
 
 export type SplitPick = {
   user_id: string;

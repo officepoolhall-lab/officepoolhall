@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
-import { chipClass, Empty, PageTitle } from "@/components/ui";
+import { ChevronIcon, chipClass, Empty, PageTitle } from "@/components/ui";
 import { hasStarted } from "@/lib/locks";
 import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } from "@/lib/pool";
@@ -95,6 +95,13 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           {!forName && ctx.managing && <span className="text-accent"> · {ctx.managing.ownerName}&apos;s entry</span>}
             </PageTitle>
           </div>
+          {/* The entry's Pick History: the same page as their name on Standings. */}
+          <Link
+            href={`/p/${slug}/standings/${userId}`}
+            className={chipClass(false, "-mt-2 mb-3 sm:mb-0 sm:mt-1.5 shrink-0", "sm")}
+          >
+            Pick History <ChevronIcon className="size-3.5" />
+          </Link>
           <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
         </div>
         {weekChips}
