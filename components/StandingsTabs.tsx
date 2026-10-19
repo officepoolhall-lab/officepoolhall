@@ -29,7 +29,8 @@ export function TabPanel({ id, label, children }: { id: Tab; label: string; chil
 export function MobileTabs() {
   const ctx = useContext(TabContext);
   if (!ctx) return null;
-  const tabs: [Tab, string][] = [["season", "Season"], ...(ctx.hasSegments ? [["segment", "Bonus Segments"] as [Tab, string]] : []), ["weekly", "Weekly"]];
+  // Season, Weekly, then Bonus Segments (only when the pool has segments).
+  const tabs: [Tab, string][] = [["season", "Season"], ["weekly", "Weekly"], ...(ctx.hasSegments ? [["segment", "Bonus Segments"] as [Tab, string]] : [])];
   return (
     <div className="mb-3 mt-1 inline-flex rounded-full bg-surface p-0.5 lg:hidden" role="tablist">
       {tabs.map(([id, label]) => (
