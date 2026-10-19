@@ -57,6 +57,10 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
   const link = invite ? `${appUrl}/join/${invite.token}` : null;
   const fee = Number(ctx.pool.entry_fee);
   const paidCount = members?.filter((m) => m.paid).length ?? 0;
+  // Alphabetical by name as shown ("First Last"), ignoring case and accents.
+  const byName = [...(members ?? [])].sort((a, b) =>
+    a.profile.display_name.localeCompare(b.profile.display_name, "en", { sensitivity: "base" }),
+  );
 
   return (
     <div className="space-y-8">
@@ -97,7 +101,7 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
           <p className="border-b border-line py-2 text-sm text-muted">Members&apos; emails can&apos;t be shown right now (the database needs its latest update).</p>
         )}
         <ul className="divide-y divide-line">
-          {members?.map((m) => (
+          {byName.map((m) => (
             <li key={m.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium">
