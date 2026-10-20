@@ -205,7 +205,8 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           }}
           defaultManualStart={`${localDate(new Date(s.window_start), tz)}T19:00`}
         />
-        {Boolean(queue?.length) && (
+        {/* Unmatched names come from the line feed, which only against-the-spread pools use. */}
+        {ctx.settings.pick_type === "ats" && Boolean(queue?.length) && (
           <Panel className="mt-8 p-4">
             <h2 className="mb-1 text-[15px] font-semibold">Unmatched team names</h2>
             <p className="mb-3 text-sm text-muted">The line feed used these names. Match each to a team so its lines come through.</p>
