@@ -164,30 +164,31 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   );
 
   const byTeamView = teamRows.length ? (
-    <table className="w-full text-sm tabular-nums">
+    <table className="w-full text-[13px] tabular-nums sm:text-sm">
       <thead>
         <tr className="border-b border-line text-left text-xs text-muted">
           <th className="py-2 font-medium">Team</th>
-          <th className="py-2 text-right font-medium">Picks</th>
-          <th className="py-2 pl-3 text-right font-medium">Record</th>
-          <th className="py-2 pl-3 text-right font-medium">Win %</th>
-          {!flat && <th className="py-2 pl-3 text-right font-medium">Pts</th>}
+          <th className="py-2 pl-2 text-right font-medium sm:pl-3">Picks</th>
+          <th className="py-2 pl-2 text-right font-medium sm:pl-3">Record</th>
+          <th className="py-2 pl-2 text-right font-medium sm:pl-3">Win %</th>
+          {!flat && <th className="py-2 pl-2 text-right font-medium sm:pl-3">Pts</th>}
         </tr>
       </thead>
       <tbody className="divide-y divide-line">
         {teamRows.map((r) => (
           <tr key={r.team.id}>
-            <td className="max-w-0 py-1.5">
-              <span className="flex min-w-0 items-center gap-2">
-                <TeamLogo src={r.team.logo_url} abbr={r.team.abbreviation} className="size-5" />
-                <span className="truncate font-semibold text-ink">{r.team.short_name ?? r.team.name}</span>
+            {/* The name gets whatever the numbers leave and wraps rather than being cut off. */}
+            <td className="py-1.5">
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                <TeamLogo src={r.team.logo_url} abbr={r.team.abbreviation} className="size-4 shrink-0 sm:size-5" />
+                <span className="font-semibold leading-tight text-ink">{r.team.short_name ?? r.team.name}</span>
               </span>
             </td>
-            <td className="py-1.5 text-right">{r.picks}</td>
-            <td className="whitespace-nowrap py-1.5 pl-3 text-right font-semibold text-ink">{recordText(r)}</td>
-            <td className="py-1.5 pl-3 text-right text-muted">{winPct(r.wins, r.losses)}</td>
+            <td className="w-px py-1.5 pl-2 text-right sm:pl-3">{r.picks}</td>
+            <td className="w-px whitespace-nowrap py-1.5 pl-2 text-right font-semibold text-ink sm:pl-3">{recordText(r)}</td>
+            <td className="w-px py-1.5 pl-2 text-right text-muted sm:pl-3">{winPct(r.wins, r.losses)}</td>
             {!flat && (
-              <td className={`py-1.5 pl-3 text-right font-semibold ${r.points > 0 ? "text-win" : r.points < 0 ? "text-loss" : "text-ink"}`}>
+              <td className={`w-px whitespace-nowrap py-1.5 pl-2 text-right font-semibold sm:pl-3 ${r.points > 0 ? "text-win" : r.points < 0 ? "text-loss" : "text-ink"}`}>
                 {signedPoints(r.points)}
               </td>
             )}
