@@ -122,8 +122,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
     </>
   ));
 
-  // ---------- Weeks: one view per published week, newest first ----------
-  const weekOptions: SwitchOption[] = slates.map((s) => ({ id: String(s.week), label: weekLabel(s) }));
+  // ---------- Weeks: one view per published week, Week 1 first (left to right) ----------
+  const weekOptions: SwitchOption[] = [...slates].reverse().map((s) => ({ id: String(s.week), label: weekLabel(s) }));
   const weekIds = weekOptions.map((o) => o.id);
   const slateByWeek = new Map<string, { id: string; week: number; label: string | null }>(slates.map((s) => [String(s.week), s]));
   const weekViews = each(weekIds, (id) => (
