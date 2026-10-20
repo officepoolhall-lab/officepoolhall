@@ -97,7 +97,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 </div>
                 {summary.nextLock && (
                   <div>
-                    <div className="text-xs text-muted">Next lock</div>
+                    <div className="text-xs text-muted">Next Game Locks</div>
                     <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
                       <Countdown to={summary.nextLock} done="locked" />
                     </div>
