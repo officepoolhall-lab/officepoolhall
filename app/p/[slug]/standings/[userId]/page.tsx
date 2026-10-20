@@ -91,7 +91,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   );
 
   const byWeekView = (
-    <div className="divide-y divide-line border-y border-line lg:max-w-4xl">
+    <div className="divide-y divide-line border-y border-line">
       {weeks.map((w) => {
         const list = weekPicks(w);
         return (
@@ -145,7 +145,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   );
 
   const byTeamView = teamRows.length ? (
-    <table className="w-full text-sm tabular-nums lg:max-w-3xl">
+    <table className="w-full text-sm tabular-nums">
       <thead>
         <tr className="border-b border-line text-left text-xs text-muted">
           <th className="py-2 font-medium">Team</th>

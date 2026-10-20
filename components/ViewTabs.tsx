@@ -7,6 +7,8 @@ import { chipClass } from "./ui";
  * A few views of one page behind small buttons (Pick History: By Week | By Team). Every view
  * is rendered on the server up front; the buttons only switch which one shows, instantly,
  * and mirror the choice into the address (?param=) so a refresh or shared link keeps it.
+ * Desktop (lg+) has room for all of them: they sit side by side under their own headings
+ * and the buttons go away.
  */
 export function ViewTabs({
   views,
@@ -36,14 +38,21 @@ export function ViewTabs({
 
   return (
     <>
-      <div className="mb-3 flex gap-1" role="group" aria-label={ariaLabel}>
+      <div className="mb-3 flex gap-1 lg:hidden" role="group" aria-label={ariaLabel}>
         {views.map((v) => (
           <button key={v.id} type="button" onClick={() => choose(v.id)} aria-pressed={v.id === active} className={chipClass(v.id === active, "", "sm")}>
             {v.label}
           </button>
         ))}
       </div>
-      {views.find((v) => v.id === active)!.content}
+      <div className="lg:grid lg:grid-flow-col lg:auto-cols-fr lg:items-start lg:gap-10">
+        {views.map((v) => (
+          <section key={v.id} aria-label={v.label} className={v.id === active ? "" : "hidden lg:block"}>
+            <h2 className="mb-2 hidden text-lg font-semibold tracking-tight lg:block">{v.label}</h2>
+            {v.content}
+          </section>
+        ))}
+      </div>
     </>
   );
 }
