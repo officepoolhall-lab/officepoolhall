@@ -742,6 +742,11 @@ function nextLockInfo(
 ): { at: number; label: string } | null {
   const open = games.filter((g) => !g.voided && !isGameLocked(g, now));
   if (!open.length) return null;
+  // Weekly lock (basketball): count down to the week's deadline, when every pick is due,
+  // even if an early game tips before it.
+  if (settings.lockMode === "weekly" && slate.lockAt && new Date(slate.lockAt).getTime() > now) {
+    return { at: new Date(slate.lockAt).getTime(), label: "Week locks" };
+  }
   const at = Math.min(...open.map((g) => new Date(g.effectiveLockAt).getTime()));
   if (settings.lockMode !== "weekly") return { at, label: "Next game locks" };
 
