@@ -17,7 +17,7 @@ const n = (x: number) => x.toLocaleString("en-US");
 const recordText = (r: { wins: number; losses: number; pushes: number }) => `${n(r.wins)}–${n(r.losses)}${r.pushes ? `–${n(r.pushes)}` : ""}`;
 const ordinal = (x: number) => `${x}${x % 100 >= 11 && x % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][x % 10] ?? "th"}`;
 
-type Pick = { slate_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null };
+type Pick = { slate_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; points: number | null };
 
 /**
  * Pick History: one player's season summary, then every week at once in order (Week 1 first),
@@ -33,7 +33,7 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
 
   const ids = history.weeks.map((w) => w.slateId);
   const { data: pickRows } = ids.length
-    ? await ctx.supabase.from("picks").select("slate_id, game_id, picked_side, confidence, result").eq("user_id", userId).in("slate_id", ids)
+    ? await ctx.supabase.from("picks").select("slate_id, game_id, picked_side, confidence, result, points").eq("user_id", userId).in("slate_id", ids)
     : { data: [] as Pick[] };
   const picks = (pickRows ?? []) as Pick[];
   // Games only for weeks that have a visible pick.
@@ -117,6 +117,8 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
                             side={p.picked_side === "home" ? "home" : "away"}
                             confidence={p.confidence}
                             result={p.result}
+                            // Confidence pools: what each decided pick won or lost.
+                            points={!flat && (p.result === "win" || p.result === "loss") ? Number(p.points ?? 0) : null}
                             locked={w.status !== "open" || isGameLocked(g, now)}
                             now={now}
                             pickType={pickType}
