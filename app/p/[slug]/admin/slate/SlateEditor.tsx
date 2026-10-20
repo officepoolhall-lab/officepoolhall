@@ -23,6 +23,7 @@ import {
   setSpread,
   syncSchedule,
 } from "../actions";
+import { applyHalfPoint, parseSpread } from "@/lib/spread";
 
 type Team = { name: string; short_name: string | null; abbreviation: string | null; conference: string | null; logo_url: string | null; espn_id?: string | null };
 export type Candidate = {
@@ -42,11 +43,16 @@ type Settings = {
   pickType: "straight_up" | "ats";
   picksPerSlate: number;
   picksMode: "exact" | "max";
+  /** settings.lines.force_half_point: whole-number lines move half a point (as at publish). */
+  forceHalfPoint: boolean;
   timezone: string;
   bookmaker: string;
   weeklyLock: boolean;
 };
 type EditorGame = SlateGame & { line: number | null };
+
+/** A line as it reads in an input: "-3.5", "7", "PK", or blank. */
+const lineText = (v: number | null) => (v === null ? "" : v === 0 ? "PK" : String(v));
 
 // ESPN parks TBD games at midnight Eastern on game day, so their date is read in Eastern
 // (in Central that instant is the previous evening).
@@ -90,6 +96,8 @@ export function SlateEditor({
   const [query, setQuery] = useState("");
   const [adding, startAdding] = useTransition();
   const [addResult, setAddResult] = useState<ActionState>(null);
+  // Lines typed in the Add list (game id → text); untouched games use the sportsbook's line.
+  const [lineEdits, setLineEdits] = useState<Record<string, string>>({});
   const tz = settings.timezone;
 
   const conferences = useMemo(
@@ -134,7 +142,8 @@ export function SlateEditor({
         <ActionButton action={syncSchedule.bind(null, slug)} pendingLabel="Syncing…" className={smallButton}>Sync ESPN schedule</ActionButton>
         <ActionButton action={refreshLines.bind(null, slug)} pendingLabel="Pulling…" className={smallButton}>Refresh lines</ActionButton>
         {settings.pickType === "ats" && (
-          <ActionButton action={freezeLines.bind(null, slug, slateId)} pendingLabel="Freezing…" className={smallButton}>Freeze lines for review</ActionButton>
+          // Overwrites every line on the slate, including ones you edited.
+          <ActionButton action={freezeLines.bind(null, slug, slateId)} pendingLabel="Updating…" className={smallButton}>Reset all lines to latest</ActionButton>
         )}
       </div>
 
@@ -189,7 +198,9 @@ export function SlateEditor({
           )}
           {missingLines > 0 && <p className="text-sm text-loss">{missingLines} game{missingLines === 1 ? "" : "s"} still need a line.</p>}
           {settings.pickType === "ats" && (
-            <p className="text-xs text-muted">Spreads are from the home team&apos;s side (−3.5 = home favored). They freeze when you publish.</p>
+            <p className="text-xs text-muted">
+              Spreads are from the home team&apos;s side (−3.5 = home favored). Each game&apos;s line is saved when you add it; edit any of them until you publish.
+            </p>
           )}
           <div className="flex flex-wrap items-start gap-2">
             <ActionButton action={publishSlate.bind(null, slug, slateId)} kind="primary" pendingLabel="Publishing…">
@@ -240,8 +251,8 @@ export function SlateEditor({
           {filtered.map((c) => {
             const on = selected.has(c.id);
             return (
-              <li key={c.id}>
-                <label className="flex min-h-16 cursor-pointer items-center gap-3 py-2">
+              <li key={c.id} className="flex items-center gap-3">
+                <label className="flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-3 py-2">
                   <input type="checkbox" className="size-5 shrink-0 accent-[var(--accent)]" checked={on} onChange={() => toggle(c.id)} />
                   <span className="min-w-0 flex-1">
                     <Matchup away={c.away} home={c.home} awayRank={c.awayRank} homeRank={c.homeRank} neutral={c.neutral} records={records} />
@@ -252,8 +263,27 @@ export function SlateEditor({
                       {(c.home.conference || c.away.conference) && ` · ${[...new Set([c.away.conference, c.home.conference].filter(Boolean))].join("/")}`}
                     </span>
                   </span>
-                  <Cell value={formatSpread(c.line)} selected={on} className="w-16 shrink-0" />
                 </label>
+                {settings.pickType === "ats" ? (
+                  // The line that's saved when the game is added; edit it first if you like.
+                  <input
+                    value={lineEdits[c.id] ?? lineText(applyHalfPoint(c.line, settings.forceHalfPoint))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setLineEdits((prev) => ({ ...prev, [c.id]: v }));
+                      // Editing a line means you want the game.
+                      if (!on) toggle(c.id);
+                    }}
+                    inputMode="decimal"
+                    placeholder="—"
+                    aria-label={`Home line for ${c.away.short_name ?? c.away.name} at ${c.home.short_name ?? c.home.name}`}
+                    className={`h-11 w-16 shrink-0 rounded-[10px] px-2 text-right text-[15px] font-semibold tabular-nums outline-none placeholder:text-muted focus:ring-2 focus:ring-accent ${
+                      on ? "bg-accent/15 text-accent ring-1 ring-accent" : "bg-surface text-ink"
+                    } ${c.id in lineEdits && "error" in parseSpread(lineEdits[c.id]) ? "!ring-loss" : ""}`}
+                  />
+                ) : (
+                  <Cell value={formatSpread(c.line)} selected={on} className="w-16 shrink-0" />
+                )}
               </li>
             );
           })}
@@ -271,9 +301,14 @@ export function SlateEditor({
                   disabled={adding}
                   onClick={() =>
                     startAdding(async () => {
-                      const r = await addGames(slug, slateId, [...selected]);
+                      const ids = [...selected];
+                      const typed = Object.fromEntries(ids.filter((id) => id in lineEdits).map((id) => [id, lineEdits[id]]));
+                      const r = await addGames(slug, slateId, ids, typed);
                       setAddResult(r);
-                      if (!r?.error) setSelected(new Set());
+                      if (!r?.error) {
+                        setSelected(new Set());
+                        setLineEdits((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !ids.includes(id))));
+                      }
                     })
                   }
                 >
