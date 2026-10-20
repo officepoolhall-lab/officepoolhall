@@ -9,13 +9,19 @@ export type TournamentRow = {
   name: string;
   /** Points from decided tournaments. */
   points: number;
+  /** Tournaments where they picked the champion. */
+  champs: number;
   /** tournament id → the visible pick (team id and points, null until decided). */
   picks: Map<string, { teamId: string; points: number | null }>;
 };
 
+/** Up to this many tournaments get a column of their own (each pick's logo); past it, a count. */
+export const MAX_PICK_COLUMNS = 4;
+
 /**
  * The tournament champion bonus line: every player's points from tournament picks, best
- * first (ties share a rank), with each tournament's pick once it has locked.
+ * first (ties share a rank), with each tournament's pick once it has locked. With more
+ * tournaments than fit (conference tournaments), it shows how many champions they picked instead.
  */
 export function TournamentStandings({
   rows,
@@ -41,8 +47,11 @@ export function TournamentStandings({
               <Link href={playerHref(r.userId)} className={`hover:underline ${mine ? "text-accent" : ""}`}>{r.name}</Link>
               {mine && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
             </span>
+            {tournaments.length > MAX_PICK_COLUMNS && (
+              <span className="w-14 text-right tabular-nums text-muted">{r.champs}</span>
+            )}
             {/* Each tournament's pick, once it locks (logo, green when it scored). */}
-            {tournaments.map((t) => {
+            {tournaments.length <= MAX_PICK_COLUMNS && tournaments.map((t) => {
               const p = r.picks.get(t.id);
               const team = p ? t.teams.get(p.teamId) : undefined;
               return (
@@ -79,9 +88,13 @@ export function TournamentHeaderRow({ tournaments }: { tournaments: { id: string
     <div className="flex items-end gap-2 border-b border-line pb-1.5 pt-2" aria-hidden>
       <span className="w-6" />
       <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-      {tournaments.map((t) => (
-        <span key={t.id} className={`w-9 shrink-0 text-center ${head}`} title={t.name}>{short(t.name)}</span>
-      ))}
+      {tournaments.length > MAX_PICK_COLUMNS ? (
+        <span className={`w-14 text-right ${head}`} title="Tournaments where they picked the champion">Champs</span>
+      ) : (
+        tournaments.map((t) => (
+          <span key={t.id} className={`w-9 shrink-0 text-center ${head}`} title={t.name}>{short(t.name)}</span>
+        ))
+      )}
       <span className={`w-12 text-right ${head}`}>Pts</span>
     </div>
   );

@@ -3,7 +3,7 @@ import type { PoolContext } from "./pool";
 
 // In-season tournament champion picks (see supabase/migrations/…_tournaments.sql).
 
-export type Scoring = "third_place" | "semifinals";
+export type Scoring = "third_place" | "semifinals" | "champion_only";
 export type Placement = "champion" | "runner_up" | "third" | "fourth" | "semifinal";
 
 export type TournamentTeam = {
@@ -40,11 +40,14 @@ export const PLACES: Record<Scoring, { id: Placement; label: string; points: num
     { id: "runner_up", label: "Runner-up", points: 3 },
     { id: "semifinal", label: "Lost in semifinal", points: 1.5 },
   ],
+  // Conference tournaments.
+  champion_only: [{ id: "champion", label: "Champion", points: 5 }],
 };
 
 export const SCORING_LABEL: Record<Scoring, string> = {
   third_place: "Champion 5 · Runner-up 3 · 3rd-place game 2 / 1",
   semifinals: "Champion 5 · Runner-up 3 · Semifinal losers 1.5",
+  champion_only: "Champion 5",
 };
 
 export function placeLabel(scoring: Scoring, placement: Placement | null) {

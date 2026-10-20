@@ -360,7 +360,8 @@ export async function saveTournament(slug: string, id: string | null, _: ActionS
   const name = String(form.get("name") ?? "").trim();
   const week = Number(form.get("week"));
   const lockLocal = String(form.get("lock_at") ?? "");
-  const scoring = form.get("scoring") === "semifinals" ? "semifinals" : "third_place";
+  const rawScoring = String(form.get("scoring") ?? "");
+  const scoring = rawScoring === "semifinals" || rawScoring === "champion_only" ? rawScoring : "third_place";
   const teamIds = form.getAll("team").map(String).filter(Boolean);
   if (!name) return { error: "Give the tournament a name." };
   if (!Number.isInteger(week) || week < 1) return { error: "Pick the week it belongs to." };

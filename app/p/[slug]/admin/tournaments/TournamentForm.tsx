@@ -5,6 +5,7 @@ import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Field, TeamLogo, inputClass } from "@/components/ui";
 import type { ActionState } from "@/components/ActionForm";
 
+type Scoring = "third_place" | "semifinals" | "champion_only";
 type Team = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null; conference: string | null };
 
 const teamName = (t: Team) => t.short_name ?? t.name;
@@ -13,7 +14,9 @@ const panelInput = `${inputClass} !bg-bg`;
 
 /**
  * Add or edit a tournament: name, the week it belongs to, when picks lock, how it's scored,
- * and its field (search the pool's teams, check each one in it).
+ * and its field (search the pool's teams, check each one in it). For a conference tournament,
+ * "Fill from conference" adds every team in that conference, names it and sets champion-only
+ * scoring in one step.
  */
 export function TournamentForm({
   action,
@@ -26,10 +29,19 @@ export function TournamentForm({
   teams: Team[];
   /** Weeks to offer (published and upcoming), as [week, label]. */
   weeks: [number, string][];
-  initial?: { name: string; week: number; lockLocal: string; scoring: "third_place" | "semifinals"; teamIds: string[] };
+  initial?: { name: string; week: number; lockLocal: string; scoring: Scoring; teamIds: string[] };
   submitLabel: string;
 }) {
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(initial?.teamIds ?? []));
+  const [name, setName] = useState(initial?.name ?? "");
+  const [scoring, setScoring] = useState<Scoring>(initial?.scoring ?? "third_place");
+  const conferences = useMemo(() => [...new Set(teams.map((t) => t.conference).filter((c): c is string => Boolean(c)))].sort(), [teams]);
+  const fillConference = (conf: string) => {
+    if (!conf) return;
+    setChosen((prev) => new Set([...prev, ...teams.filter((t) => t.conference === conf).map((t) => t.id)]));
+    if (!name.trim()) setName(`${conf} Tournament`);
+    setScoring("champion_only");
+  };
   const [query, setQuery] = useState("");
   const byId = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
   const q = query.trim().toLowerCase();
@@ -49,7 +61,7 @@ export function TournamentForm({
     <ActionForm action={action} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Tournament">
-          <input name="name" required defaultValue={initial?.name} placeholder="Maui Invitational" className={panelInput} />
+          <input name="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Maui Invitational" className={panelInput} />
         </Field>
         <Field label="Week">
           <select name="week" required defaultValue={initial?.week ?? weeks[0]?.[0]} className={panelInput}>
@@ -62,9 +74,10 @@ export function TournamentForm({
           <input name="lock_at" type="datetime-local" required defaultValue={initial?.lockLocal} className={`${panelInput} tabular-nums`} />
         </Field>
         <Field label="Scoring">
-          <select name="scoring" defaultValue={initial?.scoring ?? "third_place"} className={panelInput}>
+          <select name="scoring" value={scoring} onChange={(e) => setScoring(e.target.value as Scoring)} className={panelInput}>
             <option value="third_place">Champion 5 · Runner-up 3 · 3rd-place game 2/1</option>
             <option value="semifinals">Champion 5 · Runner-up 3 · Semifinal losers 1.5</option>
+            <option value="champion_only">Champion 5 (conference tournaments)</option>
           </select>
         </Field>
       </div>
@@ -93,6 +106,24 @@ export function TournamentForm({
             ))}
           </ul>
         )}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <select
+            value=""
+            onChange={(e) => fillConference(e.target.value)}
+            aria-label="Fill the field from a conference"
+            className={`${panelInput} !w-auto`}
+          >
+            <option value="">Fill from conference…</option>
+            {conferences.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          {field.length > 0 && (
+            <button type="button" onClick={() => setChosen(new Set())} className="text-sm font-medium text-accent">
+              Clear field
+            </button>
+          )}
+        </div>
         <input
           type="search"
           value={query}
