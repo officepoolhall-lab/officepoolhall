@@ -5,19 +5,26 @@ import { Countdown } from "@/components/Countdown";
 import { LiveTicker } from "@/components/LiveTicker";
 import { NewsList } from "@/components/NewsList";
 import { StandingsTable } from "@/components/StandingsTable";
+import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
 import { ChevronIcon, Empty, SectionLabel, chipClass } from "@/components/ui";
 import { getApPoll } from "@/lib/apPoll";
 import { points, windowLabel } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { hasStarted, isGameLocked } from "@/lib/locks";
-import { getCurrentSlate, getPoolContext, getSlateGames } from "@/lib/pool";
+import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
-  const slate = await getCurrentSlate(ctx);
+  const [slate, upcoming] = await Promise.all([getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
+  // Next week already open for picks: how many this entry has made there.
+  const upcomingPicked = upcoming
+    ? await ctx.supabase
+        .from("picks").select("id", { count: "exact", head: true }).eq("slate_id", upcoming.id).eq("user_id", ctx.entryUserId)
+        .then(({ count }) => count ?? 0)
+    : 0;
   const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
   const [season, weekly, poll, news, games] = await Promise.all([
     getStandings(ctx),
@@ -107,6 +114,16 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   </div>
                 )}
               </div>
+              {upcoming && (
+                <UpcomingWeekNote
+                  href={`/p/${slug}/picks?week=${upcoming.week}`}
+                  slate={upcoming}
+                  picked={upcomingPicked}
+                  picksPerSlate={ctx.settings.picks_per_slate}
+                  timezone={tz}
+                  className="mt-3"
+                />
+              )}
               <div className="mt-3 flex gap-1.5">
                 <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>
                 <Link href={`/p/${slug}/grid/${slate.week}`} className={chipClass(false, "", "sm")}>Everyone&apos;s picks</Link>
