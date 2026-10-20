@@ -314,7 +314,7 @@ export function PickBoard({
             <strong className="font-semibold text-accent">Editing as commissioner</strong> · changes are marked, and locked games can be changed too.
           </>
         ) : slate.status !== "open" ? (
-          <span className="flex items-center gap-1.5"><LockIcon /> All picks for this week are locked.</span>
+          <span className="flex items-center gap-1.5"><LockIcon /> {settings.lockMode === "weekly" ? "Week Locked" : "All picks for this week are locked."}</span>
         ) : nextLock && msToNextLock !== null && msToNextLock > 0 ? (
           <>
             {nextLock.label} in{" "}
@@ -322,7 +322,7 @@ export function PickBoard({
             {urgent && <> · {openSlots} pick{openSlots === 1 ? "" : "s"} still open</>}
           </>
         ) : settings.lockMode === "weekly" ? (
-          "Every game is locked."
+          <span className="flex items-center gap-1.5"><LockIcon /> Week Locked</span>
         ) : (
           "Every game has started."
         )}
