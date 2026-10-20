@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ApPollList } from "@/components/ApPollList";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
@@ -13,26 +14,34 @@ import { getNews } from "@/lib/news";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
-import { getStandings } from "@/lib/standings";
+import { getStandingsBook } from "@/lib/standings";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   const [slate, upcoming] = await Promise.all([getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
-  // Next week already open for picks: how many this entry has made there.
-  const upcomingPicked = upcoming
-    ? await ctx.supabase
-        .from("picks").select("id", { count: "exact", head: true }).eq("slate_id", upcoming.id).eq("user_id", ctx.entryUserId)
-        .then(({ count }) => count ?? 0)
-    : 0;
   const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
-  const [season, weekly, poll, news, games] = await Promise.all([
-    getStandings(ctx),
-    slate ? getStandings(ctx, slate.id) : Promise.resolve(null),
-    getApPoll(sport),
-    getNews(sport, 10),
+  // Everything the pool's own data needs, in one round: the standings (one load of the
+  // scores for both tables), the week's games, the entry's picks and score, and how many
+  // picks it has for next week if that's open early. News and rankings come from other
+  // sites, so they stream in below (Suspense) rather than hold up the page.
+  const [book, games, { data: mine }, { data: score }, upcomingPicked] = await Promise.all([
+    getStandingsBook(ctx),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
+    slate
+      ? ctx.supabase.from("picks").select("game_id, confidence, result").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId)
+      : Promise.resolve({ data: null }),
+    slate
+      ? ctx.supabase.from("slate_scores").select("points").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    upcoming
+      ? ctx.supabase
+          .from("picks").select("id", { count: "exact", head: true }).eq("slate_id", upcoming.id).eq("user_id", ctx.entryUserId)
+          .then(({ count }) => count ?? 0)
+      : Promise.resolve(0),
   ]);
+  const season = book.season();
+  const weekly = slate ? book.week(slate.id) : null;
   const flat = !ctx.settings.confidence;
   const tz = ctx.settings.timezone;
   // Server render time is fine here; the countdown itself ticks client-side.
@@ -44,10 +53,6 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
 
   let summary = null;
   if (slate) {
-    const [{ data: mine }, { data: score }] = await Promise.all([
-      ctx.supabase.from("picks").select("game_id, confidence, result").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId),
-      ctx.supabase.from("slate_scores").select("points").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId).maybeSingle(),
-    ]);
     // The next moment any game stops taking picks: a deadline, or a tip before its deadline.
     const nextLock = games
       .filter((g) => !g.voided && !isGameLocked(g, now))
@@ -160,12 +165,39 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
           )}
         </div>
         <div className="order-last lg:order-none">
-          <div>
-            <NewsList stories={news} now={now} title={sport === "ncaaf" ? "College football news" : "College basketball news"} />
-          </div>
+          <Suspense fallback={<Placeholder title={sport === "ncaaf" ? "College football news" : "College basketball news"} rows={6} />}>
+            <News sport={sport} now={now} />
+          </Suspense>
         </div>
-        <ApPollList poll={poll} timezone={ctx.displayTz} />
+        <Suspense fallback={<Placeholder title="Rankings" rows={10} />}>
+          <Poll sport={sport} timezone={ctx.displayTz} />
+        </Suspense>
       </div>
     </div>
+  );
+}
+
+/** Top stories from the news sites; streams in after the rest of the page. */
+async function News({ sport, now }: { sport: "ncaaf" | "ncaab"; now: number }) {
+  const news = await getNews(sport, 10);
+  return <NewsList stories={news} now={now} title={sport === "ncaaf" ? "College football news" : "College basketball news"} />;
+}
+
+/** AP Top 25 (or CFP rankings) from ESPN; streams in after the rest of the page. */
+async function Poll({ sport, timezone }: { sport: "ncaaf" | "ncaab"; timezone: string }) {
+  return <ApPollList poll={await getApPoll(sport)} timezone={timezone} />;
+}
+
+/** Grey lines where news or rankings will appear, so the layout doesn't jump. */
+function Placeholder({ title, rows }: { title: string; rows: number }) {
+  return (
+    <section aria-busy="true" aria-label={title}>
+      <SectionLabel>{title}</SectionLabel>
+      <ul className="mt-2 space-y-3">
+        {Array.from({ length: rows }, (_, i) => (
+          <li key={i} className="h-4 animate-pulse rounded bg-surface" style={{ width: `${70 + ((i * 13) % 30)}%` }} />
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -26,6 +26,8 @@ export async function getTeamRecords(sport: "ncaaf" | "ncaab", startTimes: strin
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`, {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
           next: { revalidate: REVALIDATE_SECONDS },
+          // Records are a nicety: a slow day's scoreboard is skipped rather than holding the page.
+          signal: AbortSignal.timeout(3000),
         });
         if (!res.ok) return;
         const body = (await res.json()) as { events?: { competitions?: { competitors?: Competitor[] }[] }[] };

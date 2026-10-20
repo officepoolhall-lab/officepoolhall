@@ -42,6 +42,8 @@ export async function getApPoll(sport: "ncaaf" | "ncaab"): Promise<ApPoll | null
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/rankings`, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
       next: { revalidate: REVALIDATE_SECONDS },
+      // A slow ESPN answer shouldn't hold the page; the list just doesn't show this time.
+      signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { rankings?: EspnRanking[] };
