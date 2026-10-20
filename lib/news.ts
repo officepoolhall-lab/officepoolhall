@@ -16,20 +16,29 @@ export type NewsStory = {
   published: string | null;
   image: string | null;
   video: boolean;
-  /** Who published it: "ESPN", "CBS Sports", "Fox Sports". */
+  /** Who published it: "ESPN", "CBS Sports", "Fox Sports", "NBC Sports", "The Field of 68". */
   source: string;
 };
 
 type Sport = "ncaaf" | "ncaab";
 
-/** Public RSS feeds per sport (checked Oct 2026). NBC Sports and The Athletic: see docs/data-sources.md. */
-const RSS_FEEDS: Record<Sport, { source: string; url: string }[]> = {
+/** Public RSS feeds per sport (checked Oct 2026). The Athletic: see docs/data-sources.md. */
+type Feed = { source: string; url: string; /** Keep only stories whose link matches. */ only?: RegExp };
+
+const RSS_FEEDS: Record<Sport, Feed[]> = {
   ncaaf: [
     { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/college-football/" },
     // Fox Sports' public college football feed (the key is the one foxsports.com itself uses).
     { source: "Fox Sports", url: "https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/cfb" },
   ],
-  ncaab: [],
+  ncaab: [
+    { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/college-basketball/" },
+    // Fox Sports' college basketball tag also carries some general college sports stories.
+    { source: "Fox Sports", url: "https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/cbk", only: /\/college-basketball\// },
+    { source: "NBC Sports", url: "https://www.nbcsports.com/mens-college-basketball.rss" },
+    // The Field of 68's Substack; paid-only posts open to a preview.
+    { source: "The Field of 68", url: "https://thefieldof68.substack.com/feed" },
+  ],
 };
 
 const ESPN_PATH: Record<Sport, string> = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" };
@@ -67,10 +76,12 @@ async function espn(sport: Sport): Promise<NewsStory[]> {
     }));
 }
 
-async function rss(feed: { source: string; url: string }): Promise<NewsStory[]> {
+async function rss(feed: Feed): Promise<NewsStory[]> {
   const res = await fetch(feed.url, { headers: HEADERS, next: { revalidate: REVALIDATE_SECONDS } });
   if (!res.ok) return [];
-  return parseRss(await res.text()).map((i) => ({
+  return parseRss(await res.text())
+    .filter((i) => !feed.only || feed.only.test(i.link))
+    .map((i) => ({
     id: `${feed.source}:${i.guid ?? i.link}`,
     headline: i.title,
     description: i.description,

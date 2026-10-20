@@ -68,6 +68,21 @@ describe("parseRss", () => {
     expect(item.published).toBe("2026-10-18T19:01:51.000Z");
   });
 
+  it("reads an NBC Sports item: the image media:content, not the video one listed first", () => {
+    const xml = `<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><item>
+      <title>Kansas lands Purdue transfer</title>
+      <link>https://www.nbcsports.com/mens-college-basketball/news/kansas-lands-purdue-transfer</link>
+      <pubDate>Mon, 19 Oct 2026 12:28:17 -0400</pubDate>
+      <media:content url="https://cdn.jwplayer.com/players/abc.html" type="video/mp4" width="1920" height="1080">
+        <media:thumbnail url="https://cdn.jwplayer.com/thumb.jpg"/>
+      </media:content>
+      <media:content url="https://nbcsports.brightspotcdn.com/photo.jpg" type="image/jpeg"><media:credit>AP</media:credit></media:content>
+    </item></channel></rss>`;
+    const [item] = parseRss(xml);
+    expect(item.image).toBe("https://nbcsports.brightspotcdn.com/photo.jpg");
+    expect(item.published).toBe("2026-10-19T16:28:17.000Z");
+  });
+
   it("decodes entities in titles", () => {
     const xml = `<rss><channel><item><title>Texas A&amp;M&#39;s &quot;big&quot; win</title><link>https://example.com/a</link></item></channel></rss>`;
     expect(parseRss(xml)[0].title).toBe(`Texas A&M's "big" win`);

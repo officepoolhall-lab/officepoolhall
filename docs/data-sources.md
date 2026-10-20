@@ -64,6 +64,9 @@ once; each source is cached 15 minutes and skipped if it fails. Stories open on 
 - ESPN: site API `.../{sport path}/news` (`articles[]`, `type` Story or Media); ESPN+ (`premium`) skipped.
 - CBS Sports: RSS `https://www.cbssports.com/rss/headlines/college-football/` (image in `<enclosure>`).
 - Fox Sports: RSS `https://api.foxsports.com/v2/content/optimized-rss?partnerKey=…&tags=fs/cfb` (image in `media:content`).
+- Basketball pools: ESPN, CBS Sports (`/rss/headlines/college-basketball/`), Fox Sports (`tags=fs/cbk`,
+  kept to `/college-basketball/` links), NBC Sports (`https://www.nbcsports.com/mens-college-basketball.rss`,
+  image in the `image/*` `media:content`; a video one may come first) and The Field of 68
+  (Substack, `https://thefieldof68.substack.com/feed`).
 - Removed: Yahoo Sports (Oct 2026).
-- Not added: NBC Sports (has a college football feed, but its address couldn't be confirmed) and
-  The Athletic (subscription; most links are paywalled). Add a feed to `RSS_FEEDS` once its URL is known.
+- Not added: The Athletic (subscription; most links are paywalled). Add a feed to `RSS_FEEDS` once its URL is known.
