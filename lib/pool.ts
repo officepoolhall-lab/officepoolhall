@@ -117,8 +117,25 @@ export const getPublishedSlates = cache(async (ctx: PoolContext) => {
   return data ?? [];
 });
 
-/** The slate players should be looking at: the latest open/locked one, else the latest graded. */
+/**
+ * The slate players should be looking at: the published week whose dates include today. Between
+ * weeks (none includes today) it's the newest published one, so the last week stays up until
+ * the next is published, and a newly published week shows right away. A week published early,
+ * while the current one is still running (basketball), waits its turn: see getUpcomingSlate.
+ */
 export const getCurrentSlate = cache(async (ctx: PoolContext) => {
-  const slates = await getPublishedSlates(ctx);
-  return slates.find((s) => s.status === "open") ?? slates.find((s) => s.status === "locked") ?? slates[0] ?? null;
+  const slates = await getPublishedSlates(ctx); // newest first
+  const now = Date.now();
+  const thisWeek = slates.find((s) => new Date(s.window_start).getTime() <= now && now <= new Date(s.window_end).getTime());
+  return thisWeek ?? slates[0] ?? null;
+});
+
+/**
+ * A later week that's already published and open for picks while the current one runs (e.g.
+ * it's Saturday and next Monday's slate is up): the soonest such week, else null.
+ */
+export const getUpcomingSlate = cache(async (ctx: PoolContext) => {
+  const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
+  if (!current) return null;
+  return [...slates].reverse().find((s) => s.week > current.week && s.status === "open") ?? null;
 });

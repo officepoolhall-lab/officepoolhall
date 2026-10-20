@@ -5,7 +5,8 @@ import { LiveTicker } from "@/components/LiveTicker";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { hasStarted } from "@/lib/locks";
 import { windowLabel } from "@/lib/format";
-import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } from "@/lib/pool";
+import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, getUpcomingSlate } from "@/lib/pool";
+import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
 import { getTeamRecords } from "@/lib/teamRecords";
 import { PickBoard } from "./PickBoard";
 
@@ -15,7 +16,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const { slug } = await params;
   const { for: forParam, week: weekParam } = await searchParams;
   const ctx = await getPoolContext(slug);
-  const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
+  const [slates, current, upcoming] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
 
   if (!current) {
     return (
@@ -60,7 +61,9 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   // The entry on screen: the commissioner's pick for a player, else the viewer's own entry
   // (for a co-manager, the owner's).
   const userId = forUserId ?? ctx.entryUserId;
-  const [{ data: picks }, forName, { data: score }, games] = await Promise.all([
+  // Next week already open while this one runs: a note, unless that's the week on screen.
+  const showUpcoming = upcoming && upcoming.id !== slate.id ? upcoming : null;
+  const [{ data: picks }, forName, { data: score }, games, upcomingPicked] = await Promise.all([
     forUserId
       ? ctx.supabase.rpc("member_picks", { p_slate_id: slate.id, p_user_id: forUserId })
       : ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId),
@@ -70,6 +73,11 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
     // The week's official total (it includes a missed week's last-place score).
     ctx.supabase.from("slate_scores").select("points, wins, losses, pushes").eq("slate_id", slate.id).eq("user_id", userId).maybeSingle(),
     getSlateGames(ctx, slate.id),
+    showUpcoming
+      ? ctx.supabase
+          .from("picks").select("id", { count: "exact", head: true }).eq("slate_id", showUpcoming.id).eq("user_id", userId)
+          .then(({ count }) => count ?? 0)
+      : 0,
   ]);
 
   // Teams' current records (ESPN), shown next to each team name.
@@ -98,6 +106,16 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
         </div>
         {weekChips}
+        {showUpcoming && (
+          <UpcomingWeekNote
+            href={weekHref(showUpcoming.week)}
+            slate={showUpcoming}
+            picked={upcomingPicked}
+            picksPerSlate={ctx.settings.picks_per_slate}
+            timezone={ctx.settings.timezone}
+            className="mb-3"
+          />
+        )}
         <AutoRefresh active={anyLive} />
       </div>
       <PickBoard
