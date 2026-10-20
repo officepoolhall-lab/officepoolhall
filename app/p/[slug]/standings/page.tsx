@@ -186,7 +186,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                 defaultId={String(defaultWeek)}
                 views={weekViews}
                 headers={each(weekIds, () => plainHeader)}
-                titles={each(weekIds, (id) => <>{weekLabel(slateByWeek.get(id)!)} standings</>)}
+                // The week itself is the highlighted button below the heading.
+                titles={each(weekIds, () => <>Weekly Standings</>)}
                 lead={<MobileTabs />}
                 ariaLabel="Choose a week"
               />
@@ -200,11 +201,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                   defaultId={String(defaultSegmentNumber)}
                   views={segmentViews}
                   headers={each(segmentIds, () => plainHeader)}
-                  titles={each(segmentIds, (id) => (
-                    <>
-                      Bonus segment <span className="font-normal normal-case tracking-normal">· {segments[Number(id) - 1].name}</span>
-                    </>
-                  ))}
+                  // The segment itself is the highlighted button below the heading.
+                  titles={each(segmentIds, () => <>Bonus Segments</>)}
                   lead={<MobileTabs />}
                   ariaLabel="Choose a bonus segment"
                 />
