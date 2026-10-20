@@ -74,6 +74,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       userId: r.userId,
       name: r.name,
       points: mine.reduce((sum, p) => sum + (p.points ?? 0), 0),
+      champs: mine.filter((p) => tournaments.find((t) => t.id === p.tournament_id)?.teams.find((x) => x.id === p.team_id)?.placement === "champion").length,
       picks: new Map(mine.map((p) => [p.tournament_id, { teamId: p.team_id, points: p.points }])),
     };
   });

@@ -42,7 +42,8 @@ export function TournamentPicks({
 }) {
   if (!cards.length) return null;
   return (
-    <section className="mb-4 space-y-2" aria-label="Tournament champion picks">
+    // A big week (conference tournaments) lays the cards out two or three across on desktop.
+    <section className="mb-4 grid gap-2 lg:grid-cols-2 min-[1600px]:grid-cols-3" aria-label="Tournament champion picks">
       {cards.map((c) => (
         <Card key={c.id} slug={slug} card={c} timezone={timezone} forUserId={forUserId} canEditLocked={canEditLocked} />
       ))}

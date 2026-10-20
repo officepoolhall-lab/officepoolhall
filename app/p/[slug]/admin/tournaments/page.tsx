@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { formatInTimeZone } from "date-fns-tz";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Panel, SectionLabel, TeamLogo, inputClass } from "@/components/ui";
+import { ChevronIcon, Panel, SectionLabel, TeamLogo, inputClass } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
 import { requireCommissioner } from "@/lib/pool";
 import { PLACES, SCORING_LABEL, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
@@ -45,20 +45,33 @@ export default async function TournamentsAdminPage({ params }: PageProps<"/p/[sl
         const count = picks.filter((p) => p.tournament_id === t.id).length;
         const locked = new Date(t.lockAt).getTime() <= Date.now();
         return (
-          <Panel key={t.id} className="space-y-4 p-4">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2 className="text-lg font-semibold tracking-tight">{t.name}</h2>
+          // Collapsed to one line each (there can be 20 in a season); open to enter results or edit.
+          <Panel key={t.id} className="p-0">
+            <details className="group">
+            <summary className="flex cursor-pointer list-none flex-wrap items-baseline gap-x-3 gap-y-1 p-4 [&::-webkit-details-marker]:hidden">
+              <ChevronIcon className="size-4 shrink-0 self-center text-muted transition group-open:rotate-90" />
+              <h2 className="text-[17px] font-semibold tracking-tight">{t.name}</h2>
               <span className="text-sm text-muted">
                 {weekName(t.week)} · {locked ? "Locked" : "Locks"} {formatInTimeZone(t.lockAt, tz, "EEE MMM d, h:mm a")} · {t.teams.length} teams
                 {/* Picks stay private until the lock, even from the commissioner. */}
                 {locked && <> · {count} pick{count === 1 ? "" : "s"}</>}
               </span>
               <span className="text-xs text-muted">{SCORING_LABEL[t.scoring]}</span>
-              <span className="ml-auto">
-                <ActionButton action={deleteTournament.bind(null, slug, t.id)} kind="danger" className="!px-3 !text-sm" pendingLabel="Deleting…">
-                  Delete
-                </ActionButton>
+              <span className="ml-auto text-sm">
+                {t.decided ? (
+                  <span className="text-muted">
+                    Champion: <span className="font-semibold text-ink">{t.teams.find((x) => x.placement === "champion")?.short_name ?? "—"}</span>
+                  </span>
+                ) : locked ? (
+                  <span className="font-semibold text-accent">Needs results</span>
+                ) : null}
               </span>
+            </summary>
+            <div className="space-y-4 px-4 pb-4">
+            <div className="flex justify-end">
+              <ActionButton action={deleteTournament.bind(null, slug, t.id)} kind="danger" className="!px-3 !text-sm" pendingLabel="Deleting…">
+                Delete tournament
+              </ActionButton>
             </div>
 
             {/* Results: one place per team. Picks score as soon as a champion is set. */}
@@ -126,6 +139,8 @@ export default async function TournamentsAdminPage({ params }: PageProps<"/p/[sl
                 {t.teams.filter((x) => x.placement).map((x) => `${x.short_name ?? x.name}: ${placeLabel(t.scoring, x.placement)}`).join(" · ")}
               </p>
             )}
+            </div>
+            </details>
           </Panel>
         );
       })}
