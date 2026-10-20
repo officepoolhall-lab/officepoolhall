@@ -275,7 +275,8 @@ export function PickBoard({
     // width cap for this page.
     <div data-wide className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-10">
       {/* Desktop: both columns fill the frozen screen; each scrolls on its own if it must. */}
-      <aside ref={asideRef} className="lg:min-h-0 lg:overflow-y-auto">
+      {/* Desktop: the saved list scrolls on its own and View Pick History stays pinned under it. */}
+      <aside ref={asideRef} className="lg:flex lg:min-h-0 lg:flex-col">
       {myPicks.length === 0 && (
         <section className="hidden lg:block" aria-labelledby="my-picks-empty">
           <h2 id="my-picks-empty" className="mb-1 text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
@@ -283,7 +284,7 @@ export function PickBoard({
         </section>
       )}
       {myPicks.length > 0 && (
-        <section className="mb-5" aria-labelledby="my-picks">
+        <section className="mb-5 lg:mb-0 lg:flex lg:min-h-0 lg:flex-col" aria-labelledby="my-picks">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 id="my-picks" className="text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
             <span className="text-xs tabular-nums text-muted">
@@ -291,7 +292,7 @@ export function PickBoard({
               {manualSave && dirty && " · unsaved changes"}
             </span>
           </div>
-          <ul className="divide-y divide-line border-y border-line">
+          <ul className="divide-y divide-line border-y border-line lg:min-h-0 lg:overflow-y-auto">
             {myPicks.map((g) => (
               <MyPickRow key={g.id} game={g} pick={saved[g.id]} graded={graded[g.id]} locked={isLocked(g)} now={now} settings={settings} />
             ))}
@@ -299,7 +300,7 @@ export function PickBoard({
         </section>
       )}
       {historyHref && (
-        <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3", "sm")}>
+        <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3 lg:mb-1 lg:self-start", "sm")}>
           View Pick History <ChevronIcon className="size-3.5" />
         </Link>
       )}
