@@ -47,6 +47,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       .map((g) => g.effectiveLockAt)
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
     const picks = mine ?? [];
+    const weekly = ctx.settings.lock.mode === "weekly";
     const weekPoints = Number(score?.points ?? 0);
     // Same "possible" as the Grid: the most this week can still end at (lib/possible.ts).
     const openGameIds = games.filter((g) => !g.voided && slate.status === "open" && !isGameLocked(g, now)).map((g) => g.id);
@@ -56,7 +57,9 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       decided: picks.some((p) => p.result !== null),
       points: weekPoints,
       possible: possiblePoints({ points: weekPoints, picks, openGameIds, slotValues: slotValuesFor(ctx.settings) }),
-      nextLock: slate.status === "open" ? nextLock ?? null : null,
+      // Weekly lock (basketball): the week's deadline, when every pick is due.
+      nextLock: slate.status !== "open" ? null : weekly ? (slate.lock_at && new Date(slate.lock_at).getTime() > now ? slate.lock_at : nextLock ?? null) : nextLock ?? null,
+      weekly,
     };
   }
 
@@ -97,7 +100,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 </div>
                 {summary.nextLock && (
                   <div>
-                    <div className="text-xs text-muted">Next Game Locks</div>
+                    <div className="text-xs text-muted">{summary.weekly ? "Week Locks" : "Next Game Locks"}</div>
                     <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
                       <Countdown to={summary.nextLock} done="locked" />
                     </div>
