@@ -452,9 +452,10 @@ export function GameTimeInput({
 }
 
 /**
- * First/last day inputs for a new week. The last day follows the first (first + length − 1)
- * until it's edited, for an odd week like Sun Nov 1 – Sun Nov 8. Previews the deadlines the
- * draft will start with; they can be changed on the draft.
+ * First/last day inputs for a new week. Any day can be the first: the last day follows it so
+ * the next week starts back on the pool's usual day (a Sunday start in a Monday pool runs
+ * Sun Nov 1 – Sun Nov 8, then Week 2 starts Monday), until the last day is edited by hand.
+ * Previews the deadlines the draft will start with; they can be changed on the draft.
  */
 export function WeekDates({
   defaultStart,
@@ -470,8 +471,17 @@ export function WeekDates({
     t.setUTCDate(t.getUTCDate() + n);
     return t.toISOString().slice(0, 10);
   };
+  // The day before the next usual start day, a full week's length on or a few days more
+  // (Sun → the following Sun in a Monday pool); a start far off the usual day keeps the plain length.
+  const alignedEnd = (d: string) => {
+    const plain = plus(d, settings.window.length_days - 1);
+    let next = plain;
+    while (new Date(`${next}T12:00:00Z`).getUTCDay() !== settings.window.start_weekday) next = plus(next, 1);
+    const end = plus(next, -1);
+    return end >= plain && end <= plus(plain, 3) ? end : plain;
+  };
   const [start, setStart] = useState(defaultStart);
-  const [end, setEnd] = useState(plus(defaultStart, settings.window.length_days - 1));
+  const [end, setEnd] = useState(alignedEnd(defaultStart));
   const [endTouched, setEndTouched] = useState(false);
   const tz = settings.timezone;
 
@@ -496,7 +506,7 @@ export function WeekDates({
             type="date" name="start_date" required value={start} className={input}
             onChange={(e) => {
               setStart(e.target.value);
-              if (!endTouched && e.target.value) setEnd(plus(e.target.value, settings.window.length_days - 1));
+              if (!endTouched && e.target.value) setEnd(alignedEnd(e.target.value));
             }}
           />
         </Field>
@@ -509,6 +519,7 @@ export function WeekDates({
       </div>
       <p className="text-xs text-muted tabular-nums">
         Midnight to midnight, {tz.replace("America/", "").replace("_", " ")} time.{preview && ` ${preview}.`}
+        {end && ` The next week would start ${formatInTimeZone(new Date(`${plus(end, 1)}T12:00:00Z`), "UTC", "EEE MMM d")}.`}
       </p>
     </div>
   );
