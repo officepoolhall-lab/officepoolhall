@@ -5,6 +5,9 @@ import { LiveTicker } from "@/components/LiveTicker";
 import { OptionSwitcher, type SwitchOption } from "@/components/OptionSwitcher";
 import { FROZEN_HEAD, SeasonHeaderRow, SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
 import { TournamentHeaderRow, TournamentStandings, type TournamentRow } from "@/components/TournamentStandings";
+import { BracketHeaderRow, BracketStandings, type BracketRow } from "@/components/BracketStandings";
+import { scoreBracket } from "@/lib/bracket";
+import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs";
 import { Empty, PageTitle, SectionLabel } from "@/components/ui";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -86,7 +89,17 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
     locked: new Date(t.lockAt).getTime() <= renderedAt,
     teams: new Map(t.teams.map((x) => [x.id, x])),
   }));
-  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (tournaments.length > 0 ? 1 : 0);
+  // ---------- NCAA Tournament bracket: its own line ----------
+  const bracket = await getBracket(ctx);
+  const bracketEntries = bracket ? await getBracketEntries(ctx, bracket.id) : [];
+  const bracketLocked = bracket ? new Date(bracket.lockAt).getTime() <= renderedAt : false;
+  const bracketField = bracket ? bracket.field.map((t) => t?.id ?? null) : [];
+  const bracketRows: BracketRow[] = seasonRows.map((r) => {
+    const e = bracketEntries.find((x) => x.user_id === r.userId);
+    const s = e && bracket ? scoreBracket(e.picks, bracket.results, bracketField) : { points: 0, correct: 0, possible: 0 };
+    return { userId: r.userId, name: r.name, ...s, filled: Boolean(e && Object.keys(e.picks).length) };
+  });
+  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (tournaments.length > 0 ? 1 : 0) + (bracket ? 1 : 0);
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or open
   const now = Date.now();
@@ -186,8 +199,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       {!slates.length ? (
         <Empty>Standings appear once the first week is published.</Empty>
       ) : (
-        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={tournaments.length > 0}>
-          <div className={`lg:grid lg:items-start lg:gap-8 ${columnCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={tournaments.length > 0} hasBracket={Boolean(bracket)}>
+          <div className={`lg:grid lg:items-start lg:gap-8 ${columnCount >= 5 ? "lg:grid-cols-5 lg:gap-5" : columnCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <TabPanel id="season" label="Season standings">
               <OptionSwitcher
                 options={splitOptions}
@@ -241,6 +254,17 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                   <TournamentHeaderRow tournaments={tournaments} />
                 </div>
                 <TournamentStandings rows={tournamentRows} tournaments={tournamentColumns} me={me} playerHref={playerHref} />
+              </TabPanel>
+            )}
+            {bracket && (
+              <TabPanel id="bracket" label="NCAA bracket standings">
+                <div className={FROZEN_HEAD}>
+                  <MobileTabs />
+                  <SectionLabel className="flex min-h-9 items-center">{bracket.name}</SectionLabel>
+                  <BracketHeaderRow />
+                </div>
+                <BracketStandings rows={bracketRows} me={me} locked={bracketLocked} bracketHref={(id) => (id === me ? `/p/${slug}/bracket` : `/p/${slug}/bracket?user=${id}`)} />
+                {!bracketLocked && <p className="mt-2 text-xs text-muted">Brackets show once they lock.</p>}
               </TabPanel>
             )}
           </div>

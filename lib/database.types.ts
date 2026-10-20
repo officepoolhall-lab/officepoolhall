@@ -455,6 +455,98 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"brackets": {
+                  Row: {
+                    "created_at": string,"id": string,"lock_at": string,"name": string,"pool_id": string,"regions": string[],"week": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"lock_at": string,"name"?: string,"pool_id": string,"regions": string[],"week": number
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"lock_at"?: string,"name"?: string,"pool_id"?: string,"regions"?: string[],"week"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "brackets_pool_id_fkey"
+      columns: ["pool_id"]
+isOneToOne: false
+      referencedRelation: "pools"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"bracket_teams": {
+                  Row: {
+                    "bracket_id": string,"slot": number,"team_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bracket_id": string,"slot": number,"team_id": string
+                  }
+                  Update: {
+                    "bracket_id"?: string,"slot"?: number,"team_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bracket_teams_bracket_id_fkey"
+      columns: ["bracket_id"]
+isOneToOne: false
+      referencedRelation: "brackets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "bracket_teams_team_id_fkey"
+      columns: ["team_id"]
+isOneToOne: false
+      referencedRelation: "teams"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"bracket_results": {
+                  Row: {
+                    "bracket_id": string,"results": Json,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bracket_id": string,"results"?: Json,"updated_at"?: string
+                  }
+                  Update: {
+                    "bracket_id"?: string,"results"?: Json,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bracket_results_bracket_id_fkey"
+      columns: ["bracket_id"]
+isOneToOne: false
+      referencedRelation: "brackets"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"bracket_entries": {
+                  Row: {
+                    "bracket_id": string,"correct": number,"picks": Json,"points": number,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bracket_id": string,"correct"?: number,"picks"?: Json,"points"?: number,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "bracket_id"?: string,"correct"?: number,"picks"?: Json,"points"?: number,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bracket_entries_bracket_id_fkey"
+      columns: ["bracket_id"]
+isOneToOne: false
+      referencedRelation: "brackets"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "bracket_entries_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"teams": {
                   Row: {
                     "abbreviation": string | null,"conference": string | null,"espn_id": string | null,"id": string,"logo_url": string | null,"name": string,"odds_api_name": string | null,"short_name": string | null,"sport": string
@@ -689,6 +781,18 @@ isOneToOne: false
                            },
 "submit_tournament_pick":
 { Args: { "p_team_id": string | null,"p_tournament_id": string,"p_user_id"?: string }; Returns: undefined
+                           },
+"save_bracket":
+{ Args: { "p_id": string | null,"p_lock_at": string,"p_name": string,"p_pool_id": string,"p_regions": string[],"p_team_ids": string[],"p_week": number }; Returns: string
+                           },
+"delete_bracket":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
+"set_bracket_results":
+{ Args: { "p_id": string,"p_results": Json }; Returns: undefined
+                           },
+"submit_bracket":
+{ Args: { "p_bracket_id": string,"p_picks": Json,"p_user_id"?: string }; Returns: undefined
                            }
           }
           Enums: {

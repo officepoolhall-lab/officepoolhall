@@ -8,6 +8,9 @@ import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
 import { TournamentPicks } from "@/components/TournamentPicks";
+import { BracketCard } from "@/components/BracketCard";
+import { pickCount } from "@/lib/bracket";
+import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { SCORING_LABEL, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 import { getTeamRecords } from "@/lib/teamRecords";
 import { PickBoard } from "./PickBoard";
@@ -99,6 +102,13 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
     };
   });
 
+  // The NCAA Tournament bracket, on the week it belongs to (or any week until it locks).
+  const bracket = await getBracket(ctx);
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot of the lock
+  const bracketLocked = bracket ? new Date(bracket.lockAt).getTime() <= Date.now() : false;
+  const showBracket = bracket && !bracket.results["6-0"] && (bracket.week === slate.week || !bracketLocked);
+  const bracketEntry = showBracket ? (await getBracketEntries(ctx, bracket.id, userId))[0] : undefined;
+
   // Teams' current records (ESPN), shown next to each team name.
   const records = await getTeamRecords(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf", games.map((g) => g.startAt));
 
@@ -172,14 +182,28 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         // A co-manager saves the owner's entry, with the player's own rules (not the commissioner's).
         saveAs={ctx.managing ? ctx.entryUserId : undefined}
         top={
-          tournamentCards.length > 0 ? (
-            <TournamentPicks
-              slug={slug}
-              cards={tournamentCards}
-              timezone={ctx.displayTz}
-              forUserId={forUserId ?? (ctx.managing ? ctx.entryUserId : undefined)}
-              canEditLocked={Boolean(forUserId)}
-            />
+          tournamentCards.length > 0 || showBracket ? (
+            <>
+              {showBracket && (
+                <BracketCard
+                  href={`/p/${slug}/bracket${forUserId ? `?for=${forUserId}` : ""}`}
+                  name={bracket.name}
+                  lockAt={bracket.lockAt}
+                  picked={bracketEntry ? pickCount(bracketEntry.picks) : 0}
+                  points={Object.keys(bracket.results).length ? (bracketEntry?.points ?? 0) : null}
+                  locked={bracketLocked}
+                  timezone={ctx.displayTz}
+                  className="mb-3"
+                />
+              )}
+              <TournamentPicks
+                slug={slug}
+                cards={tournamentCards}
+                timezone={ctx.displayTz}
+                forUserId={forUserId ?? (ctx.managing ? ctx.entryUserId : undefined)}
+                canEditLocked={Boolean(forUserId)}
+              />
+            </>
           ) : undefined
         }
       />

@@ -8,10 +8,10 @@
 --     wrong pick = minus its points,
 --     upset bonus, missed week = last place, all picks due Wednesday noon Central.
 --   * You (cross.brooks.a@gmail.com) as commissioner AND a player.
---   * 11 fake players (…@example.com, no passwords; they can't sign in).
+--   * 35 fake players (…@example.com, no passwords; they can't sign in).
 --   * Week 1 = last week, every game final and graded.
 --   * Week 2 = this week, open. Games that have already tipped are final; the rest are upcoming.
---     Most fake players have submitted; YOU haven't, so you can try the Picks screen.
+--     30 fake players have submitted; YOU haven't, so you can try the Picks screen.
 --   * 38 more games next week, not on any slate, for practicing Admin → Slate.
 -- To play out Week 2, enter scores in Admin → Results (standings recompute instantly).
 -- Remove everything later with delete-ncaab-demo-pool.sql.
@@ -42,7 +42,11 @@ begin
   insert into demo_people
   select gen_random_uuid(), 'demo.' || lower(split_part(n, ' ', 1)) || '@example.com', n
   from unnest(array['Mike Sullivan','Tara Nguyen','Chris Palmer','Dana Ruiz','Kevin Oakes','Lauren Meyer',
-                    'Jamal Price','Erin Walsh','Pete Kowalski','Becca Hart','Sam Delgado']) n;
+                    'Jamal Price','Erin Walsh','Pete Kowalski','Becca Hart','Sam Delgado','Greg Thompson',
+                    'Nina Patel','Ryan Fisher','Olivia Grant','Marcus Bell','Hannah Lee','Tyler Jensen',
+                    'Megan Cole','Derek Shaw','Priya Raman','Josh Whitaker','Allie Carter','Brandon Moss',
+                    'Kelsey Ford','Luis Ortega','Jenna Park','Matt Hughes','Rachel Kim','Drew Collins',
+                    'Sophie Lane','Andre Wallace','Katie Nolan','Zach Rivera','Molly Burke']) n;
 
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
                           raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
@@ -137,7 +141,7 @@ begin
   insert into pool_members (pool_id, user_id, role, paid, joined_at)
   values (v_pool, v_me, 'commissioner', true, now() - interval '30 days');
   insert into pool_members (pool_id, user_id, role, paid, joined_at)
-  select v_pool, id, 'player', name not in ('Pete Kowalski', 'Sam Delgado'), now() - interval '30 days' from demo_people;
+  select v_pool, id, 'player', name not in ('Pete Kowalski', 'Sam Delgado', 'Zach Rivera', 'Kelsey Ford'), now() - interval '30 days' from demo_people;
   insert into invites (pool_id) values (v_pool);
 
   -- ---------- Slates ----------
@@ -153,12 +157,12 @@ begin
 
   -- ---------- Picks ----------
   -- Each player takes 25 of the 33 games, 5 at each confidence level, ~60% home teams.
-  -- Week 1: everyone but Sam (missed week → last place). Week 2: eight fake players are in;
-  -- Becca, Pete and Sam haven't submitted, and neither have you.
+  -- Week 1: everyone but Sam (missed week → last place). Week 2: Becca, Pete, Sam, Drew and
+  -- Molly haven't submitted, and neither have you.
   create temp table demo_pickers on commit drop as
   select 1 as w, id from demo_people where name <> 'Sam Delgado'
   union all select 1, v_me
-  union all select 2, id from demo_people where name not in ('Becca Hart', 'Pete Kowalski', 'Sam Delgado');
+  union all select 2, id from demo_people where name not in ('Becca Hart', 'Pete Kowalski', 'Sam Delgado', 'Drew Collins', 'Molly Burke');
 
   insert into picks (slate_id, game_id, user_id, picked_side, confidence)
   select case r.w when 1 then v_w1 else v_w2 end, r.game_id, r.user_id,
