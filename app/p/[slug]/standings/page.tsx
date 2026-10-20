@@ -78,17 +78,10 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       name: r.name,
       points: mine.reduce((sum, p) => sum + (p.points ?? 0), 0),
       champs: mine.filter((p) => tournaments.find((t) => t.id === p.tournament_id)?.teams.find((x) => x.id === p.team_id)?.placement === "champion").length,
-      picks: new Map(mine.map((p) => [p.tournament_id, { teamId: p.team_id, points: p.points }])),
     };
   });
-  // eslint-disable-next-line react-hooks/purity -- which tournaments have locked, at render time
+  // eslint-disable-next-line react-hooks/purity -- whether brackets have locked, at render time
   const renderedAt = Date.now();
-  const tournamentColumns = tournaments.map((t) => ({
-    id: t.id,
-    name: t.name,
-    locked: new Date(t.lockAt).getTime() <= renderedAt,
-    teams: new Map(t.teams.map((x) => [x.id, x])),
-  }));
   // ---------- NCAA Tournament bracket: its own line ----------
   const bracket = await getBracket(ctx);
   const bracketEntries = bracket ? await getBracketEntries(ctx, bracket.id) : [];
@@ -99,7 +92,9 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
     const s = e && bracket ? scoreBracket(e.picks, bracket.results, bracketField) : { points: 0, correct: 0, possible: 0 };
     return { userId: r.userId, name: r.name, ...s, filled: Boolean(e && Object.keys(e.picks).length) };
   });
-  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (tournaments.length > 0 ? 1 : 0) + (bracket ? 1 : 0);
+  // The Bracket column waits for the tournament itself: it appears once brackets lock (March).
+  const showBracket = Boolean(bracket) && bracketLocked;
+  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (tournaments.length > 0 ? 1 : 0) + (showBracket ? 1 : 0);
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or open
   const now = Date.now();
@@ -199,7 +194,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       {!slates.length ? (
         <Empty>Standings appear once the first week is published.</Empty>
       ) : (
-        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={tournaments.length > 0} hasBracket={Boolean(bracket)}>
+        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={tournaments.length > 0} hasBracket={showBracket}>
           <div className={`lg:grid lg:items-start lg:gap-8 ${columnCount >= 5 ? "lg:grid-cols-5 lg:gap-5" : columnCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <TabPanel id="season" label="Season standings">
               <OptionSwitcher
@@ -250,13 +245,13 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
               <TabPanel id="tournaments" label="Tournament standings">
                 <div className={FROZEN_HEAD}>
                   <MobileTabs />
-                  <SectionLabel className="flex min-h-9 items-center">Tournament Champions</SectionLabel>
-                  <TournamentHeaderRow tournaments={tournaments} />
+                  <SectionLabel className="flex min-h-9 items-center">Tournaments</SectionLabel>
+                  <TournamentHeaderRow />
                 </div>
-                <TournamentStandings rows={tournamentRows} tournaments={tournamentColumns} me={me} playerHref={playerHref} />
+                <TournamentStandings rows={tournamentRows} me={me} playerHref={playerHref} />
               </TabPanel>
             )}
-            {bracket && (
+            {bracket && showBracket && (
               <TabPanel id="bracket" label="NCAA bracket standings">
                 <div className={FROZEN_HEAD}>
                   <MobileTabs />
@@ -264,7 +259,6 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                   <BracketHeaderRow />
                 </div>
                 <BracketStandings rows={bracketRows} me={me} locked={bracketLocked} bracketHref={(id) => (id === me ? `/p/${slug}/bracket` : `/p/${slug}/bracket?user=${id}`)} />
-                {!bracketLocked && <p className="mt-2 text-xs text-muted">Brackets show once they lock.</p>}
               </TabPanel>
             )}
           </div>
