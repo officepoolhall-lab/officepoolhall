@@ -9,6 +9,7 @@ import { requireCommissioner } from "@/lib/pool";
 import { LOCKED_AFTER_OPEN, parsePoolSettings, settingsError } from "@/lib/poolSettings";
 import { slateWindow } from "@/lib/slateWindow";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { applyHalfPoint, parseSpread } from "@/lib/spread";
 
 // Every action re-checks that the caller is this pool's commissioner; the database
 // checks again (RLS / security definer functions).
@@ -103,10 +104,48 @@ export async function deleteSlate(slug: string, slateId: string) {
   redirect(`/p/${slug}/admin/slate`);
 }
 
-export async function addGames(slug: string, slateId: string, gameIds: string[]): Promise<ActionState> {
+/**
+ * Adds games to a draft slate and, in ATS pools, saves each one's line right away: the value
+ * typed in the editor if any, else the latest line from the pool's sportsbook (half-point
+ * rule applied). Lines stay editable on the slate until publish.
+ */
+export async function addGames(slug: string, slateId: string, gameIds: string[], typed: Record<string, string> = {}): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
+  const ats = ctx.settings.pick_type === "ats";
+  const force = ctx.settings.lines.force_half_point;
+
+  const spreadFor = new Map<string, { spread: number | null; lineId: number | null }>();
+  if (ats) {
+    for (const id of gameIds) {
+      const raw = typed[id];
+      if (raw === undefined || raw.trim() === "") continue;
+      const parsed = parseSpread(raw);
+      if ("error" in parsed) return { error: parsed.error };
+      spreadFor.set(id, { spread: parsed.value, lineId: null });
+    }
+    const pull = gameIds.filter((id) => !spreadFor.has(id));
+    if (pull.length) {
+      const { data: lines } = await ctx.supabase
+        .from("latest_game_lines")
+        .select("id, game_id, home_spread")
+        .eq("bookmaker", ctx.settings.lines.bookmaker)
+        .in("game_id", pull);
+      for (const l of lines ?? []) {
+        if (l.home_spread === null || !l.game_id) continue;
+        spreadFor.set(l.game_id, { spread: applyHalfPoint(Number(l.home_spread), force), lineId: l.id });
+      }
+    }
+  }
+
   const { count } = await ctx.supabase.from("slate_games").select("*", { count: "exact", head: true }).eq("slate_id", slateId);
-  const rows = gameIds.map((game_id, i) => ({ slate_id: slateId, game_id, sort_order: (count ?? 0) + i }));
+  const rows = gameIds.map((game_id, i) => ({
+    slate_id: slateId,
+    game_id,
+    sort_order: (count ?? 0) + i,
+    ...(ats && spreadFor.has(game_id)
+      ? { locked_home_spread: spreadFor.get(game_id)!.spread, locked_line_id: spreadFor.get(game_id)!.lineId }
+      : {}),
+  }));
   const { error } = await ctx.supabase.from("slate_games").upsert(rows, { onConflict: "slate_id,game_id", ignoreDuplicates: true });
   if (error) return { error: error.message };
   return done(slug, `Added ${gameIds.length} game${gameIds.length === 1 ? "" : "s"}.`);
@@ -122,11 +161,9 @@ export async function removeGame(slug: string, slateId: string, gameId: string):
 /** Hand-edit a frozen line while the slate is a draft. Empty clears it. */
 export async function setSpread(slug: string, slateId: string, gameId: string, value: string): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
-  const trimmed = value.trim().replace("−", "-");
-  const spread = trimmed === "" ? null : /^pk$/i.test(trimmed) ? 0 : Number(trimmed);
-  if (spread !== null && (!Number.isFinite(spread) || Math.abs(spread) > 99 || (spread * 2) % 1 !== 0)) {
-    return { error: "Spreads are whole or half points, e.g. -3.5 (home favored) or 7." };
-  }
+  const parsed = parseSpread(value);
+  if ("error" in parsed) return { error: parsed.error };
+  const spread = parsed.value;
   const { error } = await ctx.supabase
     .from("slate_games")
     .update({ locked_home_spread: spread, locked_line_id: null })
