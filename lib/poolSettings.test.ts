@@ -11,18 +11,19 @@ describe("pool settings", () => {
     expect(parsePoolSettings(poolB).success).toBe(true);
   });
 
-  it("Pool A is seven each of 5/4/3/2/1", () => {
-    expect(poolA.confidence.tiers).toEqual([5, 4, 3, 2, 1].map((points) => ({ points, count: 7 })));
+  it("Pool A is five each of 5/4/3/2/1 (25 picks)", () => {
+    expect(poolA.picks_per_slate).toBe(25);
+    expect(poolA.confidence.tiers).toEqual([5, 4, 3, 2, 1].map((points) => ({ points, count: 5 })));
   });
 
-  it("25-pick variant is five per tier", () => {
-    const s = { ...poolA, picks_per_slate: 25, confidence: { tiers: evenTiers(25) } };
+  it("35-pick variant is seven per tier", () => {
+    const s = { ...poolA, picks_per_slate: 35, confidence: { tiers: evenTiers(35) } };
     expect(parsePoolSettings(s).success).toBe(true);
-    expect(s.confidence.tiers.every((t) => t.count === 5)).toBe(true);
+    expect(s.confidence.tiers.every((t) => t.count === 7)).toBe(true);
   });
 
   it("rejects tiers that don't add up to picks_per_slate", () => {
-    expect(settingsError({ ...poolA, picks_per_slate: 25 })).toMatch(/add up to 35 but picks per slate is 25/);
+    expect(settingsError({ ...poolA, picks_per_slate: 35 })).toMatch(/add up to 25 but picks per slate is 35/);
   });
 
   it("rejects duplicate tier values", () => {

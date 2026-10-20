@@ -187,6 +187,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             pickType: ctx.settings.pick_type,
             picksPerSlate: ctx.settings.picks_per_slate,
             picksMode: ctx.settings.picks_mode,
+            confidence: Boolean(ctx.settings.confidence),
             forceHalfPoint: ctx.settings.lines.force_half_point,
             timezone: tz,
             bookmaker: ctx.settings.lines.bookmaker,
