@@ -37,7 +37,7 @@ export default async function BoardPage({ params }: PageProps<"/p/[slug]/board">
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-10">
       <div className="min-w-0">
-        <PageTitle sub={ctx.isCommissioner ? "Pin posts like League Rules or Payouts from a post's page." : undefined}>Message Board</PageTitle>
+        <PageTitle>Message Board</PageTitle>
         {error ? (
           <Empty>The Message Board isn&apos;t set up yet. The commissioner needs to run the latest database update.</Empty>
         ) : !posts.length ? (
