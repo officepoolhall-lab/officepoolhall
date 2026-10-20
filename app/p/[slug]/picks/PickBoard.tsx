@@ -521,7 +521,10 @@ function GameRow({
 
   // A half-made pick doesn't count, so its warning shows alongside the countdown, not instead of it.
   let footerRight: ReactNode = null;
-  if (result) {
+  if (result && confidence) {
+    // Confidence pools put the result in the points box itself; only an upset bonus needs a note.
+    if (bonus > 0) footerRight = <span className="font-semibold text-accent">Incl. +{formatPoints(bonus)} upset bonus</span>;
+  } else if (result) {
     footerRight = (
       <span className="tabular-nums">
         <span className={`font-semibold ${result === "win" ? "text-win" : "text-loss"}`}>
@@ -629,8 +632,18 @@ function GameRow({
         );
       })}
 
-      {/* One points cell spanning both team rows */}
-      {confidence && (
+      {/* One points cell spanning both team rows. Once the game is decided it shows what the
+          pick won (+3, green) or lost (−3, red), upset bonus included, instead of its value. */}
+      {confidence && result && base !== null ? (
+        <Cell
+          className={`col-start-4 row-span-2 row-start-2 h-full lg:min-h-0 lg:[&>span]:text-[13px] ring-1 ${
+            base + bonus > 0 ? "!bg-win/15 ring-win [&>span]:!text-win" : base + bonus < 0 ? "!bg-loss/15 ring-loss [&>span]:!text-loss" : "ring-line [&>span]:!text-ink"
+          }`}
+          compact
+          value={<span className="font-semibold">{signedPoints(base + bonus)}</span>}
+          label={`${signedPoints(base + bonus)} points`}
+        />
+      ) : confidence ? (
         <Cell
           className="col-start-4 row-span-2 row-start-2 h-full lg:min-h-0 lg:[&>span]:text-[13px]"
           compact
@@ -648,7 +661,7 @@ function GameRow({
           onClick={onPoints}
           label={draft?.confidence != null ? `${draft.confidence} points, change` : draft?.side ? "Points needed, set points" : "Set points"}
         />
-      )}
+      ) : null}
 
       {/* Only when there's something to say: a result, a countdown or a missing value. */}
       {footerRight && <div className="col-span-full flex justify-end text-xs text-muted lg:text-[11px]">{footerRight}</div>}

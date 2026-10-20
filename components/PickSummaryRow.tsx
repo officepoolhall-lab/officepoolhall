@@ -47,6 +47,42 @@ export function PickSummaryRow({
   const theirs = side === "home" ? g.awayScore : g.homeScore;
   const score = started && mine !== null && theirs !== null ? `${mine}–${theirs}` : null;
 
+  const rowClass = `flex items-center ${dense ? "min-h-9 gap-2 py-1" : "min-h-11 gap-2.5 py-2"} ${g.voided ? "opacity-50" : ""}`;
+
+  // Confidence pools (basketball): Logo · Team · @/vs Opponent · points · score.
+  // Points are the confidence value in blue until the game is decided, then what the pick won
+  // (green) or lost (red). The score shows once the game starts, tagged Live while it's on.
+  if (confidence != null) {
+    const decided = points != null && (result === "win" || result === "loss" || final);
+    return (
+      <li className={rowClass}>
+        <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
+        <span className={`min-w-0 flex-1 truncate ${dense ? "text-sm" : "text-[15px]"}`}>
+          <span className="font-semibold">{teamName(team)}</span>
+          <span className="ml-1.5 text-sm text-muted">
+            {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted">
+          {g.voided ? (
+            <span className="font-semibold text-loss">Void</span>
+          ) : (
+            <span
+              className={`min-w-6 text-right text-sm font-semibold ${
+                !decided ? "text-accent" : points! > 0 ? "text-win" : points! < 0 ? "text-loss" : "text-ink"
+              }`}
+              aria-label={decided ? `${signedPoints(points)} points` : `${confidence} confidence points`}
+            >
+              {decided ? signedPoints(points) : confidence}
+            </span>
+          )}
+          {score && !g.voided && <span className="font-semibold text-ink">{score}</span>}
+          {live && <LiveDot>Live</LiveDot>}
+        </span>
+      </li>
+    );
+  }
+
   return (
     <li className={`flex items-center ${dense ? "min-h-9 gap-2 py-1" : "min-h-11 gap-2.5 py-2"} ${g.voided ? "opacity-50" : ""}`}>
       <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
