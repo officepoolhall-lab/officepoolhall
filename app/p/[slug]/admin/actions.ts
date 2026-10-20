@@ -351,3 +351,50 @@ export async function saveSettings(slug: string, _: ActionState, form: FormData)
   if (error) return { error: error.message };
   return done(slug, "Settings saved.");
 }
+
+// ---------- Tournaments (champion picks) ----------
+
+/** Add (no id) or edit a tournament: name, week, lock time (pool time zone), scoring and field. */
+export async function saveTournament(slug: string, id: string | null, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const name = String(form.get("name") ?? "").trim();
+  const week = Number(form.get("week"));
+  const lockLocal = String(form.get("lock_at") ?? "");
+  const scoring = form.get("scoring") === "semifinals" ? "semifinals" : "third_place";
+  const teamIds = form.getAll("team").map(String).filter(Boolean);
+  if (!name) return { error: "Give the tournament a name." };
+  if (!Number.isInteger(week) || week < 1) return { error: "Pick the week it belongs to." };
+  const lockAt = lockLocal ? fromZonedTime(lockLocal, ctx.settings.timezone) : null;
+  if (!lockAt || Number.isNaN(lockAt.getTime())) return { error: "Set when picks lock (the tournament's first tip)." };
+  if (teamIds.length < 2) return { error: "Check at least two teams for the field." };
+  const { error } = await ctx.supabase.rpc("save_tournament", {
+    p_pool_id: ctx.pool.id,
+    p_id: id,
+    p_name: name,
+    p_week: week,
+    p_lock_at: lockAt.toISOString(),
+    p_scoring: scoring,
+    p_team_ids: teamIds,
+  });
+  if (error) return { error: error.message };
+  return done(slug, id ? `${name} saved.` : `${name} added.`);
+}
+
+export async function deleteTournament(slug: string, id: string): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const { error } = await ctx.supabase.rpc("delete_tournament", { p_id: id });
+  if (error) return { error: error.message };
+  return done(slug, "Tournament deleted.");
+}
+
+/** How the field finished: one select per team (place_<team id>), blank for no scoring place. */
+export async function saveTournamentResults(slug: string, id: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const placements: Record<string, string | null> = {};
+  for (const [key, value] of form.entries()) {
+    if (key.startsWith("place_")) placements[key.slice(6)] = String(value) || null;
+  }
+  const { error } = await ctx.supabase.rpc("set_tournament_results", { p_id: id, p_placements: placements });
+  if (error) return { error: error.message };
+  return done(slug, Object.values(placements).includes("champion") ? "Results saved; picks scored." : "Saved. Picks score once a champion is set.");
+}

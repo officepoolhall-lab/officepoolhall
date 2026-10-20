@@ -10,6 +10,7 @@ import { type HistoryWeek, getPlayerHistory } from "@/lib/playerHistory";
 import { getPoolContext, getSlateGames, type SlateGame } from "@/lib/pool";
 import { winPct } from "@/lib/record";
 import { getStandings } from "@/lib/standings";
+import { getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 
 export const metadata: Metadata = { title: "Pick History" };
 
@@ -31,7 +32,9 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   const { view } = await searchParams;
   if (!UUID.test(userId)) notFound();
   const ctx = await getPoolContext(slug);
-  const [history, season] = await Promise.all([getPlayerHistory(ctx, userId), getStandings(ctx)]);
+  const [history, season, tournaments] = await Promise.all([getPlayerHistory(ctx, userId), getStandings(ctx), getTournaments(ctx)]);
+  // Their tournament champion picks (others' show once each tournament locks).
+  const tournamentPicks = await getTournamentPicks(ctx, tournaments.map((t) => t.id), userId);
   if (!history) notFound();
 
   const ids = history.weeks.map((w) => w.slateId);
@@ -226,6 +229,41 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
             <dd className="text-3xl font-semibold tabular-nums">{points(row.points)}</dd>
           </div>
         </dl>
+      )}
+
+      {tournamentPicks.length > 0 && (
+        <section className="mb-5 lg:max-w-3xl" aria-label="Tournament champion picks">
+          <h2 className="mb-1 text-[15px] font-semibold">
+            Tournament Champions
+            <span className="ml-2 text-sm font-normal text-muted tabular-nums">
+              {points(tournamentPicks.reduce((sum, p) => sum + (p.points ?? 0), 0))} pts
+            </span>
+          </h2>
+          <ul className="divide-y divide-line border-y border-line">
+            {tournaments.map((t) => {
+              const p = tournamentPicks.find((x) => x.tournament_id === t.id);
+              const team = p ? t.teams.find((x) => x.id === p.team_id) : undefined;
+              if (!p || !team) return null;
+              return (
+                <li key={t.id} className="flex min-h-9 items-center gap-2 py-1 text-sm">
+                  <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-5" />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-semibold">{team.short_name ?? team.name}</span>
+                    <span className="ml-1.5 text-muted">{t.name}</span>
+                  </span>
+                  {t.decided ? (
+                    <span className="shrink-0 text-xs text-muted">
+                      {placeLabel(t.scoring, team.placement) ?? "Didn't place"}
+                      <span className={`ml-2 text-sm font-semibold tabular-nums ${(p.points ?? 0) > 0 ? "text-win" : "text-ink"}`}>{signedPoints(p.points ?? 0)}</span>
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-xs text-muted">In progress</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       <ViewTabs

@@ -3,16 +3,26 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
- * Phones show one Standings column at a time behind Season / Bonus Segments / Weekly tabs;
- * desktop shows all three. The columns are rendered once and the tabs only toggle which one
+ * Phones show one Standings column at a time behind Season / Weekly / Bonus Segments /
+ * Tournaments tabs; desktop shows them all side by side. The columns are rendered once and the tabs only toggle which one
  * is visible, so switching is instant.
  */
-type Tab = "season" | "segment" | "weekly";
-const TabContext = createContext<{ tab: Tab; setTab: (t: Tab) => void; hasSegments: boolean } | null>(null);
+type Tab = "season" | "segment" | "weekly" | "tournaments";
+const TabContext = createContext<{ tab: Tab; setTab: (t: Tab) => void; hasSegments: boolean; hasTournaments: boolean } | null>(null);
 
-export function StandingsTabs({ initial, hasSegments, children }: { initial: Tab; hasSegments: boolean; children: ReactNode }) {
+export function StandingsTabs({
+  initial,
+  hasSegments,
+  hasTournaments = false,
+  children,
+}: {
+  initial: Tab;
+  hasSegments: boolean;
+  hasTournaments?: boolean;
+  children: ReactNode;
+}) {
   const [tab, setTab] = useState<Tab>(initial);
-  return <TabContext.Provider value={{ tab, setTab, hasSegments }}>{children}</TabContext.Provider>;
+  return <TabContext.Provider value={{ tab, setTab, hasSegments, hasTournaments }}>{children}</TabContext.Provider>;
 }
 
 /** A column: always shown on desktop, only when its tab is active on phones. */
@@ -29,8 +39,13 @@ export function TabPanel({ id, label, children }: { id: Tab; label: string; chil
 export function MobileTabs() {
   const ctx = useContext(TabContext);
   if (!ctx) return null;
-  // Season, Weekly, then Bonus Segments (only when the pool has segments).
-  const tabs: [Tab, string][] = [["season", "Season"], ["weekly", "Weekly"], ...(ctx.hasSegments ? [["segment", "Bonus Segments"] as [Tab, string]] : [])];
+  // Season, Weekly, then Bonus Segments and Tournaments when the pool has them.
+  const tabs: [Tab, string][] = [
+    ["season", "Season"],
+    ["weekly", "Weekly"],
+    ...(ctx.hasSegments ? [["segment", "Bonus Segments"] as [Tab, string]] : []),
+    ...(ctx.hasTournaments ? [["tournaments", "Tournaments"] as [Tab, string]] : []),
+  ];
   return (
     <div className="mb-3 mt-1 inline-flex rounded-full bg-surface p-0.5 lg:hidden" role="tablist">
       {tabs.map(([id, label]) => (

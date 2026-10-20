@@ -54,6 +54,7 @@ export function PickBoard({
   saveAs,
   records = {},
   historyHref,
+  top,
 }: {
   slug: string;
   slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
@@ -72,6 +73,8 @@ export function PickBoard({
   records?: Record<string, string>;
   /** This entry's Pick History page, linked under My Picks. */
   historyHref?: string;
+  /** Shown above the games, e.g. the week's tournament champion picks. */
+  top?: ReactNode;
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
@@ -328,6 +331,7 @@ export function PickBoard({
         )}
       </p>
 
+      {top}
       {days.map((day) => (
         <section key={day.key} className="mb-5 lg:mb-4">
           {/* Each day opens with a shaded band (accent bar, the date, how many games) that stays
