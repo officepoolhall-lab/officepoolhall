@@ -330,9 +330,9 @@ export function PickBoard({
       {days.map((day) => (
         <section key={day.key} className="mb-2">
           {/* The game date: bold ink, a step up from the small section labels. */}
-          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 text-base font-bold text-ink backdrop-blur lg:mx-0 lg:px-0 lg:py-1.5">{day.label}</h3>
-          {/* Desktop: two games per row, three from 1400px wide, four from 1800px. */}
-          <ul className="lg:grid lg:grid-cols-2 lg:gap-x-6 min-[1400px]:grid-cols-3 min-[1800px]:grid-cols-4">
+          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 text-base font-bold text-ink backdrop-blur lg:mx-0 lg:px-0 lg:py-1 lg:text-sm">{day.label}</h3>
+          {/* Desktop: compact cards, two a line, three from 1280px, four from 1600px, five from 2000px. */}
+          <ul className="lg:grid lg:grid-cols-2 lg:gap-x-5 xl:grid-cols-3 min-[1600px]:grid-cols-4 min-[2000px]:grid-cols-5">
             {day.games.map((g) => (
               <GameRow
                 key={g.id}
@@ -547,14 +547,15 @@ function GameRow({
   return (
     <li
       // Desktop packs 3–4 games a line, so the cells and type step down a size there.
-      className={`grid gap-x-2 gap-y-1 border-b border-line py-2 lg:gap-y-0.5 lg:py-1.5 ${
+      className={`grid gap-x-2 gap-y-1 border-b border-line py-2 lg:gap-x-1.5 lg:gap-y-0.5 lg:py-1 ${
         confidence
-          ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem_2.75rem]"
-          : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3.5rem]"
+          ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem] lg:grid-cols-[minmax(0,1fr)_auto_2.5rem_2.25rem]"
+          : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem]"
       } ${g.voided ? "opacity-50" : ""}`}
     >
       {/* Status line + column headers */}
-      <div className="col-span-2 flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted">
+      {/* Desktop drops the Pick/Pts headers, so the status line takes the full width. */}
+      <div className="col-span-2 flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted lg:col-span-full lg:text-[11px]">
         {g.voided ? (
           <span className="text-loss">Void</span>
         ) : final ? (
@@ -576,8 +577,8 @@ function GameRow({
           </span>
         )}
       </div>
-      <span className="self-end text-center text-xs text-muted">{pickHeader}</span>
-      {confidence && <span className="self-end text-center text-xs text-muted">Pts</span>}
+      <span className="self-end text-center text-xs text-muted lg:hidden">{pickHeader}</span>
+      {confidence && <span className="self-end text-center text-xs text-muted lg:hidden">Pts</span>}
 
       {/* Team rows: the whole row (name, score and pick cell) is one button per side */}
       {(["away", "home"] as const).map((side, i) => {
@@ -598,8 +599,8 @@ function GameRow({
             }`}
           >
             <span className="flex min-w-0 items-center gap-2">
-              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-5" />
-              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight lg:text-sm ${g.voided ? "text-muted" : "text-ink"}`}>
+              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
+              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
                 {rank ? <span className="mr-1 text-xs font-medium tabular-nums text-muted">{rank}</span> : null}
                 {team.short_name ?? team.name}
                 {team.espn_id && records[team.espn_id] && (
@@ -607,21 +608,21 @@ function GameRow({
                 )}
               </span>
             </span>
-            <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums lg:text-sm">{started && score !== null ? score : ""}</span>
+            <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums lg:text-[13px]">{started && score !== null ? score : ""}</span>
             <Cell
               value={
                 settings.pickType === "ats" ? (
                   formatSpread(spread)
                 ) : selected ? (
-                  <CheckIcon className="size-5" />
+                  <CheckIcon className="size-5 lg:size-4" />
                 ) : (
-                  <span className="block size-4 rounded-full border-2 border-faint" />
+                  <span className="block size-4 rounded-full border-2 border-faint lg:size-3" />
                 )
               }
               selected={selected}
               disabled={disabled}
               compact
-              className={`lg:min-h-8 ${!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
+              className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
             />
           </button>
         );
@@ -630,7 +631,7 @@ function GameRow({
       {/* One points cell spanning both team rows */}
       {confidence && (
         <Cell
-          className="col-start-4 row-span-2 row-start-2 h-full"
+          className="col-start-4 row-span-2 row-start-2 h-full lg:min-h-0 lg:[&>span]:text-[13px]"
           compact
           value={
             draft?.confidence != null ? (
@@ -649,7 +650,7 @@ function GameRow({
       )}
 
       {/* Only when there's something to say: a result, a countdown or a missing value. */}
-      {footerRight && <div className="col-span-full flex justify-end text-xs text-muted">{footerRight}</div>}
+      {footerRight && <div className="col-span-full flex justify-end text-xs text-muted lg:text-[11px]">{footerRight}</div>}
     </li>
   );
 }

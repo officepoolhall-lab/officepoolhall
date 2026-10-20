@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PickSummaryRow } from "@/components/PickSummaryRow";
-import { ChevronIcon, PageTitle } from "@/components/ui";
-import { points } from "@/lib/format";
+import { ChevronIcon, PageTitle, TeamLogo } from "@/components/ui";
+import { ViewTabs } from "@/components/ViewTabs";
+import { points, signedPoints } from "@/lib/format";
 import { isGameLocked } from "@/lib/locks";
 import { type HistoryWeek, getPlayerHistory } from "@/lib/playerHistory";
 import { getPoolContext, getSlateGames, type SlateGame } from "@/lib/pool";
@@ -20,12 +21,14 @@ const ordinal = (x: number) => `${x}${x % 100 >= 11 && x % 100 <= 13 ? "th" : ["
 type Pick = { slate_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; points: number | null };
 
 /**
- * Pick History: one player's season summary, then every week at once in order (Week 1 first),
- * each with its record, rank and the picks themselves (like My Picks).
+ * Pick History: one player's season summary, then two views. By Week: every week in order
+ * (Week 1 first), each a row with its record that opens to show that week's picks. By Team:
+ * the player's record and points on each team they've picked, all season. ?view=team opens on it.
  * Another player's picks show from each game's kickoff (RLS), so an open week can be partial.
  */
-export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/standings/[userId]">) {
+export default async function PickHistoryPage({ params, searchParams }: PageProps<"/p/[slug]/standings/[userId]">) {
   const { slug, userId } = await params;
+  const { view } = await searchParams;
   if (!UUID.test(userId)) notFound();
   const ctx = await getPoolContext(slug);
   const [history, season] = await Promise.all([getPlayerHistory(ctx, userId), getStandings(ctx)]);
@@ -50,18 +53,134 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
 
   // Every week in order, Week 1 first (history.weeks is oldest first).
   const weeks = history.weeks;
+  // The newest week with something to show starts open; the rest open on a tap.
+  const openWeek = [...weeks].reverse().find((w) => w.wins + w.losses + w.pushes > 0 || weekPicks(w).length > 0)?.slateId;
 
-  const weekPicks = (w: HistoryWeek) => {
+  // Highest confidence first (game time within a value), like My Picks.
+  function weekPicks(w: HistoryWeek) {
     const games = gamesBySlate.get(w.slateId);
     if (!games) return [];
     return picks
       .filter((p) => p.slate_id === w.slateId && games.has(p.game_id))
       .map((p) => ({ p, g: games.get(p.game_id)! }))
-      .sort((a, b) => a.g.startAt.localeCompare(b.g.startAt));
-  };
+      .sort((a, b) => (b.p.confidence ?? 0) - (a.p.confidence ?? 0) || a.g.startAt.localeCompare(b.g.startAt));
+  }
+
+  // ---------- By Team: every visible pick, grouped by the team taken ----------
+  type TeamRow = { team: SlateGame["home"]; picks: number; wins: number; losses: number; pushes: number; points: number };
+  const byTeam = new Map<string, TeamRow>();
+  for (const w of weeks) {
+    for (const { p, g } of weekPicks(w)) {
+      if (g.voided) continue;
+      const team = p.picked_side === "home" ? g.home : g.away;
+      const row = byTeam.get(team.id) ?? { team, picks: 0, wins: 0, losses: 0, pushes: 0, points: 0 };
+      row.picks++;
+      if (p.result === "win") row.wins++;
+      else if (p.result === "loss") row.losses++;
+      else if (p.result === "push") row.pushes++;
+      row.points += Number(p.points ?? 0);
+      byTeam.set(team.id, row);
+    }
+  }
+  // Most points first (confidence), else most wins; then most picks, then name.
+  const teamRows = [...byTeam.values()].sort(
+    (a, b) =>
+      (flat ? b.wins - a.wins : b.points - a.points) ||
+      b.picks - a.picks ||
+      (a.team.short_name ?? a.team.name).localeCompare(b.team.short_name ?? b.team.name),
+  );
+
+  const byWeekView = (
+    <div className="divide-y divide-line border-y border-line lg:max-w-4xl">
+      {weeks.map((w) => {
+        const list = weekPicks(w);
+        return (
+          <details key={w.slateId} open={w.slateId === openWeek} className="group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 py-2 [&::-webkit-details-marker]:hidden">
+              <ChevronIcon className="size-4 shrink-0 text-muted transition group-open:rotate-90" />
+              <span className="text-[15px] font-bold text-ink">{w.label}</span>
+              {w.status !== "graded" && <span className="text-xs font-medium text-accent">In progress</span>}
+              <span className="hidden text-xs text-muted sm:inline">{w.rank ? `${ordinal(w.rank)} of ${w.of}` : ""}</span>
+              <span className="ml-auto whitespace-nowrap text-sm tabular-nums">
+                <span className="font-semibold text-ink">{recordText(w)}</span>
+                <span className="text-muted"> · {winPct(w.wins, w.losses)}</span>
+                {!flat && <span className="text-muted"> · {points(w.points)} pts</span>}
+              </span>
+            </summary>
+            <div className="pb-3 pl-6">
+              <div className="mb-1 flex items-baseline justify-between text-xs text-muted">
+                <span>{w.rank ? <>{ordinal(w.rank)} of {w.of} that week</> : "Not scored yet"}</span>
+                {/* Everyone's picks that week. */}
+                <Link href={`/p/${slug}/grid/${w.week}`} className="font-medium text-accent hover:underline">League Grid</Link>
+              </div>
+              {list.length ? (
+                <ul className="divide-y divide-line border-t border-line">
+                  {list.map(({ p, g }) => (
+                    <PickSummaryRow
+                      key={p.game_id}
+                      game={g}
+                      side={p.picked_side === "home" ? "home" : "away"}
+                      confidence={p.confidence}
+                      result={p.result}
+                      // Confidence pools: what each decided pick won or lost.
+                      points={!flat && (p.result === "win" || p.result === "loss") ? Number(p.points ?? 0) : null}
+                      locked={w.status !== "open" || isGameLocked(g, now)}
+                      now={now}
+                      pickType={pickType}
+                      timezone={ctx.displayTz}
+                      dense
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <p className="border-t border-line py-3 text-sm text-muted">
+                  {w.missed ? "No picks this week." : !me && w.status === "open" ? "Picks show once their games kick off." : "No picks to show."}
+                </p>
+              )}
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+
+  const byTeamView = teamRows.length ? (
+    <table className="w-full text-sm tabular-nums lg:max-w-3xl">
+      <thead>
+        <tr className="border-b border-line text-left text-xs text-muted">
+          <th className="py-2 font-medium">Team</th>
+          <th className="py-2 text-right font-medium">Picks</th>
+          <th className="py-2 pl-3 text-right font-medium">Record</th>
+          <th className="py-2 pl-3 text-right font-medium">Win %</th>
+          {!flat && <th className="py-2 pl-3 text-right font-medium">Pts</th>}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line">
+        {teamRows.map((r) => (
+          <tr key={r.team.id}>
+            <td className="max-w-0 py-1.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <TeamLogo src={r.team.logo_url} abbr={r.team.abbreviation} className="size-5" />
+                <span className="truncate font-semibold text-ink">{r.team.short_name ?? r.team.name}</span>
+              </span>
+            </td>
+            <td className="py-1.5 text-right">{r.picks}</td>
+            <td className="whitespace-nowrap py-1.5 pl-3 text-right font-semibold text-ink">{recordText(r)}</td>
+            <td className="py-1.5 pl-3 text-right text-muted">{winPct(r.wins, r.losses)}</td>
+            {!flat && (
+              <td className={`py-1.5 pl-3 text-right font-semibold ${r.points > 0 ? "text-win" : r.points < 0 ? "text-loss" : "text-ink"}`}>
+                {signedPoints(r.points)}
+              </td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p className="border-y border-line py-3 text-sm text-muted">No picks to show yet.</p>
+  );
 
   return (
-    // data-wide: weeks sit side by side on wide screens.
     <div data-wide>
       <Link href={`/p/${slug}/standings`} className="-ml-1 mb-2 inline-flex h-9 items-center gap-0.5 px-1 text-sm font-medium text-accent">
         <ChevronIcon className="size-4 rotate-180" /> Standings
@@ -69,7 +188,7 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
       <PageTitle sub={`${history.name}${me ? " · You" : ""}`}>Pick History</PageTitle>
 
       {row && (
-        <dl className="mb-6 grid grid-cols-2 gap-4 border-b border-line pb-4 sm:grid-cols-4 lg:max-w-3xl">
+        <dl className="mb-5 grid grid-cols-2 gap-4 border-b border-line pb-4 sm:grid-cols-4 lg:max-w-3xl">
           <div>
             <dt className="text-xs text-muted">Season rank</dt>
             <dd className="text-3xl font-semibold tabular-nums">{ordinal(row.rank)}<span className="text-base font-normal text-muted"> of {season.length}</span></dd>
@@ -89,56 +208,15 @@ export default async function PickHistoryPage({ params }: PageProps<"/p/[slug]/s
         </dl>
       )}
 
-      {/* Every week at once, in order: one card per week, side by side on wider screens. */}
-            <div className="grid gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
-              {weeks.map((w) => {
-                const list = weekPicks(w);
-                return (
-                  <article key={w.slateId} aria-label={w.label}>
-                    <div className="flex items-baseline gap-2">
-                      {/* The week's picks for everyone, on the Grid. */}
-                      <Link href={`/p/${slug}/grid/${w.week}`} className="text-base font-bold text-ink hover:underline">{w.label}</Link>
-                      {w.status !== "graded" && <span className="text-xs font-medium text-accent">In progress</span>}
-                      <span className="ml-auto whitespace-nowrap text-sm tabular-nums">
-                        <span className="font-semibold text-ink">{recordText(w)}</span>
-                        <span className="text-muted"> · {winPct(w.wins, w.losses)}</span>
-                        {!flat && <span className="text-muted"> · {points(w.points)} pts</span>}
-                      </span>
-                    </div>
-                    <div className="mb-1 text-xs text-muted">
-                      {w.rank ? <>{ordinal(w.rank)} of {w.of} that week</> : "Not scored yet"}
-                    </div>
-                    {list.length ? (
-                      <ul className="divide-y divide-line border-y border-line">
-                        {list.map(({ p, g }) => (
-                          <PickSummaryRow
-                            key={p.game_id}
-                            game={g}
-                            side={p.picked_side === "home" ? "home" : "away"}
-                            confidence={p.confidence}
-                            result={p.result}
-                            // Confidence pools: what each decided pick won or lost.
-                            points={!flat && (p.result === "win" || p.result === "loss") ? Number(p.points ?? 0) : null}
-                            locked={w.status !== "open" || isGameLocked(g, now)}
-                            now={now}
-                            pickType={pickType}
-                            timezone={ctx.displayTz}
-                          />
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="border-y border-line py-3 text-sm text-muted">
-                        {w.missed
-                          ? "No picks this week."
-                          : !me && w.status === "open"
-                            ? "Picks show once their games kick off."
-                            : "No picks to show."}
-                      </p>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
+      <ViewTabs
+        param="view"
+        initial={typeof view === "string" ? view : undefined}
+        ariaLabel="Show pick history by"
+        views={[
+          { id: "week", label: "By Week", content: byWeekView },
+          { id: "team", label: "By Team", content: byTeamView },
+        ]}
+      />
     </div>
   );
 }
