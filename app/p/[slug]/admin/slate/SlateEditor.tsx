@@ -5,7 +5,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm, SubmitButton, type ActionState } from "@/components/ActionForm";
 import { Matchup } from "@/components/Matchup";
-import { Button, Cell, Field, SectionLabel, buttonClass, chipClass, inputClass } from "@/components/ui";
+import { Button, Field, SectionLabel, buttonClass, chipClass, inputClass } from "@/components/ui";
 import { dayKey, dayLabel, formatSpread, gameTime } from "@/lib/format";
 import { gameDateZone } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
@@ -145,7 +145,10 @@ export function SlateEditor({
     <div className="space-y-10">
       <div className="flex flex-wrap gap-2">
         <ActionButton action={syncSchedule.bind(null, slug)} pendingLabel="Syncing…" className={smallButton}>Sync ESPN schedule</ActionButton>
-        <ActionButton action={refreshLines.bind(null, slug)} pendingLabel="Pulling…" className={smallButton}>Refresh lines</ActionButton>
+        {/* Lines only exist against the spread; straight-up pools pick winners. */}
+        {settings.pickType === "ats" && (
+          <ActionButton action={refreshLines.bind(null, slug)} pendingLabel="Pulling…" className={smallButton}>Refresh lines</ActionButton>
+        )}
         {settings.pickType === "ats" && (
           // Overwrites every line on the slate, including ones you edited.
           <ActionButton action={freezeLines.bind(null, slug, slateId)} pendingLabel="Updating…" className={smallButton}>Reset all lines to latest</ActionButton>
@@ -184,7 +187,8 @@ export function SlateEditor({
                       gameTime(g.startAt, tz)
                     )}
                     {g.manualTime && !g.timeTbd && " (set by you)"}
-                    {g.tv && ` · ${g.tv}`} · line {formatSpread(g.line)}
+                    {g.tv && ` · ${g.tv}`}
+                    {settings.pickType === "ats" && ` · line ${formatSpread(g.line)}`}
                   </div>
                   {g.neutral && g.venue && <div className="truncate text-xs text-muted">{g.venue}</div>}
                   {(g.timeTbd || g.manualTime) && <GameTimeInput slug={slug} slateId={slateId} game={g} timezone={tz} />}
@@ -294,9 +298,7 @@ export function SlateEditor({
                       on ? "bg-accent/15 text-accent ring-1 ring-accent" : "bg-surface text-ink"
                     } ${c.id in lineEdits && "error" in parseSpread(lineEdits[c.id]) ? "!ring-loss" : ""}`}
                   />
-                ) : (
-                  <Cell value={formatSpread(c.line)} selected={on} className="w-16 shrink-0" />
-                )}
+                ) : null}
               </li>
             );
           })}

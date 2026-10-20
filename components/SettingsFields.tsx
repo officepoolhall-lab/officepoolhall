@@ -252,6 +252,8 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
         </Field>
       </div>
 
+      {/* Lines only matter against the spread; straight-up pools (picking winners) have none. */}
+      {s.pick_type === "ats" && (
       <div className="grid gap-4 sm:grid-cols-2">
         <SectionLabel className="sm:col-span-2">Lines</SectionLabel>
         <Field label="Line source" hint="One sportsbook is the source of truth for spreads.">
@@ -269,6 +271,7 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
           </label>
         )}
       </div>
+      )}
     </div>
   );
 }
