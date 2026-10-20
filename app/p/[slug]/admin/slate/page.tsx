@@ -97,7 +97,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     const [{ data: games }, { data: lines }, { data: teams }, { data: queue }] = await Promise.all([
       ctx.supabase
         .from("games")
-        .select(`id, start_at, time_tbd, tv_network, home_rank, away_rank, neutral_site, venue,
+        .select(`id, espn_id, start_at, time_tbd, tv_network, home_rank, away_rank, neutral_site, venue,
           home:teams!games_home_team_id_fkey ( espn_id, name, short_name, abbreviation, conference, logo_url ),
           away:teams!games_away_team_id_fkey ( espn_id, name, short_name, abbreviation, conference, logo_url )`)
         .eq("sport", ctx.pool.sport)
@@ -118,9 +118,16 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     const firstDate = localDate(new Date(s.window_start), tz);
     const lastDate = localDate(new Date(new Date(s.window_end).getTime() - 1), tz);
     const now = Date.now();
+    // The demo pool's made-up games ("demo-…") never show up anywhere else.
+    const isDemoPool = ctx.pool.slug === "hoops-demo";
     const candidates: Candidate[] = (games ?? [])
       .filter((g) => {
         if (onSlateIds.has(g.id)) return false;
+        if (!isDemoPool && g.espn_id?.startsWith("demo-")) return false;
+        // Division I against Division I only. ESPN's D-I scoreboard also lists D-I teams'
+        // games against non-D-I schools (e.g. Mount Marty at South Dakota); those opponents
+        // have no D-I conference, so a game needs a conference on both sides.
+        if (!g.home?.conference || !g.away?.conference) return false;
         const date = dayKey(g.start_at, gameDateZone(g.time_tbd, tz));
         if (date < firstDate || date > lastDate) return false;
         const lock = g.time_tbd ? (s.lock_at ?? g.start_at) : g.start_at;
