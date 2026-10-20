@@ -26,8 +26,10 @@ export const metadata: Metadata = { title: "Standings" };
 export default async function StandingsPage({ params, searchParams }: PageProps<"/p/[slug]/standings">) {
   const { slug } = await params;
   const { week: weekParam, segment: segmentParam, split: splitParam } = await searchParams;
-  const split: Split = SPLITS.find((x) => x.id === splitParam)?.id ?? "all";
   const ctx = await getPoolContext(slug);
+  // Favorites/Underdogs only mean something against the spread; straight-up pools show All only.
+  const splits = ctx.settings.pick_type === "ats" ? SPLITS : SPLITS.filter((x) => x.id === "all");
+  const split: Split = splits.find((x) => x.id === splitParam)?.id ?? "all";
   // Both come from one cached query of the published weeks (newest first).
   const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
 
@@ -103,8 +105,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const each = <T,>(ids: string[], make: (id: string) => T) => Object.fromEntries(ids.map((id) => [id, make(id)])) as Record<string, T>;
 
   // ---------- Season: All is ready now; the other pick types load on first tap ----------
-  const splitOptions: SwitchOption[] = SPLITS.map((x) => ({ id: x.id, label: x.label }));
-  const splitIds = SPLITS.map((x) => x.id as string);
+  const splitOptions: SwitchOption[] = splits.map((x) => ({ id: x.id, label: x.label }));
+  const splitIds = splits.map((x) => x.id as string);
   const seasonViews = each(splitIds, (id) =>
     id === "all" ? (
       <SeasonStandings rows={seasonRows} me={me} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} compact header={false} />
@@ -116,7 +118,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const seasonTitles = each(splitIds, (id) => (
     <>
       Season
-      {id !== "all" && <span className="font-normal normal-case tracking-normal">&nbsp;· {SPLITS.find((x) => x.id === id)!.label} picks</span>}
+      {id !== "all" && <span className="font-normal normal-case tracking-normal">&nbsp;· {splits.find((x) => x.id === id)!.label} picks</span>}
     </>
   ));
 
@@ -172,6 +174,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                 titles={seasonTitles}
                 lead={<MobileTabs />}
                 ariaLabel="Filter season records by pick type"
+                // Just "All" in a straight-up pool: no buttons at all.
+                hideSingle
               />
             </TabPanel>
             <TabPanel id="weekly" label="Week standings">

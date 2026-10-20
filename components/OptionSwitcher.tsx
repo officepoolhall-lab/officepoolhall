@@ -23,6 +23,7 @@ export function OptionSwitcher({
   titles,
   lead,
   ariaLabel,
+  hideSingle = false,
 }: {
   options: SwitchOption[];
   initial: string;
@@ -38,6 +39,8 @@ export function OptionSwitcher({
   /** Anything to freeze above the heading, such as the phone tabs. */
   lead?: ReactNode;
   ariaLabel: string;
+  /** Leave out the buttons when there's only one option. */
+  hideSingle?: boolean;
 }) {
   const [active, setActive] = useState(initial in views ? initial : defaultId in views ? defaultId : (options[0]?.id ?? initial));
 
@@ -62,6 +65,7 @@ export function OptionSwitcher({
             <span>{titles[active]}</span>
           </SectionLabel>
         )}
+        {!(hideSingle && options.length <= 1) && (
         <div className="-mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1" role="group" aria-label={ariaLabel}>
           {options.map((o) => (
             <button key={o.id} type="button" onClick={() => choose(o.id)} aria-pressed={o.id === active} className={chipClass(o.id === active, "", "xs")}>
@@ -69,6 +73,7 @@ export function OptionSwitcher({
             </button>
           ))}
         </div>
+        )}
         {headers[active]}
       </div>
       {views[active]}
