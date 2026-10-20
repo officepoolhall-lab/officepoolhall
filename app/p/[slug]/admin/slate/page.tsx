@@ -262,7 +262,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="secondary">Results &amp; voids</LinkButton>
-            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">Grid</LinkButton>
+            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">League Grid</LinkButton>
           </div>
         </div>
         {timeable.length > 0 && (

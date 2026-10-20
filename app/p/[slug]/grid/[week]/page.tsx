@@ -8,7 +8,7 @@ import { getPoolContext, getSlateGames } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 
-export const metadata: Metadata = { title: "Selections grid" };
+export const metadata: Metadata = { title: "League Grid" };
 
 /** Row order: this week's score (default), season total, or name. */
 const SORTS = [
@@ -27,7 +27,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const { data: slates } = await ctx.supabase
     .from("slates").select("id, week, label, status").eq("pool_id", ctx.pool.id).neq("status", "draft").order("week");
   const slate = slates?.find((s) => s.week === Number(week));
-  if (!slate) return (<><PageTitle>Selections</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
+  if (!slate) return (<><PageTitle>League Grid</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
 
   const [games, standings, season, { data: picks }, { data: submissions }] = await Promise.all([
     getSlateGames(ctx, slate.id),

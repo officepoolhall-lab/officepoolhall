@@ -10,10 +10,10 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
   const base = `/p/${slug}`;
   const tabs = [
     { href: base, label: "Home", match: (p: string) => p === base },
-    { href: `${base}/picks`, label: "Picks", match: (p: string) => p.startsWith(`${base}/picks`) },
+    { href: `${base}/picks`, label: "My Picks", match: (p: string) => p.startsWith(`${base}/picks`) },
     { href: `${base}/standings`, label: "Standings", match: (p: string) => p.startsWith(`${base}/standings`) },
-    { href: `${base}/grid/${week ?? 1}`, label: "Grid", match: (p: string) => p.startsWith(`${base}/grid`) },
-    { href: `${base}/board`, label: "Board", match: (p: string) => p.startsWith(`${base}/board`) },
+    { href: `${base}/grid/${week ?? 1}`, label: "League Grid", match: (p: string) => p.startsWith(`${base}/grid`) },
+    { href: `${base}/board`, label: "Message Board", match: (p: string) => p.startsWith(`${base}/board`) },
     ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Admin", match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
   ];
 
@@ -25,11 +25,11 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
           const active = t.match(pathname);
           return (
             <li key={t.label} className="flex-1 sm:flex-none">
-              {/* Phone: plain tab with an accent underline on the active one. */}
+              {/* Phone: plain tab with an accent underline on the active one; two-word names wrap to two lines. */}
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-11 items-center justify-center text-sm font-medium sm:hidden ${
+                className={`relative flex h-11 items-center justify-center px-0.5 text-center text-xs font-medium leading-tight sm:hidden ${
                   active ? "text-ink" : "text-muted hover:text-ink"
                 }`}
               >

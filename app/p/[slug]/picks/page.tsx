@@ -9,7 +9,7 @@ import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } fr
 import { getTeamRecords } from "@/lib/teamRecords";
 import { PickBoard } from "./PickBoard";
 
-export const metadata: Metadata = { title: "My picks" };
+export const metadata: Metadata = { title: "My Picks" };
 
 export default async function PicksPage({ params, searchParams }: PageProps<"/p/[slug]/picks">) {
   const { slug } = await params;
@@ -20,7 +20,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   if (!current) {
     return (
       <>
-        <PageTitle>My picks</PageTitle>
+        <PageTitle>My Picks</PageTitle>
         <Empty>No week is open yet. The commissioner publishes each slate before the first game.</Empty>
       </>
     );
@@ -50,7 +50,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   if (!slate) {
     return (
       <>
-        <PageTitle>My picks</PageTitle>
+        <PageTitle>My Picks</PageTitle>
         {weekChips}
         <Empty>That week isn&apos;t published.</Empty>
       </>
