@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FROZEN_HEAD } from "./SeasonStandings";
 import { chipClass, SectionLabel } from "./ui";
 
@@ -44,6 +44,19 @@ export function OptionSwitcher({
 }) {
   const [active, setActive] = useState(initial in views ? initial : defaultId in views ? defaultId : (options[0]?.id ?? initial));
 
+  // A long row (many weeks) starts scrolled so the chosen button is in view, e.g. the current
+  // week at the right end. Only the row scrolls, never the page.
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = row.current;
+    const btn = el?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!el || !btn) return;
+    const overflow = btn.offsetLeft + btn.offsetWidth - (el.scrollLeft + el.clientWidth);
+    if (overflow > 0) el.scrollLeft += overflow + 16;
+    // Only on first show; after that the player scrolls the row themselves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const choose = (id: string) => {
     setActive(id);
     try {
@@ -66,7 +79,7 @@ export function OptionSwitcher({
           </SectionLabel>
         )}
         {!(hideSingle && options.length <= 1) && (
-        <div className="-mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1" role="group" aria-label={ariaLabel}>
+        <div ref={row} className="relative -mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1" role="group" aria-label={ariaLabel}>
           {options.map((o) => (
             <button key={o.id} type="button" onClick={() => choose(o.id)} aria-pressed={o.id === active} className={chipClass(o.id === active, "", "xs")}>
               {o.chip ?? o.label}
