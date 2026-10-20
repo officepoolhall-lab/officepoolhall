@@ -139,7 +139,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
                 {w.missed ? "No picks this week." : !me && w.status === "open" ? "Picks show once their games kick off." : "No picks to show."}
               </p>
             )}
-            </div>
+          </div>
         );
         // Football: every week open at once, nothing to tap. Basketball: weeks open on a tap.
         if (allOpen) {
