@@ -264,6 +264,7 @@ export function PickBoard({
 
   // The saved card, in kickoff order (games come sorted by start).
   const myPicks = games.filter((g) => saved[g.id]?.side);
+  const asideRef = useKeepGamesInPlace();
 
   return (
     // Desktop (lg+): full width, My Picks pinned in a left column, the games scroll on the
@@ -271,7 +272,7 @@ export function PickBoard({
     // width cap for this page.
     <div data-wide className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-10">
       {/* Desktop: both columns fill the frozen screen; each scrolls on its own if it must. */}
-      <aside className="lg:min-h-0 lg:overflow-y-auto">
+      <aside ref={asideRef} className="lg:min-h-0 lg:overflow-y-auto">
       {myPicks.length === 0 && (
         <section className="hidden lg:block" aria-labelledby="my-picks-empty">
           <h2 id="my-picks-empty" className="mb-1 text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
@@ -738,4 +739,38 @@ function useNow(games: SlateGame[], lockAt: string | null) {
     };
   }, [games, lockAt, now]);
   return now;
+}
+
+/**
+ * Phones and tablets: My Picks sits above the games, so it growing (or shrinking) when a pick
+ * saves would push the games down under the player's finger. When that list changes height
+ * while the player is looking at the games below it, scroll by the same amount so the games
+ * stay exactly where they were. Desktop has My Picks in its own column, so nothing moves there.
+ * The browser's own scroll anchoring is turned off on this page so the two don't both correct.
+ */
+function useKeepGamesInPlace() {
+  const ref = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const root = document.documentElement;
+    const prevAnchor = root.style.overflowAnchor;
+    root.style.overflowAnchor = "none";
+    let height = el.getBoundingClientRect().height;
+    const ro = new ResizeObserver(() => {
+      const rect = el.getBoundingClientRect();
+      const delta = rect.height - height;
+      height = rect.height;
+      if (!delta || desktop.matches) return;
+      // Only when the games are what's on screen: the list ends above the bottom of the view.
+      if (rect.bottom < window.innerHeight) window.scrollBy({ top: delta, behavior: "instant" });
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.overflowAnchor = prevAnchor;
+    };
+  }, []);
+  return ref;
 }
