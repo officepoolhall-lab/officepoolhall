@@ -1,4 +1,4 @@
-import { formatSpread, shortGameTime } from "@/lib/format";
+import { formatSpread, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 import { LiveDot, LockIcon, TeamLogo } from "./ui";
@@ -8,27 +8,34 @@ const teamName = (team: SlateGame["home"]) => team.short_name ?? team.name;
 /**
  * One pick as a compact row: the side taken (with its spread and points), the opponent, and
  * where the game stands (time, Live, score, Win/Loss/Push). Used by My Picks on the Picks tab
- * and by Pick History.
+ * and by Pick History. In a confidence pool a decided pick shows the points it won or lost
+ * (+5, −3) in place of Win/Loss.
  */
 export function PickSummaryRow({
   game: g,
   side,
   confidence,
   result,
+  points,
   locked,
   now,
   pickType,
   timezone,
+  dense = false,
 }: {
   game: SlateGame;
   side: "home" | "away";
   confidence: number | null;
   /** The graded result (picks.result), if any. */
   result: string | null | undefined;
+  /** Confidence pools: what the decided pick scored, bonus included; null otherwise. */
+  points?: number | null;
   locked: boolean;
   now: number;
   pickType: "straight_up" | "ats";
   timezone: string;
+  /** Tighter rows (My Picks on the Picks tab), so a full card needs less scrolling. */
+  dense?: boolean;
 }) {
   const team = side === "home" ? g.home : g.away;
   const opp = side === "home" ? g.away : g.home;
@@ -41,9 +48,9 @@ export function PickSummaryRow({
   const score = started && mine !== null && theirs !== null ? `${mine}–${theirs}` : null;
 
   return (
-    <li className={`flex min-h-11 items-center gap-2.5 py-2 ${g.voided ? "opacity-50" : ""}`}>
-      <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6" />
-      <span className="min-w-0 flex-1 truncate text-[15px]">
+    <li className={`flex items-center ${dense ? "min-h-9 gap-2 py-1" : "min-h-11 gap-2.5 py-2"} ${g.voided ? "opacity-50" : ""}`}>
+      <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
+      <span className={`min-w-0 flex-1 truncate ${dense ? "text-sm" : "text-[15px]"}`}>
         <span className="font-semibold">{teamName(team)}</span>
         {pickType === "ats" && <span className="ml-1.5 font-semibold tabular-nums text-accent">{formatSpread(spread)}</span>}
         {confidence != null && <span className="ml-1.5 text-xs tabular-nums text-muted">{confidence} pts</span>}
@@ -54,6 +61,11 @@ export function PickSummaryRow({
       <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted">
         {g.voided ? (
           <span className="font-semibold text-loss">Void</span>
+        ) : points != null && (result === "win" || result === "loss" || final) ? (
+          // Confidence pools: the points the pick won or lost.
+          <span className={`text-sm font-semibold ${points > 0 ? "text-win" : points < 0 ? "text-loss" : "text-ink"}`}>
+            {signedPoints(points)}
+          </span>
         ) : result === "win" || result === "loss" || result === "push" ? (
           <span className={`font-semibold ${result === "win" ? "text-win" : result === "loss" ? "text-loss" : "text-ink"}`}>
             {result === "win" ? "Win" : result === "loss" ? "Loss" : "Push"}

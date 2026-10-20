@@ -262,8 +262,11 @@ export function PickBoard({
   const sheetGame = sheetGameId ? gamesById.get(sheetGameId) : undefined;
   const showSheet = settings.tiers && sheetGame && canEdit(sheetGame);
 
-  // The saved card, in kickoff order (games come sorted by start).
-  const myPicks = games.filter((g) => saved[g.id]?.side);
+  // The saved card: highest confidence first (kickoff order within a value, and for pools
+  // without confidence; games come sorted by start and the sort is stable).
+  const myPicks = games
+    .filter((g) => saved[g.id]?.side)
+    .sort((a, b) => (saved[b.id].confidence ?? 0) - (saved[a.id].confidence ?? 0));
   const asideRef = useKeepGamesInPlace();
 
   return (
@@ -327,9 +330,9 @@ export function PickBoard({
       {days.map((day) => (
         <section key={day.key} className="mb-2">
           {/* The game date: bold ink, a step up from the small section labels. */}
-          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 text-base font-bold text-ink backdrop-blur lg:mx-0 lg:px-0">{day.label}</h3>
-          {/* Wide screens: two games per row so the column isn't mostly empty. */}
-          <ul className="xl:grid xl:grid-cols-2 xl:gap-x-8">
+          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 text-base font-bold text-ink backdrop-blur lg:mx-0 lg:px-0 lg:py-1.5">{day.label}</h3>
+          {/* Desktop: two games per row, three from 1400px wide, four from 1800px. */}
+          <ul className="lg:grid lg:grid-cols-2 lg:gap-x-6 min-[1400px]:grid-cols-3 min-[1800px]:grid-cols-4">
             {day.games.map((g) => (
               <GameRow
                 key={g.id}
@@ -543,8 +546,11 @@ function GameRow({
 
   return (
     <li
-      className={`grid gap-x-2 gap-y-1 border-b border-line py-2 ${
-        confidence ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem]" : "grid-cols-[minmax(0,1fr)_auto_4.5rem]"
+      // Desktop packs 3–4 games a line, so the cells and type step down a size there.
+      className={`grid gap-x-2 gap-y-1 border-b border-line py-2 lg:gap-y-0.5 lg:py-1.5 ${
+        confidence
+          ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem_2.75rem]"
+          : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3.5rem]"
       } ${g.voided ? "opacity-50" : ""}`}
     >
       {/* Status line + column headers */}
@@ -592,8 +598,8 @@ function GameRow({
             }`}
           >
             <span className="flex min-w-0 items-center gap-2">
-              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6" />
-              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight ${g.voided ? "text-muted" : "text-ink"}`}>
+              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-5" />
+              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight lg:text-sm ${g.voided ? "text-muted" : "text-ink"}`}>
                 {rank ? <span className="mr-1 text-xs font-medium tabular-nums text-muted">{rank}</span> : null}
                 {team.short_name ?? team.name}
                 {team.espn_id && records[team.espn_id] && (
@@ -601,7 +607,7 @@ function GameRow({
                 )}
               </span>
             </span>
-            <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums">{started && score !== null ? score : ""}</span>
+            <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums lg:text-sm">{started && score !== null ? score : ""}</span>
             <Cell
               value={
                 settings.pickType === "ats" ? (
@@ -615,7 +621,7 @@ function GameRow({
               selected={selected}
               disabled={disabled}
               compact
-              className={!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}
+              className={`lg:min-h-8 ${!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
             />
           </button>
         );
@@ -670,12 +676,28 @@ function MyPickRow({
       side={pick.side!}
       confidence={pick.confidence}
       result={graded?.result}
+      points={settings.tiers ? pickPoints(game, pick, graded, settings) : null}
       locked={locked}
       now={now}
       pickType={settings.pickType}
       timezone={settings.timezone}
+      dense
     />
   );
+}
+
+/**
+ * What a finished confidence pick scored: graded points (with any upset bonus) once
+ * grade_slate has run, else an estimate from the final score, as on the game's own row.
+ */
+function pickPoints(g: SlateGame, pick: Draft, graded: Graded | undefined, settings: Settings): number | null {
+  if (graded && (graded.result === "win" || graded.result === "loss")) return graded.points;
+  const final = g.status === "final" || g.overridden;
+  if (!final || g.voided || g.homeScore === null || g.awayScore === null || !pick.side) return null;
+  const margin = g.homeScore - g.awayScore;
+  if (margin === 0) return null;
+  const value = pick.confidence ?? 0;
+  return (margin > 0) === (pick.side === "home") ? value : settings.minusPoints ? -value : 0;
 }
 
 function teamName(team: SlateGame["home"]) {
