@@ -72,17 +72,25 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   }
 
   // ---------- By Team: every visible pick, grouped by the team taken ----------
-  type TeamRow = { team: SlateGame["home"]; picks: number; wins: number; losses: number; pushes: number; points: number };
+  // Picks and the record count decided picks only, so they always agree; picks on games not
+  // yet played (or not yet graded) show as "pending" beside the team, and voids don't count.
+  type TeamRow = { team: SlateGame["home"]; picks: number; pending: number; wins: number; losses: number; pushes: number; points: number };
   const byTeam = new Map<string, TeamRow>();
   for (const w of weeks) {
     for (const { p, g } of weekPicks(w)) {
       if (g.voided) continue;
       const team = p.picked_side === "home" ? g.home : g.away;
-      const row = byTeam.get(team.id) ?? { team, picks: 0, wins: 0, losses: 0, pushes: 0, points: 0 };
-      row.picks++;
+      if (p.result === "void") continue;
+      const row = byTeam.get(team.id) ?? { team, picks: 0, pending: 0, wins: 0, losses: 0, pushes: 0, points: 0 };
       if (p.result === "win") row.wins++;
       else if (p.result === "loss") row.losses++;
       else if (p.result === "push") row.pushes++;
+      else {
+        row.pending++;
+        byTeam.set(team.id, row);
+        continue;
+      }
+      row.picks++;
       row.points += Number(p.points ?? 0);
       byTeam.set(team.id, row);
     }
@@ -92,6 +100,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
     (a, b) =>
       (flat ? b.wins - a.wins : b.points - a.points) ||
       b.picks - a.picks ||
+      b.pending - a.pending ||
       (a.team.short_name ?? a.team.name).localeCompare(b.team.short_name ?? b.team.name),
   );
 
@@ -184,7 +193,10 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
             <td className="py-1.5">
               <span className="flex items-center gap-1.5 sm:gap-2">
                 <TeamLogo src={r.team.logo_url} abbr={r.team.abbreviation} className="size-4 shrink-0 sm:size-5" />
-                <span className="font-semibold leading-tight text-ink">{r.team.short_name ?? r.team.name}</span>
+                <span className="font-semibold leading-tight text-ink">
+                  {r.team.short_name ?? r.team.name}
+                  {r.pending > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{r.pending} pending</span>}
+                </span>
               </span>
             </td>
             <td className="w-px py-1.5 pl-2 text-right sm:pl-3">{r.picks}</td>
