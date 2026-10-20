@@ -7,22 +7,24 @@ import { createContext, useContext, useState, type ReactNode } from "react";
  * Tournaments tabs; desktop shows them all side by side. The columns are rendered once and the tabs only toggle which one
  * is visible, so switching is instant.
  */
-type Tab = "season" | "segment" | "weekly" | "tournaments";
-const TabContext = createContext<{ tab: Tab; setTab: (t: Tab) => void; hasSegments: boolean; hasTournaments: boolean } | null>(null);
+type Tab = "season" | "segment" | "weekly" | "tournaments" | "bracket";
+const TabContext = createContext<{ tab: Tab; setTab: (t: Tab) => void; hasSegments: boolean; hasTournaments: boolean; hasBracket: boolean } | null>(null);
 
 export function StandingsTabs({
   initial,
   hasSegments,
   hasTournaments = false,
+  hasBracket = false,
   children,
 }: {
   initial: Tab;
   hasSegments: boolean;
   hasTournaments?: boolean;
+  hasBracket?: boolean;
   children: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>(initial);
-  return <TabContext.Provider value={{ tab, setTab, hasSegments, hasTournaments }}>{children}</TabContext.Provider>;
+  return <TabContext.Provider value={{ tab, setTab, hasSegments, hasTournaments, hasBracket }}>{children}</TabContext.Provider>;
 }
 
 /** A column: always shown on desktop, only when its tab is active on phones. */
@@ -45,6 +47,7 @@ export function MobileTabs() {
     ["weekly", "Weekly"],
     ...(ctx.hasSegments ? [["segment", "Bonus Segments"] as [Tab, string]] : []),
     ...(ctx.hasTournaments ? [["tournaments", "Tournaments"] as [Tab, string]] : []),
+    ...(ctx.hasBracket ? [["bracket", "Bracket"] as [Tab, string]] : []),
   ];
   return (
     <div className="mb-3 mt-1 inline-flex rounded-full bg-surface p-0.5 lg:hidden" role="tablist">

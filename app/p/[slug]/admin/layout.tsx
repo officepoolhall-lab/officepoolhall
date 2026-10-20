@@ -15,7 +15,9 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/p/
           ["slate", "Slate"],
           ["results", "Results"],
           // Basketball's in-season tournament champion picks.
-          ...(ctx.pool.sport === "ncaab" ? [["tournaments", "Tournaments"] as [string, string]] : []),
+          ...(ctx.pool.sport === "ncaab"
+            ? [["tournaments", "Tournaments"] as [string, string], ["bracket", "Bracket"] as [string, string]]
+            : []),
           ["settings", "Settings"],
         ]}
       />

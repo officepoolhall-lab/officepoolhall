@@ -7,6 +7,9 @@ import { LiveTicker } from "@/components/LiveTicker";
 import { NewsList } from "@/components/NewsList";
 import { StandingsTable } from "@/components/StandingsTable";
 import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
+import { BracketCard } from "@/components/BracketCard";
+import { pickCount } from "@/lib/bracket";
+import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { ChevronIcon, Empty, SectionLabel, chipClass } from "@/components/ui";
 import { getApPoll } from "@/lib/apPoll";
 import { points, windowLabel } from "@/lib/format";
@@ -25,7 +28,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   // scores for both tables), the week's games, the entry's picks and score, and how many
   // picks it has for next week if that's open early. News and rankings come from other
   // sites, so they stream in below (Suspense) rather than hold up the page.
-  const [book, games, { data: mine }, { data: score }, upcomingPicked] = await Promise.all([
+  const [book, games, { data: mine }, { data: score }, upcomingPicked, bracket] = await Promise.all([
     getStandingsBook(ctx),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
     slate
@@ -39,7 +42,10 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
           .from("picks").select("id", { count: "exact", head: true }).eq("slate_id", upcoming.id).eq("user_id", ctx.entryUserId)
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
+    getBracket(ctx),
   ]);
+  // The NCAA Tournament bracket, from when it's set until it has a champion.
+  const bracketEntry = bracket && !bracket.results["6-0"] ? (await getBracketEntries(ctx, bracket.id, ctx.entryUserId))[0] : undefined;
   const season = book.season();
   const weekly = slate ? book.week(slate.id) : null;
   const flat = !ctx.settings.confidence;
@@ -126,6 +132,18 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   picked={upcomingPicked}
                   picksPerSlate={ctx.settings.picks_per_slate}
                   timezone={tz}
+                  className="mt-3"
+                />
+              )}
+              {bracket && !bracket.results["6-0"] && (
+                <BracketCard
+                  href={`/p/${slug}/bracket`}
+                  name={bracket.name}
+                  lockAt={bracket.lockAt}
+                  picked={bracketEntry ? pickCount(bracketEntry.picks) : 0}
+                  points={Object.keys(bracket.results).length ? (bracketEntry?.points ?? 0) : null}
+                  locked={new Date(bracket.lockAt).getTime() <= now}
+                  timezone={ctx.displayTz}
                   className="mt-3"
                 />
               )}

@@ -10,6 +10,8 @@ import { LOCKED_AFTER_OPEN, parsePoolSettings, settingsError } from "@/lib/poolS
 import { slateWindow } from "@/lib/slateWindow";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { applyHalfPoint, parseSpread } from "@/lib/spread";
+import { prunePicks } from "@/lib/bracket";
+import { getBracket } from "@/lib/brackets";
 
 // Every action re-checks that the caller is this pool's commissioner; the database
 // checks again (RLS / security definer functions).
@@ -398,4 +400,80 @@ export async function saveTournamentResults(slug: string, id: string, _: ActionS
   const { error } = await ctx.supabase.rpc("set_tournament_results", { p_id: id, p_placements: placements });
   if (error) return { error: error.message };
   return done(slug, Object.values(placements).includes("champion") ? "Results saved; picks scored." : "Saved. Picks score once a champion is set.");
+}
+
+// ---------- NCAA Tournament bracket ----------
+
+/**
+ * Create (no id) or edit the bracket: name, week, lock time (pool time zone), four region names
+ * (Final Four order) and 64 teams typed by name as team_<slot>. Names match the pool's teams by
+ * full name, short name or abbreviation (ignoring case).
+ */
+export async function saveBracket(slug: string, id: string | null, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const name = String(form.get("name") ?? "").trim() || "NCAA Tournament";
+  const week = Number(form.get("week"));
+  const lockLocal = String(form.get("lock_at") ?? "");
+  const regions = [0, 1, 2, 3].map((i) => String(form.get(`region_${i}`) ?? "").trim());
+  if (!Number.isInteger(week) || week < 1) return { error: "Pick the week it belongs to." };
+  const lockAt = lockLocal ? fromZonedTime(lockLocal, ctx.settings.timezone) : null;
+  if (!lockAt || Number.isNaN(lockAt.getTime())) return { error: "Set when brackets lock (the first-round tip)." };
+  if (regions.some((r) => !r)) return { error: "Name all four regions." };
+
+  const { data: teams } = await ctx.supabase.from("teams").select("id, name, short_name, abbreviation").eq("sport", ctx.pool.sport);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9&]+/g, " ").trim();
+  const byName = new Map<string, string[]>();
+  for (const t of teams ?? []) {
+    for (const n of [t.name, t.short_name, t.abbreviation]) {
+      if (!n) continue;
+      const k = norm(n);
+      byName.set(k, [...new Set([...(byName.get(k) ?? []), t.id])]);
+    }
+  }
+  const ids: string[] = [];
+  const unknown: string[] = [];
+  const ambiguous: string[] = [];
+  for (let slot = 0; slot < 64; slot++) {
+    const typed = String(form.get(`team_${slot}`) ?? "").trim();
+    if (!typed) return { error: `Fill in all 64 teams (${regions[Math.floor(slot / 16)] || `region ${Math.floor(slot / 16) + 1}`} is missing one).` };
+    const match = byName.get(norm(typed)) ?? [];
+    if (match.length === 1) ids.push(match[0]);
+    else (match.length ? ambiguous : unknown).push(typed);
+  }
+  if (unknown.length) return { error: `Not a team we know: ${unknown.slice(0, 6).join(", ")}${unknown.length > 6 ? "…" : ""}. Pick names from the list.` };
+  if (ambiguous.length) return { error: `More than one team matches: ${ambiguous.slice(0, 6).join(", ")}. Use the full name.` };
+
+  const { error } = await ctx.supabase.rpc("save_bracket", {
+    p_pool_id: ctx.pool.id,
+    p_id: id,
+    p_name: name,
+    p_week: week,
+    p_lock_at: lockAt.toISOString(),
+    p_regions: regions,
+    p_team_ids: ids,
+  });
+  if (error) return { error: error.message };
+  return done(slug, id ? "Bracket saved." : "Bracket created. Players can fill theirs out now.");
+}
+
+export async function deleteBracket(slug: string, id: string): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const { error } = await ctx.supabase.rpc("delete_bracket", { p_id: id });
+  if (error) return { error: error.message };
+  return done(slug, "Bracket deleted.");
+}
+
+/** Winners so far: one select per game (result_<round>-<game>), blank for not played. */
+export async function saveBracketResults(slug: string, id: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const results: Record<string, string> = {};
+  for (const [key, value] of form.entries()) {
+    if (key.startsWith("result_") && value) results[key.slice(7)] = String(value);
+  }
+  // Changing an earlier winner drops later winners that no longer fit, rather than failing.
+  const bracket = await getBracket(ctx);
+  const clean = bracket && bracket.id === id ? prunePicks(results, bracket.field.map((t) => t?.id ?? null)) : results;
+  const { error } = await ctx.supabase.rpc("set_bracket_results", { p_id: id, p_results: clean });
+  if (error) return { error: error.message };
+  return done(slug, "Results saved; every bracket re-scored.");
 }
