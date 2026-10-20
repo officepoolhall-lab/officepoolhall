@@ -90,6 +90,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
   async function DraftEditor({ slug, slateId }: { slug: string; slateId: string }) {
     const s = slate!;
     const firstDay = WEEKDAYS[ctx.settings.window.start_weekday];
+    const firstDayGroup = Boolean(ctx.settings.lock.weekly?.first_day_time) || s.first_day_lock_at !== null;
     const onSlate = await getSlateGames(ctx, slateId);
     const onSlateIds = new Set(onSlate.map((g) => g.id));
 
@@ -152,19 +153,28 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         {ctx.settings.lock.mode === "weekly" && (
           <Panel className="mb-8 p-4">
             <h2 className="mb-1 text-[15px] font-semibold">Deadlines</h2>
-            {/* TODO(brooks): all first-day games lock together at the first tip that day (RULES.md Q4). */}
-            <p className="mb-3 text-sm text-muted">
-              {firstDay} games lock together at the earlier of this time and the first {firstDay} tip. Any game that tips
-              earlier locks at tip-off.
-            </p>
+            {firstDayGroup ? (
+              // TODO(brooks): all first-day games lock together at the first tip that day (RULES.md Q4).
+              <p className="mb-3 text-sm text-muted">
+                {firstDay} games lock together at the earlier of this time and the first {firstDay} tip. Any game that tips
+                earlier locks at tip-off.
+              </p>
+            ) : (
+              <p className="mb-3 text-sm text-muted">
+                The whole week locks at this deadline. A game that tips before it locks at its own tip-off.
+              </p>
+            )}
             <ActionForm action={saveDeadlines.bind(null, slug, slateId)} className="grid gap-3 sm:grid-cols-2">
-              <Field label={`${firstDay} games`} hint="Blank = everything locks at one deadline.">
-                <input
-                  type="datetime-local" name="first_day_lock_at" className={`${panelInput} tabular-nums`}
-                  defaultValue={s.first_day_lock_at ? formatInTimeZone(s.first_day_lock_at, tz, LOCAL_INPUT) : ""}
-                />
-              </Field>
-              <Field label="Everything else" hint={`${tz.replace("America/", "").replace("_", " ")} time`}>
+              {/* Only pools with a first-day deadline in their rules (or a slate that already has one, so it can be cleared). */}
+              {firstDayGroup && (
+                <Field label={`${firstDay} games`} hint="Blank = everything locks at one deadline.">
+                  <input
+                    type="datetime-local" name="first_day_lock_at" className={`${panelInput} tabular-nums`}
+                    defaultValue={s.first_day_lock_at ? formatInTimeZone(s.first_day_lock_at, tz, LOCAL_INPUT) : ""}
+                  />
+                </Field>
+              )}
+              <Field label={firstDayGroup ? "Everything else" : "Week locks"} hint={`${tz.replace("America/", "").replace("_", " ")} time`}>
                 <input
                   type="datetime-local" name="lock_at" required className={`${panelInput} tabular-nums`}
                   defaultValue={s.lock_at ? formatInTimeZone(s.lock_at, tz, LOCAL_INPUT) : ""}
