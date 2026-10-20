@@ -196,7 +196,9 @@ export function PickBoard({
   const tapTeam = (g: SlateGame, side: Side) => {
     if (!canEdit(g)) return;
     const cur = picks[g.id] ?? { side: null, confidence: null };
-    if (cur.side === side) return update(g.id, { ...cur, side: null });
+    // Unselecting a team clears the whole pick, its points included, so the value goes back
+    // to the pool. (Switching to the other team keeps the points.)
+    if (cur.side === side) return update(g.id, { side: null, confidence: null });
     if (!settings.tiers && !cur.side && pickedCount >= settings.picksPerSlate) {
       setNotice(`You've used all ${settings.picksPerSlate} picks. Tap one of them to clear it, then pick this game.`);
       return;
