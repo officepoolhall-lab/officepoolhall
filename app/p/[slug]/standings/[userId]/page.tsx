@@ -246,7 +246,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
       {tournamentPicks.length > 0 && (
         <section className="mb-5 lg:max-w-3xl" aria-label="Tournament champion picks">
           <h2 className="mb-1 text-[15px] font-semibold">
-            Tournament Champions
+            Tournaments
             <span className="ml-2 text-sm font-normal text-muted tabular-nums">
               {points(tournamentPicks.reduce((sum, p) => sum + (p.points ?? 0), 0))} pts
             </span>
