@@ -329,9 +329,15 @@ export function PickBoard({
       </p>
 
       {days.map((day) => (
-        <section key={day.key} className="mb-2">
-          {/* The game date: bold ink, a step up from the small section labels. */}
-          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 bg-bg/90 px-4 py-2 text-base font-bold text-ink backdrop-blur lg:mx-0 lg:px-0 lg:py-1 lg:text-sm">{day.label}</h3>
+        <section key={day.key} className="mb-5 lg:mb-4">
+          {/* Each day opens with a shaded band (accent bar, the date, how many games) that stays
+              pinned while its games scroll, so it's always clear which day a game is on. */}
+          <h3 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
+            <span>{day.label}</span>
+            <span className="ml-auto text-xs font-medium text-muted tabular-nums">
+              {day.games.length} game{day.games.length === 1 ? "" : "s"}
+            </span>
+          </h3>
           {/* Desktop: compact cards, two a line, three from 1280px, four from 1600px, five from 2000px. */}
           <ul className="lg:grid lg:grid-cols-2 lg:gap-x-5 xl:grid-cols-3 min-[1600px]:grid-cols-4 min-[2000px]:grid-cols-5">
             {day.games.map((g) => (
