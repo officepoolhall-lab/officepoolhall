@@ -525,7 +525,8 @@ function GameRow({
   }
 
   const pickHeader = settings.pickType === "ats" ? "Spread" : confidence ? "Pick" : "Winner";
-  const conf = conferenceLabel(g.away.conference, g.home.conference);
+  // Basketball (confidence) keeps the line short: "SEC" or "NC" for nonconference.
+  const conf = confidence ? shortConferenceLabel(g.away.conference, g.home.conference) : conferenceLabel(g.away.conference, g.home.conference);
   // Neutral site: the away team is listed first and the city stands in for "Home".
   const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
 
@@ -567,9 +568,14 @@ function GameRow({
           : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem]"
       } ${g.voided ? "opacity-50" : ""}`}
     >
-      {/* Status line + column headers */}
-      {/* Desktop drops the Pick/Pts headers, so the status line takes the full width. */}
-      <div className="col-span-2 flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted lg:col-span-full lg:text-[11px]">
+      {/* Status line + column headers. Desktop drops the Pick/Pts headers, and so does basketball
+          on phones: the line (tip time · TV · conference or NC · neutral-site city) takes the full
+          width and wraps rather than cutting anything off. */}
+      <div
+        className={`flex min-w-0 items-center gap-x-1.5 gap-y-0.5 text-xs font-semibold text-muted lg:col-span-full lg:text-[11px] ${
+          confidence ? "col-span-full flex-wrap" : "col-span-2"
+        }`}
+      >
         {g.voided ? (
           <span className="text-loss">Void</span>
         ) : final ? (
@@ -583,7 +589,7 @@ function GameRow({
         )}
         {/* Where to watch stays visible through the whole game; then conference or venue. */}
         {g.tv && <span className="shrink-0 font-normal">· {g.tv}</span>}
-        {meta && <span className="truncate font-normal">· {meta}</span>}
+        {meta && <span className={`font-normal ${confidence ? "" : "truncate"}`}>· {meta}</span>}
         {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
         {edited && (
           <span title="Changed by the commissioner" className="shrink-0 rounded-full bg-surface px-1.5 py-px text-[11px] font-medium text-muted">
@@ -591,8 +597,7 @@ function GameRow({
           </span>
         )}
       </div>
-      <span className="self-end text-center text-xs text-muted lg:hidden">{pickHeader}</span>
-      {confidence && <span className="self-end text-center text-xs text-muted lg:hidden">Pts</span>}
+      {!confidence && <span className="self-end text-center text-xs text-muted lg:hidden">{pickHeader}</span>}
 
       {/* Team rows: the whole row (name, score and pick cell) is one button per side */}
       {(["away", "home"] as const).map((side, i) => {
@@ -733,6 +738,12 @@ function teamName(team: SlateGame["home"]) {
 function conferenceLabel(away: string | null, home: string | null) {
   if (!away || !home) return null;
   return away === home ? `${away} game` : "Nonconference";
+}
+
+/** "SEC" for an in-conference matchup, "NC" (nonconference) across conferences. */
+function shortConferenceLabel(away: string | null, home: string | null) {
+  if (!away || !home) return null;
+  return away === home ? away : "NC";
 }
 
 function toDrafts(picks: PickInput[]): Record<string, Draft> {
