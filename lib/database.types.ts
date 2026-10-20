@@ -383,6 +383,78 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"tournaments": {
+                  Row: {
+                    "created_at": string,"id": string,"lock_at": string,"name": string,"pool_id": string,"scoring": string,"week": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"lock_at": string,"name": string,"pool_id": string,"scoring"?: string,"week": number
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"lock_at"?: string,"name"?: string,"pool_id"?: string,"scoring"?: string,"week"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tournaments_pool_id_fkey"
+      columns: ["pool_id"]
+isOneToOne: false
+      referencedRelation: "pools"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"tournament_teams": {
+                  Row: {
+                    "placement": string | null,"team_id": string,"tournament_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "placement"?: string | null,"team_id": string,"tournament_id": string
+                  }
+                  Update: {
+                    "placement"?: string | null,"team_id"?: string,"tournament_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tournament_teams_team_id_fkey"
+      columns: ["team_id"]
+isOneToOne: false
+      referencedRelation: "teams"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tournament_teams_tournament_id_fkey"
+      columns: ["tournament_id"]
+isOneToOne: false
+      referencedRelation: "tournaments"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"tournament_picks": {
+                  Row: {
+                    "points": number | null,"team_id": string,"tournament_id": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "points"?: number | null,"team_id": string,"tournament_id": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "points"?: number | null,"team_id"?: string,"tournament_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tournament_picks_tournament_id_fkey"
+      columns: ["tournament_id"]
+isOneToOne: false
+      referencedRelation: "tournaments"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tournament_picks_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"teams": {
                   Row: {
                     "abbreviation": string | null,"conference": string | null,"espn_id": string | null,"id": string,"logo_url": string | null,"name": string,"odds_api_name": string | null,"short_name": string | null,"sport": string
@@ -605,6 +677,18 @@ isOneToOne: false
                            },
 "void_game":
 { Args: { "p_game_id": string,"p_slate_id": string,"p_voided"?: boolean }; Returns: undefined
+                           },
+"save_tournament":
+{ Args: { "p_id": string | null,"p_lock_at": string,"p_name": string,"p_pool_id": string,"p_scoring": string,"p_team_ids": string[],"p_week": number }; Returns: string
+                           },
+"delete_tournament":
+{ Args: { "p_id": string }; Returns: undefined
+                           },
+"set_tournament_results":
+{ Args: { "p_id": string,"p_placements": Json }; Returns: undefined
+                           },
+"submit_tournament_pick":
+{ Args: { "p_team_id": string | null,"p_tournament_id": string,"p_user_id"?: string }; Returns: undefined
                            }
           }
           Enums: {
