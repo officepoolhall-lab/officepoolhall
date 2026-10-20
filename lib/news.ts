@@ -6,6 +6,8 @@ import { parseRss } from "./rss";
 // the rest still show. To add a site, add an entry to RSS_FEEDS.
 
 const REVALIDATE_SECONDS = 900;
+// A source that hasn't answered in 3 seconds is skipped this time (the rest still show).
+const FETCH_TIMEOUT_MS = 3000;
 const HEADERS = { Accept: "application/json, application/rss+xml, application/xml;q=0.9, */*;q=0.8", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" };
 
 export type NewsStory = {
@@ -58,6 +60,7 @@ async function espn(sport: Sport): Promise<NewsStory[]> {
   const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/news?limit=20`, {
     headers: HEADERS,
     next: { revalidate: REVALIDATE_SECONDS },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) return [];
   const body = (await res.json()) as { articles?: EspnArticle[] };
@@ -77,7 +80,7 @@ async function espn(sport: Sport): Promise<NewsStory[]> {
 }
 
 async function rss(feed: Feed): Promise<NewsStory[]> {
-  const res = await fetch(feed.url, { headers: HEADERS, next: { revalidate: REVALIDATE_SECONDS } });
+  const res = await fetch(feed.url, { headers: HEADERS, next: { revalidate: REVALIDATE_SECONDS }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) return [];
   return parseRss(await res.text())
     .filter((i) => !feed.only || feed.only.test(i.link))
