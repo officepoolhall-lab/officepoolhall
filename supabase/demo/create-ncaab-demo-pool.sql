@@ -4,14 +4,15 @@
 --
 -- What it makes (dates are relative to when you run it):
 --   * Pool "Hoops Sandbox (Demo)" at /p/hoops-demo, NCAAB Confidence preset:
---     35 straight-up picks a week, confidence 7 × {5,4,3,2,1}, wrong pick = minus its points,
+--     25 straight-up picks a week from a 33-game slate, confidence 5 × {5,4,3,2,1},
+--     wrong pick = minus its points,
 --     upset bonus, missed week = last place, all picks due Wednesday noon Central.
 --   * You (cross.brooks.a@gmail.com) as commissioner AND a player.
 --   * 11 fake players (…@example.com, no passwords; they can't sign in).
 --   * Week 1 = last week, every game final and graded.
 --   * Week 2 = this week, open. Games that have already tipped are final; the rest are upcoming.
 --     Most fake players have submitted; YOU haven't, so you can try the Picks screen.
---   * 45 more games next week, not on any slate, for practicing Admin → Slate.
+--   * 38 more games next week, not on any slate, for practicing Admin → Slate.
 -- To play out Week 2, enter scores in Admin → Results (standings recompute instantly).
 -- Remove everything later with delete-ncaab-demo-pool.sql.
 -- ============================================================================
@@ -80,7 +81,7 @@ begin
   ) as t(espn, name, short, abbr, conf)
   on conflict (sport, espn_id) do nothing;
 
-  -- ---------- Games: 40 last week, 40 this week, 45 next week ----------
+  -- ---------- Games: 33 last week, 33 this week, 38 next week ----------
   -- Spread Monday–Sunday, tips between 11am and 9pm Central. espn_id 'demo-…' marks them.
   create temp table demo_games on commit drop as
   with t as (
@@ -93,10 +94,10 @@ begin
     select w, i,
            -- day 0–6 weighted toward Tue/Wed/Sat; hour 11–21
            v_monday + (w - 2) * interval '7 days'
-             + ((array[0,0,0,1,1,1,1,1,1,2,2,2,2,2,2,2,3,3,3,3,4,4,4,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6])[1 + i]) * interval '1 day'
+             + ((array[0,0,0,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3,4,4,5,5,5,5,5,5,5,5,5,6,6,6,6,5,5,6,6,6])[1 + i]) * interval '1 day'
              + (11 + (i * 7) % 11) * interval '1 hour' + ((i % 2) * 30) * interval '1 minute' as start_at
-    from generate_series(1, 3) w, generate_series(0, 44) i
-    where w = 3 or i < 40
+    from generate_series(1, 3) w, generate_series(0, 37) i
+    where w = 3 or i < 33
   )
   select gen_random_uuid() as id, s.w, s.i, s.start_at,
          (select id from t where idx = (s.i * 7 + s.w) % 34) as home_id,
@@ -121,8 +122,8 @@ begin
   -- ---------- Pool ----------
   insert into pools (id, name, slug, sport, season, commissioner_id, entry_fee, settings)
   values (v_pool, 'Hoops Sandbox (Demo)', 'hoops-demo', 'ncaab', 2026, v_me, 100, '{
-    "pick_type": "straight_up", "picks_per_slate": 35, "picks_mode": "exact", "full_card": false,
-    "confidence": {"tiers": [{"points":5,"count":7},{"points":4,"count":7},{"points":3,"count":7},{"points":2,"count":7},{"points":1,"count":7}],
+    "pick_type": "straight_up", "picks_per_slate": 25, "picks_mode": "exact", "full_card": false,
+    "confidence": {"tiers": [{"points":5,"count":5},{"points":4,"count":5},{"points":3,"count":5},{"points":2,"count":5},{"points":1,"count":5}],
                    "wrong_pick": "minus_points"},
     "scoring": {"win": 1, "push": 0, "loss": 0},
     "upset_bonus": {"tiers": [{"min_share":0.8,"bonus":1},{"min_share":0.9,"bonus":2},{"min_share":0.95,"bonus":3}]},
@@ -151,7 +152,7 @@ begin
   perform refresh_slate_locks(v_w2);
 
   -- ---------- Picks ----------
-  -- Each player takes 35 of the 40 games, 7 at each confidence level, ~60% home teams.
+  -- Each player takes 25 of the 33 games, 5 at each confidence level, ~60% home teams.
   -- Week 1: everyone but Sam (missed week → last place). Week 2: eight fake players are in;
   -- Becca, Pete and Sam haven't submitted, and neither have you.
   create temp table demo_pickers on commit drop as
@@ -163,13 +164,13 @@ begin
   select case r.w when 1 then v_w1 else v_w2 end, r.game_id, r.user_id,
          case when ('x' || substr(md5(r.user_id::text || r.game_id::text || 'side'), 1, 4))::bit(16)::int % 100 < 60
               then 'home' else 'away' end,
-         5 - (r.rn - 1) / 7
+         5 - (r.rn - 1) / 5
   from (
     select p.w, p.id as user_id, g.id as game_id,
            row_number() over (partition by p.w, p.id order by md5(p.id::text || g.id::text)) as rn
     from demo_pickers p join demo_games g on g.w = p.w
   ) r
-  where r.rn <= 35;
+  where r.rn <= 25;
 
   -- One Week 1 upset so the bonus shows: on the first game, the whole pool but one player
   -- takes the home team, and the road team wins.

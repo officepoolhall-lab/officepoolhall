@@ -43,6 +43,8 @@ type Settings = {
   pickType: "straight_up" | "ats";
   picksPerSlate: number;
   picksMode: "exact" | "max";
+  /** Confidence pool: players pick some of the slate, so the editor suggests a slate size. */
+  confidence: boolean;
   /** settings.lines.force_half_point: whole-number lines move half a point (as at publish). */
   forceHalfPoint: boolean;
   timezone: string;
@@ -133,6 +135,9 @@ export function SlateEditor({
 
   const need = settings.picksPerSlate;
   const shortBy = settings.picksMode === "exact" ? Math.max(0, need - onSlate.length) : 0;
+  // Confidence pools offer 5–10 more games than players pick (25 picks → a slate of 30–35).
+  const aim = settings.confidence ? { min: need + 5, max: need + 10 } : null;
+  const offTarget = aim !== null && onSlate.length > 0 && (onSlate.length < aim.min || onSlate.length > aim.max);
   const tbdCount = onSlate.filter((g) => g.timeTbd).length;
   const missingLines = settings.pickType === "ats" ? onSlate.filter((g) => g.spread === null).length : 0;
 
@@ -151,7 +156,15 @@ export function SlateEditor({
         <div className="flex items-baseline gap-2 border-b border-line pb-2">
           <SectionLabel>On this slate</SectionLabel>
           <span className="text-xs text-muted tabular-nums">
-            <span className={`font-semibold ${shortBy ? "text-loss" : "text-ink"}`}>{onSlate.length}</span> / {need}+ needed
+            <span className={`font-semibold ${shortBy ? "text-loss" : "text-ink"}`}>{onSlate.length}</span>
+            {aim ? (
+              <>
+                {" "}games · players pick {need} ·{" "}
+                <span className={offTarget && !shortBy ? "font-semibold text-ink" : undefined}>aim for {aim.min}–{aim.max}</span>
+              </>
+            ) : (
+              <> / {need}+ needed</>
+            )}
           </span>
         </div>
         {onSlate.length === 0 ? (

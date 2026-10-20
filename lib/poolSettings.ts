@@ -150,16 +150,16 @@ const POOL_A_UPSET_TIERS = [
 
 export const PRESETS = {
   // Pool A — NCAAB Confidence Pool
-  // TODO(brooks): 35 or 25 picks? 35 = 7 per tier; switch picks_per_slate to 25 for 5 per tier.
+  // Brooks: 25 picks a week, five at each of 5/4/3/2/1, from a slate of 30–35 games.
   ncaab_confidence: {
     label: "NCAAB Confidence Pool",
     sport: "ncaab",
     settings: {
       pick_type: "straight_up",
-      picks_per_slate: 35,
+      picks_per_slate: 25,
       picks_mode: "exact",
       // Correct pick = +its points, incorrect = −its points.
-      confidence: { tiers: evenTiers(35), wrong_pick: "minus_points" },
+      confidence: { tiers: evenTiers(25), wrong_pick: "minus_points" },
       // Flat scoring is unused with confidence tiers but kept for the schema.
       scoring: { win: 1, push: 0, loss: 0 },
       upset_bonus: { tiers: POOL_A_UPSET_TIERS },
