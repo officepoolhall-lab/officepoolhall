@@ -49,7 +49,7 @@ export function PickSummaryRow({
 
   const rowClass = `flex items-center ${dense ? "min-h-9 gap-2 py-1" : "min-h-11 gap-2.5 py-2"} ${g.voided ? "opacity-50" : ""}`;
 
-  // Confidence pools (basketball): Logo · Team · @/vs Opponent · points · score.
+  // Confidence pools (basketball): Logo · Team · @/vs Opponent · (Live) score · points.
   // Points are the confidence value in blue until the game is decided, then what the pick won
   // (green) or lost (red). The score shows once the game starts, tagged Live while it's on.
   if (confidence != null) {
@@ -63,7 +63,10 @@ export function PickSummaryRow({
             {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
           </span>
         </span>
+        {/* Score (with Live while it's on) first, then the points on the far right. */}
         <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted">
+          {live && <LiveDot>Live</LiveDot>}
+          {score && !g.voided && <span className="font-semibold text-ink">{score}</span>}
           {g.voided ? (
             <span className="font-semibold text-loss">Void</span>
           ) : (
@@ -76,8 +79,6 @@ export function PickSummaryRow({
               {decided ? signedPoints(points) : confidence}
             </span>
           )}
-          {score && !g.voided && <span className="font-semibold text-ink">{score}</span>}
-          {live && <LiveDot>Live</LiveDot>}
         </span>
       </li>
     );
