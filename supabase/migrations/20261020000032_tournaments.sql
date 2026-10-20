@@ -51,8 +51,8 @@ create policy tournament_teams_read on tournament_teams for select using (
   exists (select 1 from tournaments t where t.id = tournament_id and is_pool_member(t.pool_id))
 );
 
--- Your own pick (and the entry you co-manage) always; everyone's once the tournament locks;
--- the commissioner's view, always.
+-- Your own pick (and the entry you co-manage) always; everyone's once the tournament locks.
+-- Like weekly picks, not even the commissioner sees other picks before then.
 drop policy if exists tournament_picks_read on tournament_picks;
 create policy tournament_picks_read on tournament_picks for select using (
   user_id = auth.uid()
@@ -61,7 +61,6 @@ create policy tournament_picks_read on tournament_picks for select using (
     where t.id = tournament_id
       and (
         (t.lock_at <= now() and is_pool_member(t.pool_id))
-        or is_commissioner(t.pool_id)
         or exists (select 1 from entry_managers em
                    where em.pool_id = t.pool_id and em.owner_id = tournament_picks.user_id and em.manager_id = auth.uid())
       )

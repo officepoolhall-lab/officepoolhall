@@ -3,15 +3,17 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { LazySplitTable } from "@/components/LazySplitTable";
 import { LiveTicker } from "@/components/LiveTicker";
 import { OptionSwitcher, type SwitchOption } from "@/components/OptionSwitcher";
-import { SeasonHeaderRow, SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
+import { FROZEN_HEAD, SeasonHeaderRow, SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
+import { TournamentHeaderRow, TournamentStandings, type TournamentRow } from "@/components/TournamentStandings";
 import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs";
-import { Empty, PageTitle } from "@/components/ui";
+import { Empty, PageTitle, SectionLabel } from "@/components/ui";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { SPLITS, type Split } from "@/lib/splits";
 import { getStandingsBook } from "@/lib/standings";
+import { getTournamentPicks, getTournaments } from "@/lib/tournaments";
 
 export const metadata: Metadata = { title: "Standings" };
 
@@ -62,6 +64,28 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       : [],
   ]);
   const seasonRows = book.season();
+
+  // ---------- Tournament champion picks: their own bonus line ----------
+  const tournaments = await getTournaments(ctx);
+  const tPicks = await getTournamentPicks(ctx, tournaments.map((t) => t.id));
+  const tournamentRows: TournamentRow[] = seasonRows.map((r) => {
+    const mine = tPicks.filter((p) => p.user_id === r.userId);
+    return {
+      userId: r.userId,
+      name: r.name,
+      points: mine.reduce((sum, p) => sum + (p.points ?? 0), 0),
+      picks: new Map(mine.map((p) => [p.tournament_id, { teamId: p.team_id, points: p.points }])),
+    };
+  });
+  // eslint-disable-next-line react-hooks/purity -- which tournaments have locked, at render time
+  const renderedAt = Date.now();
+  const tournamentColumns = tournaments.map((t) => ({
+    id: t.id,
+    name: t.name,
+    locked: new Date(t.lockAt).getTime() <= renderedAt,
+    teams: new Map(t.teams.map((x) => [x.id, x])),
+  }));
+  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (tournaments.length > 0 ? 1 : 0);
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or open
   const now = Date.now();
@@ -161,8 +185,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       {!slates.length ? (
         <Empty>Standings appear once the first week is published.</Empty>
       ) : (
-        <StandingsTabs initial={startTab} hasSegments={segments.length > 0}>
-          <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-8">
+        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={tournaments.length > 0}>
+          <div className={`lg:grid lg:items-start lg:gap-8 ${columnCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <TabPanel id="season" label="Season standings">
               <OptionSwitcher
                 options={splitOptions}
@@ -206,6 +230,16 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                   lead={<MobileTabs />}
                   ariaLabel="Choose a bonus segment"
                 />
+              </TabPanel>
+            )}
+            {tournaments.length > 0 && (
+              <TabPanel id="tournaments" label="Tournament standings">
+                <div className={FROZEN_HEAD}>
+                  <MobileTabs />
+                  <SectionLabel className="flex min-h-9 items-center">Tournament Champions</SectionLabel>
+                  <TournamentHeaderRow tournaments={tournaments} />
+                </div>
+                <TournamentStandings rows={tournamentRows} tournaments={tournamentColumns} me={me} playerHref={playerHref} />
               </TabPanel>
             )}
           </div>

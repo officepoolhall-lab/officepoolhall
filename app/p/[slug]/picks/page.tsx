@@ -7,6 +7,8 @@ import { hasStarted } from "@/lib/locks";
 import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
+import { TournamentPicks } from "@/components/TournamentPicks";
+import { SCORING_LABEL, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 import { getTeamRecords } from "@/lib/teamRecords";
 import { PickBoard } from "./PickBoard";
 
@@ -80,6 +82,23 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
       : 0,
   ]);
 
+  // This week's tournament champion picks (basketball), with this entry's pick on each.
+  const weekTournaments = (await getTournaments(ctx)).filter((t) => t.week === slate.week);
+  const tournamentPicks = await getTournamentPicks(ctx, weekTournaments.map((t) => t.id), userId);
+  const tournamentCards = weekTournaments.map((t) => {
+    const p = tournamentPicks.find((x) => x.tournament_id === t.id);
+    const team = p ? t.teams.find((x) => x.id === p.team_id) : undefined;
+    return {
+      id: t.id,
+      name: t.name,
+      lockAt: t.lockAt,
+      scoringLabel: SCORING_LABEL[t.scoring],
+      teams: t.teams,
+      decided: t.decided,
+      pick: p ? { teamId: p.team_id, points: p.points, place: team ? placeLabel(t.scoring, team.placement) : null } : null,
+    };
+  });
+
   // Teams' current records (ESPN), shown next to each team name.
   const records = await getTeamRecords(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf", games.map((g) => g.startAt));
 
@@ -152,6 +171,17 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         historyHref={`/p/${slug}/standings/${userId}`}
         // A co-manager saves the owner's entry, with the player's own rules (not the commissioner's).
         saveAs={ctx.managing ? ctx.entryUserId : undefined}
+        top={
+          tournamentCards.length > 0 ? (
+            <TournamentPicks
+              slug={slug}
+              cards={tournamentCards}
+              timezone={ctx.displayTz}
+              forUserId={forUserId ?? (ctx.managing ? ctx.entryUserId : undefined)}
+              canEditLocked={Boolean(forUserId)}
+            />
+          ) : undefined
+        }
       />
     </div>
   );
