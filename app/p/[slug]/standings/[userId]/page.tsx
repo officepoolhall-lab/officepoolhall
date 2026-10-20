@@ -53,6 +53,8 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
 
   // Every week in order, Week 1 first (history.weeks is oldest first).
   const weeks = history.weeks;
+  // Football pools list every week's picks at once; basketball weeks (25 picks each) fold up.
+  const allOpen = ctx.pool.sport === "ncaaf";
   // The newest week with something to show starts open; the rest open on a tap.
   const openWeek = [...weeks].reverse().find((w) => w.wins + w.losses + w.pushes > 0 || weekPicks(w).length > 0)?.slateId;
 
@@ -94,50 +96,67 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
     <div className="divide-y divide-line border-y border-line">
       {weeks.map((w) => {
         const list = weekPicks(w);
+        const summary = (
+          <>
+            <span className="text-[15px] font-bold text-ink">{w.label}</span>
+            {w.status !== "graded" && <span className="text-xs font-medium text-accent">In progress</span>}
+            <span className="hidden text-xs text-muted sm:inline">{w.rank ? `${ordinal(w.rank)} of ${w.of}` : ""}</span>
+            <span className="ml-auto whitespace-nowrap text-sm tabular-nums">
+              <span className="font-semibold text-ink">{recordText(w)}</span>
+              <span className="text-muted"> · {winPct(w.wins, w.losses)}</span>
+              {!flat && <span className="text-muted"> · {points(w.points)} pts</span>}
+            </span>
+          </>
+        );
+        const body = (
+          <div className={allOpen ? "pb-3" : "pb-3 pl-6"}>
+            <div className="mb-1 flex items-baseline justify-between text-xs text-muted">
+              <span>{w.rank ? <>{ordinal(w.rank)} of {w.of} that week</> : "Not scored yet"}</span>
+              {/* Everyone's picks that week. */}
+              <Link href={`/p/${slug}/grid/${w.week}`} className="font-medium text-accent hover:underline">League Grid</Link>
+            </div>
+            {list.length ? (
+              <ul className="divide-y divide-line border-t border-line">
+                {list.map(({ p, g }) => (
+                  <PickSummaryRow
+                    key={p.game_id}
+                    game={g}
+                    side={p.picked_side === "home" ? "home" : "away"}
+                    confidence={p.confidence}
+                    result={p.result}
+                    // Confidence pools: what each decided pick won or lost.
+                    points={!flat && (p.result === "win" || p.result === "loss") ? Number(p.points ?? 0) : null}
+                    locked={w.status !== "open" || isGameLocked(g, now)}
+                    now={now}
+                    pickType={pickType}
+                    timezone={ctx.displayTz}
+                    dense
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="border-t border-line py-3 text-sm text-muted">
+                {w.missed ? "No picks this week." : !me && w.status === "open" ? "Picks show once their games kick off." : "No picks to show."}
+              </p>
+            )}
+            </div>
+        );
+        // Football: every week open at once, nothing to tap. Basketball: weeks open on a tap.
+        if (allOpen) {
+          return (
+            <section key={w.slateId} aria-label={w.label}>
+              <div className="flex min-h-11 items-center gap-2 py-2">{summary}</div>
+              {body}
+            </section>
+          );
+        }
         return (
           <details key={w.slateId} open={w.slateId === openWeek} className="group">
             <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 py-2 [&::-webkit-details-marker]:hidden">
               <ChevronIcon className="size-4 shrink-0 text-muted transition group-open:rotate-90" />
-              <span className="text-[15px] font-bold text-ink">{w.label}</span>
-              {w.status !== "graded" && <span className="text-xs font-medium text-accent">In progress</span>}
-              <span className="hidden text-xs text-muted sm:inline">{w.rank ? `${ordinal(w.rank)} of ${w.of}` : ""}</span>
-              <span className="ml-auto whitespace-nowrap text-sm tabular-nums">
-                <span className="font-semibold text-ink">{recordText(w)}</span>
-                <span className="text-muted"> · {winPct(w.wins, w.losses)}</span>
-                {!flat && <span className="text-muted"> · {points(w.points)} pts</span>}
-              </span>
+              {summary}
             </summary>
-            <div className="pb-3 pl-6">
-              <div className="mb-1 flex items-baseline justify-between text-xs text-muted">
-                <span>{w.rank ? <>{ordinal(w.rank)} of {w.of} that week</> : "Not scored yet"}</span>
-                {/* Everyone's picks that week. */}
-                <Link href={`/p/${slug}/grid/${w.week}`} className="font-medium text-accent hover:underline">League Grid</Link>
-              </div>
-              {list.length ? (
-                <ul className="divide-y divide-line border-t border-line">
-                  {list.map(({ p, g }) => (
-                    <PickSummaryRow
-                      key={p.game_id}
-                      game={g}
-                      side={p.picked_side === "home" ? "home" : "away"}
-                      confidence={p.confidence}
-                      result={p.result}
-                      // Confidence pools: what each decided pick won or lost.
-                      points={!flat && (p.result === "win" || p.result === "loss") ? Number(p.points ?? 0) : null}
-                      locked={w.status !== "open" || isGameLocked(g, now)}
-                      now={now}
-                      pickType={pickType}
-                      timezone={ctx.displayTz}
-                      dense
-                    />
-                  ))}
-                </ul>
-              ) : (
-                <p className="border-t border-line py-3 text-sm text-muted">
-                  {w.missed ? "No picks this week." : !me && w.status === "open" ? "Picks show once their games kick off." : "No picks to show."}
-                </p>
-              )}
-            </div>
+            {body}
           </details>
         );
       })}
