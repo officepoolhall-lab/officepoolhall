@@ -8,7 +8,16 @@ const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-colle
 
 export type SummaryTeam = { id: string; abbreviation: string; name: string; logo: string | null; score: string | null; linescores: string[]; homeAway: "home" | "away" };
 export type Play = { id: string; text: string; clock: string | null; period: number | null; scoring: boolean; homeScore: number | null; awayScore: number | null; down: string | null; type: string | null; teamId: string | null };
-export type Drive = { id: string; teamId: string | null; description: string | null; result: string | null; plays: Play[] };
+export type Drive = {
+  id: string;
+  teamId: string | null;
+  description: string | null;
+  result: string | null;
+  plays: Play[];
+  /** The score when the drive ended (or now, for the drive under way). */
+  awayScore: number | null;
+  homeScore: number | null;
+};
 export type StatGroup = { name: string; labels: string[]; rows: { name: string; stats: string[] }[]; totals: string[] | null };
 export type TeamStat = { label: string; away: string; home: string };
 
@@ -79,13 +88,20 @@ export async function getGameSummary(sport: "ncaaf" | "ncaab", espnId: string, l
   const state = comp?.status?.type?.state;
 
   // Football drives: the current one first, then the rest newest first; plays newest first.
-  const drive = (d: any): Drive => ({
-    id: String(d?.id ?? Math.random()),
-    teamId: str(d?.team?.id),
-    description: str(d?.description),
-    result: str(d?.displayResult) ?? str(d?.result),
-    plays: [...(d?.plays ?? [])].map(play).reverse(),
-  });
+  const drive = (d: any): Drive => {
+    const plays = [...(d?.plays ?? [])].map(play).reverse();
+    // The newest play that carries a score is where the drive left the score.
+    const scored = plays.find((p) => p.awayScore !== null && p.homeScore !== null);
+    return {
+      id: String(d?.id ?? Math.random()),
+      teamId: str(d?.team?.id),
+      description: str(d?.description),
+      result: str(d?.displayResult) ?? str(d?.result),
+      plays,
+      awayScore: scored?.awayScore ?? null,
+      homeScore: scored?.homeScore ?? null,
+    };
+  };
   const previous: Drive[] = (data?.drives?.previous ?? []).map(drive);
   const current = data?.drives?.current ? drive(data.drives.current) : null;
   const drives = [...(current && !previous.some((d) => d.id === current.id) ? [current] : []), ...previous.reverse()];
