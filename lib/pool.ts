@@ -60,7 +60,7 @@ const GAME_SELECT = `
   game_id, sort_order, locked_home_spread, voided, override_home_score, override_away_score, lock_at,
   slate:slates!inner ( lock_at ),
   game:games!inner (
-    id, start_at, time_tbd, manual_time, status, home_score, away_score, neutral_site, venue, tv_network, home_rank, away_rank,
+    id, espn_id, start_at, time_tbd, manual_time, status, home_score, away_score, neutral_site, venue, tv_network, home_rank, away_rank,
     home:teams!games_home_team_id_fkey ( id, espn_id, name, short_name, abbreviation, logo_url, conference ),
     away:teams!games_away_team_id_fkey ( id, espn_id, name, short_name, abbreviation, logo_url, conference )
   )
@@ -96,6 +96,9 @@ export async function getSlateGames(ctx: PoolContext, slateId: string) {
         awayRank: sg.game.away_rank,
         spread: sg.locked_home_spread === null ? null : Number(sg.locked_home_spread),
         voided: sg.voided,
+        espnId: sg.game.espn_id,
+        /** Live games only: ESPN's game clock and period ("8:44 2nd Half"), filled by getLiveClocks. */
+        clock: null as string | null,
         home: sg.game.home,
         away: sg.game.away,
       };
