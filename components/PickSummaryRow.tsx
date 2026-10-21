@@ -65,7 +65,7 @@ export function PickSummaryRow({
         </span>
         {/* Score (with Live while it's on) first, then the points on the far right. */}
         <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted">
-          {live && <LiveDot>Live</LiveDot>}
+          {live && <LiveDot>{g.clock ?? "Live"}</LiveDot>}
           {score && !g.voided && <span className="font-semibold text-ink">{score}</span>}
           {g.voided ? (
             <span className="font-semibold text-loss">Void</span>
@@ -110,7 +110,7 @@ export function PickSummaryRow({
         ) : final ? (
           <span className="font-semibold">Final</span>
         ) : live ? (
-          <LiveDot>Live</LiveDot>
+          <LiveDot>{g.clock ?? "Live"}</LiveDot>
         ) : (
           <span>{shortGameTime(g.startAt, timezone, g.timeTbd)}</span>
         )}

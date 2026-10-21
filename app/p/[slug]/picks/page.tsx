@@ -13,6 +13,7 @@ import { pickCount } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { SCORING_LABEL, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 import { getTeamRecords } from "@/lib/teamRecords";
+import { withLiveClocks } from "@/lib/liveClock";
 import { PickBoard } from "./PickBoard";
 
 export const metadata: Metadata = { title: "My Picks" };
@@ -68,7 +69,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const userId = forUserId ?? ctx.entryUserId;
   // Next week already open while this one runs: a note, unless that's the week on screen.
   const showUpcoming = upcoming && upcoming.id !== slate.id ? upcoming : null;
-  const [{ data: picks }, forName, { data: score }, games, upcomingPicked] = await Promise.all([
+  const [{ data: picks }, forName, { data: score }, storedGames, upcomingPicked] = await Promise.all([
     forUserId
       ? ctx.supabase.rpc("member_picks", { p_slate_id: slate.id, p_user_id: forUserId })
       : ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId),
@@ -109,11 +110,15 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const showBracket = bracket && !bracket.results["6-0"] && (bracket.week === slate.week || !bracketLocked);
   const bracketEntry = showBracket ? (await getBracketEntries(ctx, bracket.id, userId))[0] : undefined;
 
-  // Teams' current records (ESPN), shown next to each team name.
-  const records = await getTeamRecords(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf", games.map((g) => g.startAt));
-
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
   const now = Date.now();
+  const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
+  // Teams' current records (ESPN), shown next to each team name; and for games in progress,
+  // the game clock and period with the latest score (ESPN), refreshed each minute while live.
+  const [records, games] = await Promise.all([
+    getTeamRecords(sport, storedGames.map((g) => g.startAt)),
+    withLiveClocks(sport, storedGames, now),
+  ]);
   const anyLive = games.some(
     (g) => !g.voided && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled",
   );

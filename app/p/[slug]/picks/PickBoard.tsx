@@ -581,7 +581,10 @@ function GameRow({
         ) : final ? (
           <span>Final</span>
         ) : live ? (
-          <LiveDot>Live</LiveDot>
+          <>
+            <LiveDot>Live</LiveDot>
+            {g.clock && <span className="shrink-0 tabular-nums text-ink">{g.clock}</span>}
+          </>
         ) : g.status === "postponed" || g.status === "cancelled" ? (
           <span>{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>
         ) : (

@@ -101,7 +101,8 @@ function Chip({ game: g, state, timezone }: { game: SlateGame; state: State; tim
       {team(g.away.abbreviation, g.awayRank, away, away > home)}
       <span className="text-faint">{g.neutral ? "vs" : "@"}</span>
       {team(g.home.abbreviation, g.homeRank, home, home > away)}
-      {/* Live: where to watch it. */}
+      {/* Live: the clock (when ESPN has it) and where to watch it. */}
+      {state === "live" && g.clock && <span className="tabular-nums text-ink">{g.clock}</span>}
       {state === "live" && g.tv && <span className="text-muted">{g.tv}</span>}
       {state === "upcoming" && <span className="tabular-nums text-muted">{when}</span>}
       {state === "off" && <span className="text-muted">{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>}
