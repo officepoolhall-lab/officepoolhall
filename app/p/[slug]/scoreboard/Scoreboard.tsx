@@ -16,6 +16,7 @@ import type { SlateGame } from "@/lib/pool";
  * with a Top 25 team (best rank first), or one conference's games. Pool games are marked.
  */
 export function Scoreboard({
+  day: selectedDay,
   slug,
   week,
   games,
@@ -25,6 +26,8 @@ export function Scoreboard({
   ats,
   inPool,
 }: {
+  /** The chosen day (yyyy-mm-dd); only its games show. */
+  day: string;
   slug: string;
   week: number;
   games: SlateGame[];
@@ -38,7 +41,8 @@ export function Scoreboard({
   inPool: string[];
 }) {
   const now = useTicking();
-  const all = useLiveGames(games, now, sport);
+  // Only the chosen day's games, never a spillover from the next day.
+  const all = useLiveGames(games, now, sport).filter((g) => dayKey(g.startAt, gameDateZone(g.timeTbd, timezone)) === selectedDay);
   const [view, setView] = useState<"all" | "pool" | "top25" | "conf">("all");
   const [conf, setConf] = useState("");
   const pool = new Set(inPool);
