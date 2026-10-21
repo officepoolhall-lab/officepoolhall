@@ -58,7 +58,7 @@ export function PickBoard({
   sport,
 }: {
   slug: string;
-  slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
+  slate: { id: string; week?: number; status: string; lockAt: string | null; firstDayLockAt: string | null };
   games: SlateGame[];
   initialPicks: PickInput[];
   graded?: Record<string, Graded>;
@@ -365,6 +365,7 @@ export function PickBoard({
                 onTeam={(side) => tapTeam(g, side)}
                 records={records}
                 onPoints={() => openSheet(g)}
+                gameHref={`/p/${slug}/game/${g.id}${slate.week ? `?week=${slate.week}` : ""}`}
               />
             ))}
           </ul>
@@ -490,6 +491,7 @@ function GameRow({
   onTeam,
   onPoints,
   records,
+  gameHref,
 }: {
   game: SlateGame;
   draft: Draft | undefined;
@@ -503,6 +505,8 @@ function GameRow({
   onTeam: (side: Side) => void;
   onPoints: () => void;
   records: Record<string, string>;
+  /** Play-by-play and box score, for a live or final game. */
+  gameHref: string;
 }) {
   // A TBD game's start is ESPN's placeholder; it stays pickable past it until its deadline.
   const started = hasStarted(g, now);
@@ -600,6 +604,12 @@ function GameRow({
         {g.tv && <span className="shrink-0 font-normal">· {g.tv}</span>}
         {meta && <span className={`font-normal ${confidence ? "" : "truncate"}`}>· {meta}</span>}
         {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
+        {/* Live or final: play-by-play and box score. */}
+        {(live || (final && !g.voided)) && (
+          <Link href={gameHref} className="ml-auto shrink-0 font-semibold text-accent hover:underline">
+            Box Score ›
+          </Link>
+        )}
         {edited && (
           <span title="Changed by the commissioner" className="shrink-0 rounded-full bg-surface px-1.5 py-px text-[11px] font-medium text-muted">
             Edited<span className="sr-only"> by the commissioner</span>

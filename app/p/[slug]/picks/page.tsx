@@ -156,7 +156,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         // A fresh board per week and player: its draft state belongs to one slate.
         key={`${slate.id}:${userId}`}
         slug={slug}
-        slate={{ id: slate.id, status: slate.status, lockAt: slate.lock_at, firstDayLockAt: slate.first_day_lock_at }}
+        slate={{ id: slate.id, week: slate.week, status: slate.status, lockAt: slate.lock_at, firstDayLockAt: slate.first_day_lock_at }}
         games={games}
         initialPicks={(picks ?? []).map((p) => ({ game_id: p.game_id, picked_side: p.picked_side as "home" | "away", confidence: p.confidence }))}
         // What grade_slate actually scored, which the board prefers over its own estimate.
