@@ -11,6 +11,7 @@ import type { SlateGame } from "@/lib/pool";
 import { savePicks, type PickInput } from "./actions";
 import { PointsSheet } from "./PointsSheet";
 import { PickSummaryRow } from "@/components/PickSummaryRow";
+import { FootballIcon } from "@/components/FootballIcon";
 
 type Side = "home" | "away";
 type Draft = { side: Side | null; confidence: number | null };
@@ -921,13 +922,3 @@ function useLiveGames(games: SlateGame[], now: number, sport: "ncaaf" | "ncaab" 
   });
 }
 
-/** A small football: the team with the ball in a live game. */
-function FootballIcon() {
-  return (
-    <svg viewBox="0 0 24 16" className="h-3 w-4.5 shrink-0" role="img" aria-label="Has the ball">
-      <ellipse cx="12" cy="8" rx="11" ry="7" fill="#8B4A1F" />
-      <path d="M8 8h8M10 6.5v3M12 6.5v3M14 6.5v3" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M3.2 4.2c.8 1.2.8 6.4 0 7.6M20.8 4.2c-.8 1.2-.8 6.4 0 7.6" stroke="#fff" strokeWidth="1" fill="none" opacity="0.7" />
-    </svg>
-  );
-}
