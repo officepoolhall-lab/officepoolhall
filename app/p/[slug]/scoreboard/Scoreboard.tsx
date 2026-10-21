@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FootballIcon } from "@/components/FootballIcon";
-import { LiveDot, TeamLogo } from "@/components/ui";
+import { LiveDot, TeamLogo, chipClass } from "@/components/ui";
 import { useLiveGames } from "@/components/useLiveGames";
 import { dayKey, dayLabel, formatSpread, timeOnly } from "@/lib/format";
 import { gameDateZone, hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
 /**
- * Every game on the week's slate as a scoreboard: live games update every 10 seconds (score,
- * clock and period, who has the ball, down and distance, last play), like My Picks, and live
- * or final games open the full play-by-play and box score.
+ * A day of Division I games as a scoreboard: live games update every 10 seconds (score, clock
+ * and period, who has the ball, down and distance, last play), like My Picks, and live or final
+ * games open the full play-by-play and box score. Show all, just games with a Top 25 team (best
+ * rank first), or one conference's games. Games on the pool's slate are marked.
  */
 export function Scoreboard({
   slug,
@@ -22,6 +23,7 @@ export function Scoreboard({
   sport,
   records,
   ats,
+  inPool,
 }: {
   slug: string;
   week: number;
@@ -32,9 +34,22 @@ export function Scoreboard({
   records: Record<string, string>;
   /** Against-the-spread pool: show each game's line. */
   ats: boolean;
+  /** ESPN ids of the games on the pool's slate. */
+  inPool: string[];
 }) {
   const now = useTicking();
-  const shown = useLiveGames(games, now, sport);
+  const all = useLiveGames(games, now, sport);
+  const [view, setView] = useState<"all" | "top25" | "conf">("all");
+  const [conf, setConf] = useState("");
+  const pool = new Set(inPool);
+  const conferences = [...new Set(all.flatMap((g) => [g.home.conference, g.away.conference]).filter((c): c is string => Boolean(c)))].sort();
+  const best = (g: SlateGame) => Math.min(g.homeRank ?? 99, g.awayRank ?? 99);
+  const shown =
+    view === "top25"
+      ? all.filter((g) => best(g) < 99).sort((a, b) => best(a) - best(b) || a.startAt.localeCompare(b.startAt))
+      : view === "conf" && conf
+        ? all.filter((g) => g.home.conference === conf || g.away.conference === conf)
+        : all;
 
   const days: { key: string; label: string; games: SlateGame[] }[] = [];
   for (const g of shown) {
@@ -45,10 +60,46 @@ export function Scoreboard({
     else days.push({ key, label: dayLabel(g.startAt, zone), games: [g] });
   }
 
-  if (!shown.length) return <p className="border-y border-line py-3 text-sm text-muted">No games on this week&apos;s slate yet.</p>;
+  const filters = (
+    <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Show">
+      <button type="button" onClick={() => setView("all")} aria-pressed={view === "all"} className={chipClass(view === "all", "", "sm")}>
+        All <span className="opacity-70 tabular-nums">{all.length}</span>
+      </button>
+      <button type="button" onClick={() => setView("top25")} aria-pressed={view === "top25"} className={chipClass(view === "top25", "", "sm")}>
+        Top 25
+      </button>
+      <select
+        value={view === "conf" ? conf : ""}
+        onChange={(e) => {
+          setConf(e.target.value);
+          setView(e.target.value ? "conf" : "all");
+        }}
+        aria-label="Conference"
+        className={`${chipClass(view === "conf", "", "sm")} appearance-none pr-6`}
+        style={{ backgroundImage: "linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)", backgroundPosition: "right 10px center, right 6px center", backgroundSize: "4px 4px", backgroundRepeat: "no-repeat" }}
+      >
+        <option value="">Conference</option>
+        {conferences.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
+    </div>
+  );
+
+  if (!shown.length) {
+    return (
+      <>
+        {filters}
+        <p className="border-y border-line py-3 text-sm text-muted">
+          {all.length ? (view === "top25" ? "No Top 25 teams play this day." : "No games for that conference this day.") : "No Division I games this day."}
+        </p>
+      </>
+    );
+  }
 
   return (
     <div>
+      {filters}
       {days.map((day) => (
         <section key={day.key} className="mb-5">
           <h2 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] z-10 -mx-4 mb-2 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:mx-0 lg:rounded-r-md lg:py-1.5 lg:text-sm">
@@ -60,7 +111,15 @@ export function Scoreboard({
           <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 min-[1700px]:grid-cols-4">
             {day.games.map((g) => (
               <li key={g.id}>
-                <GameCard g={g} now={now} timezone={timezone} records={records} ats={ats} href={`/p/${slug}/game/${g.id}?week=${week}&from=scoreboard`} />
+                <GameCard
+                  g={g}
+                  now={now}
+                  timezone={timezone}
+                  records={records}
+                  ats={ats}
+                  inPool={Boolean(g.espnId && pool.has(g.espnId))}
+                  href={`/p/${slug}/game/${g.espnId ?? g.id}?week=${week}&from=scoreboard`}
+                />
               </li>
             ))}
           </ul>
@@ -70,7 +129,23 @@ export function Scoreboard({
   );
 }
 
-function GameCard({ g, now, timezone, records, ats, href }: { g: SlateGame; now: number; timezone: string; records: Record<string, string>; ats: boolean; href: string }) {
+function GameCard({
+  g,
+  now,
+  timezone,
+  records,
+  ats,
+  inPool,
+  href,
+}: {
+  g: SlateGame;
+  now: number;
+  timezone: string;
+  records: Record<string, string>;
+  ats: boolean;
+  inPool: boolean;
+  href: string;
+}) {
   const started = hasStarted(g, now);
   const final = g.status === "final" || g.overridden;
   const live = started && !final && !g.voided && g.status !== "postponed" && g.status !== "cancelled";
@@ -108,6 +183,7 @@ function GameCard({ g, now, timezone, records, ats, href }: { g: SlateGame; now:
         {conf && <span className="font-normal">· {conf}</span>}
         {g.neutral && <span className="font-normal">· {g.venue ?? "Neutral site"}</span>}
         {line && <span className="font-normal">· {line}</span>}
+        {inPool && <span className="rounded-full bg-accent/15 px-1.5 py-px text-[10px] font-semibold text-accent">Pool</span>}
         {(live || final) && !g.voided && <span className="ml-auto font-semibold text-accent">Box Score ›</span>}
       </div>
       {(["away", "home"] as const).map((side) => {
