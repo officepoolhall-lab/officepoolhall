@@ -186,6 +186,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         historyHref={`/p/${slug}/standings/${userId}`}
         // A co-manager saves the owner's entry, with the player's own rules (not the commissioner's).
         saveAs={ctx.managing ? ctx.entryUserId : undefined}
+        sport={sport}
         top={
           tournamentCards.length > 0 || showBracket ? (
             <>

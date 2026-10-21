@@ -55,6 +55,7 @@ export function PickBoard({
   records = {},
   historyHref,
   top,
+  sport,
 }: {
   slug: string;
   slate: { id: string; status: string; lockAt: string | null; firstDayLockAt: string | null };
@@ -75,12 +76,17 @@ export function PickBoard({
   historyHref?: string;
   /** Shown above the games, e.g. the week's tournament champion picks. */
   top?: ReactNode;
+  /** For the live poll (ESPN's scoreboard differs by sport). */
+  sport?: "ncaaf" | "ncaab";
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
   const [notice, setNotice] = useState<string | null>(null);
   const [sheetGameId, setSheetGameId] = useState<string | null>(null);
   const now = useNow(games, slate.lockAt);
+  // Live games' clock, score, situation and last play, polled every few seconds while any is
+  // on, laid over the games from the server (which also refresh every minute).
+  const shown = useLiveGames(games, now, sport);
   const router = useRouter();
 
   // A game locks at its effective lock (deadline, or tip if earlier), not its start, or
@@ -251,7 +257,7 @@ export function PickBoard({
 
   // ---------- render ----------
   const days: { key: string; label: string; games: SlateGame[] }[] = [];
-  for (const g of games) {
+  for (const g of shown) {
     // A TBD game's placeholder is midnight Eastern: read its date there so it stays on its day.
     const zone = gameDateZone(g.timeTbd, settings.timezone);
     const key = dayKey(g.startAt, zone);
@@ -267,7 +273,7 @@ export function PickBoard({
 
   // The saved card: highest confidence first (kickoff order within a value, and for pools
   // without confidence; games come sorted by start and the sort is stable).
-  const myPicks = games
+  const myPicks = shown
     .filter((g) => saved[g.id]?.side)
     .sort((a, b) => (saved[b.id].confidence ?? 0) - (saved[a.id].confidence ?? 0));
   const asideRef = useKeepGamesInPlace();
@@ -847,4 +853,56 @@ function useKeepGamesInPlace() {
     };
   }, []);
   return ref;
+}
+
+const LIVE_POLL_MS = 10_000;
+type LiveDetail = { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null };
+
+/** yyyymmdd in US Eastern (ESPN's scoreboard dates). */
+const espnDay = (at: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(at)).replaceAll("-", "");
+
+/**
+ * While any game is live (and the tab is visible), asks /api/live every 10 seconds for ESPN's
+ * latest clock, score, down and distance and last play, and lays them over the games, so new
+ * plays appear without reloading the page. Stops on its own when no game is live.
+ */
+function useLiveGames(games: SlateGame[], now: number, sport: "ncaaf" | "ncaab" | undefined): SlateGame[] {
+  const [detail, setDetail] = useState<Record<string, LiveDetail>>({});
+  const isLiveGame = (g: SlateGame) =>
+    !g.voided && Boolean(g.espnId) && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled";
+  const live = games.filter(isLiveGame);
+  const dates = [...new Set(live.map((g) => espnDay(g.startAt)))].sort().join(",");
+
+  useEffect(() => {
+    if (!sport || !dates) return;
+    let stopped = false;
+    const poll = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`/api/live?sport=${sport}&dates=${dates}`, { cache: "no-store" });
+        if (!res.ok || stopped) return;
+        const body = (await res.json()) as { games?: Record<string, LiveDetail> };
+        if (!stopped) setDetail(body.games ?? {});
+      } catch {
+        // Try again next tick.
+      }
+    };
+    void poll();
+    const id = setInterval(poll, LIVE_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sport, dates]);
+
+  return games.map((g) => {
+    const d = g.espnId ? detail[g.espnId] : undefined;
+    if (!d || !isLiveGame(g)) return g;
+    return { ...g, clock: d.clock, lastPlay: d.lastPlay, situation: d.situation, homeScore: d.home ?? g.homeScore, awayScore: d.away ?? g.awayScore };
+  });
 }
