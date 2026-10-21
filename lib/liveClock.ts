@@ -10,7 +10,7 @@ import type { SlateGame } from "./pool";
 const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
 const GROUP = { ncaaf: "80", ncaab: "50" } as const;
 
-function espnDate(at: string) {
+export function espnDate(at: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(at)).replaceAll("-", "");
 }
 
@@ -33,17 +33,21 @@ export function isLive(g: SlateGame, now: number) {
   return !g.voided && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled";
 }
 
-/** The games with each live one's clock (and current score) filled in from ESPN. */
-export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[], now: number): Promise<SlateGame[]> {
-  const live = games.filter((g) => isLive(g, now) && g.espnId && !g.espnId.startsWith("demo-"));
-  if (!live.length) return games;
-  const found = new Map<string, { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null }>();
+export type LiveDetail = { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null };
+
+/**
+ * Live detail for in-progress games on the given ESPN dates (yyyymmdd), keyed by ESPN game id.
+ * `maxAgeSeconds` is how stale a cached scoreboard may be: 30 for page renders, a few seconds
+ * for the live poll on My Picks.
+ */
+export async function fetchLiveDetails(sport: "ncaaf" | "ncaab", dates: string[], maxAgeSeconds = 30): Promise<Map<string, LiveDetail>> {
+  const found = new Map<string, LiveDetail>();
   await Promise.all(
-    [...new Set(live.map((g) => espnDate(g.startAt)))].map(async (date) => {
+    [...new Set(dates)].slice(0, 4).map(async (date) => {
       try {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`, {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-          next: { revalidate: 30 },
+          next: { revalidate: maxAgeSeconds },
           signal: AbortSignal.timeout(3000),
         });
         if (!res.ok) return;
@@ -57,11 +61,11 @@ export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[
             const v = c?.competitors?.find((x) => x.homeAway === side)?.score;
             return v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
           };
-          // "8:44 - 2nd Half" → "8:44 2nd Half"
           const sit = c?.situation;
           const ball = sit?.possession != null ? c?.competitors?.find((x) => String(x.team?.id) === String(sit.possession))?.team?.abbreviation : undefined;
           const down = sit?.downDistanceText?.trim();
           found.set(String(e.id), {
+            // "8:44 - 2nd Half" → "8:44 2nd Half"
             clock: detail.replace(/\s+-\s+/, " "),
             home: score("home"),
             away: score("away"),
@@ -70,10 +74,18 @@ export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[
           });
         }
       } catch {
-        // No clock this time; the game still shows Live with the stored score.
+        // Nothing this time; games still show Live with the stored score.
       }
     }),
   );
+  return found;
+}
+
+/** The games with each live one's clock, score, situation and last play filled in from ESPN. */
+export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[], now: number): Promise<SlateGame[]> {
+  const live = games.filter((g) => isLive(g, now) && g.espnId && !g.espnId.startsWith("demo-"));
+  if (!live.length) return games;
+  const found = await fetchLiveDetails(sport, live.map((g) => espnDate(g.startAt)));
   return games.map((g) => {
     const f = g.espnId ? found.get(g.espnId) : undefined;
     if (!f || !isLive(g, now)) return g;
