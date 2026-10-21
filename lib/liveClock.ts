@@ -33,7 +33,15 @@ export function isLive(g: SlateGame, now: number) {
   return !g.voided && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled";
 }
 
-export type LiveDetail = { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null };
+export type LiveDetail = {
+  clock: string;
+  home: number | null;
+  away: number | null;
+  lastPlay: string | null;
+  situation: string | null;
+  /** Football: which side has the ball. */
+  possession: "home" | "away" | null;
+};
 
 /**
  * Live detail for in-progress games on the given ESPN dates (yyyymmdd), keyed by ESPN game id.
@@ -62,7 +70,8 @@ export async function fetchLiveDetails(sport: "ncaaf" | "ncaab", dates: string[]
             return v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
           };
           const sit = c?.situation;
-          const ball = sit?.possession != null ? c?.competitors?.find((x) => String(x.team?.id) === String(sit.possession))?.team?.abbreviation : undefined;
+          const holder = sit?.possession != null ? c?.competitors?.find((x) => String(x.team?.id) === String(sit.possession)) : undefined;
+          const ball = holder?.team?.abbreviation;
           const down = sit?.downDistanceText?.trim();
           found.set(String(e.id), {
             // "8:44 - 2nd Half" → "8:44 2nd Half"
@@ -71,6 +80,7 @@ export async function fetchLiveDetails(sport: "ncaaf" | "ncaab", dates: string[]
             away: score("away"),
             lastPlay: cleanPlay(sit?.lastPlay?.text),
             situation: down ? (ball ? `${ball} · ${down}` : down) : null,
+            possession: holder?.homeAway === "home" || holder?.homeAway === "away" ? holder.homeAway : null,
           });
         }
       } catch {
@@ -89,7 +99,7 @@ export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[
   return games.map((g) => {
     const f = g.espnId ? found.get(g.espnId) : undefined;
     if (!f || !isLive(g, now)) return g;
-    return { ...g, clock: f.clock, lastPlay: f.lastPlay, situation: f.situation, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };
+    return { ...g, clock: f.clock, lastPlay: f.lastPlay, situation: f.situation, possession: f.possession, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };
   });
 }
 

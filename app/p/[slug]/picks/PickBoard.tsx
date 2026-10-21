@@ -636,7 +636,11 @@ function GameRow({
                 )}
               </span>
             </span>
-            <span className="min-w-6 text-right text-[15px] font-semibold tabular-nums lg:text-[13px]">{started && score !== null ? score : ""}</span>
+            {/* A football marks the team with the ball while the game is live. */}
+            <span className="inline-flex min-w-6 items-center justify-end gap-1 text-right text-[15px] font-semibold tabular-nums lg:text-[13px]">
+              {live && g.possession === side && <FootballIcon />}
+              {started && score !== null ? score : ""}
+            </span>
             <Cell
               value={
                 settings.pickType === "ats" ? (
@@ -856,7 +860,7 @@ function useKeepGamesInPlace() {
 }
 
 const LIVE_POLL_MS = 10_000;
-type LiveDetail = { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null };
+type LiveDetail = { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null; possession: "home" | "away" | null };
 
 /** yyyymmdd in US Eastern (ESPN's scoreboard dates). */
 const espnDay = (at: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(at)).replaceAll("-", "");
@@ -903,6 +907,17 @@ function useLiveGames(games: SlateGame[], now: number, sport: "ncaaf" | "ncaab" 
   return games.map((g) => {
     const d = g.espnId ? detail[g.espnId] : undefined;
     if (!d || !isLiveGame(g)) return g;
-    return { ...g, clock: d.clock, lastPlay: d.lastPlay, situation: d.situation, homeScore: d.home ?? g.homeScore, awayScore: d.away ?? g.awayScore };
+    return { ...g, clock: d.clock, lastPlay: d.lastPlay, situation: d.situation, possession: d.possession, homeScore: d.home ?? g.homeScore, awayScore: d.away ?? g.awayScore };
   });
+}
+
+/** A small football: the team with the ball in a live game. */
+function FootballIcon() {
+  return (
+    <svg viewBox="0 0 24 16" className="h-3 w-4.5 shrink-0" role="img" aria-label="Has the ball">
+      <ellipse cx="12" cy="8" rx="11" ry="7" fill="#8B4A1F" />
+      <path d="M8 8h8M10 6.5v3M12 6.5v3M14 6.5v3" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M3.2 4.2c.8 1.2.8 6.4 0 7.6M20.8 4.2c-.8 1.2-.8 6.4 0 7.6" stroke="#fff" strokeWidth="1" fill="none" opacity="0.7" />
+    </svg>
+  );
 }
