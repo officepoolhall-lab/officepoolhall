@@ -13,6 +13,8 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
     { href: `${base}/picks`, label: "My Picks", match: (p: string) => p.startsWith(`${base}/picks`) },
     { href: `${base}/standings`, label: "Standings", match: (p: string) => p.startsWith(`${base}/standings`) },
     { href: `${base}/grid/${week ?? 1}`, label: "League Grid", match: (p: string) => p.startsWith(`${base}/grid`) },
+    // "Scores" on phones, where seven tabs share the width.
+    { href: `${base}/scoreboard`, label: "Scoreboard", short: "Scores", match: (p: string) => p.startsWith(`${base}/scoreboard`) },
     { href: `${base}/board`, label: "Message Board", match: (p: string) => p.startsWith(`${base}/board`) },
     ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Admin", match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
   ];
@@ -20,7 +22,8 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
   return (
     <nav className="sticky top-[calc(3rem+1px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
       {/* Wider screens: the pills start at the page's left edge rather than a centered column. */}
-      <ul className="flex pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:gap-1.5 sm:pl-[max(1rem,env(safe-area-inset-left))] sm:pt-3">
+      {/* Phones: tabs share the width; if they ever can't fit, the row scrolls sideways rather than squeezing. */}
+      <ul className="flex overflow-x-auto pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] [scrollbar-width:none] sm:gap-1.5 sm:overflow-visible sm:pl-[max(1rem,env(safe-area-inset-left))] sm:pt-3">
         {tabs.map((t) => {
           const active = t.match(pathname);
           return (
@@ -29,11 +32,11 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-11 items-center justify-center px-0.5 text-center text-xs font-medium leading-tight sm:hidden ${
+                className={`relative flex h-11 items-center justify-center px-1 text-center text-[11px] font-medium leading-tight sm:hidden ${
                   active ? "text-ink" : "text-muted hover:text-ink"
                 }`}
               >
-                {t.label}
+                {"short" in t && t.short ? t.short : t.label}
                 {active && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden />}
               </Link>
               {/* Wider screens: pill. The wrapper does the hiding — chipClass sets its own
