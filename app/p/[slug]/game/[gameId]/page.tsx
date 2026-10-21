@@ -138,7 +138,15 @@ function PlayByPlay({ summary }: { summary: GameSummary }) {
                 <ChevronIcon className="size-4 shrink-0 text-muted transition group-open:rotate-90" />
                 {team && <TeamLogo src={team.logo} abbr={team.abbreviation} className="size-5" />}
                 <span className="font-semibold">{d.result ?? abbr(d.teamId)}</span>
-                {d.description && <span className="truncate text-xs text-muted">{d.description}</span>}
+                {d.description && <span className="min-w-0 truncate text-xs text-muted">{d.description}</span>}
+                {/* The score after this drive. */}
+                {d.awayScore !== null && d.homeScore !== null && (
+                  <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted">
+                    {summary.away?.abbreviation} <span className="font-semibold text-ink">{d.awayScore}</span>
+                    {" · "}
+                    {summary.home?.abbreviation} <span className="font-semibold text-ink">{d.homeScore}</span>
+                  </span>
+                )}
               </summary>
               <ul className="divide-y divide-line pb-2 pl-6">
                 {d.plays.map((p) => (
