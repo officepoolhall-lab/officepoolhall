@@ -22,7 +22,10 @@ type EspnEvent = {
   status?: EspnStatus;
   competitions?: {
     status?: { type?: { state?: string; shortDetail?: string } };
-    competitors?: { homeAway?: string; score?: string }[];
+    competitors?: { homeAway?: string; score?: string; team?: { id?: string | number; abbreviation?: string } }[];
+    // In-game detail (checked on live football, Oct 20 2026): the last play and, in football,
+    // down and distance and which team has the ball.
+    situation?: { lastPlay?: { text?: string }; downDistanceText?: string; possession?: string | number };
   }[];
 };
 
@@ -34,7 +37,7 @@ export function isLive(g: SlateGame, now: number) {
 export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[], now: number): Promise<SlateGame[]> {
   const live = games.filter((g) => isLive(g, now) && g.espnId && !g.espnId.startsWith("demo-"));
   if (!live.length) return games;
-  const found = new Map<string, { clock: string; home: number | null; away: number | null }>();
+  const found = new Map<string, { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null }>();
   await Promise.all(
     [...new Set(live.map((g) => espnDate(g.startAt)))].map(async (date) => {
       try {
@@ -55,7 +58,16 @@ export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[
             return v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
           };
           // "8:44 - 2nd Half" → "8:44 2nd Half"
-          found.set(String(e.id), { clock: detail.replace(/\s+-\s+/, " "), home: score("home"), away: score("away") });
+          const sit = c?.situation;
+          const ball = sit?.possession != null ? c?.competitors?.find((x) => String(x.team?.id) === String(sit.possession))?.team?.abbreviation : undefined;
+          const down = sit?.downDistanceText?.trim();
+          found.set(String(e.id), {
+            clock: detail.replace(/\s+-\s+/, " "),
+            home: score("home"),
+            away: score("away"),
+            lastPlay: cleanPlay(sit?.lastPlay?.text),
+            situation: down ? (ball ? `${ball} · ${down}` : down) : null,
+          });
         }
       } catch {
         // No clock this time; the game still shows Live with the stored score.
@@ -65,6 +77,23 @@ export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[
   return games.map((g) => {
     const f = g.espnId ? found.get(g.espnId) : undefined;
     if (!f || !isLive(g, now)) return g;
-    return { ...g, clock: f.clock, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };
+    return { ...g, clock: f.clock, lastPlay: f.lastPlay, situation: f.situation, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };
   });
+}
+
+/**
+ * ESPN's play-by-play line, trimmed for a one-line note: no leading clock "(08:24)", no
+ * formation ("No Huddle-Shotgun"), no jersey numbers.
+ * "(08:24) No Huddle-Shotgun #17 J.Kohl pass incomplete short middle to #4 J.Resar thrown to FIU40"
+ *   → "J.Kohl pass incomplete short middle to J.Resar thrown to FIU40"
+ */
+export function cleanPlay(text: string | undefined): string | null {
+  if (!text) return null;
+  const out = text
+    .replace(/^\(\s*\d{1,2}:\d{2}\s*\)\s*/, "")
+    .replace(/^(?:(?:No Huddle|Shotgun|Pistol|Under Center|Direct Snap)[-\s]*)+/i, "")
+    .replace(/#\d+\s+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return out || null;
 }

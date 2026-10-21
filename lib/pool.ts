@@ -99,6 +99,10 @@ export async function getSlateGames(ctx: PoolContext, slateId: string) {
         espnId: sg.game.espn_id,
         /** Live games only: ESPN's game clock and period ("8:44 2nd Half"), filled by getLiveClocks. */
         clock: null as string | null,
+        /** Live games only: ESPN's last play, cleaned up ("J.Kohl pass incomplete short middle to J.Resar"). */
+        lastPlay: null as string | null,
+        /** Live football only: who has the ball and where ("FIU · 3rd & 9 at FIU 26"). */
+        situation: null as string | null,
         home: sg.game.home,
         away: sg.game.away,
       };

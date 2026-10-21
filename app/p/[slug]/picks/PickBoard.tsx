@@ -681,6 +681,14 @@ function GameRow({
         />
       ) : null}
 
+      {/* Live: who has the ball and where (football), then the last play, under the score. */}
+      {live && (g.situation || g.lastPlay) && (
+        <div className="col-span-full line-clamp-2 text-[11px] leading-snug text-muted">
+          {g.situation && <span className="font-semibold text-ink">{g.situation}</span>}
+          {g.situation && g.lastPlay && " · "}
+          {g.lastPlay && <span>{g.lastPlay}</span>}
+        </div>
+      )}
       {/* Only when there's something to say: a result, a countdown or a missing value. */}
       {footerRight && <div className="col-span-full flex justify-end text-xs text-muted lg:text-[11px]">{footerRight}</div>}
     </li>
