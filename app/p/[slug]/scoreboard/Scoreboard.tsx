@@ -12,8 +12,8 @@ import type { SlateGame } from "@/lib/pool";
 /**
  * A day of Division I games as a scoreboard: live games update every 10 seconds (score, clock
  * and period, who has the ball, down and distance, last play), like My Picks, and live or final
- * games open the full play-by-play and box score. Show all, just games with a Top 25 team (best
- * rank first), or one conference's games. Games on the pool's slate are marked.
+ * games open the full play-by-play and box score. Show all, just the pool's games, just games
+ * with a Top 25 team (best rank first), or one conference's games. Pool games are marked.
  */
 export function Scoreboard({
   slug,
@@ -39,13 +39,16 @@ export function Scoreboard({
 }) {
   const now = useTicking();
   const all = useLiveGames(games, now, sport);
-  const [view, setView] = useState<"all" | "top25" | "conf">("all");
+  const [view, setView] = useState<"all" | "pool" | "top25" | "conf">("all");
   const [conf, setConf] = useState("");
   const pool = new Set(inPool);
   const conferences = [...new Set(all.flatMap((g) => [g.home.conference, g.away.conference]).filter((c): c is string => Boolean(c)))].sort();
   const best = (g: SlateGame) => Math.min(g.homeRank ?? 99, g.awayRank ?? 99);
+  const inPoolCount = all.filter((g) => g.espnId && pool.has(g.espnId)).length;
   const shown =
-    view === "top25"
+    view === "pool"
+      ? all.filter((g) => g.espnId && pool.has(g.espnId))
+      : view === "top25"
       ? all.filter((g) => best(g) < 99).sort((a, b) => best(a) - best(b) || a.startAt.localeCompare(b.startAt))
       : view === "conf" && conf
         ? all.filter((g) => g.home.conference === conf || g.away.conference === conf)
@@ -64,6 +67,10 @@ export function Scoreboard({
     <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Show">
       <button type="button" onClick={() => setView("all")} aria-pressed={view === "all"} className={chipClass(view === "all", "", "sm")}>
         All <span className="opacity-70 tabular-nums">{all.length}</span>
+      </button>
+      {/* Just the games on the pool's slate. */}
+      <button type="button" onClick={() => setView("pool")} aria-pressed={view === "pool"} className={chipClass(view === "pool", "", "sm")}>
+        Pool Games <span className="opacity-70 tabular-nums">{inPoolCount}</span>
       </button>
       <button type="button" onClick={() => setView("top25")} aria-pressed={view === "top25"} className={chipClass(view === "top25", "", "sm")}>
         Top 25
@@ -91,7 +98,13 @@ export function Scoreboard({
       <>
         {filters}
         <p className="border-y border-line py-3 text-sm text-muted">
-          {all.length ? (view === "top25" ? "No Top 25 teams play this day." : "No games for that conference this day.") : "No Division I games this day."}
+          {all.length
+            ? view === "pool"
+              ? "No pool games this day."
+              : view === "top25"
+                ? "No Top 25 teams play this day."
+                : "No games for that conference this day."
+            : "No Division I games this day."}
         </p>
       </>
     );
