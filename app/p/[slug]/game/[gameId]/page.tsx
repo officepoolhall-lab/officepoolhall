@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { ChevronIcon, Empty, LiveDot, TeamLogo } from "@/components/ui";
+import { SubTabs } from "@/components/SubTabs";
 import { ViewTabs } from "@/components/ViewTabs";
 import { getGameSummary, type GameSummary, type Play } from "@/lib/gameSummary";
 import { getPoolContext } from "@/lib/pool";
@@ -162,15 +163,13 @@ function PlayByPlay({ summary }: { summary: GameSummary }) {
   return <p className="border-y border-line py-3 text-sm text-muted">No plays yet.</p>;
 }
 
-/** Team stats side by side, then each team's player stats (every table scrolls sideways on phones). */
+/** Box score, one part at a time: Team Stats, then each team's player stats (home, away). */
 function BoxScore({ summary }: { summary: GameSummary }) {
   const { away, home } = summary;
   if (!summary.teamStats.length && !summary.players.length) {
     return <p className="border-y border-line py-3 text-sm text-muted">No box score yet.</p>;
   }
-  return (
-    <div className="space-y-6">
-      {summary.teamStats.length > 0 && (
+  const teamStats = summary.teamStats.length > 0 && (
         <table className="w-full text-sm tabular-nums">
           <thead>
             <tr className="border-b border-line text-xs text-muted">
@@ -189,10 +188,12 @@ function BoxScore({ summary }: { summary: GameSummary }) {
             ))}
           </tbody>
         </table>
-      )}
-      {summary.players.map((t) => (
-        <section key={t.teamId} className="space-y-3">
-          <h3 className="text-[15px] font-semibold">{t.abbreviation}</h3>
+  );
+  const playersFor = (team: typeof home) => {
+    const t = summary.players.find((p) => p.teamId === team?.id) ?? summary.players.find((p) => p.abbreviation === team?.abbreviation);
+    if (!t) return <p className="border-y border-line py-3 text-sm text-muted">No player stats yet.</p>;
+    return (
+        <div className="space-y-4">
           {t.groups.map((g) => (
             <div key={g.name} className="-mx-4 overflow-x-auto px-4">
               <table className="w-full min-w-max text-xs tabular-nums">
@@ -225,8 +226,17 @@ function BoxScore({ summary }: { summary: GameSummary }) {
               </table>
             </div>
           ))}
-        </section>
-      ))}
-    </div>
+        </div>
+    );
+  };
+  return (
+    <SubTabs
+      ariaLabel="Box score"
+      tabs={[
+        ...(teamStats ? [{ id: "team", label: "Team Stats", content: teamStats }] : []),
+        { id: "home", label: home?.name ?? "Home", content: playersFor(home) },
+        { id: "away", label: away?.name ?? "Away", content: playersFor(away) },
+      ]}
+    />
   );
 }
