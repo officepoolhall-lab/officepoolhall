@@ -1,6 +1,7 @@
 import { formatSpread, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
+import { FootballIcon } from "./FootballIcon";
 import { LiveDot, LockIcon, TeamLogo } from "./ui";
 
 const teamName = (team: SlateGame["home"]) => team.short_name ?? team.name;
@@ -59,8 +60,10 @@ export function PickSummaryRow({
         <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
         <span className={`min-w-0 flex-1 truncate ${dense ? "text-sm" : "text-[15px]"}`}>
           <span className="font-semibold">{teamName(team)}</span>
+          {live && g.possession === side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
           <span className="ml-1.5 text-sm text-muted">
             {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
+            {live && g.possession !== null && g.possession !== side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
           </span>
         </span>
         {/* Score (with Live while it's on) first, then the points on the far right. */}
@@ -89,10 +92,12 @@ export function PickSummaryRow({
       <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
       <span className={`min-w-0 flex-1 truncate ${dense ? "text-sm" : "text-[15px]"}`}>
         <span className="font-semibold">{teamName(team)}</span>
+        {live && g.possession === side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
         {pickType === "ats" && <span className="ml-1.5 font-semibold tabular-nums text-accent">{formatSpread(spread)}</span>}
         {confidence != null && <span className="ml-1.5 text-xs tabular-nums text-muted">{confidence} pts</span>}
         <span className="ml-1.5 text-sm text-muted">
           {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
+          {live && g.possession !== null && g.possession !== side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
         </span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted">

@@ -18,16 +18,21 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export default async function GamePage({ params, searchParams }: PageProps<"/p/[slug]/game/[gameId]">) {
   const { slug, gameId } = await params;
-  const { week } = await searchParams;
-  if (!UUID.test(gameId)) notFound();
+  const { week, from } = await searchParams;
+  // A pool game (its id here) or, from the Scoreboard, any ESPN game (ESPN's numeric id).
+  if (!UUID.test(gameId) && !/^\d{5,12}$/.test(gameId)) notFound();
   const ctx = await getPoolContext(slug);
-  const { data: game } = await ctx.supabase.from("games").select("id, espn_id, sport, status").eq("id", gameId).maybeSingle();
+  const game = UUID.test(gameId)
+    ? (await ctx.supabase.from("games").select("id, espn_id, sport, status").eq("id", gameId).maybeSingle()).data
+    : { id: gameId, espn_id: gameId, sport: ctx.pool.sport, status: "in_progress" };
   if (!game) notFound();
 
-  const backHref = `/p/${slug}/picks${typeof week === "string" && /^\d+$/.test(week) ? `?week=${week}` : ""}`;
+  // Back to wherever it was opened from (My Picks or the Scoreboard), on the same week.
+  const fromScoreboard = from === "scoreboard";
+  const backHref = `/p/${slug}/${fromScoreboard ? "scoreboard" : "picks"}${typeof week === "string" && /^\d+$/.test(week) ? `?week=${week}` : ""}`;
   const back = (
     <Link href={backHref} className="-ml-1 mb-3 inline-flex h-9 items-center gap-0.5 px-1 text-sm font-medium text-accent">
-      <ChevronIcon className="size-4 rotate-180" /> My Picks
+      <ChevronIcon className="size-4 rotate-180" /> {fromScoreboard ? "Scoreboard" : "My Picks"}
     </Link>
   );
 
