@@ -14,8 +14,12 @@ function espnDate(at: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(at)).replaceAll("-", "");
 }
 
+type EspnStatus = { type?: { state?: string; shortDetail?: string } };
 type EspnEvent = {
   id?: string | number;
+  // ESPN puts the status on the event (checked on a live game, Oct 20 2026); some feeds also
+  // repeat it on the competition, so either is read.
+  status?: EspnStatus;
   competitions?: {
     status?: { type?: { state?: string; shortDetail?: string } };
     competitors?: { homeAway?: string; score?: string }[];
@@ -43,10 +47,11 @@ export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[
         const body = (await res.json()) as { events?: EspnEvent[] };
         for (const e of body.events ?? []) {
           const c = e.competitions?.[0];
-          const detail = c?.status?.type?.shortDetail;
-          if (e.id == null || !detail || c?.status?.type?.state !== "in") continue;
+          const status = c?.status ?? e.status;
+          const detail = status?.type?.shortDetail;
+          if (e.id == null || !detail || status?.type?.state !== "in") continue;
           const score = (side: string) => {
-            const v = c.competitors?.find((x) => x.homeAway === side)?.score;
+            const v = c?.competitors?.find((x) => x.homeAway === side)?.score;
             return v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
           };
           // "8:44 - 2nd Half" → "8:44 2nd Half"
