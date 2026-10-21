@@ -6,6 +6,7 @@ import { PageTitle, chipClass } from "@/components/ui";
 import { getEspnDay } from "@/lib/espnScoreboard";
 import { dayKey, windowLabel } from "@/lib/format";
 import { isLive, withLiveClocks } from "@/lib/liveClock";
+import { gameDateZone } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, type SlateGame } from "@/lib/pool";
 import { Scoreboard } from "./Scoreboard";
 
@@ -51,7 +52,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   ]);
   const seen = new Set<string>();
   const dayGames = [...a, ...b].filter((g) => {
-    if (seen.has(g.id) || dayKey(g.startAt, tz) !== day) return false;
+    // Same day rule the cards use (a TBD time counts in Eastern), so nothing from the next day slips in.
+    if (seen.has(g.id) || dayKey(g.startAt, gameDateZone(g.timeTbd, tz)) !== day) return false;
     seen.add(g.id);
     return true;
   });
@@ -99,6 +101,7 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
       <AutoRefresh active={anyLive} />
       <Scoreboard
         key={day}
+        day={day}
         slug={slug}
         week={week}
         games={games}
