@@ -103,6 +103,8 @@ export async function getSlateGames(ctx: PoolContext, slateId: string) {
         lastPlay: null as string | null,
         /** Live football only: who has the ball and where ("FIU · 3rd & 9 at FIU 26"). */
         situation: null as string | null,
+        /** Live football only: which side has the ball. */
+        possession: null as "home" | "away" | null,
         home: sg.game.home,
         away: sg.game.away,
       };
