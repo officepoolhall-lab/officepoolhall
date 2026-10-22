@@ -47,7 +47,7 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
   const underline = <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden />;
 
   return (
-    <nav className="sticky top-[calc(3rem+4px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
+    <nav className="sticky top-[calc(3rem+3px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
       {/* Phones: four main tabs and More, sharing the width. */}
       <ul className="flex pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:hidden">
         {main.map((t) => {

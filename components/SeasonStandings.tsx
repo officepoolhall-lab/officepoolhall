@@ -118,7 +118,7 @@ export function SeasonStandings({
 /** Pins a column's heading, buttons and column labels under the app's top bar (and, on
  *  phones, the tab row) while its rows scroll. */
 export const FROZEN_HEAD =
-  "sticky top-[calc(5.75rem+5px+env(safe-area-inset-top))] sm:top-[calc(3rem+4px+env(safe-area-inset-top))] z-10 bg-bg";
+  "sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 bg-bg";
 
 /** The Player · Record · Win % (· week · bonus) labels, matching SeasonStandings' columns. */
 export function SeasonHeaderRow({
