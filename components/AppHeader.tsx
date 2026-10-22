@@ -4,8 +4,8 @@ import { Wordmark } from "./ui";
 
 export function AppHeader({ children }: { children?: ReactNode }) {
   return (
-    // A thin stripe of the logo's blue across the top of every page.
-    <header className="sticky top-0 z-30 border-b border-t-[3px] border-line border-t-accent bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+    // A thin line of the logo's blue under the logo and Account / Sign out.
+    <header className="sticky top-0 z-30 border-b-[3px] border-accent bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       {/* Full width: wordmark at the left edge; pool name, Account and Sign out at the right. */}
       <div className="flex h-12 items-center gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
         <Link href="/pools" className="flex h-11 min-w-0 items-center truncate text-ink">

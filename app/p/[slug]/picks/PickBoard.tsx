@@ -347,7 +347,7 @@ export function PickBoard({
         <section key={day.key} className="mb-5 lg:mb-4">
           {/* Each day opens with a shaded band (accent bar, the date, how many games) that stays
               pinned while its games scroll, so it's always clear which day a game is on. */}
-          <h3 className="sticky top-[calc(5.75rem+5px+env(safe-area-inset-top))] sm:top-[calc(3rem+4px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
+          <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
             <span>{day.label}</span>
             <span className="ml-auto text-xs font-medium text-muted tabular-nums">
               {day.games.length} game{day.games.length === 1 ? "" : "s"}

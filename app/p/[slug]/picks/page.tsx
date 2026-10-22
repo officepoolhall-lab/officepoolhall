@@ -126,7 +126,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   return (
     // Desktop: exactly one screen tall (viewport less the header, tabs, and the space the
     // layout keeps clear for the pick tracker), so only the games column scrolls.
-    <div className="lg:flex lg:h-[calc(100dvh-13rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:min-h-96 lg:flex-col">
+    <div className="lg:flex lg:h-[calc(100dvh-13rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:min-h-96 lg:flex-col">
       <div className="shrink-0">
         {/* Week and dates on the left; live scores fill the space to their right. */}
         <div className="sm:flex sm:items-start sm:gap-6">

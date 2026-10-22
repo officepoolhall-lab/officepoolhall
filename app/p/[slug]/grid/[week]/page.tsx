@@ -84,7 +84,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     // scrollbars sit on screen; the layout drops its tracker padding for this page.
     <div
       data-fill-viewport
-      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-5px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <h1 className="sr-only">Selections</h1>
       {/* One row: sort on the left, weeks on the right (they scroll when there are many). */}
