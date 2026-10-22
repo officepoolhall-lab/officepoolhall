@@ -117,7 +117,7 @@ export function PageTitle({ children, sub }: { children: ReactNode; sub?: ReactN
 }
 
 export function SectionLabel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <h2 className={`text-xs font-medium uppercase tracking-wide text-muted ${className}`}>{children}</h2>;
+  return <h2 className={`text-xs font-semibold uppercase tracking-wide text-accent ${className}`}>{children}</h2>;
 }
 
 /** Filled panel — for forms and small summaries only. Lists stay on the page background. */

@@ -119,7 +119,7 @@ export function Scoreboard({
       {filters}
       {days.map((day) => (
         <section key={day.key} className="mb-5">
-          <h2 className="sticky top-[calc(5.75rem+2px+env(safe-area-inset-top))] z-10 -mx-4 mb-2 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink sm:top-[calc(3rem+1px+env(safe-area-inset-top))] lg:mx-0 lg:rounded-r-md lg:py-1.5 lg:text-sm">
+          <h2 className="sticky top-[calc(5.75rem+5px+env(safe-area-inset-top))] z-10 -mx-4 mb-2 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink sm:top-[calc(3rem+4px+env(safe-area-inset-top))] lg:mx-0 lg:rounded-r-md lg:py-1.5 lg:text-sm">
             <span>{day.label}</span>
             <span className="ml-auto text-xs font-medium text-muted tabular-nums">
               {day.games.length} game{day.games.length === 1 ? "" : "s"}

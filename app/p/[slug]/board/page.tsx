@@ -73,7 +73,7 @@ export default async function BoardPage({ params }: PageProps<"/p/[slug]/board">
 
       {/* Guests read the board but don't post. */}
       {!error && !ctx.isGuest && (
-        <section className="mt-8 lg:sticky lg:top-[calc(3rem+1px+env(safe-area-inset-top)+1rem)] lg:mt-0">
+        <section className="mt-8 lg:sticky lg:top-[calc(3rem+4px+env(safe-area-inset-top)+1rem)] lg:mt-0">
           <SectionLabel className="mb-2">New post</SectionLabel>
           <ActionForm action={createPost.bind(null, slug)} className="space-y-3">
             <Field label="Title">
