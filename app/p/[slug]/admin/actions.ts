@@ -312,11 +312,32 @@ export async function removeMember(slug: string, userId: string) {
   revalidatePath(`/p/${slug}/admin/roster`);
 }
 
-/** Replace the shareable invite link (the old one stops working). */
+/** Replace the shareable invite link (the old one stops working). The guest link is separate. */
 export async function rotateInvite(slug: string) {
   const ctx = await requireCommissioner(slug);
-  await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id);
+  await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id).eq("guest", false);
   await ctx.supabase.from("invites").insert({ pool_id: ctx.pool.id });
+  revalidatePath(`/p/${slug}/admin/roster`);
+}
+
+/** Create or replace the guest (view-only) link. */
+export async function rotateGuestInvite(slug: string) {
+  const ctx = await requireCommissioner(slug);
+  await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id).eq("guest", true);
+  await ctx.supabase.from("invites").insert({ pool_id: ctx.pool.id, guest: true });
+  revalidatePath(`/p/${slug}/admin/roster`);
+}
+
+/** Turn off the guest link (guests already in keep viewing until removed). */
+export async function disableGuestInvite(slug: string) {
+  const ctx = await requireCommissioner(slug);
+  await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id).eq("guest", true);
+  revalidatePath(`/p/${slug}/admin/roster`);
+}
+
+export async function removeGuest(slug: string, userId: string) {
+  const ctx = await requireCommissioner(slug);
+  await ctx.supabase.from("pool_guests").delete().eq("pool_id", ctx.pool.id).eq("user_id", userId);
   revalidatePath(`/p/${slug}/admin/roster`);
 }
 

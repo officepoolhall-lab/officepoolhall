@@ -149,14 +149,14 @@ isOneToOne: false
                   ]
                 },"invites": {
                   Row: {
-                    "created_at": string,"expires_at": string | null,"id": string,"max_uses": number | null,"pool_id": string,"token": string,"uses": number
+                    "created_at": string,"expires_at": string | null,"guest": boolean,"id": string,"max_uses": number | null,"pool_id": string,"token": string,"uses": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"expires_at"?: string | null,"id"?: string,"max_uses"?: number | null,"pool_id": string,"token"?: string,"uses"?: number
+                    "created_at"?: string,"expires_at"?: string | null,"guest"?: boolean,"id"?: string,"max_uses"?: number | null,"pool_id": string,"token"?: string,"uses"?: number
                   }
                   Update: {
-                    "created_at"?: string,"expires_at"?: string | null,"id"?: string,"max_uses"?: number | null,"pool_id"?: string,"token"?: string,"uses"?: number
+                    "created_at"?: string,"expires_at"?: string | null,"guest"?: boolean,"id"?: string,"max_uses"?: number | null,"pool_id"?: string,"token"?: string,"uses"?: number
                   }
                   Relationships: [
                     {
@@ -164,6 +164,32 @@ isOneToOne: false
       columns: ["pool_id"]
 isOneToOne: false
       referencedRelation: "pools"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pool_guests": {
+                  Row: {
+                    "added_at": string,"pool_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "added_at"?: string,"pool_id": string,"user_id": string
+                  }
+                  Update: {
+                    "added_at"?: string,"pool_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pool_guests_pool_id_fkey"
+      columns: ["pool_id"]
+isOneToOne: false
+      referencedRelation: "pools"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pool_guests_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
       referencedColumns: ["id"]
     }
                   ]
@@ -685,6 +711,28 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"my_guest_pools":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "added_at": string,
+"name": string,
+"pool_id": string,
+"slug": string,
+"sport": string
+            }[]
+                           },
+"pool_guest_accounts":
+{ Args: { "p_pool_id": string }; Returns: {
+              "added_at": string,
+"display_name": string,
+"email": string,
+"last_sign_in_at": string | null,
+"user_id": string
+            }[]
+                           },
+"can_view_pool":
+{ Args: { "p": string }; Returns: boolean },
+"is_pool_guest":
+{ Args: { "p": string }; Returns: boolean },
 "my_comanaged_entries":
 { Args: Record<PropertyKey, never>; Returns: {
               "owner_id": string,

@@ -99,6 +99,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 <span className="truncate text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</span>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-4">
+                {/* Guests have no picks of their own: just the countdown. */}
+                {!ctx.isGuest && (
                 <div>
                   <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s picks (you co-manage)` : "My Picks"}</div>
                   <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
@@ -116,6 +118,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                     )}
                   </div>
                 </div>
+                )}
                 {summary.nextLock && (
                   <div>
                     <div className="text-xs text-muted">{summary.weekly ? "Week Locks" : "Next Game Locks"}</div>
@@ -125,7 +128,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   </div>
                 )}
               </div>
-              {upcoming && (
+              {upcoming && !ctx.isGuest && (
                 <UpcomingWeekNote
                   href={`/p/${slug}/picks?week=${upcoming.week}`}
                   slate={upcoming}
@@ -135,7 +138,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   className="mt-3"
                 />
               )}
-              {bracket && !bracket.results["6-0"] && (
+              {bracket && !bracket.results["6-0"] && !ctx.isGuest && (
                 <BracketCard
                   href={`/p/${slug}/bracket`}
                   name={bracket.name}
@@ -148,8 +151,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 />
               )}
               <div className="mt-3 flex gap-1.5">
-                <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>
-                <Link href={`/p/${slug}/grid/${slate.week}`} className={chipClass(false, "", "sm")}>Everyone&apos;s picks</Link>
+                {!ctx.isGuest && <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>}
+                <Link href={`/p/${slug}/grid/${slate.week}`} className={chipClass(ctx.isGuest, "", "sm")}>Everyone&apos;s picks</Link>
               </div>
             </section>
           ) : (

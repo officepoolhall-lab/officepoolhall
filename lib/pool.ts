@@ -30,7 +30,11 @@ export const getPoolContext = cache(async (slug: string) => {
   const { pool_members: members, ...pool } = row;
   const me = members?.[0];
   const co = me ? null : (managed ?? []).find((m: { pool_id: string }) => m.pool_id === pool.id) ?? null;
-  if (!me && !co) notFound();
+  // Neither a player nor a co-manager: a guest (view only) or nobody.
+  const isGuest =
+    !me && !co &&
+    Boolean((await supabase.from("pool_guests").select("pool_id").eq("pool_id", pool.id).eq("user_id", user.id).maybeSingle()).data);
+  if (!me && !co && !isGuest) notFound();
   const settings = poolSettingsSchema.parse(pool.settings);
   // Where game times are shown: the viewer's own zone once their browser has reported it.
   const displayTz = await getViewerTimeZone(settings.timezone);
@@ -41,8 +45,10 @@ export const getPoolContext = cache(async (slug: string) => {
     pool,
     settings,
     isCommissioner: me?.role === "commissioner",
+    /** A guest: sees the whole pool but has no entry and can't pick or post. */
+    isGuest,
     /** Whose picks, scores and standings row are "mine" here. */
-    entryUserId: me ? user.id : co!.owner_id,
+    entryUserId: co ? co.owner_id : user.id,
     /** Set when the viewer co-manages someone else's entry in this pool. */
     managing: co ? { ownerId: co.owner_id, ownerName: co.owner_name } : null,
   };

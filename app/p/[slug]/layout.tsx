@@ -10,15 +10,18 @@ import { getCurrentSlate, getPoolContext } from "@/lib/pool";
 export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
-  const [current, { data: memberships }, { data: managed }] = await Promise.all([
+  const [current, { data: memberships }, { data: managed }, { data: guestOf }] = await Promise.all([
     getCurrentSlate(ctx),
-    // The player's other pools, for the switcher in the header, plus entries they co-manage.
+    // The player's other pools, for the switcher in the header, plus entries they co-manage
+    // and pools they view as a guest.
     ctx.supabase.from("pool_members").select("pool:pools!inner ( name, slug )").eq("user_id", ctx.user.id).order("joined_at", { ascending: false }),
     ctx.supabase.rpc("my_comanaged_entries"),
+    ctx.supabase.rpc("my_guest_pools"),
   ]);
   const pools = [
     ...(memberships ?? []).map((m) => ({ name: m.pool.name, slug: m.pool.slug })),
     ...(managed ?? []).map((m: { pool_name: string; slug: string }) => ({ name: m.pool_name, slug: m.slug })),
+    ...((guestOf ?? []) as { name: string; slug: string }[]).map((g) => ({ name: g.name, slug: g.slug })),
   ];
 
   return (
@@ -38,6 +41,11 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
         <Suspense fallback={null}>
           <PasswordNudge />
         </Suspense>
+        {ctx.isGuest && (
+          <p className="mb-4 rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+            <span className="font-semibold text-ink">Guest view.</span> You can see everything in this pool but can&apos;t make picks or post.
+          </p>
+        )}
         {children}
       </main>
     </PoolPresence>
