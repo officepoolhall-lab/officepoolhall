@@ -8,7 +8,7 @@ export function AppHeader({ children }: { children?: ReactNode }) {
       {/* Full width: wordmark at the left edge; pool name, Account and Sign out at the right. */}
       <div className="flex h-12 items-center gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
         <Link href="/pools" className="flex h-11 min-w-0 items-center truncate text-ink">
-          <Wordmark className="text-[15px]" />
+          <Wordmark className="text-[19px]" />
         </Link>
         <div className="ml-auto flex items-center gap-4 text-sm text-muted">
           {children}

@@ -21,13 +21,13 @@ export default async function ComanagePage({ params }: PageProps<"/comanage/[tok
       <main className="mx-auto w-full max-w-sm px-4 py-16 text-center">
         {!info ? (
           <>
-            <h1 className="text-xl font-semibold tracking-tight">That link isn&apos;t valid</h1>
+            <h1 className="text-xl font-extrabold tracking-[-0.03em]">That link isn&apos;t valid</h1>
             <p className="mt-1 text-sm text-muted">Ask the player for a new co-manager link.</p>
             <LinkButton href="/pools" kind="secondary" className="mt-6">My pools</LinkButton>
           </>
         ) : (
           <>
-            <h1 className="text-xl font-semibold tracking-tight">Co-manage {info.owner_name}&apos;s entry?</h1>
+            <h1 className="text-xl font-extrabold tracking-[-0.03em]">Co-manage {info.owner_name}&apos;s entry?</h1>
             <p className="mt-1 text-sm text-muted">
               In <strong className="font-semibold text-ink">{info.pool_name}</strong>. You&apos;ll be able to make and change their picks,
               with the same locks. You can&apos;t also have your own entry in this pool.

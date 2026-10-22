@@ -57,7 +57,7 @@ export default async function PostPage({ params }: PageProps<"/p/[slug]/board/[p
 
       <article className="border-b border-line pb-4">
         <div className="flex items-start gap-2">
-          <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">
+          <h1 className="min-w-0 flex-1 text-2xl font-extrabold tracking-[-0.03em]">
             {post.pinned && (
               <span className="mr-2 inline-block translate-y-[-2px] rounded-full bg-accent/15 px-2 py-px align-middle text-xs font-semibold text-accent">Pinned</span>
             )}

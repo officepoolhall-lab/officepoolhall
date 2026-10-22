@@ -182,7 +182,7 @@ export function BracketBoard({
   return (
     <div data-wide>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-extrabold tracking-[-0.03em]">{title}</h1>
         <span className="text-sm text-muted tabular-nums">
           {locked ? (
             <span className="inline-flex items-center gap-1"><LockIcon className="size-3.5" /> Locked</span>

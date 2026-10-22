@@ -103,7 +103,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 {!ctx.isGuest && (
                 <div>
                   <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s picks (you co-manage)` : "My Picks"}</div>
-                  <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
+                  <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                     {summary.picked === 0 ? (
                       // Nothing in yet: the number becomes the way to the picks screen.
                       <Link href={`/p/${slug}/picks`} className="text-accent hover:underline">Make Picks</Link>
@@ -122,7 +122,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 {summary.nextLock && (
                   <div>
                     <div className="text-xs text-muted">{summary.weekly ? "Week Locks" : "Next Game Locks"}</div>
-                    <div className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums">
+                    <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                       <Countdown to={summary.nextLock} done="locked" />
                     </div>
                   </div>

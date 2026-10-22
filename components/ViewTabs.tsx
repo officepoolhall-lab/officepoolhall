@@ -48,7 +48,7 @@ export function ViewTabs({
       <div className="lg:grid lg:grid-flow-col lg:auto-cols-fr lg:items-start lg:gap-10">
         {views.map((v) => (
           <section key={v.id} aria-label={v.label} className={v.id === active ? "" : "hidden lg:block"}>
-            <h2 className="mb-2 hidden text-lg font-semibold tracking-tight lg:block">{v.label}</h2>
+            <h2 className="mb-2 hidden text-lg font-extrabold tracking-[-0.03em] lg:block">{v.label}</h2>
             {v.content}
           </section>
         ))}
