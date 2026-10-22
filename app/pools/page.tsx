@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "My pools" };
 export default async function PoolsPage() {
   const user = await requireUser("/pools");
   const supabase = await createClient();
-  const [{ data: memberships }, { data: canCreate }, { data: profile }, { data: managed }] = await Promise.all([
+  const [{ data: memberships }, { data: canCreate }, { data: profile }, { data: managed }, { data: guestOf }] = await Promise.all([
     supabase
       .from("pool_members")
       .select("role, paid, pool:pools!inner ( name, slug, sport, season, entry_fee )")
@@ -23,7 +23,10 @@ export default async function PoolsPage() {
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
     // Entries they help run for someone else (co-manager).
     supabase.rpc("my_comanaged_entries"),
+    // Pools they can view as a guest.
+    supabase.rpc("my_guest_pools"),
   ]);
+  const guestPools = (guestOf ?? []) as { slug: string; name: string; sport: string }[];
   const coManaged = (managed ?? []) as { slug: string; pool_name: string; sport: string; season: number; owner_name: string }[];
 
   return (
@@ -35,7 +38,7 @@ export default async function PoolsPage() {
         </Suspense>
         {/* The player's name ("First Last"); the email only if no name is set yet. */}
         <PageTitle sub={profile?.display_name?.trim() || user.email}>My pools</PageTitle>
-        {memberships?.length || coManaged.length ? (
+        {memberships?.length || coManaged.length || guestPools.length ? (
           <ul className="divide-y divide-line border-y border-line">
             {(memberships ?? []).map((m) => (
               <li key={m.pool.slug}>
@@ -66,6 +69,20 @@ export default async function PoolsPage() {
                     <span className="block text-sm text-muted tabular-nums">
                       {m.season}–{String(m.season + 1).slice(2)} · Co-managing {m.owner_name}&apos;s entry
                     </span>
+                  </span>
+                  <ChevronIcon className="size-4 text-faint" />
+                </Link>
+              </li>
+            ))}
+            {guestPools.map((g) => (
+              <li key={`guest-${g.slug}`}>
+                <Link href={`/p/${g.slug}`} className="flex min-h-16 items-center gap-3 py-3 transition hover:opacity-80">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-xs font-medium text-muted">
+                    {g.sport === "ncaab" ? "CBB" : "CFB"}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold">{g.name}</span>
+                    <span className="block text-sm text-muted">Guest · view only</span>
                   </span>
                   <ChevronIcon className="size-4 text-faint" />
                 </Link>

@@ -105,6 +105,7 @@ export default async function PostPage({ params }: PageProps<"/p/[slug]/board/[p
           </ul>
         )}
 
+        {!ctx.isGuest && (
         <ActionForm action={createReply.bind(null, slug, post.id)} className="mt-4 space-y-2">
           <label className="block">
             <span className="mb-1.5 block text-sm text-muted">Reply</span>
@@ -112,6 +113,7 @@ export default async function PostPage({ params }: PageProps<"/p/[slug]/board/[p
           </label>
           <SubmitButton pending="Posting…" kind="secondary">Reply</SubmitButton>
         </ActionForm>
+        )}
       </section>
     </div>
   );

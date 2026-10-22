@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
@@ -22,6 +23,8 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const { slug } = await params;
   const { for: forParam, week: weekParam } = await searchParams;
   const ctx = await getPoolContext(slug);
+  // Guests have no picks to make.
+  if (ctx.isGuest) redirect(`/p/${slug}`);
   const [slates, current, upcoming] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
 
   if (!current) {

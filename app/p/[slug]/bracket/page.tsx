@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronIcon, Empty, PageTitle } from "@/components/ui";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { getPoolContext } from "@/lib/pool";
@@ -16,6 +17,8 @@ export default async function BracketPage({ params, searchParams }: PageProps<"/
   const { slug } = await params;
   const { user: userParam, for: forParam } = await searchParams;
   const ctx = await getPoolContext(slug);
+  // Guests have no bracket of their own; they see others' from Standings once brackets lock.
+  if (ctx.isGuest && typeof userParam !== "string") redirect(`/p/${slug}/standings`);
   const bracket = await getBracket(ctx);
   if (!bracket) {
     return (
