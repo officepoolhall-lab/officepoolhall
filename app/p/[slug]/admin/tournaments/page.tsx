@@ -50,7 +50,7 @@ export default async function TournamentsAdminPage({ params }: PageProps<"/p/[sl
             <details className="group">
             <summary className="flex cursor-pointer list-none flex-wrap items-baseline gap-x-3 gap-y-1 p-4 [&::-webkit-details-marker]:hidden">
               <ChevronIcon className="size-4 shrink-0 self-center text-muted transition group-open:rotate-90" />
-              <h2 className="text-[17px] font-semibold tracking-tight">{t.name}</h2>
+              <h2 className="text-[17px] font-extrabold tracking-[-0.03em]">{t.name}</h2>
               <span className="text-sm text-muted">
                 {weekName(t.week)} · {locked ? "Locked" : "Locks"} {formatInTimeZone(t.lockAt, tz, "EEE MMM d, h:mm a")} · {t.teams.length} teams
                 {/* Picks stay private until the lock, even from the commissioner. */}

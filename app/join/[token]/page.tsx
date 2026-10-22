@@ -15,7 +15,7 @@ export default async function JoinPage({ params }: PageProps<"/join/[token]">) {
     <>
       <AppHeader />
       <main className="mx-auto w-full max-w-sm px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">Couldn&apos;t join</h1>
+        <h1 className="text-xl font-extrabold tracking-[-0.03em]">Couldn&apos;t join</h1>
         <p className="mt-1 text-sm text-muted">{error?.message ?? "Something went wrong."}</p>
         <LinkButton href="/pools" kind="secondary" className="mt-6">My pools</LinkButton>
       </main>

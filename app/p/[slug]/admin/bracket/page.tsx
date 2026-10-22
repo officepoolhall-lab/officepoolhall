@@ -113,7 +113,7 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
   return (
     <div className="space-y-6 lg:max-w-6xl">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">{bracket.name}</h2>
+        <h2 className="text-lg font-extrabold tracking-[-0.03em]">{bracket.name}</h2>
         <span className="text-sm text-muted">
           {locked ? "Locked" : "Locks"} {formatInTimeZone(bracket.lockAt, tz, "EEE MMM d, h:mm a")}
           {locked && <> · {entries.length} bracket{entries.length === 1 ? "" : "s"}</>}

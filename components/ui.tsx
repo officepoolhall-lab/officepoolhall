@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LogoMark, LogoWordmark } from "./Logo";
 import type { ComponentProps, ReactNode } from "react";
 
 // Shared primitives. See docs/design.md: one font, one accent, hairlines, gray cells.
@@ -45,8 +46,14 @@ export function TeamLogo({ src, abbr, className = "size-8" }: { src?: string | n
   );
 }
 
+/** The header logo: the Check Ball and "officepoolhall", sized by the text size passed in. */
 export function Wordmark({ className = "" }: { className?: string }) {
-  return <span className={`font-semibold tracking-tight ${className}`}>The Office Pool Hall</span>;
+  return (
+    <span role="img" aria-label="Office Pool Hall" className={`inline-flex items-center gap-[0.45em] ${className}`}>
+      <LogoMark className="size-[1.4em] shrink-0" />
+      <LogoWordmark />
+    </span>
+  );
 }
 
 /** Live status: small orange dot + label. */
@@ -103,7 +110,7 @@ export function Cell({
 export function PageTitle({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
   return (
     <div className="mb-5">
-      <h1 className="text-2xl font-semibold tracking-tight">{children}</h1>
+      <h1 className="text-2xl font-extrabold tracking-[-0.03em]">{children}</h1>
       {sub && <p className="mt-0.5 text-sm text-muted">{sub}</p>}
     </div>
   );

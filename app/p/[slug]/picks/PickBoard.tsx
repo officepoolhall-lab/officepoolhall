@@ -293,14 +293,14 @@ export function PickBoard({
       <aside ref={asideRef} className="lg:flex lg:min-h-0 lg:flex-col">
       {myPicks.length === 0 && (
         <section className="hidden lg:block" aria-labelledby="my-picks-empty">
-          <h2 id="my-picks-empty" className="mb-1 text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
+          <h2 id="my-picks-empty" className="mb-1 text-lg font-extrabold tracking-[-0.03em]">{onBehalf ? "Their picks" : "My Picks"}</h2>
           <p className="border-y border-line py-3 text-sm text-muted">Saved picks show up here.</p>
         </section>
       )}
       {myPicks.length > 0 && (
         <section className="mb-5 lg:mb-0 lg:flex lg:min-h-0 lg:flex-col" aria-labelledby="my-picks">
           <div className="mb-1 flex items-baseline justify-between gap-3">
-            <h2 id="my-picks" className="text-lg font-semibold tracking-tight">{onBehalf ? "Their picks" : "My Picks"}</h2>
+            <h2 id="my-picks" className="text-lg font-extrabold tracking-[-0.03em]">{onBehalf ? "Their picks" : "My Picks"}</h2>
             <span className="text-xs tabular-nums text-muted">
               {myPicks.length}/{settings.picksPerSlate}
               {manualSave && dirty && " · unsaved changes"}
