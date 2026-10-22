@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
@@ -23,8 +22,6 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const { slug } = await params;
   const { for: forParam, week: weekParam } = await searchParams;
   const ctx = await getPoolContext(slug);
-  // Guests have no picks to make.
-  if (ctx.isGuest) redirect(`/p/${slug}`);
   const [slates, current, upcoming] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
 
   if (!current) {
@@ -143,7 +140,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
         </div>
         {weekChips}
-        {showUpcoming && (
+        {showUpcoming && !ctx.isGuest && (
           <UpcomingWeekNote
             href={weekHref(showUpcoming.week)}
             slate={showUpcoming}
@@ -184,14 +181,16 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           fullCard: ctx.settings.full_card,
         }}
         forUserId={forUserId}
+        // Guests see the board but can't pick anything.
+        viewOnly={ctx.isGuest}
         records={records}
         // The entry's Pick History: the same page as their name on Standings.
-        historyHref={`/p/${slug}/standings/${userId}`}
+        historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings/${userId}`}
         // A co-manager saves the owner's entry, with the player's own rules (not the commissioner's).
         saveAs={ctx.managing ? ctx.entryUserId : undefined}
         sport={sport}
         top={
-          tournamentCards.length > 0 || showBracket ? (
+          !ctx.isGuest && (tournamentCards.length > 0 || showBracket) ? (
             <>
               {showBracket && (
                 <BracketCard

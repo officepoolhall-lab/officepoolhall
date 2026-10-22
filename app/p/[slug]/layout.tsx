@@ -33,7 +33,7 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
         </div>
       </AppHeader>
       <PoolTitle slug={slug} name={ctx.pool.name} />
-      <PoolNav slug={slug} isCommissioner={ctx.isCommissioner} isGuest={ctx.isGuest} week={current?.week} />
+      <PoolNav slug={slug} isCommissioner={ctx.isCommissioner} week={current?.week} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
           Pages that fill the viewport (the Grid) and wide pages (Picks) use the full screen width on desktop. */}

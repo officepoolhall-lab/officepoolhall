@@ -54,6 +54,7 @@ export function PickBoard({
   settings,
   forUserId,
   saveAs,
+  viewOnly = false,
   records = {},
   historyHref,
   top,
@@ -72,6 +73,8 @@ export function PickBoard({
   forUserId?: string;
   /** A co-manager's board: saves go to this entry (the owner's), under the player's rules. */
   saveAs?: string;
+  /** A guest: the week's games and scores, with nothing to tap. */
+  viewOnly?: boolean;
   /** ESPN team id → overall record ("6-0"), shown next to team names. */
   records?: Record<string, string>;
   /** This entry's Pick History page, linked under My Picks. */
@@ -102,7 +105,7 @@ export function PickBoard({
   );
   // The commissioner can change any game for a player, locked or not (the database marks it).
   const onBehalf = Boolean(forUserId);
-  const canEdit = (g: SlateGame) => !g.voided && (onBehalf || !isLocked(g));
+  const canEdit = (g: SlateGame) => !viewOnly && !g.voided && (onBehalf || !isLocked(g));
   // A past or fully locked week: the board is a read-only record with results.
   const readOnly = !games.some(canEdit);
 
@@ -412,6 +415,8 @@ export function PickBoard({
                     {score.pushes > 0 && `–${score.pushes}`}
                     {slate.status !== "graded" && " so far"}
                   </span>
+                ) : viewOnly ? (
+                  "Guest view · picks are off"
                 ) : (
                   "Locked"
                 )}
@@ -434,6 +439,8 @@ export function PickBoard({
                 <span className="font-semibold text-ink">{Math.max(0, openSlots)}</span> pick{openSlots === 1 ? "" : "s"} left
               </p>
             )}
+            {/* A guest has nothing picked or saved to count. */}
+            {!viewOnly && (
             <span className="shrink-0 text-right text-[15px] font-semibold tabular-nums">
               {pickedCount}/{settings.picksPerSlate}
               <span
@@ -456,6 +463,7 @@ export function PickBoard({
                         : "picked"}
               </span>
             </span>
+            )}
             {manualSave && !readOnly && (
               <button
                 type="button"
