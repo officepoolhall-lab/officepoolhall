@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
+import { Logo } from "@/components/Logo";
 import { PasswordNudge } from "@/components/PasswordNudge";
 import { ChevronIcon, Empty, LinkButton, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -36,6 +37,9 @@ export default async function PoolsPage() {
         <Suspense fallback={null}>
           <PasswordNudge />
         </Suspense>
+        <div className="mb-6 flex justify-center sm:justify-start">
+          <Logo inline />
+        </div>
         {/* The player's name ("First Last"); the email only if no name is set yet. */}
         <PageTitle sub={profile?.display_name?.trim() || user.email}>My pools</PageTitle>
         {memberships?.length || coManaged.length || guestPools.length ? (
