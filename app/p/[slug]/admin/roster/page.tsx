@@ -88,6 +88,61 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
         </form>
       </Panel>
 
+      {/* Guests: can view the whole pool but don't play, pick or post, and aren't in the standings. */}
+      <section>
+        <Panel className="p-4">
+          <h2 className="mb-1 text-[15px] font-semibold">Invite Guests (view only)</h2>
+          <p className="mb-3 text-sm text-muted">
+            Anyone who signs in with this link can see everything in the pool (standings, the Grid, picks once games start, the message board) but can&apos;t make picks or post.
+          </p>
+          {guestLink ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted">{guestLink}</code>
+              <CopyButton text={guestLink} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No guest link.</p>
+          )}
+          <div className="mt-1 flex flex-wrap gap-x-4">
+            <form action={rotateGuestInvite.bind(null, slug)}>
+              <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">
+                {guestLink ? "Replace link (the old one stops working)" : "Create a guest link"}
+              </button>
+            </form>
+            {guestLink && (
+              <form action={disableGuestInvite.bind(null, slug)}>
+                <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">Turn off link</button>
+              </form>
+            )}
+          </div>
+        </Panel>
+        {guests.length > 0 && (
+          <div className="mt-3 flex items-baseline gap-2 border-b border-line pb-2">
+            <SectionLabel>Guests</SectionLabel>
+            <span className="text-xs text-muted tabular-nums">{guests.length}</span>
+          </div>
+        )}
+        {guests.length > 0 && (
+          <ul className="divide-y divide-line">
+            {guests.map((g) => (
+              <li key={g.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">
+                    {g.display_name}
+                    <span className="ml-1.5 text-xs font-normal text-muted">Guest</span>
+                  </span>
+                  <a href={`mailto:${g.email}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">{g.email}</a>
+                  <span className="text-xs text-faint">{signedIn(g.last_sign_in_at)}</span>
+                </span>
+                <form action={removeGuest.bind(null, slug, g.user_id)}>
+                  <Button kind="danger" className="!px-4 !text-sm">Remove</Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section>
         <div className="flex items-baseline gap-2 border-b border-line pb-2">
           <SectionLabel>Members</SectionLabel>
@@ -168,59 +223,6 @@ export default async function RosterPage({ params }: PageProps<"/p/[slug]/admin/
             </li>
           ))}
         </ul>
-      </section>
-
-      {/* Guests: can view the whole pool but don't play, pick or post, and aren't in the standings. */}
-      <section>
-        <div className="flex items-baseline gap-2 border-b border-line pb-2">
-          <SectionLabel>Guests</SectionLabel>
-          <span className="text-xs text-muted tabular-nums">{guests.length} · view only</span>
-        </div>
-        <Panel className="mt-3 p-4">
-          <h2 className="mb-1 text-[15px] font-semibold">Guest link</h2>
-          <p className="mb-3 text-sm text-muted">
-            Anyone who signs in with this link can see everything in the pool (standings, the Grid, picks once games start, the message board) but can&apos;t make picks or post.
-          </p>
-          {guestLink ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted">{guestLink}</code>
-              <CopyButton text={guestLink} />
-            </div>
-          ) : (
-            <p className="text-sm text-muted">No guest link.</p>
-          )}
-          <div className="mt-1 flex flex-wrap gap-x-4">
-            <form action={rotateGuestInvite.bind(null, slug)}>
-              <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">
-                {guestLink ? "Replace link (the old one stops working)" : "Create a guest link"}
-              </button>
-            </form>
-            {guestLink && (
-              <form action={disableGuestInvite.bind(null, slug)}>
-                <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">Turn off link</button>
-              </form>
-            )}
-          </div>
-        </Panel>
-        {guests.length > 0 && (
-          <ul className="mt-2 divide-y divide-line">
-            {guests.map((g) => (
-              <li key={g.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">
-                    {g.display_name}
-                    <span className="ml-1.5 text-xs font-normal text-muted">Guest</span>
-                  </span>
-                  <a href={`mailto:${g.email}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">{g.email}</a>
-                  <span className="text-xs text-faint">{signedIn(g.last_sign_in_at)}</span>
-                </span>
-                <form action={removeGuest.bind(null, slug, g.user_id)}>
-                  <Button kind="danger" className="!px-4 !text-sm">Remove</Button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
     </div>
   );
