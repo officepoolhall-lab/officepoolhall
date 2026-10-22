@@ -47,7 +47,7 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
   const underline = <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden />;
 
   return (
-    <nav className="sticky top-[calc(3rem+1px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
+    <nav className="sticky top-[calc(3rem+4px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
       {/* Phones: four main tabs and More, sharing the width. */}
       <ul className="flex pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:hidden">
         {main.map((t) => {
@@ -57,7 +57,7 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-11 items-center justify-center px-1 text-sm font-medium ${active ? "text-ink" : "text-muted hover:text-ink"}`}
+                className={`relative flex h-11 items-center justify-center px-1 text-sm ${active ? "font-semibold text-accent" : "font-medium text-muted hover:text-ink"}`}
               >
                 {t.short ?? t.label}
                 {active && underline}
@@ -72,7 +72,7 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-haspopup="menu"
-              className={`relative flex h-11 w-full items-center justify-center gap-1 px-1 text-sm font-medium ${activeMore || open ? "text-ink" : "text-muted hover:text-ink"}`}
+              className={`relative flex h-11 w-full items-center justify-center gap-1 px-1 text-sm ${activeMore ? "font-semibold text-accent" : open ? "font-medium text-ink" : "font-medium text-muted hover:text-ink"}`}
             >
               More
               <svg viewBox="0 0 12 12" className={`size-3 transition ${open ? "rotate-180" : ""}`} aria-hidden>
@@ -110,7 +110,8 @@ export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommis
           const active = t.match(pathname);
           return (
             <li key={t.label}>
-              <Link href={t.href} aria-current={active ? "page" : undefined} className={chipClass(active)}>
+              {/* The current tab in the logo's blue. */}
+              <Link href={t.href} aria-current={active ? "page" : undefined} className={chipClass(active, active ? "!bg-accent !text-white dark:!text-black" : "")}>
                 {t.label}
               </Link>
             </li>
