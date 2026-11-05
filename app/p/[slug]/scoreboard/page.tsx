@@ -99,8 +99,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
       </div>
       {/* Finals and tip times come from the server each minute; plays poll faster in the client. */}
       <AutoRefresh active={anyLive} />
+      {/* No key on the day: switching days keeps the chosen filter. */}
       <Scoreboard
-        key={day}
         day={day}
         slug={slug}
         week={week}
