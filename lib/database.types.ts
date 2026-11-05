@@ -607,7 +607,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "add_manual_game":
+            "add_open_slate_game":
+{ Args: { "p_game_id": string,"p_home_spread"?: number | null,"p_slate_id": string }; Returns: undefined
+                           },
+"add_manual_game":
 { Args: { "p_away_team_id": string,"p_home_team_id": string,"p_neutral_site"?: boolean,"p_pool_id": string,"p_start_at": string,"p_tv_network"?: string }; Returns: string
                            },
 "apply_half_point":

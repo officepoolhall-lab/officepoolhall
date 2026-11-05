@@ -8,7 +8,7 @@ import { gameDateZone, isGameLocked } from "@/lib/locks";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
 import { getTeamRecords } from "@/lib/teamRecords";
-import { createSlate, resolveTeamMatch, saveDeadlines } from "../actions";
+import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines } from "../actions";
 import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
 import { Matchup } from "@/components/Matchup";
 
@@ -257,6 +257,27 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     const now = Date.now();
     const timeable =
       slate.status === "open" ? games.filter((g) => !g.voided && (g.timeTbd || g.manualTime) && !isGameLocked(g, now)) : [];
+    // Games a commissioner can add to an open week: scheduled, not started, in the next two
+    // weeks, and not on any week in this pool yet.
+    async function addableGames() {
+      const { data: used } = await ctx.supabase
+        .from("slate_games").select("game_id, slates!inner(pool_id)").eq("slates.pool_id", ctx.pool.id);
+      const taken = new Set((used ?? []).map((r) => r.game_id));
+      const { data } = await ctx.supabase
+        .from("games")
+        .select(`id, start_at, home:teams!games_home_team_id_fkey ( name ), away:teams!games_away_team_id_fkey ( name )`)
+        .eq("sport", ctx.pool.sport)
+        .eq("status", "scheduled")
+        .not("espn_id", "is", null)
+        .gt("start_at", new Date(now).toISOString())
+        .lt("start_at", new Date(now + 14 * 86_400_000).toISOString())
+        .order("start_at")
+        .limit(300);
+      return (data ?? [])
+        .filter((g) => !taken.has(g.id))
+        .map((g) => ({ id: g.id, label: `${g.away.name} @ ${g.home.name} · ${gameTime(g.start_at, tz)}` }));
+    }
+    const addable = slate.status === "open" ? await addableGames() : [];
     return (
       <div className="space-y-8">
         <div>
@@ -284,6 +305,30 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">League Grid</LinkButton>
           </div>
         </div>
+        {slate.status === "open" && (
+          <section>
+            <SectionLabel className="border-b border-line pb-2">Add a game to this week</SectionLabel>
+            <p className="mt-2 text-sm text-muted">Players can pick it until its deadline. Picks already in stay as they are.</p>
+            {addable.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">No scheduled games in the next two weeks are off a week yet.</p>
+            ) : (
+              <ActionForm action={addOpenWeekGame.bind(null, slug, slate.id)} className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Game">
+                  <select name="game" required className={inputClass}>
+                    <option value="">Choose…</option>
+                    {addable.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+                  </select>
+                </Field>
+                {ctx.settings.pick_type === "ats" && (
+                  <Field label="Home team's spread (e.g. -3.5)">
+                    <input name="spread" inputMode="decimal" placeholder="-3.5" className={inputClass} />
+                  </Field>
+                )}
+                <SubmitButton kind="primary" pending="Adding…" className="sm:col-start-2">Add to this week</SubmitButton>
+              </ActionForm>
+            )}
+          </section>
+        )}
         {timeable.length > 0 && (
           <section>
             <SectionLabel className="border-b border-line pb-2">Tip times to set</SectionLabel>
