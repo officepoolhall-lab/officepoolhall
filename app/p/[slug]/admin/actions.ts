@@ -153,6 +153,22 @@ export async function addGames(slug: string, slateId: string, gameIds: string[],
   return done(slug, `Added ${gameIds.length} game${gameIds.length === 1 ? "" : "s"}.`);
 }
 
+/** Add a scheduled game to a week that's already published, while the week is open. */
+export async function addOpenWeekGame(slug: string, slateId: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const gameId = String(form.get("game") ?? "");
+  if (!gameId) return { error: "Choose a game." };
+  let spread: number | null = null;
+  if (ctx.settings.pick_type === "ats") {
+    const parsed = parseSpread(String(form.get("spread") ?? ""));
+    if ("error" in parsed) return { error: parsed.error };
+    spread = parsed.value;
+  }
+  const { error } = await ctx.supabase.rpc("add_open_slate_game", { p_slate_id: slateId, p_game_id: gameId, p_home_spread: spread });
+  if (error) return { error: error.message };
+  return done(slug, "Game added to this week.");
+}
+
 export async function removeGame(slug: string, slateId: string, gameId: string): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
   const { error } = await ctx.supabase.from("slate_games").delete().eq("slate_id", slateId).eq("game_id", gameId);
