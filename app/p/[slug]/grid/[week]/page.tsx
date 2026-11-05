@@ -4,13 +4,35 @@ import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
-import { getPoolContext, getSlateGames } from "@/lib/pool";
+import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 
 export const metadata: Metadata = { title: "League Grid" };
 
 /** Row order: this week's score (default), season total, or name. */
+/**
+ * Every pick on the slate. PostgREST returns at most 1000 rows per request, and a pool with
+ * about 40 players has 1000 picks in a week, so the grid pages through the rest; otherwise
+ * the last players in the list come back with blank rows.
+ */
+async function slatePicks(ctx: PoolContext, slateId: string) {
+  const rows: { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; points: number | null; bonus: number | null; edited_by: string | null }[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await ctx.supabase
+      .from("picks")
+      .select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by")
+      .eq("slate_id", slateId)
+      .order("user_id")
+      .order("game_id")
+      .range(from, from + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
 const SORTS = [
   { id: "week", label: "Week" },
   { id: "season", label: "Season" },
@@ -29,12 +51,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const slate = slates?.find((s) => s.week === Number(week));
   if (!slate) return (<><PageTitle>League Grid</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
 
-  const [games, standings, season, { data: picks }, { data: submissions }] = await Promise.all([
+  const [games, standings, season, picks, { data: submissions }] = await Promise.all([
     getSlateGames(ctx, slate.id),
     getStandings(ctx, slate.id),
     sort === "season" ? getStandings(ctx) : null,
     // RLS only returns other players' picks on games that have kicked off (or a graded week).
-    ctx.supabase.from("picks").select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by").eq("slate_id", slate.id),
+    slatePicks(ctx, slate.id),
     // Who has submitted this week (counts only; picks stay hidden until kickoff).
     ctx.supabase.rpc("slate_submissions", { p_slate_id: slate.id }),
   ]);
