@@ -49,14 +49,23 @@ export function Scoreboard({
   const conferences = [...new Set(all.flatMap((g) => [g.home.conference, g.away.conference]).filter((c): c is string => Boolean(c)))].sort();
   const best = (g: SlateGame) => Math.min(g.homeRank ?? 99, g.awayRank ?? 99);
   const inPoolCount = all.filter((g) => g.espnId && pool.has(g.espnId)).length;
-  const shown =
+  const filtered =
     view === "pool"
       ? all.filter((g) => g.espnId && pool.has(g.espnId))
       : view === "top25"
-      ? all.filter((g) => best(g) < 99).sort((a, b) => best(a) - best(b) || a.startAt.localeCompare(b.startAt))
+      ? all.filter((g) => best(g) < 99)
       : view === "conf" && conf
         ? all.filter((g) => g.home.conference === conf || g.away.conference === conf)
         : all;
+  // Live games first, then games not yet started, then finished games at the bottom. Each group
+  // keeps its order: chronological, or best rank first on Top 25.
+  const bucket = (g: SlateGame) => {
+    if (g.voided || g.overridden || g.status === "final" || g.status === "postponed" || g.status === "cancelled") return 2;
+    return hasStarted(g, now) ? 0 : 1;
+  };
+  const shown = [...filtered].sort(
+    (a, b) => bucket(a) - bucket(b) || (view === "top25" ? best(a) - best(b) : 0) || a.startAt.localeCompare(b.startAt),
+  );
 
   const days: { key: string; label: string; games: SlateGame[] }[] = [];
   for (const g of shown) {
