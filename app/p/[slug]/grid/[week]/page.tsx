@@ -49,9 +49,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // Column times in the viewer's own zone.
   const tz = ctx.displayTz;
   const isLocked = (g: (typeof games)[number]) => slate.status !== "open" || isGameLocked(g, now);
-  // A column's picks (the viewer's own included) show once its game kicks off: started
-  // games are always locked too. A graded week shows everything, cancelled games included.
-  const isRevealed = (g: (typeof games)[number]) => slate.status === "graded" || hasStarted(g, now);
+  // A column's picks (the viewer's own included) show once the game kicks off. In college
+  // basketball they show from the week's lock instead, so the whole week opens at once. A
+  // graded week shows everything, cancelled games included.
+  const weekReveal = ctx.pool.sport === "ncaab";
+  const isRevealed = (g: (typeof games)[number]) =>
+    slate.status === "graded" || hasStarted(g, now) || (weekReveal && (slate.status === "locked" || isGameLocked(g, now)));
 
   // Week score sorts by this week's standings; the others reorder the same rows.
   const seasonById = new Map((season ?? []).map((r) => [r.userId, r]));
