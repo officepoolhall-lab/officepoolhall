@@ -8,7 +8,28 @@ export type GolfPlayer = {
   pos: string;
   earnings: number;
   status: string;
+  tee: string | null;
 };
+
+export type EventState = {
+  status: "scheduled" | "in_progress" | "final";
+  firstTee: string | null; // earliest tee time on the page; used as the pick lock while scheduled
+};
+
+/**
+ * Event status from the players' statuses. Every golfer "post" means final. Some golfers
+ * "post" or "in" means in progress. Nothing started means scheduled.
+ * Status values "pre" and "in" are not yet confirmed on a live page; check before relying on it.
+ */
+export function deriveEventState(players: GolfPlayer[]): EventState {
+  const tees = players.map((p) => p.tee).filter((t): t is string => !!t).sort();
+  const firstTee = tees[0] ?? null;
+  if (players.length === 0) return { status: "scheduled", firstTee };
+  const posted = players.filter((p) => p.status === "post").length;
+  if (posted === players.length) return { status: "final", firstTee };
+  const started = posted > 0 || players.some((p) => p.status === "in");
+  return { status: started ? "in_progress" : "scheduled", firstTee };
+}
 
 export function leaderboardUrl(espnEventId: string) {
   return `https://www.espn.com/golf/leaderboard/_/tournamentId/${espnEventId}`;
@@ -39,6 +60,7 @@ export function parsePlayers(html: string): GolfPlayer[] {
       pos: o.pos === undefined || o.pos === null || o.pos === "" ? "-" : String(o.pos),
       earnings: Number(o["$$"]) || 0,
       status: typeof o.status === "string" ? o.status : "",
+      tee: typeof o.tee === "string" ? o.tee : null,
     });
   }
   return [...byId.values()];
