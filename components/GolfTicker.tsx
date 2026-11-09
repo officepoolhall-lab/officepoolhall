@@ -11,6 +11,8 @@ export type TickerGolfer = {
   thru: string | null;
   tee: string | null;
   earnings: number;
+  lastName: string;
+  order: number | null;
 };
 
 const short$ = (n: number) =>

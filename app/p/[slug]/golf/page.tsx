@@ -143,7 +143,7 @@ async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: G
   // Live scores every 2 minutes; tee times every 10; a final leaderboard doesn't change.
   const live = await getLiveLeaderboard(event.espn_id, mode === "live" ? 120 : mode === "tees" ? 600 : 3600);
   let golfers: TickerGolfer[] = live
-    ? live.map((g) => ({ id: g.id, name: g.name, pos: g.pos, toPar: g.toPar, thru: g.thru, tee: g.tee, earnings: g.earnings }))
+    ? live
     : (await getGolfResults(ctx, event.id)).map((r) => ({
         id: r.espn_golfer_id,
         name: r.golfer_name,
@@ -152,15 +152,17 @@ async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: G
         thru: null,
         tee: null,
         earnings: Number(r.earnings),
+        lastName: r.golfer_name.split(" ").slice(-1)[0],
+        order: null,
       }));
   const mine = myPicks.find((p) => p.event_id === event.id)?.espn_golfer_id ?? null;
 
   if (mode === "tees") {
     // By tee time when posted; otherwise the field A–Z by last name.
-    const last = (n: string) => n.split(" ").slice(-1)[0];
-    golfers.sort((a, b) => (a.tee ?? "~").localeCompare(b.tee ?? "~") || last(a.name).localeCompare(last(b.name)));
+    golfers.sort((a, b) => (a.tee ?? "~").localeCompare(b.tee ?? "~") || a.lastName.localeCompare(b.lastName));
   } else {
-    golfers.sort((a, b) => posRank(a.pos) - posRank(b.pos) || b.earnings - a.earnings || a.name.localeCompare(b.name));
+    // ESPN's own order when it gives one (it breaks ties the way its leaderboard does).
+    golfers.sort((a, b) => posRank(a.pos) - posRank(b.pos) || (a.order ?? 9999) - (b.order ?? 9999) || b.earnings - a.earnings || a.lastName.localeCompare(b.lastName));
     // The top of the leaderboard (made the cut), plus the viewer's pick wherever it is.
     const top = golfers.filter((g) => posRank(g.pos) < 9999).slice(0, mode === "live" ? 50 : 40);
     const pick = golfers.find((g) => g.id === mine);

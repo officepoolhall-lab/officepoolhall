@@ -4,9 +4,10 @@ import "server-only";
 // score to par, holes played and tee time. Same embedded data the scheduled import reads
 // (supabase/functions/_shared/golf.ts); this copy keeps a few more fields and never writes.
 //
-// Field names other than pos, name, id, status, toPar, tot and "$$" haven't been confirmed on
-// a live (in-progress or pre-event) page yet, so each is optional and read from the likely
-// names. Anything missing just doesn't show.
+// Fields confirmed on a final page (Nov 2026): name, lastNm, id, pos, status, tee (ISO, the
+// golfer's latest round), thru (a number), toPar, tot, order (leaderboard order), "$$".
+// Not yet seen on a pre-event or in-progress page, so each is optional; anything missing
+// just doesn't show.
 
 const FETCH_TIMEOUT_MS = 5000;
 
@@ -24,6 +25,9 @@ export type LiveGolfer = {
   /** "pre", "in" or "post". */
   status: string;
   earnings: number;
+  lastName: string;
+  /** ESPN's own leaderboard order (1 = top); null when not given. */
+  order: number | null;
 };
 
 function str(v: unknown): string | null {
@@ -52,16 +56,18 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
     if (typeof o.name !== "string" || o.id === undefined) continue;
     // Golfer objects carry a place, score or prize money; other "guid" objects on the page don't.
     if (!("pos" in o || "toPar" in o || "$$" in o)) continue;
-    const thru = str(o.thru ?? o.hole ?? o.holesPlayed);
+    const thru = str(o.thru);
     byId.set(String(o.id), {
       id: String(o.id),
       name: o.name,
       pos: str(o.pos) ?? "-",
       toPar: str(o.toPar),
       thru: thru === "18" ? "F" : thru,
-      tee: teeTime(o.tee ?? o.teeTime ?? o.startTime),
+      tee: teeTime(o.tee),
       status: typeof o.status === "string" ? o.status : "",
       earnings: Number(o["$$"]) || 0,
+      lastName: typeof o.lastNm === "string" && o.lastNm ? o.lastNm : o.name.split(" ").slice(-1)[0],
+      order: typeof o.order === "number" ? o.order : null,
     });
   }
   return [...byId.values()];
