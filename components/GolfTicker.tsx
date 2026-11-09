@@ -20,8 +20,10 @@ const short$ = (n: number) =>
 
 /**
  * The scroll across the top of the golf home page. Monday and Tuesday: last week's finish
- * (place, score, prize money). From Wednesday: the coming event's tee times. During the event:
- * the live leaderboard (place, score, holes played). The viewer's own pick is outlined.
+ * (place, score, prize money). Before the event (from Wednesday): the field in tee-time order.
+ * During it: the leaderboard (place, score, holes played, or the tee time for a golfer who
+ * hasn't started today's round), then everyone yet to tee off, by tee time. The viewer's own
+ * pick is outlined.
  * Uses the same sliding track as the football and basketball ticker (globals.css).
  */
 export function GolfTicker({
@@ -30,15 +32,22 @@ export function GolfTicker({
   golfers,
   myGolferId,
   timezone,
+  now,
 }: {
   mode: GolfTickerMode;
   eventName: string;
   golfers: TickerGolfer[];
   myGolferId: string | null;
   timezone: string;
+  now: number;
 }) {
   if (!golfers.length) return null;
   const label = mode === "live" ? "Live" : mode === "results" ? "Final" : golfers.some((g) => g.tee) ? "Tee times" : "Field";
+  // A golfer shows a tee time instead of a score before the event, and during it when they
+  // haven't started yet (no score) or haven't started today's round (tee time still ahead).
+  const showTee = (g: TickerGolfer) =>
+    !!g.tee && (mode === "tees" || (mode === "live" && (g.toPar === null || Date.parse(g.tee) > now)));
+  const teeLabel = (iso: string) => formatInTimeZone(iso, timezone, "EEE h:mm a");
   const moving = golfers.length >= 3;
 
   const chips = (copy: boolean) => (
@@ -50,14 +59,19 @@ export function GolfTicker({
               g.id === myGolferId ? "ring-2 ring-accent" : ""
             }`}
           >
-            {mode !== "tees" && g.pos !== "-" && <span className="font-semibold tabular-nums text-muted">{g.pos}</span>}
-            {mode === "tees" && g.tee && <span className="tabular-nums text-muted">{formatInTimeZone(g.tee, timezone, "EEE h:mm a")}</span>}
+            {mode !== "tees" && g.pos !== "-" && g.toPar !== null && <span className="font-semibold tabular-nums text-muted">{g.pos}</span>}
+            {mode === "results" && g.pos !== "-" && g.toPar === null && <span className="font-semibold tabular-nums text-muted">{g.pos}</span>}
+            {showTee(g) && g.toPar === null && <span className="tabular-nums text-muted">{teeLabel(g.tee!)}</span>}
             <span className="font-medium text-ink">{g.name}</span>
             {mode !== "tees" && g.toPar && (
               // Golf's convention: under par in red.
               <span className={`font-semibold tabular-nums ${g.toPar.startsWith("-") ? "text-loss" : "text-ink"}`}>{formatToPar(g.toPar)}</span>
             )}
-            {mode === "live" && g.thru && <span className="tabular-nums text-muted">{g.thru === "F" ? "F" : `Thru ${g.thru}`}</span>}
+            {mode === "live" && g.toPar !== null && (showTee(g) ? (
+              <span className="tabular-nums text-muted">{teeLabel(g.tee!)}</span>
+            ) : g.thru ? (
+              <span className="tabular-nums text-muted">{g.thru === "F" ? "F" : `Thru ${g.thru}`}</span>
+            ) : null)}
             {mode === "results" && g.earnings > 0 && <span className="tabular-nums text-muted">{short$(g.earnings)}</span>}
             {g.id === myGolferId && <span className="sr-only"> (your pick)</span>}
           </span>

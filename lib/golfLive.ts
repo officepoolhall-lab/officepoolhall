@@ -61,7 +61,8 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       id: String(o.id),
       name: o.name,
       pos: str(o.pos) ?? "-",
-      toPar: str(o.toPar),
+      // A golfer who hasn't started has no score yet ("-" or nothing).
+      toPar: str(o.toPar) === "-" ? null : str(o.toPar),
       thru: thru === "18" ? "F" : thru,
       tee: teeTime(o.tee),
       status: typeof o.status === "string" ? o.status : "",

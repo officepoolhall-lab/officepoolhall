@@ -157,19 +157,30 @@ async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: G
       }));
   const mine = myPicks.find((p) => p.event_id === event.id)?.espn_golfer_id ?? null;
 
+  const byTee = (a: TickerGolfer, b: TickerGolfer) => (a.tee ?? "~").localeCompare(b.tee ?? "~") || a.lastName.localeCompare(b.lastName);
+  // ESPN's own order when it gives one (it breaks ties the way its leaderboard does).
+  const byPlace = (a: TickerGolfer, b: TickerGolfer) =>
+    posRank(a.pos) - posRank(b.pos) || (a.order ?? 9999) - (b.order ?? 9999) || b.earnings - a.earnings || a.lastName.localeCompare(b.lastName);
+
   if (mode === "tees") {
-    // By tee time when posted; otherwise the field A–Z by last name.
-    golfers.sort((a, b) => (a.tee ?? "~").localeCompare(b.tee ?? "~") || a.lastName.localeCompare(b.lastName));
+    // Before the event: everyone by tee time (A–Z by last name until times are posted).
+    golfers.sort(byTee);
+  } else if (mode === "live") {
+    // Under way: the leaderboard of everyone who has a score, then everyone still to tee off
+    // by tee time. Golfers who missed the cut or withdrew drop off.
+    const started = golfers.filter((g) => g.toPar !== null && posRank(g.pos) < 9999).sort(byPlace);
+    const waiting = golfers.filter((g) => g.toPar === null).sort(byTee);
+    golfers = [...started, ...waiting];
   } else {
-    // ESPN's own order when it gives one (it breaks ties the way its leaderboard does).
-    golfers.sort((a, b) => posRank(a.pos) - posRank(b.pos) || (a.order ?? 9999) - (b.order ?? 9999) || b.earnings - a.earnings || a.lastName.localeCompare(b.lastName));
-    // The top of the leaderboard (made the cut), plus the viewer's pick wherever it is.
-    const top = golfers.filter((g) => posRank(g.pos) < 9999).slice(0, mode === "live" ? 50 : 40);
+    // Last week's finish: the top 40, plus the viewer's pick wherever it finished.
+    golfers.sort(byPlace);
+    const top = golfers.filter((g) => posRank(g.pos) < 9999).slice(0, 40);
     const pick = golfers.find((g) => g.id === mine);
     golfers = pick && !top.includes(pick) ? [...top, pick] : top;
   }
 
-  return <GolfTicker mode={mode} eventName={event.name} golfers={golfers} myGolferId={mine} timezone={ctx.displayTz} />;
+  // eslint-disable-next-line react-hooks/purity
+  return <GolfTicker mode={mode} eventName={event.name} golfers={golfers} myGolferId={mine} timezone={ctx.displayTz} now={Date.now()} />;
 }
 
 /** The viewer's pick on the live leaderboard: "T12 · −4 · Thru 9". */
