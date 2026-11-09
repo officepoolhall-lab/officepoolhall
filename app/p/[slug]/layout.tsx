@@ -5,11 +5,11 @@ import { PoolNav } from "@/components/PoolNav";
 import { PoolPresence } from "@/components/PoolPresence";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { PoolTitle } from "@/components/PoolTitle";
-import { getCurrentSlate, getPoolContext } from "@/lib/pool";
+import { getCurrentSlate, getPoolBase } from "@/lib/pool";
 
 export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   const [current, { data: memberships }, { data: managed }, { data: guestOf }] = await Promise.all([
     getCurrentSlate(ctx),
     // The player's other pools, for the switcher in the header, plus entries they co-manage
@@ -33,7 +33,7 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
         </div>
       </AppHeader>
       <PoolTitle slug={slug} name={ctx.pool.name} />
-      <PoolNav slug={slug} isCommissioner={ctx.isCommissioner} week={current?.week} />
+      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={current?.week} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
           Pages that fill the viewport (the Grid) and wide pages (Picks) use the full screen width on desktop. */}

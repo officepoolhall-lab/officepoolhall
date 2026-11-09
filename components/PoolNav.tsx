@@ -11,18 +11,30 @@ type Tab = { href: string; label: string; short?: string; phone: "main" | "more"
  * Tabs under the header. Phones: a sticky row of the four main tabs plus "More" (Scoreboard,
  * Message Board, Admin) so each tab gets room and readable text. Wider screens: every tab as a pill.
  */
-export function PoolNav({ slug, isCommissioner, week }: { slug: string; isCommissioner: boolean; week?: number }) {
+export function PoolNav({ slug, sport, isCommissioner, week }: { slug: string; sport: string; isCommissioner: boolean; week?: number }) {
   const pathname = usePathname();
   const base = `/p/${slug}`;
-  const tabs: Tab[] = [
-    { href: base, label: "Home", phone: "main", match: (p) => p === base },
-    { href: `${base}/picks`, label: "My Picks", short: "Picks", phone: "main", match: (p) => p.startsWith(`${base}/picks`) },
-    { href: `${base}/standings`, label: "Standings", phone: "main", match: (p) => p.startsWith(`${base}/standings`) },
-    { href: `${base}/grid/${week ?? 1}`, label: "League Grid", short: "Grid", phone: "main", match: (p) => p.startsWith(`${base}/grid`) },
-    { href: `${base}/scoreboard`, label: "Scoreboard", phone: "more", match: (p) => p.startsWith(`${base}/scoreboard`) },
-    { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
-    ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
-  ];
+  // Golf pools have their own pages under /golf; the message board is shared.
+  const g = sport === "pga" ? `${base}/golf` : base;
+  const tabs: Tab[] = sport === "pga"
+    ? [
+        { href: g, label: "Home", phone: "main", match: (p) => p === g },
+        { href: `${g}/picks`, label: "My Picks", short: "Picks", phone: "main", match: (p) => p.startsWith(`${g}/picks`) },
+        { href: `${g}/standings`, label: "Standings", phone: "main", match: (p) => p.startsWith(`${g}/standings`) },
+        { href: `${g}/grid`, label: "League Grid", short: "Grid", phone: "main", match: (p) => p.startsWith(`${g}/grid`) },
+        { href: `${g}/scoreboard`, label: "Scoreboard", phone: "more", match: (p) => p.startsWith(`${g}/scoreboard`) },
+        { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
+        ...(isCommissioner ? [{ href: `${g}/admin`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/admin`) }] : []),
+      ]
+    : [
+        { href: base, label: "Home", phone: "main", match: (p) => p === base },
+        { href: `${base}/picks`, label: "My Picks", short: "Picks", phone: "main", match: (p) => p.startsWith(`${base}/picks`) },
+        { href: `${base}/standings`, label: "Standings", phone: "main", match: (p) => p.startsWith(`${base}/standings`) },
+        { href: `${base}/grid/${week ?? 1}`, label: "League Grid", short: "Grid", phone: "main", match: (p) => p.startsWith(`${base}/grid`) },
+        { href: `${base}/scoreboard`, label: "Scoreboard", phone: "more", match: (p) => p.startsWith(`${base}/scoreboard`) },
+        { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
+        ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
+      ];
   const main = tabs.filter((t) => t.phone === "main");
   const more = tabs.filter((t) => t.phone === "more");
   const activeMore = more.find((t) => t.match(pathname));

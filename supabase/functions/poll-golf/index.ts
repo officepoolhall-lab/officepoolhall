@@ -15,13 +15,21 @@ Deno.serve(handler(async (req) => {
     .from("golf_events")
     .select("id, espn_id, name, start_at, status")
     .in("status", ["scheduled", "in_progress"])
+    // Demo events use "demo-" ids and are never fetched from ESPN.
+    .not("espn_id", "like", "demo-%")
     .or(`start_at.is.null,start_at.lte.${horizon}`);
   if (error) return json({ error: error.message }, 500);
 
   const report: Record<string, unknown>[] = [];
   for (const ev of events ?? []) {
-    const html = await fetchLeaderboardHtml(ev.espn_id);
-    const players = parsePlayers(html);
+    // One event's failure (for example, a page not posted yet) shouldn't stop the others.
+    let players;
+    try {
+      players = parsePlayers(await fetchLeaderboardHtml(ev.espn_id));
+    } catch (e) {
+      report.push({ event: ev.espn_id, name: ev.name, error: e instanceof Error ? e.message : String(e) });
+      continue;
+    }
     const state = deriveEventState(players);
 
     // The lock follows the first tee time only while the event hasn't started.

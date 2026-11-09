@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { ChevronIcon, Empty, Field, inputClass, PageTitle, SectionLabel } from "@/components/ui";
-import { getPoolContext } from "@/lib/pool";
+import { getPoolBase } from "@/lib/pool";
 import { createPost } from "./actions";
 import { timeAgo } from "./time";
 
@@ -22,7 +22,7 @@ type Row = {
 /** The pool's Message Board: pinned posts first (League Rules, Payouts), then the latest activity. */
 export default async function BoardPage({ params }: PageProps<"/p/[slug]/board">) {
   const { slug } = await params;
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   const { data, error } = await ctx.supabase
     .from("board_posts")
     .select("id, title, body, pinned, created_at, last_activity_at, author:profiles!board_posts_author_id_fkey ( display_name ), board_replies ( count )")

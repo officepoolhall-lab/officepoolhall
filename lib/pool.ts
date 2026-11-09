@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { effectiveLockAt } from "./locks";
@@ -14,7 +14,7 @@ export { effectiveLockAt } from "./locks";
  * own, or the one they co-manage (`managing`). 404s for anyone who is neither (RLS hides the
  * pool). Pages use `entryUserId` for "my picks / my row" so co-managers see the owner's entry.
  */
-export const getPoolContext = cache(async (slug: string) => {
+export const getPoolBase = cache(async (slug: string) => {
   const user = await requireUser(`/p/${slug}`);
   const supabase = await createClient();
 
@@ -35,15 +35,10 @@ export const getPoolContext = cache(async (slug: string) => {
     !me && !co &&
     Boolean((await supabase.from("pool_guests").select("pool_id").eq("pool_id", pool.id).eq("user_id", user.id).maybeSingle()).data);
   if (!me && !co && !isGuest) notFound();
-  const settings = poolSettingsSchema.parse(pool.settings);
-  // Where game times are shown: the viewer's own zone once their browser has reported it.
-  const displayTz = await getViewerTimeZone(settings.timezone);
   return {
-    displayTz,
     supabase,
     user,
     pool,
-    settings,
     isCommissioner: me?.role === "commissioner",
     /** A guest: sees the whole pool but has no entry and can't pick or post. */
     isGuest,
@@ -52,6 +47,23 @@ export const getPoolContext = cache(async (slug: string) => {
     /** Set when the viewer co-manages someone else's entry in this pool. */
     managing: co ? { ownerId: co.owner_id, ownerName: co.owner_name } : null,
   };
+});
+
+export type PoolBase = Awaited<ReturnType<typeof getPoolBase>>;
+
+/**
+ * Football and basketball pools: the base context plus the parsed pool settings (picks, scoring,
+ * locks). Golf pools have their own settings and pages, so the football/basketball pages never
+ * reach this for a golf pool.
+ */
+export const getPoolContext = cache(async (slug: string) => {
+  const base = await getPoolBase(slug);
+  // Golf pools have their own pages; send anything that reaches a football/basketball page there.
+  if (base.pool.sport === "pga") redirect(`/p/${slug}/golf`);
+  const settings = poolSettingsSchema.parse(base.pool.settings);
+  // Where game times are shown: the viewer's own zone once their browser has reported it.
+  const displayTz = await getViewerTimeZone(settings.timezone);
+  return { ...base, displayTz, settings };
 });
 
 export async function requireCommissioner(slug: string) {
@@ -122,7 +134,7 @@ export type SlateGame = Awaited<ReturnType<typeof getSlateGames>>[number];
 
 /** Every published (non-draft) slate, newest week first. */
 // Cached per request: the pool layout and its page both ask for it.
-export const getPublishedSlates = cache(async (ctx: PoolContext) => {
+export const getPublishedSlates = cache(async (ctx: PoolBase) => {
   const { data } = await ctx.supabase
     .from("slates")
     .select("*")
@@ -138,7 +150,7 @@ export const getPublishedSlates = cache(async (ctx: PoolContext) => {
  * the next is published, and a newly published week shows right away. A week published early,
  * while the current one is still running (basketball), waits its turn: see getUpcomingSlate.
  */
-export const getCurrentSlate = cache(async (ctx: PoolContext) => {
+export const getCurrentSlate = cache(async (ctx: PoolBase) => {
   const slates = await getPublishedSlates(ctx); // newest first
   const now = Date.now();
   const thisWeek = slates.find((s) => new Date(s.window_start).getTime() <= now && now <= new Date(s.window_end).getTime());

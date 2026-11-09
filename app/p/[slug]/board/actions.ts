@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/ActionForm";
-import { getPoolContext } from "@/lib/pool";
+import { getPoolBase } from "@/lib/pool";
 
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").replace(/\r\n/g, "\n").trim();
 
 /** A new post, as the signed-in player; opens it once saved. */
 export async function createPost(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   const title = clean(form.get("title")).replace(/\s+/g, " ");
   const body = clean(form.get("body"));
   if (!title) return { error: "Give your post a title." };
@@ -23,7 +23,7 @@ export async function createPost(slug: string, _: ActionState, form: FormData): 
 }
 
 export async function createReply(slug: string, postId: string, _: ActionState, form: FormData): Promise<ActionState> {
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   const body = clean(form.get("body"));
   if (!body) return { error: "Write a reply first." };
   if (body.length > 2000) return { error: "Replies can be up to 2,000 characters." };
@@ -36,21 +36,21 @@ export async function createReply(slug: string, postId: string, _: ActionState, 
 
 /** The author or the commissioner (RLS decides; a refused delete just changes nothing). */
 export async function deletePost(slug: string, postId: string) {
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   await ctx.supabase.from("board_posts").delete().eq("id", postId);
   revalidatePath(`/p/${slug}/board`);
   redirect(`/p/${slug}/board`);
 }
 
 export async function deleteReply(slug: string, postId: string, replyId: string) {
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   await ctx.supabase.from("board_replies").delete().eq("id", replyId);
   revalidatePath(`/p/${slug}/board/${postId}`);
 }
 
 /** Commissioner only (set_post_pinned checks). */
 export async function setPinned(slug: string, postId: string, pinned: boolean) {
-  const ctx = await getPoolContext(slug);
+  const ctx = await getPoolBase(slug);
   await ctx.supabase.rpc("set_post_pinned", { p_post_id: postId, p_pinned: pinned });
   revalidatePath(`/p/${slug}/board`);
   revalidatePath(`/p/${slug}/board/${postId}`);
