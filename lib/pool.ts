@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { effectiveLockAt } from "./locks";
@@ -58,6 +58,8 @@ export type PoolBase = Awaited<ReturnType<typeof getPoolBase>>;
  */
 export const getPoolContext = cache(async (slug: string) => {
   const base = await getPoolBase(slug);
+  // Golf pools have their own pages; send anything that reaches a football/basketball page there.
+  if (base.pool.sport === "pga") redirect(`/p/${slug}/golf`);
   const settings = poolSettingsSchema.parse(base.pool.settings);
   // Where game times are shown: the viewer's own zone once their browser has reported it.
   const displayTz = await getViewerTimeZone(settings.timezone);
