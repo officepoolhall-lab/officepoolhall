@@ -150,7 +150,7 @@ async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: G
         pos: r.pos ?? "-",
         toPar: null,
         thru: null,
-        tee: null,
+        tee: r.tee_at,
         earnings: Number(r.earnings),
         lastName: r.golfer_name.split(" ").slice(-1)[0],
         order: null,

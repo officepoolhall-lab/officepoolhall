@@ -29,6 +29,8 @@ export type GolfResult = {
   golfer_name: string;
   pos: string | null;
   earnings: number;
+  /** First-round tee time, when stored (the demo's Masters); live events read ESPN instead. */
+  tee_at: string | null;
 };
 
 export type GolfPick = {
@@ -64,7 +66,7 @@ export const getGolfEvents = cache(async (ctx: PoolBase): Promise<GolfEvent[]> =
 export const getGolfResults = cache(async (ctx: PoolBase, eventId: string): Promise<GolfResult[]> => {
   const { data } = await ctx.supabase
     .from("golf_results")
-    .select("espn_golfer_id, golfer_name, pos, earnings")
+    .select("espn_golfer_id, golfer_name, pos, earnings, tee_at")
     .eq("event_id", eventId)
     .order("earnings", { ascending: false })
     .order("golfer_name");
