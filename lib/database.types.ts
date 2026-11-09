@@ -605,8 +605,62 @@ isOneToOne: false
     }
                   ]
                 }
+            "golf_events": {
+                  Row: {
+                    "espn_id": string,"id": string,"name": string,"pool_id": string,"sort_order": number,"start_at": string | null,"status": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "espn_id": string,"id"?: string,"name": string,"pool_id": string,"sort_order": number,"start_at"?: string | null,"status"?: string
+                  }
+                  Update: {
+                    "espn_id"?: string,"id"?: string,"name"?: string,"pool_id"?: string,"sort_order"?: number,"start_at"?: string | null,"status"?: string
+                  }
+                  Relationships: []
+                }
+            "golf_results": {
+                  Row: {
+                    "earnings": number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "earnings"?: number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos"?: string | null
+                  }
+                  Update: {
+                    "earnings"?: number,"espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"pos"?: string | null
+                  }
+                  Relationships: []
+                }
+            "golf_picks": {
+                  Row: {
+                    "espn_golfer_id": string,"event_id": string,"golfer_name": string,"id": string,"picked_at": string,"pool_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "espn_golfer_id": string,"event_id": string,"golfer_name": string,"id"?: string,"picked_at"?: string,"pool_id": string,"user_id": string
+                  }
+                  Update: {
+                    "espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"id"?: string,"picked_at"?: string,"pool_id"?: string,"user_id"?: string
+                  }
+                  Relationships: []
+                }
           }
           Functions: {
+"submit_golf_pick":
+{ Args: { "p_event_id": string,"p_golfer_id": string,"p_golfer_name": string,"p_user_id"?: string | null }; Returns: undefined
+                           },
+"golf_standings":
+{ Args: { "p_pool_id": string }; Returns: { "display_name": string,"events_picked": number,"season_earnings": number,"user_id": string }[]
+                           },
+"golf_is_manager":
+{ Args: { "p_owner": string,"p_pool_id": string }; Returns: boolean
+                           },
+"ingest_golf_events":
+{ Args: { "p_events": unknown,"p_pool_id": string }; Returns: undefined
+                           },
+"ingest_golf_results":
+{ Args: { "p_event_id": string,"p_results": unknown,"p_status": string }; Returns: undefined
+                           },
             "add_open_slate_game":
 { Args: { "p_game_id": string,"p_home_spread"?: number | null,"p_slate_id": string }; Returns: undefined
                            },
