@@ -111,3 +111,42 @@ export const getGolfMembers = cache(async (ctx: PoolBase): Promise<{ user_id: st
 export function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
+
+export type GolfTickerMode = "results" | "tees" | "live";
+
+/**
+ * What the home page leads with this week (days in Central time, the Tour's own calendar):
+ * - live: an event is under way, whatever the day.
+ * - results: Monday and Tuesday, the event that just finished.
+ * - tees: from Wednesday, the coming event's field and tee times.
+ * `current` is the event picks are for: the one under way, else the next one not yet final.
+ */
+export function golfWeek(events: GolfEvent[], now = Date.now()) {
+  const counted = events.filter((e) => e.status !== "canceled");
+  const live = counted.find((e) => e.status === "in_progress");
+  const upcoming = counted.find((e) => e.status === "scheduled");
+  const lastFinal = [...counted].reverse().find((e) => e.status === "final");
+  const current = live ?? upcoming ?? null;
+  const weekday = dayOfWeek(now);
+  let mode: GolfTickerMode | null;
+  let tickerEvent: GolfEvent | null;
+  if (live) [mode, tickerEvent] = ["live", live];
+  else if ((weekday === 1 || weekday === 2) && lastFinal) [mode, tickerEvent] = ["results", lastFinal];
+  else if (upcoming) [mode, tickerEvent] = ["tees", upcoming];
+  else if (lastFinal) [mode, tickerEvent] = ["results", lastFinal];
+  else [mode, tickerEvent] = [null, null];
+  return {
+    current,
+    /** "Week 14 of 37": the event's place among the season's counted events. */
+    weekNumber: current ? counted.indexOf(current) + 1 : null,
+    weeks: counted.length,
+    mode,
+    tickerEvent,
+  };
+}
+
+/** ISO weekday in Central time: 1 Monday … 7 Sunday. */
+function dayOfWeek(now: number) {
+  const short = new Intl.DateTimeFormat("en-US", { timeZone: GOLF_TZ, weekday: "short" }).format(now);
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(short) + 1;
+}
