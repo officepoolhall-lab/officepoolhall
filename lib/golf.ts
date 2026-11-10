@@ -29,6 +29,8 @@ export type GolfResult = {
   golfer_name: string;
   pos: string | null;
   earnings: number;
+  /** First-round tee time, when stored (the demo's Masters); live events read ESPN instead. */
+  tee_at: string | null;
 };
 
 export type GolfPick = {
@@ -64,7 +66,7 @@ export const getGolfEvents = cache(async (ctx: PoolBase): Promise<GolfEvent[]> =
 export const getGolfResults = cache(async (ctx: PoolBase, eventId: string): Promise<GolfResult[]> => {
   const { data } = await ctx.supabase
     .from("golf_results")
-    .select("espn_golfer_id, golfer_name, pos, earnings")
+    .select("espn_golfer_id, golfer_name, pos, earnings, tee_at")
     .eq("event_id", eventId)
     .order("earnings", { ascending: false })
     .order("golfer_name");
@@ -90,6 +92,28 @@ export const getGolfVisiblePicks = cache(async (ctx: PoolBase): Promise<GolfPick
   return (data ?? []) as GolfPick[];
 });
 
+/** Where each of these picks finished: keyed "eventId|golferId". */
+export async function getGolfPickResults(ctx: PoolBase, picks: GolfPick[]): Promise<Map<string, GolfResult>> {
+  if (!picks.length) return new Map();
+  const { data } = await ctx.supabase
+    .from("golf_results")
+    .select("event_id, espn_golfer_id, golfer_name, pos, earnings, tee_at")
+    .in("event_id", [...new Set(picks.map((p) => p.event_id))])
+    .in("espn_golfer_id", [...new Set(picks.map((p) => p.espn_golfer_id))]);
+  const wanted = new Set(picks.map((p) => `${p.event_id}|${p.espn_golfer_id}`));
+  return new Map(
+    (data ?? [])
+      .map((r) => [`${r.event_id}|${r.espn_golfer_id}`, { ...r, earnings: Number(r.earnings) }] as [string, GolfResult])
+      .filter(([k]) => wanted.has(k)),
+  );
+}
+
+/** A golfer's finish as shown: "T7", "WD", or "MC" for a final event with no place. */
+export function finishLabel(pos: string | null | undefined, eventFinal: boolean) {
+  if (pos && pos !== "-") return pos;
+  return eventFinal ? "MC" : "";
+}
+
 /** Season prize money per entry, from the database's golf_standings. */
 export const getGolfStandings = cache(async (ctx: PoolBase): Promise<GolfStanding[]> => {
   const { data } = await ctx.supabase.rpc("golf_standings", { p_pool_id: ctx.pool.id });
@@ -110,4 +134,43 @@ export const getGolfMembers = cache(async (ctx: PoolBase): Promise<{ user_id: st
 
 export function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
+
+export type GolfTickerMode = "results" | "tees" | "live";
+
+/**
+ * What the home page leads with this week (days in Central time, the Tour's own calendar):
+ * - live: an event is under way, whatever the day.
+ * - results: Monday and Tuesday, the event that just finished.
+ * - tees: from Wednesday, the coming event's field and tee times.
+ * `current` is the event picks are for: the one under way, else the next one not yet final.
+ */
+export function golfWeek(events: GolfEvent[], now = Date.now()) {
+  const counted = events.filter((e) => e.status !== "canceled");
+  const live = counted.find((e) => e.status === "in_progress");
+  const upcoming = counted.find((e) => e.status === "scheduled");
+  const lastFinal = [...counted].reverse().find((e) => e.status === "final");
+  const current = live ?? upcoming ?? null;
+  const weekday = dayOfWeek(now);
+  let mode: GolfTickerMode | null;
+  let tickerEvent: GolfEvent | null;
+  if (live) [mode, tickerEvent] = ["live", live];
+  else if ((weekday === 1 || weekday === 2) && lastFinal) [mode, tickerEvent] = ["results", lastFinal];
+  else if (upcoming) [mode, tickerEvent] = ["tees", upcoming];
+  else if (lastFinal) [mode, tickerEvent] = ["results", lastFinal];
+  else [mode, tickerEvent] = [null, null];
+  return {
+    current,
+    /** "Week 14 of 37": the event's place among the season's counted events. */
+    weekNumber: current ? counted.indexOf(current) + 1 : null,
+    weeks: counted.length,
+    mode,
+    tickerEvent,
+  };
+}
+
+/** ISO weekday in Central time: 1 Monday … 7 Sunday. */
+function dayOfWeek(now: number) {
+  const short = new Intl.DateTimeFormat("en-US", { timeZone: GOLF_TZ, weekday: "short" }).format(now);
+  return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(short) + 1;
 }

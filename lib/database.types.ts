@@ -620,14 +620,14 @@ isOneToOne: false
                 }
             "golf_results": {
                   Row: {
-                    "earnings": number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos": string | null
+                    "earnings": number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos": string | null,"tee_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "earnings"?: number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos"?: string | null
+                    "earnings"?: number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos"?: string | null,"tee_at"?: string | null
                   }
                   Update: {
-                    "earnings"?: number,"espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"pos"?: string | null
+                    "earnings"?: number,"espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"pos"?: string | null,"tee_at"?: string | null
                   }
                   Relationships: []
                 }

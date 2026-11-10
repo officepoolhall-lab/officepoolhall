@@ -22,7 +22,8 @@ export type NewsStory = {
   source: string;
 };
 
-type Sport = "ncaaf" | "ncaab";
+export type NewsSport = "ncaaf" | "ncaab" | "golf";
+type Sport = NewsSport;
 
 /** Public RSS feeds per sport (checked Oct 2026). The Athletic: see docs/data-sources.md. */
 type Feed = { source: string; url: string; /** Keep only stories whose link matches. */ only?: RegExp };
@@ -41,9 +42,17 @@ const RSS_FEEDS: Record<Sport, Feed[]> = {
     // The Field of 68's Substack; paid-only posts open to a preview.
     { source: "The Field of 68", url: "https://thefieldof68.substack.com/feed" },
   ],
+  // Golf (checked Nov 2026; all five answered). PGA Tour has no public feed (rss/news.xml and
+  // feeds/news are 404).
+  golf: [
+    { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/golf/" },
+    { source: "GOLF.com", url: "https://golf.com/feed/" },
+    { source: "NBC Sports", url: "https://www.nbcsports.com/golf.rss" },
+    { source: "Fox Sports", url: "https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/golf", only: /\/golf\//i },
+  ],
 };
 
-const ESPN_PATH: Record<Sport, string> = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" };
+const ESPN_PATH: Record<Sport, string> = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball", golf: "golf/pga" };
 
 type EspnArticle = {
   id?: number | string;
