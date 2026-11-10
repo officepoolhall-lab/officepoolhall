@@ -25,8 +25,8 @@ const plain = (s: string) => s.normalize("NFKD").replace(/[^\p{L}\p{N} ]/gu, "")
 
 /**
  * The field for the open event: search by name, sort by tee time, world rank or name, and pick
- * one. Golfers already used this season are listed but can't be chosen. A golfer's name opens
- * their results so far this season.
+ * one. Golfers already used this season are listed but can't be chosen. Each golfer's History button
+ * opens their past results.
  */
 export function GolfPicker({
   action,
@@ -114,10 +114,14 @@ export function GolfPicker({
           return (
             <li
               key={g.id}
-              // The whole row picks the golfer; the name itself opens their season results.
+              // The whole row picks the golfer; "History" at the end opens their past results.
               onClick={() => !used && setSelected(g.id)}
               className={`flex min-h-11 items-center gap-2.5 py-2 pl-3 pr-4 text-sm sm:gap-3 ${
-                isSelected ? "bg-accent/10" : used ? "opacity-60" : "cursor-pointer hover:bg-surface"
+                isSelected
+                  ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] shadow-[inset_4px_0_0_var(--accent)]"
+                  : used
+                    ? "opacity-60"
+                    : "cursor-pointer hover:bg-surface"
               }`}
             >
               <button
@@ -132,27 +136,28 @@ export function GolfPicker({
                 {isSelected && <span className="size-2 rounded-full bg-accent" />}
               </button>
               <span className="min-w-0 flex-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHistoryFor(g);
-                  }}
-                  title="Past results"
-                  className={`block max-w-full truncate text-left font-medium underline decoration-line decoration-1 underline-offset-4 hover:decoration-ink ${
-                    used ? "line-through decoration-muted" : ""
-                  }`}
-                >
-                  {g.name}
-                </button>
+                <span className={`block truncate ${isSelected ? "font-bold" : "font-medium"} ${used ? "line-through decoration-1" : ""}`}>{g.name}</span>
                 {g.teeLabel && <span className="block text-xs text-muted">{g.teeLabel}</span>}
               </span>
               {used ? (
                 <span className="shrink-0 text-xs text-muted">Used · Wk {g.usedWeek}</span>
+              ) : isSelected ? (
+                <span className="shrink-0 text-xs font-semibold text-accent">{g.id === currentId ? "Your pick" : "Selected"}</span>
               ) : g.id === currentId ? (
                 <span className="shrink-0 text-xs font-semibold text-accent">Your pick</span>
               ) : null}
               <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted sm:w-12">{g.rank ? `#${g.rank}` : "–"}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setHistoryFor(g);
+                }}
+                aria-label={`${g.name}: history`}
+                className="relative h-7 shrink-0 rounded-full border border-line bg-bg px-2.5 text-xs font-medium text-ink after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] hover:bg-hover"
+              >
+                History
+              </button>
             </li>
           );
         })}
