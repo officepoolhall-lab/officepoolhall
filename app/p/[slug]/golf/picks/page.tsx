@@ -21,7 +21,7 @@ import {
 } from "@/lib/golf";
 import { getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
-import { saveGolfPick } from "../actions";
+import { golferHistory, saveGolfPick } from "../actions";
 
 export const metadata: Metadata = { title: "My Picks" };
 
@@ -268,6 +268,7 @@ async function Field({
       golfers={golfers}
       currentId={pick?.espn_golfer_id ?? null}
       forUserId={ctx.managing ? ctx.entryUserId : null}
+      loadHistory={golferHistory.bind(null, slug)}
     />
   );
 }

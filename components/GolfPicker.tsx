@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ActionForm, SubmitButton, type ActionState } from "./ActionForm";
+import { GolferHistoryDialog, type GolferHistoryData } from "./GolferHistoryDialog";
 import { inputClass } from "./ui";
 
 export type PickerGolfer = {
@@ -24,24 +25,29 @@ const plain = (s: string) => s.normalize("NFKD").replace(/[^\p{L}\p{N} ]/gu, "")
 
 /**
  * The field for the open event: search by name, sort by tee time, world rank or name, and pick
- * one. Golfers already used this season are listed but can't be chosen.
+ * one. Golfers already used this season are listed but can't be chosen. A golfer's name opens
+ * their results so far this season.
  */
 export function GolfPicker({
   action,
   golfers,
   currentId,
   forUserId,
+  loadHistory,
 }: {
   action: (state: ActionState, form: FormData) => Promise<ActionState>;
   golfers: PickerGolfer[];
   currentId: string | null;
   /** Set when a co-manager picks for the entry's owner. */
   forUserId: string | null;
+  /** This season's results for one golfer, shown when their name is clicked. */
+  loadHistory: (golferId: string) => Promise<GolferHistoryData | { error: string }>;
 }) {
   const [query, setQuery] = useState("");
   const hasTees = golfers.some((g) => g.tee);
   const [sort, setSort] = useState<Sort>(hasTees ? "tee" : "rank");
   const [selected, setSelected] = useState<string | null>(currentId);
+  const [historyFor, setHistoryFor] = useState<PickerGolfer | null>(null);
 
   const sorted = useMemo(() => {
     const byName = (a: PickerGolfer, b: PickerGolfer) => a.lastName.localeCompare(b.lastName) || a.name.localeCompare(b.name);
@@ -106,33 +112,47 @@ export function GolfPicker({
           const used = !!g.usedWeek;
           const isSelected = g.id === selected;
           return (
-            <li key={g.id}>
+            <li
+              key={g.id}
+              // The whole row picks the golfer; the name itself opens their season results.
+              onClick={() => !used && setSelected(g.id)}
+              className={`flex min-h-11 items-center gap-2.5 py-2 pl-3 pr-4 text-sm sm:gap-3 ${
+                isSelected ? "bg-accent/10" : used ? "opacity-60" : "cursor-pointer hover:bg-surface"
+              }`}
+            >
               <button
                 type="button"
                 disabled={used}
-                onClick={() => setSelected(g.id)}
                 aria-pressed={isSelected}
-                className={`flex min-h-11 w-full items-center gap-2.5 py-2 pl-3 pr-4 text-left text-sm sm:gap-3 ${
-                  isSelected ? "bg-accent/10" : used ? "cursor-not-allowed opacity-50" : "hover:bg-surface"
-                }`}
+                aria-label={`Pick ${g.name}`}
+                className={`relative grid size-4 shrink-0 place-items-center rounded-full border after:absolute after:-inset-3 after:content-[''] ${
+                  isSelected ? "border-accent" : "border-line"
+                } ${used ? "cursor-not-allowed" : ""}`}
               >
-                <span
-                  aria-hidden
-                  className={`grid size-4 shrink-0 place-items-center rounded-full border ${isSelected ? "border-accent" : "border-line"}`}
-                >
-                  {isSelected && <span className="size-2 rounded-full bg-accent" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate font-medium ${used ? "line-through decoration-1" : ""}`}>{g.name}</span>
-                  {g.teeLabel && <span className="block text-xs text-muted">{g.teeLabel}</span>}
-                </span>
-                {used ? (
-                  <span className="shrink-0 text-xs text-muted">Used · Wk {g.usedWeek}</span>
-                ) : g.id === currentId ? (
-                  <span className="shrink-0 text-xs font-semibold text-accent">Your pick</span>
-                ) : null}
-                <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted sm:w-12">{g.rank ? `#${g.rank}` : "–"}</span>
+                {isSelected && <span className="size-2 rounded-full bg-accent" />}
               </button>
+              <span className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHistoryFor(g);
+                  }}
+                  title="Season results"
+                  className={`block max-w-full truncate text-left font-medium underline decoration-line decoration-1 underline-offset-4 hover:decoration-ink ${
+                    used ? "line-through decoration-muted" : ""
+                  }`}
+                >
+                  {g.name}
+                </button>
+                {g.teeLabel && <span className="block text-xs text-muted">{g.teeLabel}</span>}
+              </span>
+              {used ? (
+                <span className="shrink-0 text-xs text-muted">Used · Wk {g.usedWeek}</span>
+              ) : g.id === currentId ? (
+                <span className="shrink-0 text-xs font-semibold text-accent">Your pick</span>
+              ) : null}
+              <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted sm:w-12">{g.rank ? `#${g.rank}` : "–"}</span>
             </li>
           );
         })}
@@ -151,6 +171,16 @@ export function GolfPicker({
         </span>
         <SubmitButton disabled={!selected || !changed}>{currentId ? "Change pick" : "Save pick"}</SubmitButton>
       </div>
+
+      {historyFor && (
+        <GolferHistoryDialog
+          key={historyFor.id}
+          golfer={historyFor}
+          load={loadHistory}
+          onClose={() => setHistoryFor(null)}
+          onPick={historyFor.usedWeek ? undefined : () => setSelected(historyFor.id)}
+        />
+      )}
     </ActionForm>
   );
 }
