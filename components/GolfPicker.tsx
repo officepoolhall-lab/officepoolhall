@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { ActionForm, SubmitButton, type ActionState } from "./ActionForm";
-import { GolferHistoryDialog, type GolferHistoryData } from "./GolferHistoryDialog";
+import type { FieldHistory } from "@/lib/golfFieldHistory";
+import { GolferHistoryDialog } from "./GolferHistoryDialog";
 import { inputClass } from "./ui";
 
 export type PickerGolfer = {
@@ -33,15 +34,15 @@ export function GolfPicker({
   golfers,
   currentId,
   forUserId,
-  loadHistory,
+  history,
 }: {
   action: (state: ActionState, form: FormData) => Promise<ActionState>;
   golfers: PickerGolfer[];
   currentId: string | null;
   /** Set when a co-manager picks for the entry's owner. */
   forUserId: string | null;
-  /** This season's results for one golfer, shown when their name is clicked. */
-  loadHistory: (golferId: string) => Promise<GolferHistoryData | { error: string }>;
+  /** Past results for the whole field; resolves once loaded, shortly after the page. */
+  history: Promise<FieldHistory>;
 }) {
   const [query, setQuery] = useState("");
   const hasTees = golfers.some((g) => g.tee);
@@ -182,7 +183,7 @@ export function GolfPicker({
         <GolferHistoryDialog
           key={historyFor.id}
           golfer={historyFor}
-          load={loadHistory}
+          history={history}
           onClose={() => setHistoryFor(null)}
           onPick={historyFor.usedWeek ? undefined : () => setSelected(historyFor.id)}
         />
