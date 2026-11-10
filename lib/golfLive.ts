@@ -104,3 +104,12 @@ export function posRank(pos: string | null) {
 export function formatToPar(toPar: string | null) {
   return toPar ? toPar.replace(/^-/, "−") : "";
 }
+
+/** One golfer's live line: "T12 · −4 · Thru 9"; null when not on the page. */
+export async function getLivePickLine(espnId: string, golferId: string): Promise<string | null> {
+  const g = (await getLiveLeaderboard(espnId, 120))?.find((x) => x.id === golferId);
+  if (!g) return null;
+  const parts = [g.pos !== "-" ? g.pos : null, g.toPar ? formatToPar(g.toPar) : null, g.thru ? (g.thru === "F" ? "F" : `Thru ${g.thru}`) : null];
+  const line = parts.filter(Boolean).join(" · ");
+  return line || null;
+}

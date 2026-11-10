@@ -1,11 +1,12 @@
 import "server-only";
 
 // Official World Golf Ranking, from the data owgr.com's own ranking page loads. The ranking is
-// published each Monday, so it's cached 6 hours. Not a documented API: every field is read
+// published each Monday, so it's cached 6 hours. One fetch of the top 300 serves both the
+// home page's top 25 and the pick list's ranks. Not a documented API: every field is read
 // defensively, and null (the panel says it's unavailable) when the shape isn't recognised.
 
 const URL =
-  "https://apiweb.owgr.com/api/owgr/rankings/getRankings?regionId=0&pageSize=50&pageNumber=1&countryId=0&sortString=Rank+ASC";
+  "https://apiweb.owgr.com/api/owgr/rankings/getRankings?regionId=0&pageSize=300&pageNumber=1&countryId=0&sortString=Rank+ASC";
 const REVALIDATE_SECONDS = 6 * 3600;
 const FETCH_TIMEOUT_MS = 4000;
 
@@ -41,6 +42,22 @@ function rowToGolfer(r: Row): RankedGolfer | null {
     country: typeof country === "string" ? country : typeof country.code3 === "string" ? country.code3 : typeof country.code === "string" ? country.code : null,
     points: num(r.pointsAverage ?? r.averagePoints ?? r.avgPoints),
   };
+}
+
+/** "Ludvig Åberg" and "Ludvig Aberg" → "ludvigaberg": how names are matched across sources. */
+export function golferKey(name: string) {
+  return name
+    .replace(/ø/g, "o")
+    .replace(/Ø/g, "O")
+    .normalize("NFKD")
+    .replace(/[^A-Za-z]/g, "")
+    .toLowerCase();
+}
+
+/** World rank by golferKey(name), for the top 300; empty when the ranking can't be read. */
+export async function getWorldRankMap(): Promise<Map<string, number>> {
+  const owgr = await getWorldRankings(300);
+  return new Map((owgr?.golfers ?? []).map((g) => [golferKey(g.name), g.rank]));
 }
 
 export async function getWorldRankings(limit = 25): Promise<WorldRankings | null> {

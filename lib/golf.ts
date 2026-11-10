@@ -92,6 +92,28 @@ export const getGolfVisiblePicks = cache(async (ctx: PoolBase): Promise<GolfPick
   return (data ?? []) as GolfPick[];
 });
 
+/** Where each of these picks finished: keyed "eventId|golferId". */
+export async function getGolfPickResults(ctx: PoolBase, picks: GolfPick[]): Promise<Map<string, GolfResult>> {
+  if (!picks.length) return new Map();
+  const { data } = await ctx.supabase
+    .from("golf_results")
+    .select("event_id, espn_golfer_id, golfer_name, pos, earnings, tee_at")
+    .in("event_id", [...new Set(picks.map((p) => p.event_id))])
+    .in("espn_golfer_id", [...new Set(picks.map((p) => p.espn_golfer_id))]);
+  const wanted = new Set(picks.map((p) => `${p.event_id}|${p.espn_golfer_id}`));
+  return new Map(
+    (data ?? [])
+      .map((r) => [`${r.event_id}|${r.espn_golfer_id}`, { ...r, earnings: Number(r.earnings) }] as [string, GolfResult])
+      .filter(([k]) => wanted.has(k)),
+  );
+}
+
+/** A golfer's finish as shown: "T7", "WD", or "MC" for a final event with no place. */
+export function finishLabel(pos: string | null | undefined, eventFinal: boolean) {
+  if (pos && pos !== "-") return pos;
+  return eventFinal ? "MC" : "";
+}
+
 /** Season prize money per entry, from the database's golf_standings. */
 export const getGolfStandings = cache(async (ctx: PoolBase): Promise<GolfStanding[]> => {
   const { data } = await ctx.supabase.rpc("golf_standings", { p_pool_id: ctx.pool.id });
