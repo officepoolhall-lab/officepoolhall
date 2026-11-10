@@ -183,10 +183,7 @@ export function GolferHistoryDialog({
           </>
         )}
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <a href={`https://www.espn.com/golf/player/_/id/${golfer.id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-accent underline">
-            Earlier seasons on ESPN
-          </a>
+        <div className="mt-4 flex justify-end">
           {onPick && (
             <button
               type="button"

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { Suspense } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
@@ -19,6 +20,7 @@ import {
   type GolfEvent,
   type GolfPick,
 } from "@/lib/golf";
+import { getTournamentHistory } from "@/lib/golfHistory";
 import { getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { golferHistory, saveGolfPick } from "../actions";
@@ -246,6 +248,10 @@ async function Field({
 }) {
   const [field, live, ranks] = await Promise.all([getGolfResults(ctx, event.id), getLiveLeaderboard(event.espn_id, 600), getWorldRankMap()]);
   if (field.length === 0) return <p className="mt-4 text-sm text-muted">The field hasn&apos;t been posted yet.</p>;
+
+  // Once the page has been sent, read this tournament's earlier years from ESPN so they're
+  // already saved when someone opens a golfer's History (otherwise the first open waits on it).
+  after(() => getTournamentHistory(event.name, ctx.pool.season).catch(() => undefined));
 
   const liveTee = new Map((live ?? []).map((g) => [g.id, g.tee]));
   const usedWeek = new Map(used.filter((p) => p.event_id !== event.id).map((p) => [p.espn_golfer_id, p.week]));
