@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { after } from "next/server";
 import { Suspense } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
@@ -20,10 +19,10 @@ import {
   type GolfEvent,
   type GolfPick,
 } from "@/lib/golf";
-import { getTournamentHistory } from "@/lib/golfHistory";
+import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
-import { golferHistory, saveGolfPick } from "../actions";
+import { saveGolfPick } from "../actions";
 
 export const metadata: Metadata = { title: "My Picks" };
 
@@ -249,9 +248,9 @@ async function Field({
   const [field, live, ranks] = await Promise.all([getGolfResults(ctx, event.id), getLiveLeaderboard(event.espn_id, 600), getWorldRankMap()]);
   if (field.length === 0) return <p className="mt-4 text-sm text-muted">The field hasn&apos;t been posted yet.</p>;
 
-  // Once the page has been sent, read this tournament's earlier years from ESPN so they're
-  // already saved when someone opens a golfer's History (otherwise the first open waits on it).
-  after(() => getTournamentHistory(event.name, ctx.pool.season).catch(() => undefined));
+  // Past results for the whole field, loaded once here and streamed to the page when ready
+  // (not awaited: the field shows straight away, and History opens without another request).
+  const history = loadFieldHistory(ctx, event, await getGolfEvents(ctx), field.map((g) => g.espn_golfer_id));
 
   const liveTee = new Map((live ?? []).map((g) => [g.id, g.tee]));
   const usedWeek = new Map(used.filter((p) => p.event_id !== event.id).map((p) => [p.espn_golfer_id, p.week]));
@@ -274,7 +273,7 @@ async function Field({
       golfers={golfers}
       currentId={pick?.espn_golfer_id ?? null}
       forUserId={ctx.managing ? ctx.entryUserId : null}
-      loadHistory={golferHistory.bind(null, slug, event.id)}
+      history={history}
     />
   );
 }

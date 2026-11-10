@@ -1,16 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, use, useEffect, useRef } from "react";
+import type { FieldHistory } from "@/lib/golfFieldHistory";
 import { buttonClass } from "./ui";
-
-export type GolferHistoryData = {
-  rows: { week: number; event: string; pos: string | null; earnings: number; final: boolean }[];
-  eventsPlayed: number;
-  atEvent: {
-    name: string;
-    years: { year: number; formerName: string | null; played: boolean; pos: string | null; toPar: string | null; earnings: number }[];
-  } | null;
-};
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const place = (pos: string | null) => parseInt((pos ?? "").replace(/^T/, ""), 10);
@@ -21,39 +13,21 @@ const place = (pos: string | null) => parseInt((pos ?? "").replace(/^T/, ""), 10
  */
 export function GolferHistoryDialog({
   golfer,
-  load,
+  history,
   onClose,
   onPick,
 }: {
   golfer: { id: string; name: string; rank: number | null };
-  load: (golferId: string) => Promise<GolferHistoryData | { error: string }>;
+  /** Past results for the whole field, already loading with the page. */
+  history: Promise<FieldHistory>;
   onClose: () => void;
   /** Absent when the golfer can't be picked (already used). */
   onPick?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [data, setData] = useState<GolferHistoryData | { error: string } | null>(null);
-
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
-  useEffect(() => {
-    let stale = false;
-    load(golfer.id)
-      .then((d) => !stale && setData(d))
-      .catch(() => !stale && setData({ error: "Couldn't load this golfer's results." }));
-    return () => {
-      stale = true;
-    };
-  }, [golfer.id, load]);
-
-  const rows = data && !("error" in data) ? data.rows : [];
-  const finished = rows.filter((r) => r.final);
-  const cuts = finished.filter((r) => Number.isFinite(place(r.pos))).length;
-  const best = finished.map((r) => place(r.pos)).filter(Number.isFinite).sort((a, b) => a - b)[0];
-  const bestLabel = best === undefined ? "–" : (finished.find((r) => place(r.pos) === best)?.pos ?? "–");
-  const top10 = finished.filter((r) => place(r.pos) <= 10).length;
-  const total = finished.reduce((sum, r) => sum + r.earnings, 0);
 
   return (
     <dialog
@@ -77,17 +51,49 @@ export function GolferHistoryDialog({
           </button>
         </div>
 
-        {!data ? (
-          <p className="mt-4 text-sm text-muted">Loading…</p>
-        ) : "error" in data ? (
-          <p className="mt-4 text-sm text-loss" role="alert">{data.error}</p>
-        ) : (
+        <Suspense fallback={<p className="mt-4 text-sm text-muted">Loading…</p>}>
+          <Results golferId={golfer.id} history={history} />
+        </Suspense>
+
+        <div className="mt-4 flex justify-end">
+          {onPick && (
+            <button
+              type="button"
+              className={buttonClass("primary")}
+              onClick={() => {
+                onPick();
+                dialog.current?.close();
+              }}
+            >
+              Select {golfer.name.split(" ").slice(-1)[0]}
+            </button>
+          )}
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+/** The two sections, once the field's history has arrived. */
+function Results({ golferId, history }: { golferId: string; history: Promise<FieldHistory> }) {
+  const data = use(history);
+  const atYears = data.years.map((y, i) => ({ ...y, result: data.at[golferId]?.[i] ?? null }));
+  const rows = (data.season[golferId] ?? []).map((r) => ({ ...data.played[r.i], pos: r.pos, earnings: r.earnings }));
+  const eventsPlayed = data.played.length;
+  const finished = rows.filter((r) => r.final);
+  const cuts = finished.filter((r) => Number.isFinite(place(r.pos))).length;
+  const best = finished.map((r) => place(r.pos)).filter(Number.isFinite).sort((a, b) => a - b)[0];
+  const bestLabel = best === undefined ? "–" : (finished.find((r) => place(r.pos) === best)?.pos ?? "–");
+  const top10 = finished.filter((r) => place(r.pos) <= 10).length;
+  const total = finished.reduce((sum, r) => sum + r.earnings, 0);
+
+  return (
           <>
             {/* The last few years at the event being picked for. */}
-            {data.atEvent && (
+            {(
               <section className="mt-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">At the {data.atEvent.name.replace(/^the /i, "")}</h3>
-                {data.atEvent.years.length === 0 ? (
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">At the {data.eventName.replace(/^the /i, "")}</h3>
+                {atYears.length === 0 ? (
                   <p className="mt-2 border-y border-line py-3 text-sm text-muted">Earlier years of this tournament aren&apos;t available.</p>
                 ) : (
                   <table className="mt-2 w-full table-fixed border-y border-line text-xs sm:text-sm">
@@ -100,7 +106,7 @@ export function GolferHistoryDialog({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
-                      {data.atEvent.years.map((y) => (
+                      {atYears.map((y) => (y.result ? { ...y, played: true as const, ...y.result } : { ...y, played: false as const, pos: null, toPar: null, earnings: 0 })).map((y) => (
                         <tr key={y.year}>
                           <td className="py-1.5 align-top tabular-nums text-muted">{y.year}</td>
                           {y.played ? (
@@ -131,13 +137,13 @@ export function GolferHistoryDialog({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This season</h3>
               {rows.length === 0 ? (
                 <p className="mt-2 border-y border-line py-3 text-sm text-muted">
-                  {data.eventsPlayed === 0 ? "No events have been played yet this season." : `Hasn't played in any of the ${data.eventsPlayed} events so far this season.`}
+                  {eventsPlayed === 0 ? "No events have been played yet this season." : `Hasn't played in any of the ${eventsPlayed} events so far this season.`}
                 </p>
               ) : (
                 <>
                   <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
                     {[
-                      ["Events", `${rows.length} of ${data.eventsPlayed}`],
+                      ["Events", `${rows.length} of ${eventsPlayed}`],
                       ["Cuts made", `${cuts} of ${finished.length}`],
                       ["Best", bestLabel],
                       ["Top 10s", String(top10)],
@@ -161,7 +167,7 @@ export function GolferHistoryDialog({
                       {rows.map((r) => (
                         <tr key={r.week}>
                           <td className="py-1.5 tabular-nums text-muted">{r.week}</td>
-                          <td className="truncate py-1.5 pr-2">{r.event}</td>
+                          <td className="truncate py-1.5 pr-2">{r.name}</td>
                           <td className="py-1.5 tabular-nums">
                             {r.pos && r.pos !== "-" ? r.pos : r.final ? <span className="text-muted">MC</span> : ""}
                             {!r.final && <span className="ml-1 text-live">Live</span>}
@@ -181,23 +187,5 @@ export function GolferHistoryDialog({
               )}
             </section>
           </>
-        )}
-
-        <div className="mt-4 flex justify-end">
-          {onPick && (
-            <button
-              type="button"
-              className={buttonClass("primary")}
-              onClick={() => {
-                onPick();
-                dialog.current?.close();
-              }}
-            >
-              Select {golfer.name.split(" ").slice(-1)[0]}
-            </button>
-          )}
-        </div>
-      </div>
-    </dialog>
   );
 }
