@@ -70,7 +70,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
 
   return (
     <div data-wide>
-      <PageTitle sub={ctx.managing ? `Co-managing ${ctx.managing.ownerName}'s entry` : "One golfer per event. Each golfer can be used once per season."}>
+      <PageTitle sub={ctx.managing ? `Co-managing ${ctx.managing.ownerName}'s entry` : undefined}>
         My Picks
       </PageTitle>
       {ctx.isGuest && <p className="mb-4 text-sm text-muted">Guests can view picks but can&apos;t make them.</p>}
