@@ -82,7 +82,7 @@ export function GolfTicker({
 
   return (
     <div className="flex min-w-0 items-center gap-2" aria-label={`${eventName}: ${label.toLowerCase()}`}>
-      <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-ink px-2.5 text-xs font-semibold text-surface">
+      <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-ink px-2.5 text-xs font-semibold text-bg">
         {mode === "live" && <span className="size-1.5 animate-pulse rounded-full bg-live" />}
         <span className="max-w-[10rem] truncate">{eventName}</span>
         <span className="font-normal opacity-80">· {label}</span>

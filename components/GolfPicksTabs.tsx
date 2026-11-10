@@ -23,7 +23,7 @@ export function GolfPicksTabs({ thisWeek, log, upcoming }: { thisWeek: ReactNode
 
   return (
     <>
-      <div className="mb-4 flex gap-1.5 lg:hidden" role="group" aria-label="Show">
+      <div className="mb-4 flex flex-wrap gap-1.5 lg:hidden" role="group" aria-label="Show">
         {button("week", "This Week", tab === "week")}
         {button("log", "Season Log", tab === "log")}
         {button("upcoming", "Upcoming Schedule", tab === "upcoming")}
