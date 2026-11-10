@@ -28,6 +28,8 @@ export type LiveGolfer = {
   lastName: string;
   /** ESPN's own leaderboard order (1 = top); null when not given. */
   order: number | null;
+  /** "MC", "WD" or "DQ" for a golfer who didn't finish; null otherwise. */
+  out: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -69,6 +71,8 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       earnings: Number(o["$$"]) || 0,
       lastName: typeof o.lastNm === "string" && o.lastNm ? o.lastNm : o.name.split(" ").slice(-1)[0],
       order: typeof o.order === "number" ? o.order : null,
+      // ESPN marks a missed cut with cut:true and "CUT" where the tee time goes (WD, DQ likewise).
+      out: o.cut === true || o.tee === "CUT" ? "MC" : typeof o.tee === "string" && /^[A-Z]{2,4}$/.test(o.tee) ? o.tee : null,
     });
   }
   return [...byId.values()];
@@ -78,13 +82,13 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
  * The live leaderboard for one ESPN event, cached `revalidate` seconds. Null when the page
  * can't be read (ESPN down, a demo event, or the page's shape changed).
  */
-export async function getLiveLeaderboard(espnId: string, revalidate = 120): Promise<LiveGolfer[] | null> {
+export async function getLiveLeaderboard(espnId: string, revalidate = 120, timeoutMs = FETCH_TIMEOUT_MS): Promise<LiveGolfer[] | null> {
   if (!/^\d+$/.test(espnId)) return null;
   try {
     const res = await fetch(`https://www.espn.com/golf/leaderboard/_/tournamentId/${espnId}`, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
       next: { revalidate },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return null;
     const golfers = parseLiveGolfers(await res.text());

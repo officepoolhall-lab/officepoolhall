@@ -6,14 +6,18 @@ import { buttonClass } from "./ui";
 export type GolferHistoryData = {
   rows: { week: number; event: string; pos: string | null; earnings: number; final: boolean }[];
   eventsPlayed: number;
+  atEvent: {
+    name: string;
+    years: { year: number; played: boolean; pos: string | null; toPar: string | null; earnings: number }[];
+  } | null;
 };
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const place = (pos: string | null) => parseInt((pos ?? "").replace(/^T/, ""), 10);
 
 /**
- * A golfer's season so far: each event they played with finish and prize money, plus a short
- * summary. Opens over the page; "Pick" chooses them from here when they're available.
+ * A golfer's record: the last few years at the event being picked for, then this season so far
+ * (each event played with finish and prize money, plus a short summary). Opens over the page; "Pick" chooses them from here when they're available.
  */
 export function GolferHistoryDialog({
   golfer,
@@ -58,14 +62,14 @@ export function GolferHistoryDialog({
       // A click on the dimmed area around the panel closes it.
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
       className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
-      aria-label={`${golfer.name}: season results`}
+      aria-label={`${golfer.name}: results`}
     >
       <div className="max-h-[85vh] overflow-y-auto p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-bold">{golfer.name}</h2>
             <p className="text-xs text-muted">
-              {golfer.rank ? `World rank #${golfer.rank} · ` : ""}This season
+              {golfer.rank ? `World rank #${golfer.rank}` : "Outside the world top 300"}
             </p>
           </div>
           <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">
@@ -77,54 +81,99 @@ export function GolferHistoryDialog({
           <p className="mt-4 text-sm text-muted">Loading…</p>
         ) : "error" in data ? (
           <p className="mt-4 text-sm text-loss" role="alert">{data.error}</p>
-        ) : rows.length === 0 ? (
-          <p className="mt-4 border-y border-line py-3 text-sm text-muted">
-            {data.eventsPlayed === 0 ? "No events have been played yet this season." : `Hasn't played in any of the ${data.eventsPlayed} events so far this season.`}
-          </p>
         ) : (
           <>
-            <dl className="mt-4 grid grid-cols-4 gap-2 text-center">
-              {[
-                ["Events", `${rows.length} of ${data.eventsPlayed}`],
-                ["Cuts made", `${cuts} of ${finished.length}`],
-                ["Best", bestLabel],
-                ["Top 10s", String(top10)],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg bg-surface px-1 py-2">
-                  <dt className="text-[11px] text-muted">{label}</dt>
-                  <dd className="text-sm font-bold tabular-nums">{value}</dd>
-                </div>
-              ))}
-            </dl>
-            <table className="mt-4 w-full table-fixed border-y border-line text-xs sm:text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted">
-                  <th className="w-8 py-2 font-medium">Wk</th>
-                  <th className="py-2 pr-2 font-medium">Tournament</th>
-                  <th className="w-14 py-2 font-medium">Finish</th>
-                  <th className="w-24 py-2 text-right font-medium">Earnings</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {rows.map((r) => (
-                  <tr key={r.week}>
-                    <td className="py-1.5 tabular-nums text-muted">{r.week}</td>
-                    <td className="truncate py-1.5 pr-2">{r.event}</td>
-                    <td className="py-1.5 tabular-nums">
-                      {r.pos && r.pos !== "-" ? r.pos : r.final ? <span className="text-muted">MC</span> : ""}
-                      {!r.final && <span className="ml-1 text-live">Live</span>}
-                    </td>
-                    <td className={`py-1.5 text-right tabular-nums ${r.earnings > 0 ? "font-semibold" : "text-muted"}`}>{r.final ? money(r.earnings) : "–"}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-line">
-                  <td colSpan={3} className="py-2 text-muted">Season prize money</td>
-                  <td className="py-2 text-right font-bold tabular-nums">{money(total)}</td>
-                </tr>
-              </tfoot>
-            </table>
+            {/* The last few years at the event being picked for. */}
+            {data.atEvent && (
+              <section className="mt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">At the {data.atEvent.name.replace(/^the /i, "")}</h3>
+                {data.atEvent.years.length === 0 ? (
+                  <p className="mt-2 border-y border-line py-3 text-sm text-muted">Earlier years of this tournament aren&apos;t available.</p>
+                ) : (
+                  <table className="mt-2 w-full table-fixed border-y border-line text-xs sm:text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-muted">
+                        <th className="w-14 py-2 font-medium">Year</th>
+                        <th className="py-2 font-medium">Finish</th>
+                        <th className="w-16 py-2 font-medium">Score</th>
+                        <th className="w-24 py-2 text-right font-medium">Earnings</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {data.atEvent.years.map((y) => (
+                        <tr key={y.year}>
+                          <td className="py-1.5 tabular-nums text-muted">{y.year}</td>
+                          {y.played ? (
+                            <>
+                              <td className={`py-1.5 tabular-nums ${Number.isFinite(place(y.pos)) ? "font-semibold" : "text-muted"}`}>{y.pos ?? "–"}</td>
+                              {/* Golf's convention: under par in red. */}
+                              <td className={`py-1.5 tabular-nums ${y.toPar?.startsWith("-") ? "text-loss" : ""}`}>{y.toPar ? y.toPar.replace(/^-/, "−") : ""}</td>
+                              <td className={`py-1.5 text-right tabular-nums ${y.earnings > 0 ? "font-semibold" : "text-muted"}`}>{money(y.earnings)}</td>
+                            </>
+                          ) : (
+                            <td colSpan={3} className="py-1.5 text-muted">Did not play</td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </section>
+            )}
+
+            <section className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This season</h3>
+              {rows.length === 0 ? (
+                <p className="mt-2 border-y border-line py-3 text-sm text-muted">
+                  {data.eventsPlayed === 0 ? "No events have been played yet this season." : `Hasn't played in any of the ${data.eventsPlayed} events so far this season.`}
+                </p>
+              ) : (
+                <>
+                  <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
+                    {[
+                      ["Events", `${rows.length} of ${data.eventsPlayed}`],
+                      ["Cuts made", `${cuts} of ${finished.length}`],
+                      ["Best", bestLabel],
+                      ["Top 10s", String(top10)],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-lg bg-surface px-1 py-2">
+                        <dt className="text-[11px] text-muted">{label}</dt>
+                        <dd className="text-sm font-bold tabular-nums">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <table className="mt-3 w-full table-fixed border-y border-line text-xs sm:text-sm">
+                    <thead>
+                      <tr className="text-left text-xs text-muted">
+                        <th className="w-8 py-2 font-medium">Wk</th>
+                        <th className="py-2 pr-2 font-medium">Tournament</th>
+                        <th className="w-14 py-2 font-medium">Finish</th>
+                        <th className="w-24 py-2 text-right font-medium">Earnings</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {rows.map((r) => (
+                        <tr key={r.week}>
+                          <td className="py-1.5 tabular-nums text-muted">{r.week}</td>
+                          <td className="truncate py-1.5 pr-2">{r.event}</td>
+                          <td className="py-1.5 tabular-nums">
+                            {r.pos && r.pos !== "-" ? r.pos : r.final ? <span className="text-muted">MC</span> : ""}
+                            {!r.final && <span className="ml-1 text-live">Live</span>}
+                          </td>
+                          <td className={`py-1.5 text-right tabular-nums ${r.earnings > 0 ? "font-semibold" : "text-muted"}`}>{r.final ? money(r.earnings) : "–"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-line">
+                        <td colSpan={3} className="py-2 text-muted">Season prize money</td>
+                        <td className="py-2 text-right font-bold tabular-nums">{money(total)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </>
+              )}
+            </section>
           </>
         )}
 

@@ -268,7 +268,7 @@ async function Field({
       golfers={golfers}
       currentId={pick?.espn_golfer_id ?? null}
       forUserId={ctx.managing ? ctx.entryUserId : null}
-      loadHistory={golferHistory.bind(null, slug)}
+      loadHistory={golferHistory.bind(null, slug, event.id)}
     />
   );
 }

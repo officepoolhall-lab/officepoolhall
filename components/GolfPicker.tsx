@@ -138,7 +138,7 @@ export function GolfPicker({
                     e.stopPropagation();
                     setHistoryFor(g);
                   }}
-                  title="Season results"
+                  title="Past results"
                   className={`block max-w-full truncate text-left font-medium underline decoration-line decoration-1 underline-offset-4 hover:decoration-ink ${
                     used ? "line-through decoration-muted" : ""
                   }`}
