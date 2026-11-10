@@ -73,7 +73,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
       </PageTitle>
       {ctx.isGuest && <p className="mb-4 text-sm text-muted">Guests can view picks but can&apos;t make them.</p>}
 
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
         <div className="space-y-8">
           {/* 1. This week: the event, the entry's pick, and the field to choose from. */}
           <section aria-labelledby="this-week">
@@ -88,14 +88,19 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
               </>
             )}
           </section>
+        </div>
 
-          {/* 2. Season log: every event played so far. */}
+        <div className="space-y-8">
+          {/* 2. Season log: every event played so far, which is also the list of golfers used. */}
           <section aria-labelledby="season-log">
             <div className="flex items-baseline justify-between gap-3">
               <SectionLabel>
                 <span id="season-log">Season log</span>
               </SectionLabel>
               <span className="text-sm">
+                <span className="mr-3 text-xs text-muted">
+                  {used.length} of {counted.length} weeks picked
+                </span>
                 <span className="text-muted">Season total </span>
                 <span className="font-bold tabular-nums">{money(total)}</span>
               </span>
@@ -135,32 +140,6 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                   </tbody>
                 </table>
               </div>
-            )}
-          </section>
-        </div>
-
-        <div className="space-y-8">
-          {/* 4. Golfers used: who's gone for the rest of the season. */}
-          <section aria-labelledby="used">
-            <div className="flex items-baseline justify-between gap-3">
-              <SectionLabel>
-                <span id="used">Golfers used</span>
-              </SectionLabel>
-              <span className="text-xs text-muted">
-                {used.length} of {counted.length} weeks picked
-              </span>
-            </div>
-            {used.length === 0 ? (
-              <p className="mt-2 border-y border-line py-3 text-sm text-muted">None yet. Everyone is available.</p>
-            ) : (
-              <ol className="mt-2 divide-y divide-line border-y border-line">
-                {used.map((p) => (
-                  <li key={p.event_id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
-                    <span className="w-10 text-xs tabular-nums text-muted">Wk {p.week}</span>
-                    <span className="min-w-0 flex-1 truncate">{p.golfer_name}</span>
-                  </li>
-                ))}
-              </ol>
             )}
           </section>
 
