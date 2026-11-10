@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
 import { GolfPicker, type PickerGolfer } from "@/components/GolfPicker";
-import { Empty, PageTitle, SectionLabel } from "@/components/ui";
+import { GolfPicksTabs } from "@/components/GolfPicksTabs";
+import { Empty, PageTitle } from "@/components/ui";
 import {
   finishLabel,
   getGolfContext,
@@ -73,34 +74,22 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
       </PageTitle>
       {ctx.isGuest && <p className="mb-4 text-sm text-muted">Guests can view picks but can&apos;t make them.</p>}
 
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
-        <div className="space-y-8">
-          {/* 1. This week: the event, the entry's pick, and the field to choose from. */}
-          <section aria-labelledby="this-week">
-            {current ? (
-              <ThisWeek ctx={ctx} slug={slug} event={current} weekNumber={week.weekNumber!} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
-            ) : (
-              <>
-                <SectionLabel>
-                  <span id="this-week">This week</span>
-                </SectionLabel>
-                <p className="mt-2 text-sm text-muted">The season is over. Thanks for playing.</p>
-              </>
-            )}
-          </section>
-        </div>
-
-        <div className="space-y-8">
-          {/* 2. Season log: every event played so far, which is also the list of golfers used. */}
-          <section aria-labelledby="season-log">
-            <div className="flex items-baseline justify-between gap-3">
-              <SectionLabel>
-                <span id="season-log">Season log</span>
-              </SectionLabel>
-              <span className="text-sm">
-                <span className="mr-3 text-xs text-muted">
-                  {used.length} of {counted.length} weeks picked
-                </span>
+      <GolfPicksTabs
+        thisWeek={
+          current ? (
+            <ThisWeek ctx={ctx} slug={slug} event={current} weekNumber={week.weekNumber!} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
+          ) : (
+            <p className="text-sm text-muted">The season is over. Thanks for playing.</p>
+          )
+        }
+        // Every event played so far, which is also the list of golfers used.
+        log={
+          <>
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-xs text-muted">
+                {used.length} of {counted.length} weeks picked
+              </span>
+              <span>
                 <span className="text-muted">Season total </span>
                 <span className="font-bold tabular-nums">{money(total)}</span>
               </span>
@@ -141,16 +130,12 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                 </table>
               </div>
             )}
-          </section>
-
-          {/* 3. Upcoming: the rest of the schedule. */}
-          <section aria-labelledby="upcoming">
-            <div className="flex items-baseline justify-between gap-3">
-              <SectionLabel>
-                <span id="upcoming">Upcoming</span>
-              </SectionLabel>
-              <span className="text-xs text-muted">{upcoming.length} to go</span>
-            </div>
+          </>
+        }
+        // The rest of the schedule.
+        upcoming={
+          <>
+            <div className="text-xs text-muted">{upcoming.length} to go</div>
             {upcoming.length === 0 ? (
               <p className="mt-2 border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (
@@ -164,9 +149,9 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                 ))}
               </ol>
             )}
-          </section>
-        </div>
-      </div>
+          </>
+        }
+      />
     </div>
   );
 }
@@ -197,9 +182,7 @@ async function ThisWeek({
   return (
     <>
       <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-        <span id="this-week">
-          Week {weekNumber} of {weeks}
-        </span>
+        Week {weekNumber} of {weeks}
         {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under way</span>}
       </div>
       <h2 className="mt-0.5 text-xl font-bold leading-snug">{event.name}</h2>

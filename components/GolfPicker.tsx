@@ -60,7 +60,7 @@ export function GolfPicker({
   const changed = selected !== currentId;
 
   return (
-    <ActionForm action={action} className="mt-4">
+    <ActionForm action={action} className="mt-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       {forUserId && <input type="hidden" name="for" value={forUserId} />}
       {/* The choice is submitted from here, so a search that hides it doesn't drop it. */}
       {selected && <input type="hidden" name="golfer" value={selected} />}
@@ -100,7 +100,7 @@ export function GolfPicker({
         {golfers.length} in the field · {available} available to you
       </p>
 
-      <ul className="mt-2 max-h-[26rem] divide-y divide-line overflow-y-auto rounded-lg border border-line" aria-label="Field">
+      <ul className="mt-2 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
         {visible.length === 0 && <li className="px-3 py-4 text-sm text-muted">No golfer matches “{query}”.</li>}
         {visible.map((g) => {
           const used = !!g.usedWeek;
