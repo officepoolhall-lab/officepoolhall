@@ -115,10 +115,11 @@ export function GolfPicker({
             <li
               key={g.id}
               // The whole row picks the golfer; "History" at the end opens their past results.
-              onClick={() => !used && setSelected(g.id)}
+              // Clicking the selected golfer again unselects them.
+              onClick={() => !used && setSelected(isSelected ? null : g.id)}
               className={`flex min-h-11 items-center gap-2.5 py-2 pl-3 pr-4 text-sm sm:gap-3 ${
                 isSelected
-                  ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] shadow-[inset_4px_0_0_var(--accent)]"
+                  ? "cursor-pointer bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] shadow-[inset_4px_0_0_var(--accent)]"
                   : used
                     ? "opacity-60"
                     : "cursor-pointer hover:bg-surface"
