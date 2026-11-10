@@ -89,7 +89,7 @@ export function GolfPicker({
                 type="button"
                 onClick={() => setSort(k)}
                 aria-pressed={sort === k}
-                className={`h-9 rounded-full px-3 font-medium ${sort === k ? "bg-ink text-surface" : "bg-surface text-muted hover:text-ink"}`}
+                className={`h-9 rounded-full px-3 font-medium ${sort === k ? "bg-ink text-bg" : "bg-surface text-muted hover:text-ink"}`}
               >
                 {label}
               </button>
@@ -100,7 +100,7 @@ export function GolfPicker({
         {golfers.length} in the field · {available} available to you
       </p>
 
-      <ul className="mt-2 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
+      <ul className="mt-2 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line [scrollbar-gutter:stable] lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
         {visible.length === 0 && <li className="px-3 py-4 text-sm text-muted">No golfer matches “{query}”.</li>}
         {visible.map((g) => {
           const used = !!g.usedWeek;
@@ -112,7 +112,7 @@ export function GolfPicker({
                 disabled={used}
                 onClick={() => setSelected(g.id)}
                 aria-pressed={isSelected}
-                className={`flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left text-sm ${
+                className={`flex min-h-11 w-full items-center gap-2.5 py-2 pl-3 pr-4 text-left text-sm sm:gap-3 ${
                   isSelected ? "bg-accent/10" : used ? "cursor-not-allowed opacity-50" : "hover:bg-surface"
                 }`}
               >
@@ -131,7 +131,7 @@ export function GolfPicker({
                 ) : g.id === currentId ? (
                   <span className="shrink-0 text-xs font-semibold text-accent">Your pick</span>
                 ) : null}
-                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{g.rank ? `#${g.rank}` : "–"}</span>
+                <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted sm:w-12">{g.rank ? `#${g.rank}` : "–"}</span>
               </button>
             </li>
           );

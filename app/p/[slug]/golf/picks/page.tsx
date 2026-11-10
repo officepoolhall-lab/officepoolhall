@@ -98,14 +98,15 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
               <p className="mt-2 border-y border-line py-3 text-sm text-muted">No events have been played yet.</p>
             ) : (
               <div className="mt-2 overflow-x-auto border-y border-line">
-                <table className="w-full text-sm">
+                {/* Phones: smaller type and tighter columns so it fits without scrolling sideways. */}
+                <table className="w-full table-fixed text-xs sm:table-auto sm:text-sm">
                   <thead>
                     <tr className="text-left text-xs text-muted">
-                      <th className="w-10 py-2 pr-2 font-medium">Wk</th>
-                      <th className="py-2 pr-3 font-medium">Tournament</th>
-                      <th className="py-2 pr-3 font-medium">Golfer</th>
-                      <th className="py-2 pr-3 font-medium">Finish</th>
-                      <th className="py-2 text-right font-medium">Earnings</th>
+                      <th className="w-7 py-2 pr-1 font-medium sm:w-10 sm:pr-2">Wk</th>
+                      <th className="py-2 pr-2 font-medium sm:pr-3">Tournament</th>
+                      <th className="py-2 pr-2 font-medium sm:pr-3">Golfer</th>
+                      <th className="w-12 py-2 pr-2 font-medium sm:w-auto sm:pr-3">Finish</th>
+                      <th className="w-[5.5rem] py-2 text-right font-medium sm:w-auto">Earnings</th>
                       <th className="hidden py-2 pl-3 text-right font-medium sm:table-cell">Total</th>
                     </tr>
                   </thead>
@@ -114,10 +115,10 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                       const final = ev.status === "final";
                       return (
                         <tr key={ev.id}>
-                          <td className="py-2 pr-2 tabular-nums text-muted">{weekOf.get(ev.id)}</td>
-                          <td className="max-w-[11rem] truncate py-2 pr-3">{ev.name}</td>
-                          <td className={`py-2 pr-3 ${pick ? "font-medium" : "text-muted"}`}>{pick ? pick.golfer_name : "No pick"}</td>
-                          <td className="py-2 pr-3 tabular-nums text-muted">
+                          <td className="py-2 pr-1 tabular-nums text-muted sm:pr-2">{weekOf.get(ev.id)}</td>
+                          <td className="truncate py-2 pr-2 sm:max-w-[11rem] sm:pr-3">{ev.name}</td>
+                          <td className={`truncate py-2 pr-2 sm:pr-3 ${pick ? "font-medium" : "text-muted"}`}>{pick ? pick.golfer_name : "No pick"}</td>
+                          <td className="py-2 pr-2 tabular-nums text-muted sm:pr-3">
                             {pick ? finishLabel(result?.pos, final) : ""}
                             {!final && <span className="ml-1 text-xs text-live">Live</span>}
                           </td>
