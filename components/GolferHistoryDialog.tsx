@@ -8,7 +8,7 @@ export type GolferHistoryData = {
   eventsPlayed: number;
   atEvent: {
     name: string;
-    years: { year: number; played: boolean; pos: string | null; toPar: string | null; earnings: number }[];
+    years: { year: number; formerName: string | null; played: boolean; pos: string | null; toPar: string | null; earnings: number }[];
   } | null;
 };
 
@@ -102,16 +102,22 @@ export function GolferHistoryDialog({
                     <tbody className="divide-y divide-line">
                       {data.atEvent.years.map((y) => (
                         <tr key={y.year}>
-                          <td className="py-1.5 tabular-nums text-muted">{y.year}</td>
+                          <td className="py-1.5 align-top tabular-nums text-muted">{y.year}</td>
                           {y.played ? (
                             <>
-                              <td className={`py-1.5 tabular-nums ${Number.isFinite(place(y.pos)) ? "font-semibold" : "text-muted"}`}>{y.pos ?? "–"}</td>
+                              <td className="py-1.5">
+                                <span className={`tabular-nums ${Number.isFinite(place(y.pos)) ? "font-semibold" : "text-muted"}`}>{y.pos ?? "–"}</span>
+                                {y.formerName && <span className="block truncate text-[11px] text-faint">{y.formerName}</span>}
+                              </td>
                               {/* Golf's convention: under par in red. */}
-                              <td className={`py-1.5 tabular-nums ${y.toPar?.startsWith("-") ? "text-loss" : ""}`}>{y.toPar ? y.toPar.replace(/^-/, "−") : ""}</td>
-                              <td className={`py-1.5 text-right tabular-nums ${y.earnings > 0 ? "font-semibold" : "text-muted"}`}>{money(y.earnings)}</td>
+                              <td className={`py-1.5 align-top tabular-nums ${y.toPar?.startsWith("-") ? "text-loss" : ""}`}>{y.toPar ? y.toPar.replace(/^-/, "−") : ""}</td>
+                              <td className={`py-1.5 text-right align-top tabular-nums ${y.earnings > 0 ? "font-semibold" : "text-muted"}`}>{money(y.earnings)}</td>
                             </>
                           ) : (
-                            <td colSpan={3} className="py-1.5 text-muted">Did not play</td>
+                            <td colSpan={3} className="py-1.5 text-muted">
+                              Did not play
+                              {y.formerName && <span className="block truncate text-[11px] text-faint">{y.formerName}</span>}
+                            </td>
                           )}
                         </tr>
                       ))}

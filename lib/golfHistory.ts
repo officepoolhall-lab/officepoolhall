@@ -72,10 +72,49 @@ export function matchTournament(name: string, calendar: CalendarEntry[]): Calend
   return contained.length === 1 ? contained[0] : null;
 }
 
+// Earlier names of today's tournaments (title sponsors change), tried when this year's name
+// isn't in an older calendar. Keys and values are compared the same forgiving way as above,
+// so exact ESPN wording doesn't matter. Checked Nov 2026.
+const FORMER_NAMES: Record<string, string[]> = {
+  "The Sentry": ["Sentry Tournament of Champions"],
+  "WM Phoenix Open": ["Waste Management Phoenix Open"],
+  "Cognizant Classic in The Palm Beaches": ["The Honda Classic"],
+  "Texas Children's Houston Open": ["Cadence Bank Houston Open", "Hewlett Packard Enterprise Houston Open", "Vivint Houston Open"],
+  "THE CJ CUP Byron Nelson": ["AT&T Byron Nelson"],
+  "Truist Championship": ["Wells Fargo Championship"],
+  "ONEflight Myrtle Beach Classic": ["Myrtle Beach Classic"],
+  "ISCO Championship": ["Barbasol Championship"],
+  "Rocket Classic": ["Rocket Mortgage Classic"],
+  // Renamed for 2027: same tournament at Sedgefield, new title sponsor.
+  "GO by Raymond James": ["Wyndham Championship"],
+  // New in 2027, but at Silverado, which hosted these through 2025: the same course, so the
+  // history is still a guide. The year's own name is shown beside it.
+  "Sompo Championship": ["Procore Championship", "Fortinet Championship"],
+  // Became a playoff event in 2022; before that TPC Southwind hosted the WGC.
+  "FedEx St. Jude Championship": ["WGC-FedEx St. Jude Invitational"],
+  "Genesis Scottish Open": ["abrdn Scottish Open"],
+  "Corales Puntacana Championship": ["Corales Puntacana Resort & Club Championship"],
+  "VidantaWorld Mexico Open": ["Mexico Open at VidantaWorld", "Mexico Open at Vidanta"],
+};
+
+const sameName = (a: string, b: string) => words(a).filter((w) => w !== "the").join(" ") === words(b).filter((w) => w !== "the").join(" ");
+
+/** This tournament in another year's calendar, under today's name or an earlier one. */
+export function findEdition(name: string, calendar: CalendarEntry[]): CalendarEntry | null {
+  const former = Object.entries(FORMER_NAMES).find(([current]) => sameName(current, name))?.[1] ?? [];
+  for (const n of [name, ...former]) {
+    const match = matchTournament(n, calendar);
+    if (match) return match;
+  }
+  return null;
+}
+
 export type TournamentYear = {
   year: number;
-  /** That year's name, when it differs from today's. */
+  /** What the tournament was called that year. */
   name: string;
+  /** True when that differs from today's name. */
+  renamed: boolean;
   golfers: Map<string, LiveGolfer>;
 };
 
@@ -84,12 +123,12 @@ export async function getTournamentHistory(eventName: string, season: number): P
   const years = Array.from({ length: YEARS_BACK }, (_, i) => season - 1 - i);
   const found = await Promise.all(
     years.map(async (year): Promise<TournamentYear | null> => {
-      const match = matchTournament(eventName, await seasonCalendar(year));
+      const match = findEdition(eventName, await seasonCalendar(year));
       if (!match) return null;
       const golfers = await getLiveLeaderboard(match.id, LEADERBOARD_REVALIDATE, FETCH_TIMEOUT_MS);
       // A year with nobody finished (canceled, or not played yet) isn't history.
       if (!golfers || !golfers.some((g) => g.status === "post")) return null;
-      return { year, name: match.label, golfers: new Map(golfers.map((g) => [g.id, g])) };
+      return { year, name: match.label, renamed: !sameName(match.label, eventName), golfers: new Map(golfers.map((g) => [g.id, g])) };
     }),
   );
   return found.filter((y): y is TournamentYear => !!y);

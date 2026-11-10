@@ -44,7 +44,7 @@ export type GolferHistory = {
   /** The event being picked for, and how the golfer did there in earlier years (newest first). */
   atEvent: {
     name: string;
-    years: { year: number; played: boolean; pos: string | null; toPar: string | null; earnings: number }[];
+    years: { year: number; formerName: string | null; played: boolean; pos: string | null; toPar: string | null; earnings: number }[];
   } | null;
 };
 
@@ -93,6 +93,8 @@ export async function golferHistory(slug: string, eventId: string, golferId: str
             const g = y.golfers.get(golferId);
             return {
               year: y.year,
+              // Shown when the tournament went by another name that year.
+              formerName: y.renamed ? y.name : null,
               played: !!g,
               // A numbered place, else why they didn't finish (MC, WD, DQ).
               pos: g ? (g.pos !== "-" ? g.pos : g.out) : null,
