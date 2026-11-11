@@ -15,8 +15,14 @@ import type { SlateGame } from "@/lib/pool";
  * games open the full play-by-play and box score. Show all, just the pool's games, just games
  * with a Top 25 team (best rank first), or one conference's games. Pool games are marked.
  */
+type View = "all" | "pool" | "top25" | "conf";
+const VIEWS: View[] = ["all", "pool", "top25", "conf"];
+const SCROLL_KEY = "scoreboard-scroll:";
+
 export function Scoreboard({
   day: selectedDay,
+  initialView,
+  initialConf,
   slug,
   week,
   games,
@@ -28,6 +34,9 @@ export function Scoreboard({
 }: {
   /** The chosen day (yyyy-mm-dd); only its games show. */
   day: string;
+  /** The filter from the address (?view=, ?conf=), so coming back from a game keeps it. */
+  initialView?: string;
+  initialConf?: string;
   slug: string;
   week: number;
   games: SlateGame[];
@@ -43,8 +52,52 @@ export function Scoreboard({
   const now = useTicking();
   // Only the chosen day's games, never a spillover from the next day.
   const all = useLiveGames(games, now, sport).filter((g) => dayKey(g.startAt, gameDateZone(g.timeTbd, timezone)) === selectedDay);
-  const [view, setView] = useState<"all" | "pool" | "top25" | "conf">("all");
-  const [conf, setConf] = useState("");
+  const [view, setViewState] = useState<View>(VIEWS.includes(initialView as View) ? (initialView as View) : "all");
+  const [conf, setConfState] = useState(initialConf ?? "");
+  // This page's address with the current filter: kept in the bar (so a refresh keeps it) and
+  // handed to each game, whose Back link returns here.
+  const here = (v: View, c: string) => {
+    const q = new URLSearchParams({ week: String(week), day: selectedDay });
+    if (v !== "all") q.set("view", v);
+    if (v === "conf" && c) q.set("conf", c);
+    return `/p/${slug}/scoreboard?${q}`;
+  };
+  const remember = (v: View, c: string) => {
+    try {
+      window.history.replaceState(window.history.state, "", here(v, c));
+    } catch {
+      // The address is a convenience; the filter itself already changed.
+    }
+  };
+  const setView = (v: View) => {
+    setViewState(v);
+    remember(v, conf);
+  };
+  const setConf = (c: string) => {
+    setConfState(c);
+    remember(c ? "conf" : "all", c);
+  };
+  const backTo = here(view, conf);
+  // Back from a game: return to the same spot in the list.
+  useEffect(() => {
+    try {
+      const key = SCROLL_KEY + window.location.pathname + window.location.search;
+      const y = sessionStorage.getItem(key);
+      if (y !== null) {
+        sessionStorage.removeItem(key);
+        requestAnimationFrame(() => window.scrollTo(0, Number(y)));
+      }
+    } catch {
+      // No session storage (private mode): it just opens at the top.
+    }
+  }, []);
+  const saveScroll = () => {
+    try {
+      sessionStorage.setItem(SCROLL_KEY + backTo, String(window.scrollY));
+    } catch {
+      // As above.
+    }
+  };
   const pool = new Set(inPool);
   const conferences = [...new Set(all.flatMap((g) => [g.home.conference, g.away.conference]).filter((c): c is string => Boolean(c)))].sort();
   const best = (g: SlateGame) => Math.min(g.homeRank ?? 99, g.awayRank ?? 99);
@@ -135,7 +188,8 @@ export function Scoreboard({
                   records={records}
                   ats={ats}
                   inPool={Boolean(g.espnId && pool.has(g.espnId))}
-                  href={`/p/${slug}/game/${g.espnId ?? g.id}?week=${week}&from=scoreboard`}
+                  href={`/p/${slug}/game/${g.espnId ?? g.id}?week=${week}&from=scoreboard&back=${encodeURIComponent(backTo)}`}
+                  onOpen={saveScroll}
                 />
               </li>
             ))}
@@ -154,6 +208,7 @@ function GameCard({
   ats,
   inPool,
   href,
+  onOpen,
 }: {
   g: SlateGame;
   now: number;
@@ -162,6 +217,8 @@ function GameCard({
   ats: boolean;
   inPool: boolean;
   href: string;
+  /** Called as the game is opened (the list saves its scroll position). */
+  onOpen?: () => void;
 }) {
   const started = hasStarted(g, now);
   const final = g.status === "final" || g.overridden;
@@ -236,7 +293,7 @@ function GameCard({
 
   // Live and final games open the play-by-play and box score.
   return (live || final) && !g.voided ? (
-    <Link href={href} className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent">
+    <Link href={href} onClick={onOpen} className="block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent">
       {card}
     </Link>
   ) : (
