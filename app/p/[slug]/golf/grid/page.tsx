@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfGrid, type GridRow, type GridWeek } from "@/components/GolfGrid";
-import { Empty, PageTitle } from "@/components/ui";
+import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { getGolfContext } from "@/lib/golf";
 import { getGolfStandingsData } from "@/lib/golfStandings";
 
@@ -38,8 +39,15 @@ function shortName(name: string) {
  * week. Others' picks for the open week stay hidden until the lock (the database doesn't send
  * them); during play each pick shows its golfer's live place.
  */
-export default async function GolfGridPage({ params }: PageProps<"/p/[slug]/golf/grid">) {
+const SORTS = [
+  { id: "season", label: "Season" },
+  { id: "name", label: "A–Z" },
+] as const;
+
+export default async function GolfGridPage({ params, searchParams }: PageProps<"/p/[slug]/golf/grid">) {
   const { slug } = await params;
+  const { sort: sortParam } = await searchParams;
+  const sort = sortParam === "name" ? "name" : "season";
   const ctx = await getGolfContext(slug);
   // eslint-disable-next-line react-hooks/purity
   const data = await getGolfStandingsData(ctx, Date.now());
@@ -93,12 +101,34 @@ export default async function GolfGridPage({ params }: PageProps<"/p/[slug]/golf
     };
   });
 
+  if (sort === "name") rows.sort((a, b) => a.name.localeCompare(b.name));
+
   return (
-    <div data-wide>
-      <PageTitle>League Grid</PageTitle>
+    // Fills the screen like the football and basketball grids; the grid scrolls inside it.
+    <div
+      data-fill-viewport
+      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+    >
+      <h1 className="sr-only">League Grid</h1>
       <AutoRefresh active={!!data.current?.live} seconds={120} />
+      <div className="-mx-4 mb-1 flex shrink-0 items-center gap-1 px-4 py-1">
+        <span className="mr-0.5 text-[11px] font-medium text-muted">Sort</span>
+        {SORTS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/p/${slug}/golf/grid${x.id === "season" ? "" : `?sort=${x.id}`}`}
+            aria-current={x.id === sort ? "true" : undefined}
+            className={chipClass(x.id === sort, "", "xs")}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </div>
       {weeks.length === 0 || rows.length === 0 ? (
-        <Empty>The grid fills in once the first tournament is under way.</Empty>
+        <>
+          <PageTitle>League Grid</PageTitle>
+          <Empty>The grid fills in once the first tournament is under way.</Empty>
+        </>
       ) : (
         <GolfGrid rows={rows} weeks={weeks} />
       )}
