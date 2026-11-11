@@ -131,7 +131,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                         <tr key={ev.id}>
                           <td className="py-2 pr-1 tabular-nums text-muted sm:pr-2">{weekOf.get(ev.id)}</td>
                           <td className="truncate py-2 pr-2 sm:max-w-[11rem] sm:pr-3">{ev.name}</td>
-                          <td className={`truncate py-2 pr-2 sm:pr-3 ${pick ? "font-medium" : "text-muted"}`}>{pick ? pick.golfer_name : "No pick"}</td>
+                          <td className={`break-words py-2 leading-snug pr-2 sm:pr-3 ${pick ? "font-medium" : "text-muted"}`}>{pick ? pick.golfer_name : "No pick"}</td>
                           <td className="py-2 pr-2 tabular-nums text-muted sm:pr-3">
                             {pick ? finishLabel(result?.pos, final) : ""}
                             {!final && <span className="ml-1 text-xs text-live">Live</span>}

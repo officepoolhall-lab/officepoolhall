@@ -78,7 +78,7 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
                 <tr key={l.week}>
                   <td className="py-2 pr-1 tabular-nums text-muted">{l.week}</td>
                   <td className="truncate py-2 pr-2">{l.event}</td>
-                  <td className={`truncate py-2 pr-2 ${l.golfer ? "font-medium" : "text-muted"}`}>{l.golfer ?? "No pick"}</td>
+                  <td className={`break-words py-2 leading-snug pr-2 ${l.golfer ? "font-medium" : "text-muted"}`}>{l.golfer ?? "No pick"}</td>
                   <td className="py-2 pr-2 tabular-nums text-muted">
                     {l.finish}
                     {!l.final && <span className="ml-1 text-xs text-live">Live</span>}
