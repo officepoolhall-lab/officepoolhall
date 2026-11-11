@@ -41,7 +41,10 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
   // Weeks to choose from: every event played, plus the current one while it's still open.
   const weeks = [...data.played];
   if (data.current && !weeks.some((w) => w.week === data.current!.week)) weeks.push({ week: data.current.week, name: data.current.name, final: false });
-  const weekOptions = weeks.map((w) => ({ id: String(w.week), label: `Week ${w.week} · ${w.name}` }));
+  const weekOptions = weeks.map((w) => ({
+    id: String(w.week),
+    label: `Week ${w.week} · ${w.name}${data.current?.live && data.current.week === w.week ? " (Live)" : ""}`,
+  }));
   const weekIds = weekOptions.map((o) => o.id);
 
   const weekRows = (week: number): WeekRow[] => {
@@ -133,7 +136,7 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
                     <GolfWeekStandings rows={weekRows(Number(id))} final={isFinal(id)} playerHref={playerHref} />
                   ))}
                   headers={each((id) => (
-                    <GolfWeekHeaderRow final={isFinal(id)} />
+                    <GolfWeekHeaderRow final={isFinal(id)} live={!!data.current?.live && String(data.current.week) === id} />
                   ))}
                   lead={<MobileTabs />}
                 />

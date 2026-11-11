@@ -253,14 +253,14 @@ isOneToOne: false
                   ]
                 },"pool_members": {
                   Row: {
-                    "joined_at": string,"paid": boolean,"pool_id": string,"role": string,"user_id": string
+                    "contact_email": string | null,"joined_at": string,"paid": boolean,"pool_id": string,"role": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "joined_at"?: string,"paid"?: boolean,"pool_id": string,"role"?: string,"user_id": string
+                    "contact_email"?: string | null,"joined_at"?: string,"paid"?: boolean,"pool_id": string,"role"?: string,"user_id": string
                   }
                   Update: {
-                    "joined_at"?: string,"paid"?: boolean,"pool_id"?: string,"role"?: string,"user_id"?: string
+                    "contact_email"?: string | null,"joined_at"?: string,"paid"?: boolean,"pool_id"?: string,"role"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -651,6 +651,9 @@ isOneToOne: false
                            },
 "golf_standings":
 { Args: { "p_pool_id": string }; Returns: { "display_name": string,"events_picked": number,"season_earnings": number,"user_id": string }[]
+                           },
+"golf_admin_update_event":
+{ Args: { "p_event_id": string,"p_name"?: string | null,"p_status"?: string | null }; Returns: undefined
                            },
 "golf_is_manager":
 { Args: { "p_owner": string,"p_pool_id": string }; Returns: boolean

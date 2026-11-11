@@ -37,6 +37,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
   const current = week.current;
   const myPick = current ? myPicks.find((p) => p.event_id === current.id) : undefined;
   const lastFinal = [...events].reverse().find((e) => e.status === "final");
+  const rulesNote = ((ctx.pool.settings as Record<string, unknown> | null)?.rules_note as string | null) ?? null;
   const lastPick = lastFinal ? myPicks.find((p) => p.event_id === lastFinal.id) : undefined;
 
   return (
@@ -110,6 +111,21 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
             </div>
             <StandingsPreview rows={standings} me={ctx.entryUserId} limit={10} />
           </section>
+
+          {/* The pool's rules, plus anything the commissioner added in Admin → Settings. */}
+          <details className="group mt-6 border-y border-line py-1">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold">
+              Pool rules
+              <ChevronIcon className="size-4 text-muted transition group-open:rotate-90" />
+            </summary>
+            <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-muted">
+              <li>One golfer per tournament; each golfer once per season.</li>
+              <li>Picks lock at the tournament&apos;s first tee time.</li>
+              <li>Standings are season prize money from your picks.</li>
+              <li>No pick, a missed cut or a withdrawal earns $0.</li>
+            </ul>
+            {rulesNote && <p className="mb-3 whitespace-pre-line text-sm">{rulesNote}</p>}
+          </details>
         </div>
 
         <div className="order-last lg:order-none">

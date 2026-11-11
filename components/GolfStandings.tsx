@@ -58,16 +58,23 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
 }
 
 /** Entry · Golfer · Earnings, matching GolfWeekStandings' columns (Golfer folds under Player on phones). */
-export function GolfWeekHeaderRow({ final }: { final: boolean }) {
+export function GolfWeekHeaderRow({ final, live = false }: { final: boolean; live?: boolean }) {
   return (
+    <>
+    {live && (
+      <div className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-live">
+        <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live: the tournament is under way
+      </div>
+    )}
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
       <span className="w-7 shrink-0" />
       <span className={`min-w-0 flex-1 ${head}`}>
         Entry<span className="sm:hidden"> · Golfer</span>
       </span>
       <span className={`hidden min-w-0 flex-1 sm:block ${head}`}>Golfer</span>
-      <span className={`w-24 shrink-0 text-right ${head}`}>{final ? "Earnings" : "Now"}</span>
+      <span className={`w-28 shrink-0 text-right ${head}`}>{final ? "Earnings" : "Current Position"}</span>
     </div>
+    </>
   );
 }
 
@@ -120,7 +127,7 @@ export function GolfWeekStandings({ rows, final, playerHref }: { rows: WeekRow[]
           <span className="hidden min-w-0 flex-1 break-words leading-snug sm:block">
             <Golfer r={r} final={final} />
           </span>
-          <span className={`w-24 shrink-0 text-right tabular-nums ${final ? (r.earned > 0 ? "text-[15px] font-semibold" : "text-muted") : "text-xs text-muted"}`}>
+          <span className={`w-28 shrink-0 text-right tabular-nums ${final ? (r.earned > 0 ? "text-[15px] font-semibold" : "text-muted") : "text-xs text-muted"}`}>
             {final ? money(r.earned) : r.finish}
           </span>
         </li>
