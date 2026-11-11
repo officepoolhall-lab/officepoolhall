@@ -3,7 +3,8 @@ import type { StandingRow } from "@/lib/golfStandings";
 import { LockIcon } from "./ui";
 
 // The golf Standings columns, laid out like the football and basketball ones
-// (SeasonStandings): 36px rows, place, player, the numbers right-aligned.
+// (SeasonStandings): place, player, the numbers right-aligned. Names wrap rather than being
+// cut off, and on phones a week's golfer sits under the player's name.
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const head = "text-[11px] font-medium text-muted";
@@ -19,53 +20,54 @@ function Player({ r, href }: { r: { userId: string; name: string; isMe: boolean 
   );
 }
 
+function Place({ place, tied }: { place: number | null; tied: boolean }) {
+  return <span className="w-7 shrink-0 text-right text-sm tabular-nums text-muted">{place === null ? "" : `${tied ? "T" : ""}${place}`}</span>;
+}
+
 /** Player · Cuts · Earnings, matching GolfSeasonStandings' columns. */
 export function GolfSeasonHeaderRow() {
   return (
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
-      <span className="w-7" />
+      <span className="w-7 shrink-0" />
       <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-      <span className={`w-12 text-right ${head}`}>Cuts</span>
-      <span className={`w-24 text-right ${head}`}>Behind</span>
-      <span className={`w-28 text-right ${head}`}>Earnings</span>
+      <span className={`w-10 shrink-0 text-right ${head}`}>Cuts</span>
+      <span className={`w-[6.5rem] shrink-0 text-right ${head}`}>Earnings</span>
     </div>
   );
 }
 
-/** The season: everyone by prize money, with cuts made and the gap to the leader. */
+/** The season: everyone by prize money, with cuts made. */
 export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[]; playerHref: (userId: string) => string }) {
   return (
     <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
-          <span className="w-7 text-right text-sm tabular-nums text-muted">
-            {r.tied ? "T" : ""}
-            {r.place}
-          </span>
-          <span className="min-w-0 flex-1 truncate font-medium">
+          <Place place={r.place} tied={r.tied} />
+          <span className="min-w-0 flex-1 break-words font-medium leading-snug">
             <Player r={r} href={playerHref} />
-            {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{r.missed} missed</span>}
+            {r.missed > 0 && <span className="ml-1.5 whitespace-nowrap text-xs font-normal text-muted">{r.missed} missed</span>}
           </span>
-          <span className="w-12 text-right text-sm tabular-nums text-muted">
+          <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted">
             {r.cuts}/{r.picks}
             <span className="sr-only"> cuts made</span>
           </span>
-          <span className="w-24 text-right text-sm tabular-nums text-muted">{r.behind > 0 ? `−${money(r.behind)}` : "–"}</span>
-          <span className="w-28 text-right text-[15px] font-semibold tabular-nums">{money(r.total)}</span>
+          <span className="w-[6.5rem] shrink-0 text-right text-[15px] font-semibold tabular-nums">{money(r.total)}</span>
         </li>
       ))}
     </ul>
   );
 }
 
-/** Player · Golfer · Earnings, matching GolfWeekStandings' columns. */
+/** Player · Golfer · Earnings, matching GolfWeekStandings' columns (Golfer folds under Player on phones). */
 export function GolfWeekHeaderRow({ final }: { final: boolean }) {
   return (
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
-      <span className="w-7" />
-      <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-      <span className={`min-w-0 flex-1 ${head}`}>Golfer</span>
-      <span className={`w-24 text-right ${head}`}>{final ? "Earnings" : "Now"}</span>
+      <span className="w-7 shrink-0" />
+      <span className={`min-w-0 flex-1 ${head}`}>
+        Player<span className="sm:hidden"> · Golfer</span>
+      </span>
+      <span className={`hidden min-w-0 flex-1 sm:block ${head}`}>Golfer</span>
+      <span className={`w-24 shrink-0 text-right ${head}`}>{final ? "Earnings" : "Now"}</span>
     </div>
   );
 }
@@ -84,33 +86,42 @@ export type WeekRow = {
   earned: number;
 };
 
+function Golfer({ r, final }: { r: WeekRow; final: boolean }) {
+  if (r.hidden)
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-faint">
+        <LockIcon className="size-3" /> Hidden until the lock
+      </span>
+    );
+  if (!r.golfer) return <span className="text-xs text-muted">No pick</span>;
+  return (
+    <>
+      {r.golfer}
+      {final && r.finish && <span className="ml-1.5 whitespace-nowrap text-xs tabular-nums text-muted">{r.finish}</span>}
+    </>
+  );
+}
+
 /** One event: everyone's golfer, where they finished and what they earned, best first. */
 export function GolfWeekStandings({ rows, final, playerHref }: { rows: WeekRow[]; final: boolean; playerHref: (userId: string) => string }) {
   return (
     <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
-          <span className="w-7 text-right text-sm tabular-nums text-muted">
-            {r.place === null ? "" : `${r.tied ? "T" : ""}${r.place}`}
+          <Place place={r.place} tied={r.tied} />
+          <span className="min-w-0 flex-1 break-words leading-snug">
+            <span className="font-medium">
+              <Player r={r} href={playerHref} />
+            </span>
+            {/* Phones: the golfer on a second line under the player. */}
+            <span className="block text-[13px] text-muted sm:hidden">
+              <Golfer r={r} final={final} />
+            </span>
           </span>
-          <span className="min-w-0 flex-1 truncate font-medium">
-            <Player r={r} href={playerHref} />
+          <span className="hidden min-w-0 flex-1 break-words leading-snug sm:block">
+            <Golfer r={r} final={final} />
           </span>
-          <span className="min-w-0 flex-1 truncate">
-            {r.hidden ? (
-              <span className="inline-flex items-center gap-1 text-xs text-faint">
-                <LockIcon className="size-3" /> Hidden until the lock
-              </span>
-            ) : r.golfer ? (
-              <>
-                {r.golfer}
-                {final && r.finish && <span className="ml-1.5 text-xs tabular-nums text-muted">{r.finish}</span>}
-              </>
-            ) : (
-              <span className="text-xs text-muted">No pick</span>
-            )}
-          </span>
-          <span className={`w-24 text-right tabular-nums ${final ? (r.earned > 0 ? "text-[15px] font-semibold" : "text-muted") : "text-xs text-muted"}`}>
+          <span className={`w-24 shrink-0 text-right tabular-nums ${final ? (r.earned > 0 ? "text-[15px] font-semibold" : "text-muted") : "text-xs text-muted"}`}>
             {final ? money(r.earned) : r.finish}
           </span>
         </li>

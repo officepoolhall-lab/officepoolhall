@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfSeasonHeaderRow, GolfSeasonStandings, GolfWeekHeaderRow, GolfWeekStandings, type WeekRow } from "@/components/GolfStandings";
-import { OptionSwitcher, type SwitchOption } from "@/components/OptionSwitcher";
+import { GolfWeekSwitcher } from "@/components/GolfWeekSwitcher";
 import { FROZEN_HEAD } from "@/components/SeasonStandings";
 import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs";
 import { Empty, PageTitle, SectionLabel } from "@/components/ui";
@@ -33,7 +33,7 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
   // Weeks to choose from: every event played, plus the current one while it's still open.
   const weeks = [...data.played];
   if (data.current && !weeks.some((w) => w.week === data.current!.week)) weeks.push({ week: data.current.week, name: data.current.name, final: false });
-  const weekOptions: SwitchOption[] = weeks.map((w) => ({ id: String(w.week), label: `Wk ${w.week}` }));
+  const weekOptions = weeks.map((w) => ({ id: String(w.week), label: `Week ${w.week} · ${w.name}` }));
   const weekIds = weekOptions.map((o) => o.id);
 
   const weekRows = (week: number): WeekRow[] => {
@@ -107,10 +107,9 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
                   <p className="border-y border-line py-3 text-sm text-muted">No events yet.</p>
                 </>
               ) : (
-                <OptionSwitcher
-                  options={weekOptions}
+                <GolfWeekSwitcher
+                  weeks={weekOptions}
                   initial={startWeek}
-                  param="week"
                   defaultId={defaultWeek}
                   views={each((id) => (
                     <GolfWeekStandings rows={weekRows(Number(id))} final={isFinal(id)} playerHref={playerHref} />
@@ -118,15 +117,7 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
                   headers={each((id) => (
                     <GolfWeekHeaderRow final={isFinal(id)} />
                   ))}
-                  // The week is the highlighted button; the heading names its tournament.
-                  titles={each((id) => (
-                    <>
-                      Weekly Standings
-                      <span className="font-normal normal-case tracking-normal">&nbsp;· {weeks.find((w) => String(w.week) === id)!.name}</span>
-                    </>
-                  ))}
                   lead={<MobileTabs />}
-                  ariaLabel="Choose a week"
                 />
               )}
             </TabPanel>
