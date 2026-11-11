@@ -109,11 +109,10 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                       <th className="py-2 pr-2 font-medium sm:pr-3">Golfer</th>
                       <th className="w-12 py-2 pr-2 font-medium sm:w-auto sm:pr-3">Finish</th>
                       <th className="w-[5.5rem] py-2 text-right font-medium sm:w-auto">Earnings</th>
-                      <th className="hidden py-2 pl-3 text-right font-medium sm:table-cell">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {log.map(({ ev, pick, result, earned, total: running }) => {
+                    {log.map(({ ev, pick, result, earned }) => {
                       const final = ev.status === "final";
                       return (
                         <tr key={ev.id}>
@@ -125,7 +124,6 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                             {!final && <span className="ml-1 text-xs text-live">Live</span>}
                           </td>
                           <td className={`py-2 text-right tabular-nums ${earned > 0 ? "font-semibold" : "text-muted"}`}>{final ? money(earned) : "–"}</td>
-                          <td className="hidden py-2 pl-3 text-right tabular-nums text-muted sm:table-cell">{money(running)}</td>
                         </tr>
                       );
                     })}
@@ -198,7 +196,7 @@ async function ThisWeek({
       <div className="mt-3 grid grid-cols-2 gap-4 border-y border-line py-3">
         <div className="min-w-0">
           <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
-          <div className={`mt-0.5 truncate text-2xl font-extrabold tracking-[-0.02em] ${pick ? "" : "text-muted"}`}>
+          <div className={`mt-0.5 break-words text-base font-bold leading-snug ${pick ? "" : "text-muted"}`}>
             {pick ? pick.golfer_name : ctx.isGuest ? "–" : open ? "Not picked" : "None"}
           </div>
           {pick && event.status === "in_progress" && (
@@ -209,7 +207,7 @@ async function ThisWeek({
         </div>
         <div>
           <div className="text-xs text-muted">{open ? "Picks Lock" : "Picks"}</div>
-          <div className="mt-0.5 text-2xl font-extrabold tracking-[-0.02em] tabular-nums">
+          <div className="mt-0.5 text-base font-bold leading-snug tabular-nums">
             {open && event.start_at ? <Countdown to={event.start_at} done="locked" /> : event.start_at ? "Locked" : "Not open"}
           </div>
         </div>
