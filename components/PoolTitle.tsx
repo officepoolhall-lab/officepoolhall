@@ -4,12 +4,14 @@ import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
 
 /**
- * The pool's name above the tabs, on the pool's Home page only (the other tabs keep their
+ * The pool's name above the tabs, on the pool's Home page only (golf's Home included) (the other tabs keep their
  * own titles and their measured, viewport-filling layouts). Always one line: it starts at
  * 30px on phones and 36px from the sm breakpoint, and shrinks to fit a long name.
  */
 export function PoolTitle({ slug, name }: { slug: string; name: string }) {
-  const show = usePathname() === `/p/${slug}`;
+  // Home is /p/[slug] for football and basketball, /p/[slug]/golf for golf pools.
+  const pathname = usePathname();
+  const show = pathname === `/p/${slug}` || pathname === `/p/${slug}/golf`;
   const ref = useRef<HTMLHeadingElement>(null);
 
   useLayoutEffect(() => {
