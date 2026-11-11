@@ -10,7 +10,7 @@ import {
   type GolfContext,
   type GolfPick,
 } from "./golf";
-import { formatToPar, getLiveLeaderboard, posRank } from "./golfLive";
+import { espnTournamentId, formatToPar, getLiveLeaderboard, posRank } from "./golfLive";
 
 // The golf Standings page's numbers, worked out from every pick the viewer can see (their own,
 // and everyone's once an event has started) and where those golfers finished. Prize money
@@ -90,7 +90,7 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
 
   const [results, live] = await Promise.all([
     getGolfResultsFor(ctx, played.map((e) => e.id), [...new Set(picks.map((p) => p.espn_golfer_id))]),
-    current?.status === "in_progress" ? getLiveLeaderboard(current.espn_id, 120) : Promise.resolve(null),
+    current?.status === "in_progress" ? getLiveLeaderboard(espnTournamentId(current.espn_id, ctx.pool.slug, current.status) ?? current.espn_id, 120) : Promise.resolve(null),
   ]);
   const liveById = new Map((live ?? []).map((g) => [g.id, g]));
   const pickOf = new Map<string, GolfPick>(picks.map((p) => [`${p.user_id}|${p.event_id}`, p] as [string, GolfPick]));

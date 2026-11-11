@@ -22,7 +22,7 @@ import {
   type GolfStanding,
   type GolfTickerMode,
 } from "@/lib/golf";
-import { formatToPar, getLiveLeaderboard, posRank } from "@/lib/golfLive";
+import { espnTournamentId, formatToPar, getLiveLeaderboard, posRank } from "@/lib/golfLive";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
 
@@ -83,7 +83,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                       </div>
                       {myPick && current.status === "in_progress" && (
                         <Suspense fallback={null}>
-                          <MyPickLive espnId={current.espn_id} golferId={myPick.espn_golfer_id} />
+                          <MyPickLive espnId={espnTournamentId(current.espn_id, ctx.pool.slug, current.status) ?? current.espn_id} golferId={myPick.espn_golfer_id} />
                         </Suspense>
                       )}
                     </div>
@@ -141,7 +141,9 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
  */
 async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: GolfTickerMode; event: GolfEvent; myPicks: GolfPick[] }) {
   // Live scores every 2 minutes; tee times every 10; a final leaderboard doesn't change.
-  const live = await getLiveLeaderboard(event.espn_id, mode === "live" ? 120 : mode === "tees" ? 600 : 3600);
+  const source = espnTournamentId(event.espn_id, ctx.pool.slug, event.status);
+  // The demo's upcoming event is last year's real one, already final: use its stored field.
+  const live = source && (/^\d+$/.test(event.espn_id) || event.status !== "scheduled") ? await getLiveLeaderboard(source, mode === "live" ? 120 : mode === "tees" ? 600 : 3600) : null;
   let golfers: TickerGolfer[] = live
     ? live
     : (await getGolfResults(ctx, event.id)).map((r) => ({

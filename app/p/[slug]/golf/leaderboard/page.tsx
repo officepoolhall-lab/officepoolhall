@@ -38,7 +38,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   const event = counted.find((e) => e.id === eventParam) ?? week.tickerEvent ?? week.current ?? counted[counted.length - 1];
   const weekNo = counted.indexOf(event) + 1;
   const dbState: "scheduled" | "live" | "final" = event.status === "final" ? "final" : event.status === "in_progress" ? "live" : "scheduled";
-  const tournamentId = espnTournamentId(event.espn_id, ctx.pool.slug);
+  const tournamentId = espnTournamentId(event.espn_id, ctx.pool.slug, event.status);
   // The demo's upcoming event is last year's real one, already final: show its stored field instead.
   const readEspn = tournamentId && (/^\d+$/.test(event.espn_id) || dbState !== "scheduled");
   // From the first tee time on, read ESPN every minute even if the pool's own status (set by the
