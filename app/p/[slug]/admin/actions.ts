@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { fromZonedTime } from "date-fns-tz";
 import type { ActionState } from "@/components/ActionForm";
 import { formatDuration } from "@/lib/format";
-import { requireCommissioner } from "@/lib/pool";
+import { requireCommissioner, requirePoolCommissioner } from "@/lib/pool";
 import { LOCKED_AFTER_OPEN, parsePoolSettings, settingsError } from "@/lib/poolSettings";
 import { slateWindow } from "@/lib/slateWindow";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -315,46 +315,73 @@ export async function setVoided(slug: string, slateId: string, gameId: string, v
 
 // ---------- Roster ----------
 
-export async function setPaid(slug: string, userId: string, paid: boolean) {
-  const ctx = await requireCommissioner(slug);
-  await ctx.supabase.from("pool_members").update({ paid }).eq("pool_id", ctx.pool.id).eq("user_id", userId);
+/** The roster page for football/basketball and for golf. */
+const revalidateRoster = (slug: string) => {
   revalidatePath(`/p/${slug}/admin/roster`);
+  revalidatePath(`/p/${slug}/golf/admin/roster`);
+};
+
+// Roster and invites work the same in every sport, so they use the sport-neutral check.
+
+export async function setPaid(slug: string, userId: string, paid: boolean) {
+  const ctx = await requirePoolCommissioner(slug);
+  await ctx.supabase.from("pool_members").update({ paid }).eq("pool_id", ctx.pool.id).eq("user_id", userId);
+  revalidateRoster(slug);
 }
 
 export async function removeMember(slug: string, userId: string) {
-  const ctx = await requireCommissioner(slug);
+  const ctx = await requirePoolCommissioner(slug);
   if (userId === ctx.user.id) return;
   await ctx.supabase.from("pool_members").delete().eq("pool_id", ctx.pool.id).eq("user_id", userId);
-  revalidatePath(`/p/${slug}/admin/roster`);
+  revalidateRoster(slug);
 }
 
 /** Replace the shareable invite link (the old one stops working). The guest link is separate. */
 export async function rotateInvite(slug: string) {
-  const ctx = await requireCommissioner(slug);
+  const ctx = await requirePoolCommissioner(slug);
   await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id).eq("guest", false);
   await ctx.supabase.from("invites").insert({ pool_id: ctx.pool.id });
-  revalidatePath(`/p/${slug}/admin/roster`);
+  revalidateRoster(slug);
 }
 
 /** Create or replace the guest (view-only) link. */
 export async function rotateGuestInvite(slug: string) {
-  const ctx = await requireCommissioner(slug);
+  const ctx = await requirePoolCommissioner(slug);
   await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id).eq("guest", true);
   await ctx.supabase.from("invites").insert({ pool_id: ctx.pool.id, guest: true });
-  revalidatePath(`/p/${slug}/admin/roster`);
+  revalidateRoster(slug);
 }
 
 /** Turn off the guest link (guests already in keep viewing until removed). */
 export async function disableGuestInvite(slug: string) {
-  const ctx = await requireCommissioner(slug);
+  const ctx = await requirePoolCommissioner(slug);
   await ctx.supabase.from("invites").delete().eq("pool_id", ctx.pool.id).eq("guest", true);
-  revalidatePath(`/p/${slug}/admin/roster`);
+  revalidateRoster(slug);
 }
 
 export async function removeGuest(slug: string, userId: string) {
-  const ctx = await requireCommissioner(slug);
+  const ctx = await requirePoolCommissioner(slug);
   await ctx.supabase.from("pool_guests").delete().eq("pool_id", ctx.pool.id).eq("user_id", userId);
-  revalidatePath(`/p/${slug}/admin/roster`);
+  revalidateRoster(slug);
+}
+
+/**
+ * The commissioner's contact email for an entry in this pool (blank clears it). Shown on the
+ * roster and in "Copy all emails"; the person's own sign-in email doesn't change.
+ */
+export async function setContactEmail(slug: string, userId: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requirePoolCommissioner(slug);
+  const email = String(form.get("email") ?? "").trim();
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "That doesn't look like an email address." };
+  if (email.length > 254) return { error: "That email address is too long." };
+  const { error } = await ctx.supabase
+    .from("pool_members")
+    .update({ contact_email: email || null })
+    .eq("pool_id", ctx.pool.id)
+    .eq("user_id", userId);
+  if (error) return { error: error.message.includes("contact_email") ? "Run the latest database update first." : error.message };
+  revalidateRoster(slug);
+  return { ok: email ? "Contact email saved." : "Contact email cleared." };
 }
 
 // ---------- Settings ----------

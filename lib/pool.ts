@@ -66,6 +66,17 @@ export const getPoolContext = cache(async (slug: string) => {
   return { ...base, displayTz, settings };
 });
 
+/**
+ * The commissioner check for pages and actions every sport shares (the roster, invites):
+ * like requireCommissioner, but without parsing football/basketball settings or sending golf
+ * pools to their own pages.
+ */
+export async function requirePoolCommissioner(slug: string) {
+  const ctx = await getPoolBase(slug);
+  if (!ctx.isCommissioner) notFound();
+  return ctx;
+}
+
 export async function requireCommissioner(slug: string) {
   const ctx = await getPoolContext(slug);
   if (!ctx.isCommissioner) notFound();

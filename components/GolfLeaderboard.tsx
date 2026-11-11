@@ -90,7 +90,7 @@ export function GolfLeaderboard({
                 )}
                 <tr
                   onClick={() => started && tournamentId && setOpen(r)}
-                  className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}
+                  className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}`}
                 >
                   <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-0 ${r.mine ? "shadow-[inset_2px_0_0_var(--accent)] sm:shadow-none" : ""}`}>{r.pos}</td>
                   <td className="border-b border-line px-2 py-2">
@@ -114,9 +114,11 @@ export function GolfLeaderboard({
                         />
                       )}
                       {r.pickedBy > 0 && (
-                        <span className="whitespace-nowrap rounded-full bg-surface px-1.5 text-[10px] font-medium text-muted" title={`Picked by ${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"}`}>
-                          {r.mine ? "Your pick" : "Picked"}
-                          {r.pickedBy > 1 || !r.mine ? ` ×${r.pickedBy}` : ""}
+                        <span
+                          className={`whitespace-nowrap rounded-full px-1.5 text-[10px] font-medium ${r.mine ? "bg-accent text-bg" : "bg-surface text-muted"}`}
+                          title={`${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"} in the pool picked ${r.name}${r.mine ? ", including you" : ""}`}
+                        >
+                          Pool Picks ×{r.pickedBy}
                         </span>
                       )}
                     </div>
