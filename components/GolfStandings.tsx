@@ -41,7 +41,7 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
     <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
-          {final && <Place place={r.place} tied={r.tied} />}
+          <Place place={r.place} tied={r.tied} />
           <span className="min-w-0 flex-1 break-words font-medium leading-snug">
             <Player r={r} href={playerHref} />
             {r.missed > 0 && <span className="ml-1.5 whitespace-nowrap text-xs font-normal text-muted">{r.missed} missed</span>}
