@@ -231,6 +231,32 @@ export const getGolfMembers = cache(async (ctx: PoolBase): Promise<{ user_id: st
   }));
 });
 
+// How golf fans say these, where the rule below would read oddly.
+const SHORT: Record<string, string> = {
+  "the open": "The Open",
+  "go by raymond james": "Raymond James",
+  "texas children's houston open": "Houston Open",
+  "the cj cup byron nelson": "Byron Nelson",
+  "valero texas open": "Valero",
+  "wm phoenix open": "Phoenix",
+  "at&t pebble beach pro-am": "Pebble Beach",
+  "the american express": "AmEx",
+  "farmers insurance open": "Farmers",
+  "cognizant classic in the palm beaches": "Cognizant",
+};
+
+/** "Arnold Palmer Invitational pres. by Mastercard" → "Arnold Palmer"; "Masters Tournament" → "Masters". */
+export function shortEventName(name: string) {
+  const known = SHORT[name.toLowerCase()];
+  if (known) return known;
+  let n = name.replace(/\s+(pres\.|presented)\s+by\s+.*$/i, "").replace(/^the\s+/i, "");
+  const trimmed = n.replace(/\s+(Tournament|Championship|Invitational|Classic|Pro-Am)$/i, "");
+  // Keep "U.S. Open"-style names whole; otherwise the first two words are enough.
+  if (trimmed.split(" ").length > 1 || trimmed.length > 6) n = trimmed;
+  const words = n.split(" ");
+  return words.length > 2 ? words.slice(0, 2).join(" ") : n;
+}
+
 export function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
