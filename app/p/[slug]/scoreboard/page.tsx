@@ -25,7 +25,7 @@ const plusDays = (d: string, n: number) => {
  */
 export default async function ScoreboardPage({ params, searchParams }: PageProps<"/p/[slug]/scoreboard">) {
   const { slug } = await params;
-  const { week: weekParam, day: dayParam } = await searchParams;
+  const { week: weekParam, day: dayParam, view: viewParam, conf: confParam } = await searchParams;
   const ctx = await getPoolContext(slug);
   const tz = ctx.displayTz;
   const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
@@ -102,6 +102,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
       {/* No key on the day: switching days keeps the chosen filter. */}
       <Scoreboard
         day={day}
+        initialView={typeof viewParam === "string" ? viewParam : undefined}
+        initialConf={typeof confParam === "string" ? confParam : undefined}
         slug={slug}
         week={week}
         games={games}

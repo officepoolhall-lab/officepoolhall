@@ -102,12 +102,21 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 {/* Guests have no picks of their own: just the countdown. */}
                 {!ctx.isGuest && (
                 <div>
-                  <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s picks (you co-manage)` : "My Picks"}</div>
+                  <div className="text-xs text-muted">
+                    {/* Basketball: "My Week 2 Score" (co-managers too), the entry's points so far over the most
+                        it can still reach. The week is the current one: the published week whose
+                        window holds today (getCurrentSlate), so it moves on by itself each week. */}
+                    {ctx.pool.sport === "ncaab"
+                      ? `My ${slate.label ?? `Week ${slate.week}`} Score`
+                      : ctx.managing
+                        ? `${ctx.managing.ownerName}'s picks (you co-manage)`
+                        : "My Picks"}
+                  </div>
                   <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                     {summary.picked === 0 ? (
                       // Nothing in yet: the number becomes the way to the picks screen.
                       <Link href={`/p/${slug}/picks`} className="text-accent hover:underline">Make Picks</Link>
-                    ) : !summary.decided ? (
+                    ) : !summary.decided && ctx.pool.sport !== "ncaab" ? (
                       "Submitted"
                     ) : (
                       <>
