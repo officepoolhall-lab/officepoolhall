@@ -21,6 +21,7 @@ import {
 } from "@/lib/golf";
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
+import { tzAbbrev } from "@/lib/format";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
 
@@ -190,7 +191,7 @@ async function ThisWeek({
       <h2 className="mt-0.5 text-xl font-bold leading-snug">{event.name}</h2>
       <p className="text-xs text-muted">
         {event.start_at
-          ? `First tee ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")}`
+          ? `Tournament Locks ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
           : "Tee times not posted yet. Picks open once they are."}
       </p>
 
