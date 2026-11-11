@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
 import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { GolfPicker, type PickerGolfer } from "@/components/GolfPicker";
@@ -26,6 +26,8 @@ import {
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getLiveLeaderboard } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
+import { getEventInfo, shortPurse } from "@/lib/golfEventInfo";
+import { SignatureTag } from "@/components/SignatureTag";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
 
@@ -58,6 +60,8 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   const weekOf = new Map(counted.map((e, i) => [e.id, i + 1]));
   const pickByEvent = new Map<string, GolfPick>(myPicks.map((p) => [p.event_id, p] as [string, GolfPick]));
   const results = await getGolfPickResults(ctx, myPicks);
+  // Each tournament's purse and Signature status (ESPN), for this week's event and the schedule.
+  const info = await getEventInfo(counted.filter((e) => e.status === "scheduled" || e.id === current?.id), ctx.pool.slug);
   // What a week with no pick earned, under the commissioner's rule ($0 or the week's lowest).
   const missedValue = await getMissedPickValues(
     ctx,
@@ -97,7 +101,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
       <GolfPicksTabs
         thisWeek={
           current ? (
-            <ThisWeek ctx={ctx} slug={slug} event={current} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
+            <ThisWeek ctx={ctx} slug={slug} event={current} purse={info.get(current.id)?.purse ?? null} signature={info.get(current.id)?.signature ?? false} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
           ) : (
             <p className="text-sm text-muted">The season is over. Thanks for playing.</p>
           )
@@ -158,15 +162,35 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
             {upcoming.length === 0 ? (
               <p className="mt-2 border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (
-              <ol className="mt-2 divide-y divide-line border-y border-line">
-                {upcoming.map((ev) => (
-                  <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
-                    <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
-                    <span className="min-w-0 flex-1 truncate">{ev.name}</span>
-                    <span className="shrink-0 text-xs text-muted">{ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "MMM d") : "TBA"}</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="mt-2 border-y border-line">
+                {/* Column titles, lined up with the rows below. */}
+                <div className="flex items-end gap-2.5 border-b border-line pb-1.5 pt-2 text-[11px] font-medium text-muted" aria-hidden>
+                  <span className="w-10">Wk</span>
+                  <span className="min-w-0 flex-1">Tournament</span>
+                  <span className="w-14 text-right">Purse</span>
+                  <span className="w-[4.5rem] text-right">Start Date</span>
+                </div>
+                <ol className="divide-y divide-line">
+                  {upcoming.map((ev) => {
+                    const i = info.get(ev.id);
+                    // The first tee time once posted; before that ESPN's start date for the event.
+                    const start = ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d") : i?.startDate ? formatInTimeZone(fromZonedTime(`${i.startDate}T12:00:00`, "America/New_York"), "America/New_York", "EEE MMM d") : "TBA";
+                    return (
+                      <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
+                        <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                          <span className="min-w-0 truncate">{ev.name}</span>
+                          {i?.signature && <SignatureTag />}
+                        </span>
+                        <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
+                          {i?.purse ? shortPurse(i.purse) : <span className="font-normal text-faint">–</span>}
+                        </span>
+                        <span className="w-[4.5rem] shrink-0 text-right text-xs tabular-nums text-muted">{start}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
             )}
           </>
         }
@@ -180,6 +204,8 @@ async function ThisWeek({
   ctx,
   slug,
   event,
+  purse,
+  signature,
   weekNumber,
   weeks,
   pick,
@@ -189,6 +215,10 @@ async function ThisWeek({
   ctx: GolfContext;
   slug: string;
   event: GolfEvent;
+  /** The tournament's purse, when ESPN gives one. */
+  purse: number | null;
+  /** A PGA Tour Signature Event. */
+  signature: boolean;
   weekNumber: number;
   weeks: number;
   pick: GolfPick | undefined;
@@ -204,7 +234,12 @@ async function ThisWeek({
         Week {weekNumber} of {weeks}
         {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
       </div>
-      <h2 className="mt-0.5 text-xl font-bold leading-snug">{event.name}</h2>
+      <h2 className="mt-0.5 text-xl font-bold leading-snug">
+        {event.name}
+        {/* The purse, so bigger-money weeks stand out. */}
+        {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} Purse</span>}
+        {signature && <SignatureTag className="ml-2 align-middle" />}
+      </h2>
       <p className="text-xs text-muted">
         {event.start_at
           ? `Tournament Locks ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
