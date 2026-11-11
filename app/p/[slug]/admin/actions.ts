@@ -365,25 +365,6 @@ export async function removeGuest(slug: string, userId: string) {
   revalidateRoster(slug);
 }
 
-/**
- * The commissioner's contact email for an entry in this pool (blank clears it). Shown on the
- * roster and in "Copy all emails"; the person's own sign-in email doesn't change.
- */
-export async function setContactEmail(slug: string, userId: string, _: ActionState, form: FormData): Promise<ActionState> {
-  const ctx = await requirePoolCommissioner(slug);
-  const email = String(form.get("email") ?? "").trim();
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "That doesn't look like an email address." };
-  if (email.length > 254) return { error: "That email address is too long." };
-  const { error } = await ctx.supabase
-    .from("pool_members")
-    .update({ contact_email: email || null })
-    .eq("pool_id", ctx.pool.id)
-    .eq("user_id", userId);
-  if (error) return { error: error.message.includes("contact_email") ? "Run the latest database update first." : error.message };
-  revalidateRoster(slug);
-  return { ok: email ? "Contact email saved." : "Contact email cleared." };
-}
-
 // ---------- Settings ----------
 
 export async function saveSettings(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
