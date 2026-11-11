@@ -4,10 +4,10 @@ import "server-only";
 // score to par, holes played and tee time. Same embedded data the scheduled import reads
 // (supabase/functions/_shared/golf.ts); this copy keeps a few more fields and never writes.
 //
-// Fields confirmed on a final page (Nov 2026): name, lastNm, id, pos, status, tee (ISO, the
-// golfer's latest round), thru (a number), toPar, tot, order (leaderboard order), "$$".
-// Not yet seen on a pre-event or in-progress page, so each is optional; anything missing
-// just doesn't show.
+// Fields confirmed (Nov 2026) on final and pre-event pages: name, lastNm, id, pos, status
+// ("pre"/"post"), tee (ISO, the golfer's latest round), thru (a number; 0 before starting),
+// toPar ("-" before starting), tot ("--" before starting), r1–r4, order, "$$". Not yet seen on
+// an in-progress page, so each is optional; anything missing just doesn't show.
 
 const FETCH_TIMEOUT_MS = 5000;
 
@@ -30,6 +30,12 @@ export type LiveGolfer = {
   order: number | null;
   /** "MC", "WD" or "DQ" for a golfer who didn't finish; null otherwise. */
   out: string | null;
+  /** Strokes in each round played (r1–r4); null for a round not played (yet). */
+  rounds: (number | null)[];
+  /** Total strokes so far. */
+  total: number | null;
+  /** Three-letter country, when given. */
+  country: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -65,13 +71,17 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       pos: str(o.pos) ?? "-",
       // A golfer who hasn't started has no score yet ("-" or nothing).
       toPar: str(o.toPar) === "-" ? null : str(o.toPar),
-      thru: thru === "18" ? "F" : thru,
+      // Before a golfer starts, ESPN sends thru 0 (checked Nov 2026: status "pre", toPar "-").
+      thru: thru === "18" ? "F" : thru === "0" ? null : thru,
       tee: teeTime(o.tee),
       status: typeof o.status === "string" ? o.status : "",
       earnings: Number(o["$$"]) || 0,
       lastName: typeof o.lastNm === "string" && o.lastNm ? o.lastNm : o.name.split(" ").slice(-1)[0],
       order: typeof o.order === "number" ? o.order : null,
       // ESPN marks a missed cut with cut:true and "CUT" where the tee time goes (WD, DQ likewise).
+      rounds: [o.r1, o.r2, o.r3, o.r4].map((r) => (typeof r === "number" && r > 0 ? r : null)),
+      total: typeof o.tot === "number" && o.tot > 0 ? o.tot : null,
+      country: typeof o.flagCountry === "string" && /^[A-Z]{3}$/.test(o.flagCountry) ? o.flagCountry : null,
       out: o.cut === true || o.tee === "CUT" ? "MC" : typeof o.tee === "string" && /^[A-Z]{2,4}$/.test(o.tee) ? o.tee : null,
     });
   }
@@ -116,4 +126,15 @@ export async function getLivePickLine(espnId: string, golferId: string): Promise
   const parts = [g.pos !== "-" ? g.pos : null, g.toPar ? formatToPar(g.toPar) : null, g.thru ? (g.thru === "F" ? "F" : `Thru ${g.thru}`) : null];
   const line = parts.filter(Boolean).join(" · ");
   return line || null;
+}
+
+/**
+ * The ESPN tournament behind a pool event. The 2026 demo pool's events are stored as "demo-1"
+ * to "demo-37" so the importer never touches them; they are the 2026 season's events in order
+ * (Sony Open, 401811928, onward), and the leaderboard reads those.
+ */
+export function espnTournamentId(espnId: string, poolSlug: string): string | null {
+  if (/^\d+$/.test(espnId)) return espnId;
+  const demo = espnId.match(/^demo-0*(\d+)$/);
+  return demo && poolSlug === "demo-pga-2026" ? String(401811927 + Number(demo[1])) : null;
 }

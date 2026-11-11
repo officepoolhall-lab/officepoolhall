@@ -22,7 +22,7 @@ export function PoolNav({ slug, sport, isCommissioner, week }: { slug: string; s
         { href: `${g}/picks`, label: "My Picks", short: "Picks", phone: "main", match: (p) => p.startsWith(`${g}/picks`) },
         { href: `${g}/standings`, label: "Standings", phone: "main", match: (p) => p.startsWith(`${g}/standings`) },
         { href: `${g}/grid`, label: "League Grid", short: "Grid", phone: "main", match: (p) => p.startsWith(`${g}/grid`) },
-        { href: `${g}/scoreboard`, label: "Scoreboard", phone: "more", match: (p) => p.startsWith(`${g}/scoreboard`) },
+        { href: `${g}/leaderboard`, label: "Leaderboard", phone: "more", match: (p) => p.startsWith(`${g}/leaderboard`) || p.startsWith(`${g}/scoreboard`) },
         { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
         ...(isCommissioner ? [{ href: `${g}/admin`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/admin`) }] : []),
       ]

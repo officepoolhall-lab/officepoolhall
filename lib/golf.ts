@@ -52,6 +52,17 @@ export function isOpenForPicks(ev: GolfEvent, now = Date.now()) {
   return ev.status === "scheduled" && !!ev.start_at && Date.parse(ev.start_at) > now;
 }
 
+/** The API returns at most 1,000 rows a request; this reads every page of a larger result. */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  const size = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += size) {
+    const { data } = await page(from, from + size - 1);
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < size) return rows;
+  }
+}
+
 /** Events in calendar order for this pool. */
 export const getGolfEvents = cache(async (ctx: PoolBase): Promise<GolfEvent[]> => {
   const { data } = await ctx.supabase
@@ -83,16 +94,6 @@ export const getGolfMyPicks = cache(async (ctx: GolfContext): Promise<GolfPick[]
   return (data ?? []) as GolfPick[];
 });
 
-/** The API returns at most 1,000 rows a request; this reads every page of a larger result. */
-async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
-  const size = 1000;
-  const rows: T[] = [];
-  for (let from = 0; ; from += size) {
-    const { data } = await page(from, from + size - 1);
-    rows.push(...(data ?? []));
-    if ((data ?? []).length < size) return rows;
-  }
-}
 
 /** Every pick the viewer can see: their own, plus everyone's for events that have started. */
 export const getGolfVisiblePicks = cache(async (ctx: PoolBase): Promise<GolfPick[]> => {
@@ -145,19 +146,30 @@ export function finishLabel(pos: string | null | undefined, eventFinal: boolean)
   return eventFinal ? "MC" : "";
 }
 
-/** Season prize money per entry, from the database's golf_standings. */
+/** Season prize money per entry, from the database's golf_standings (every page of it). */
 export const getGolfStandings = cache(async (ctx: PoolBase): Promise<GolfStanding[]> => {
-  const { data } = await ctx.supabase.rpc("golf_standings", { p_pool_id: ctx.pool.id });
-  return ((data ?? []) as GolfStanding[]).map((s) => ({ ...s, season_earnings: Number(s.season_earnings) }));
+  const rows = await allRows<GolfStanding>((from, to) => ctx.supabase
+      .rpc("golf_standings", { p_pool_id: ctx.pool.id })
+      // A fixed order, so the pages line up with no entry skipped or repeated.
+      .order("season_earnings", { ascending: false })
+      .order("display_name")
+      .order("user_id")
+      .range(from, to),
+  );
+  return rows.map((s) => ({ ...s, season_earnings: Number(s.season_earnings) }));
 });
 
-/** Members of the pool, for the grid's columns. */
+/** Every entry in the pool (all pages), for Standings and the Grid. */
 export const getGolfMembers = cache(async (ctx: PoolBase): Promise<{ user_id: string; display_name: string }[]> => {
-  const { data } = await ctx.supabase
-    .from("pool_members")
-    .select("user_id, profile:profiles ( display_name )")
-    .eq("pool_id", ctx.pool.id);
-  return (data ?? []).map((m) => ({
+  const rows = await allRows<{ user_id: string; profile: unknown }>((from, to) =>
+    ctx.supabase
+      .from("pool_members")
+      .select("user_id, profile:profiles ( display_name )")
+      .eq("pool_id", ctx.pool.id)
+      .order("user_id")
+      .range(from, to),
+  );
+  return rows.map((m) => ({
     user_id: m.user_id,
     display_name: (m.profile as { display_name: string } | null)?.display_name ?? "Player",
   }));
