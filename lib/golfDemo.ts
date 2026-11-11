@@ -46,6 +46,9 @@ const flagFor = (country: string | null) =>
 
 const at = (now: number, offsetMin: number | null) => (offsetMin === null ? null : new Date(now + offsetMin * 60_000).toISOString());
 
+/** The demo course's par (Augusta National, 72). */
+export const DEMO_COURSE_PAR = data.pars.reduce((t, p) => t + p, 0);
+
 /** The demo leaderboard as of now (tee times moved to fit). */
 export function getDemoLeaderboard(now = Date.now()): LiveGolfer[] {
   return data.golfers.map((g) => ({

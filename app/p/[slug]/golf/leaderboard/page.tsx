@@ -6,7 +6,8 @@ import { GolfLeaderboard, type LeaderRow } from "@/components/GolfLeaderboard";
 import { Empty, PageTitle } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { getGolfContext, getGolfEvents, getGolfMyPicks, getGolfResults, getGolfVisiblePicks, golfWeek } from "@/lib/golf";
-import { espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
+import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
+import { getCoursePar } from "@/lib/golfScorecard";
 
 export const metadata: Metadata = { title: "Leaderboard" };
 
@@ -50,6 +51,18 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   const espnState = live && /^\d+$/.test(event.espn_id) ? (live.every((g) => g.status === "post") && live.some((g) => g.rounds[3] !== null) && live.some((g) => g.earnings > 0) ? "final" : live.some((g) => g.status === "in" || g.status === "post" || (g.thru !== null && g.thru !== "0")) ? "live" : null) : null;
   const state: "scheduled" | "live" | "final" = dbState === "final" ? "final" : (espnState ?? dbState);
   const stored = live ? [] : await getGolfResults(ctx, event.id);
+  // While a round is being played: which one, and the course's par, to give each golfer on the
+  // course their score for the round so far (total to par less the finished rounds' scores).
+  const [round, coursePar] = state === "live" && live && tournamentId ? await Promise.all([currentRound(tournamentId, live), getCoursePar(tournamentId)]) : [null, null];
+  const parNum = (t: string | null) => (t === "E" ? 0 : t && /^[+-]?\d+$/.test(t) ? Number(t) : null);
+  const fmt = (d: number) => (d === 0 ? "E" : d > 0 ? `+${d}` : String(d));
+  const today = (g: { toPar: string | null; thru: string | null; rounds: (number | null)[] }) => {
+    if (!round || !coursePar || !g.thru || g.thru === "F") return null;
+    const total = parNum(g.toPar);
+    const before = g.rounds.slice(0, round - 1);
+    if (total === null || before.some((r) => r === null)) return null;
+    return fmt(total - before.reduce((t: number, r) => t + (r! - coursePar), 0));
+  };
 
   const pickedBy = new Map<string, number>();
   for (const p of picks) if (p.event_id === event.id) pickedBy.set(p.espn_golfer_id, (pickedBy.get(p.espn_golfer_id) ?? 0) + 1);
@@ -69,7 +82,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           toPar: g.toPar,
           thru: state === "scheduled" || waiting ? tee(g.tee) : g.thru === "F" ? "F" : (g.thru ?? null),
           rounds: g.rounds,
-          total: g.total,
+          today: today(g),
           earnings: g.earnings,
           pickedBy: pickedBy.get(g.id) ?? 0,
           mine: g.id === mine,
@@ -87,7 +100,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
         toPar: null,
         thru: state === "scheduled" ? tee(r.tee_at) : null,
         rounds: [null, null, null, null],
-        total: null,
+        today: null,
         earnings: Number(r.earnings),
         pickedBy: pickedBy.get(r.espn_golfer_id) ?? 0,
         mine: r.espn_golfer_id === mine,
@@ -141,7 +154,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
       {rows.length === 0 ? (
         <Empty>The field for this tournament hasn&apos;t been posted yet.</Empty>
       ) : (
-        <GolfLeaderboard rows={rows} state={state} tournamentId={readEspn && live ? tournamentId : null} eventName={event.name} />
+        <GolfLeaderboard rows={rows} round={round} state={state} tournamentId={readEspn && live ? tournamentId : null} eventName={event.name} />
       )}
     </div>
   );

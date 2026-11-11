@@ -1,5 +1,5 @@
 import "server-only";
-import { DEMO_LIVE_ID, getDemoScorecard } from "./golfDemo";
+import { DEMO_COURSE_PAR, DEMO_LIVE_ID, getDemoScorecard } from "./golfDemo";
 
 // One golfer's hole-by-hole scores for a tournament, from ESPN's core API:
 // events/{id}/competitions/{id}/competitors/{golfer}/linescores → one item per round, each
@@ -55,6 +55,14 @@ export function fillRounds(card: Scorecard, coursePars: Map<number, number> = ne
       return { ...r, holes: Array.from({ length: 18 }, (_, i) => byHole.get(i + 1) ?? { hole: i + 1, par: par.get(i + 1) ?? null, strokes: null }) };
     }),
   };
+}
+
+/** The course's total par (72, say), for working out a live round's score; null if unknown. */
+export async function getCoursePar(tournamentId: string): Promise<number | null> {
+  if (tournamentId === DEMO_LIVE_ID) return DEMO_COURSE_PAR;
+  if (!/^\d+$/.test(tournamentId)) return null;
+  const pars = await coursePars(tournamentId);
+  return pars.size === 18 ? [...pars.values()].reduce((t, p) => t + p, 0) : null;
 }
 
 /** The course's par for each hole (cached a day); empty when ESPN doesn't give it. */
