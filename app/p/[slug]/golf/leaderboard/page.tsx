@@ -121,7 +121,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
     state === "final"
       ? "Final"
       : state === "live"
-        ? "Under Way · Updates Every Minute"
+        ? `${round ? `Round ${round} · ` : ""}Under Way · Updates Every Minute`
         : event.start_at
           ? `Starts ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
           : "Tee Times Not Posted Yet";
