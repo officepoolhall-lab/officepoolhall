@@ -37,6 +37,8 @@ export type LiveGolfer = {
   total: number | null;
   /** Three-letter country, when given. */
   country: string | null;
+  /** ESPN's flag image for the golfer's country, when given. */
+  flag: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -82,7 +84,8 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       // ESPN marks a missed cut with cut:true and "CUT" where the tee time goes (WD, DQ likewise).
       rounds: [o.r1, o.r2, o.r3, o.r4].map((r) => (typeof r === "number" && r > 0 ? r : null)),
       total: typeof o.tot === "number" && o.tot > 0 ? o.tot : null,
-      country: typeof o.flagCountry === "string" && /^[A-Z]{3}$/.test(o.flagCountry) ? o.flagCountry : null,
+      country: typeof o.flagCountry === "string" ? o.flagCountry : null,
+      flag: typeof o.flag === "string" && o.flag.startsWith("https://") ? o.flag : null,
       out: o.cut === true || o.tee === "CUT" ? "MC" : typeof o.tee === "string" && /^[A-Z]{2,4}$/.test(o.tee) ? o.tee : null,
     });
   }
@@ -122,13 +125,33 @@ export function formatToPar(toPar: string | null) {
   return toPar ? toPar.replace(/^-/, "−") : "";
 }
 
-/** One golfer's live line: "T12 · −4 · Thru 9"; null when not on the page. */
-export async function getLivePickLine(espnId: string, golferId: string): Promise<string | null> {
-  const g = (await getLiveLeaderboard(espnId, 120))?.find((x) => x.id === golferId);
-  if (!g) return null;
-  const parts = [g.pos !== "-" ? g.pos : null, g.toPar ? formatToPar(g.toPar) : null, g.thru ? (g.thru === "F" ? "F" : `Thru ${g.thru}`) : null];
-  const line = parts.filter(Boolean).join(" · ");
-  return line || null;
+/**
+ * The round being played, for the "Live · Round 3" label. From ESPN's scoreboard for the event
+ * (status.period, cached two minutes); otherwise worked out from the leaderboard: the most
+ * rounds any golfer has finished, plus one if someone is part-way through the next.
+ */
+export async function currentRound(tournamentId: string, golfers: LiveGolfer[] | null): Promise<number | null> {
+  if (tournamentId === DEMO_LIVE_ID) return 3;
+  if (/^\d+$/.test(tournamentId)) {
+    try {
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?event=${tournamentId}`, {
+        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
+        next: { revalidate: 120 },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { events?: { competitions?: { status?: { period?: unknown } }[] }[] };
+        const period = body.events?.[0]?.competitions?.[0]?.status?.period;
+        if (typeof period === "number" && period >= 1 && period <= 4) return period;
+      }
+    } catch {
+      // fall back to the leaderboard below
+    }
+  }
+  if (!golfers?.length) return null;
+  const finished = Math.max(0, ...golfers.filter((g) => !g.out).map((g) => g.rounds.filter((r) => r !== null).length));
+  const midRound = golfers.some((g) => !g.out && g.thru !== null && g.thru !== "F");
+  return Math.min(4, Math.max(1, finished + (midRound ? 1 : 0)));
 }
 
 /**

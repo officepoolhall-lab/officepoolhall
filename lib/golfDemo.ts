@@ -34,6 +34,16 @@ type SnapGolfer = {
 type Snapshot = { eventName: string; pars: number[]; golfers: SnapGolfer[] };
 const data = snapshot as unknown as Snapshot;
 
+// ESPN's flag images are named by country code (…/countries/500/usa.png).
+const FLAG_CODE: Record<string, string> = {
+  USA: "usa", England: "eng", Australia: "aus", "South Africa": "rsa", Denmark: "den", Spain: "esp", Canada: "can",
+  "South Korea": "kor", "Northern Ireland": "nir", Sweden: "swe", Norway: "nor", Japan: "jpn", Argentina: "arg",
+  Scotland: "sco", Fiji: "fij", "New Zealand": "nzl", Colombia: "col", Finland: "fin", Ireland: "irl", Thailand: "tha",
+  Mexico: "mex", Austria: "aut", China: "chn",
+};
+const flagFor = (country: string | null) =>
+  country && FLAG_CODE[country] ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/${FLAG_CODE[country]}.png&w=40&h=40&scale=crop` : null;
+
 const at = (now: number, offsetMin: number | null) => (offsetMin === null ? null : new Date(now + offsetMin * 60_000).toISOString());
 
 /** The demo leaderboard as of now (tee times moved to fit). */
@@ -53,6 +63,7 @@ export function getDemoLeaderboard(now = Date.now()): LiveGolfer[] {
     rounds: g.rounds,
     total: g.total,
     country: g.country,
+    flag: flagFor(g.country),
   }));
 }
 

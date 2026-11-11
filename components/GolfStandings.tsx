@@ -23,12 +23,12 @@ function Place({ place, tied }: { place: number | null; tied: boolean }) {
   return <span className="w-7 shrink-0 text-right text-sm tabular-nums text-muted">{place === null ? "" : `${tied ? "T" : ""}${place}`}</span>;
 }
 
-/** Player · Cuts · Earnings, matching GolfSeasonStandings' columns. */
+/** Entry · Cuts · Earnings, matching GolfSeasonStandings' columns. */
 export function GolfSeasonHeaderRow() {
   return (
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
       <span className="w-7 shrink-0" />
-      <span className={`min-w-0 flex-1 ${head}`}>Player</span>
+      <span className={`min-w-0 flex-1 ${head}`}>Entry</span>
       <span className={`w-10 shrink-0 text-right ${head}`}>Cuts</span>
       <span className={`w-[6.5rem] shrink-0 text-right ${head}`}>Earnings</span>
     </div>
@@ -57,13 +57,13 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
   );
 }
 
-/** Player · Golfer · Earnings, matching GolfWeekStandings' columns (Golfer folds under Player on phones). */
+/** Entry · Golfer · Earnings, matching GolfWeekStandings' columns (Golfer folds under Player on phones). */
 export function GolfWeekHeaderRow({ final }: { final: boolean }) {
   return (
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
       <span className="w-7 shrink-0" />
       <span className={`min-w-0 flex-1 ${head}`}>
-        Player<span className="sm:hidden"> · Golfer</span>
+        Entry<span className="sm:hidden"> · Golfer</span>
       </span>
       <span className={`hidden min-w-0 flex-1 sm:block ${head}`}>Golfer</span>
       <span className={`w-24 shrink-0 text-right ${head}`}>{final ? "Earnings" : "Now"}</span>

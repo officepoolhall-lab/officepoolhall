@@ -20,7 +20,7 @@ import {
   type GolfPick,
 } from "@/lib/golf";
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
-import { espnTournamentId, getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
+import { getLiveLeaderboard } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
@@ -199,11 +199,6 @@ async function ThisWeek({
           <div className={`mt-0.5 break-words text-base font-bold leading-snug ${pick ? "" : "text-muted"}`}>
             {pick ? pick.golfer_name : ctx.isGuest ? "–" : open ? "Not picked" : "None"}
           </div>
-          {pick && event.status === "in_progress" && (
-            <Suspense fallback={null}>
-              <LiveLine espnId={espnTournamentId(event.espn_id, ctx.pool.slug, event.status) ?? event.espn_id} golferId={pick.espn_golfer_id} />
-            </Suspense>
-          )}
         </div>
         <div>
           <div className="text-xs text-muted">{open ? "Picks Lock" : "Picks"}</div>
@@ -220,11 +215,6 @@ async function ThisWeek({
       )}
     </>
   );
-}
-
-async function LiveLine({ espnId, golferId }: { espnId: string; golferId: string }) {
-  const line = await getLivePickLine(espnId, golferId);
-  return line ? <div className="text-xs tabular-nums text-muted">{line}</div> : null;
 }
 
 /**

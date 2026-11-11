@@ -8,10 +8,12 @@ export type LeaderRow = {
   id: string;
   name: string;
   country: string | null;
+  /** The country's flag image, when known. */
+  flag: string | null;
   /** "1", "T7"; "MC"/"WD" for a golfer out of the event; "" before it starts. */
   pos: string;
   toPar: string | null;
-  /** "F", "14", or a tee time label ("Thu 7:40 AM") for a golfer yet to start the round. */
+  /** "F", "14" (holes played), or a tee time label ("Thu 7:40 AM") for a golfer yet to start the round. */
   thru: string | null;
   rounds: (number | null)[];
   total: number | null;
@@ -97,7 +99,17 @@ export function GolfLeaderboard({
                       ) : (
                         <span className={`font-medium ${r.mine ? "text-accent" : ""}`}>{r.name}</span>
                       )}
-                      {r.country && <span className="text-[10px] text-faint">{r.country}</span>}
+                      {r.flag && (
+                        // eslint-disable-next-line @next/next/no-img-element -- ESPN's flag image, as with team logos
+                        <img
+                          src={r.flag}
+                          alt={r.country ?? ""}
+                          title={r.country ?? undefined}
+                          loading="lazy"
+                          className="h-3 w-4 shrink-0 self-center rounded-[2px] object-cover"
+                          onError={(e) => (e.currentTarget.style.display = "none")}
+                        />
+                      )}
                       {r.pickedBy > 0 && (
                         <span className="whitespace-nowrap rounded-full bg-surface px-1.5 text-[10px] font-medium text-muted" title={`Picked by ${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"}`}>
                           {r.mine ? "Your pick" : "Picked"}
