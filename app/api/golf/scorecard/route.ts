@@ -13,5 +13,5 @@ export async function GET(req: Request) {
   const golfer = url.searchParams.get("golfer") ?? "";
   if (!/^\d{1,15}$/.test(event) || !/^\d{1,15}$/.test(golfer)) return NextResponse.json({ error: "Bad request" }, { status: 400 });
   const card = await getScorecard(event, golfer, 60);
-  return NextResponse.json({ card }, { headers: { "Cache-Control": "private, max-age=30" } });
+  return NextResponse.json({ card }, { headers: { "Cache-Control": "no-store" } });
 }
