@@ -66,10 +66,16 @@ export type GolfStandingsData = {
   finalCount: number;
 };
 
-/** Competition ranking: 1, 2, 2, 4. */
+/** Competition ranking: 1, 2, 2, 4. One sort, so it stays quick for any number of entries. */
 function places(totals: Map<string, number>) {
   const sorted = [...totals.values()].sort((a, b) => b - a);
-  return new Map([...totals].map(([id, t]) => [id, { place: sorted.indexOf(t) + 1, tied: sorted.filter((x) => x === t).length > 1 }]));
+  const first = new Map<number, number>();
+  const count = new Map<number, number>();
+  sorted.forEach((t, i) => {
+    if (!first.has(t)) first.set(t, i + 1);
+    count.set(t, (count.get(t) ?? 0) + 1);
+  });
+  return new Map([...totals].map(([id, t]) => [id, { place: first.get(t)!, tied: count.get(t)! > 1 }]));
 }
 
 export async function getGolfStandingsData(ctx: GolfContext, now: number): Promise<GolfStandingsData> {

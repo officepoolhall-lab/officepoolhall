@@ -10,11 +10,17 @@ import { getGolfStandingsData, type StandingRow } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "Standings" };
 
-/** Competition ranking by a number, best first: 1, 2, 2, 4. */
+/** Competition ranking by a number, best first: 1, 2, 2, 4. One sort, so any number of entries is quick. */
 function ranked<T>(rows: T[], value: (r: T) => number, name: (r: T) => string) {
   const sorted = [...rows].sort((a, b) => value(b) - value(a) || name(a).localeCompare(name(b)));
-  const values = sorted.map(value);
-  return sorted.map((r) => ({ r, place: values.indexOf(value(r)) + 1, tied: values.filter((v) => v === value(r)).length > 1 }));
+  const first = new Map<number, number>();
+  const count = new Map<number, number>();
+  sorted.forEach((r, i) => {
+    const v = value(r);
+    if (!first.has(v)) first.set(v, i + 1);
+    count.set(v, (count.get(v) ?? 0) + 1);
+  });
+  return sorted.map((r) => ({ r, place: first.get(value(r))!, tied: count.get(value(r))! > 1 }));
 }
 
 /**
