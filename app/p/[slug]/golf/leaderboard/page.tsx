@@ -45,8 +45,9 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   // 10-minute import) hasn't caught up yet.
   const teedOff = dbState === "scheduled" && !!event.start_at && Date.parse(event.start_at) <= now;
   const live = readEspn ? await getLiveLeaderboard(tournamentId!, dbState === "live" || teedOff ? 60 : dbState === "final" ? 3600 : 600) : null;
-  // ESPN's own word wins for a real event: anyone started or finished means it's under way.
-  const espnState = live && /^\d+$/.test(event.espn_id) ? (live.every((g) => g.status === "post") ? "final" : live.some((g) => g.status === "in" || g.status === "post") ? "live" : null) : null;
+  // ESPN's own word wins for a real event: anyone started or finished means it's under way;
+  // final needs round 4 and prize money too (between rounds everyone can show finished).
+  const espnState = live && /^\d+$/.test(event.espn_id) ? (live.every((g) => g.status === "post") && live.some((g) => g.rounds[3] !== null) && live.some((g) => g.earnings > 0) ? "final" : live.some((g) => g.status === "in" || g.status === "post" || (g.thru !== null && g.thru !== "0")) ? "live" : null) : null;
   const state: "scheduled" | "live" | "final" = dbState === "final" ? "final" : (espnState ?? dbState);
   const stored = live ? [] : await getGolfResults(ctx, event.id);
 
