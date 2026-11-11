@@ -15,7 +15,6 @@ function Player({ r, href }: { r: { userId: string; name: string; isMe: boolean 
       <Link href={href(r.userId)} className={`hover:underline ${r.isMe ? "text-accent" : ""}`}>
         {r.name}
       </Link>
-      {r.isMe && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
     </>
   );
 }
