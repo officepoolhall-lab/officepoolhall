@@ -20,7 +20,7 @@ import {
   type GolfPick,
 } from "@/lib/golf";
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
-import { getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
+import { espnTournamentId, getLiveLeaderboard, getLivePickLine } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
@@ -201,7 +201,7 @@ async function ThisWeek({
           </div>
           {pick && event.status === "in_progress" && (
             <Suspense fallback={null}>
-              <LiveLine espnId={event.espn_id} golferId={pick.espn_golfer_id} />
+              <LiveLine espnId={espnTournamentId(event.espn_id, ctx.pool.slug, event.status) ?? event.espn_id} golferId={pick.espn_golfer_id} />
             </Suspense>
           )}
         </div>

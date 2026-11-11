@@ -1,4 +1,5 @@
 import "server-only";
+import { DEMO_LIVE_ID, getDemoScorecard } from "./golfDemo";
 
 // One golfer's hole-by-hole scores for a tournament, from ESPN's core API:
 // events/{id}/competitions/{id}/competitors/{golfer}/linescores → one item per round, each
@@ -42,6 +43,7 @@ export function parseScorecard(body: unknown): Scorecard | null {
 
 /** Cached `revalidate` seconds (a minute while live; final rounds don't change). */
 export async function getScorecard(tournamentId: string, golferId: string, revalidate: number): Promise<Scorecard | null> {
+  if (tournamentId === DEMO_LIVE_ID) return getDemoScorecard(golferId);
   if (!/^\d+$/.test(tournamentId) || !/^\d+$/.test(golferId)) return null;
   try {
     const res = await fetch(

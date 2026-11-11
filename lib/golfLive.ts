@@ -1,4 +1,5 @@
 import "server-only";
+import { DEMO_LIVE_ID, getDemoLeaderboard } from "./golfDemo";
 
 // ESPN's PGA Tour leaderboard page, read live for the home page ticker: each golfer's place,
 // score to par, holes played and tee time. Same embedded data the scheduled import reads
@@ -93,6 +94,8 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
  * can't be read (ESPN down, a demo event, or the page's shape changed).
  */
 export async function getLiveLeaderboard(espnId: string, revalidate = 120, timeoutMs = FETCH_TIMEOUT_MS): Promise<LiveGolfer[] | null> {
+  // The demo pool's Masters, frozen mid-round 3 (lib/golfDemo.ts).
+  if (espnId === DEMO_LIVE_ID) return getDemoLeaderboard();
   if (!/^\d+$/.test(espnId)) return null;
   try {
     const res = await fetch(`https://www.espn.com/golf/leaderboard/_/tournamentId/${espnId}`, {
@@ -131,10 +134,13 @@ export async function getLivePickLine(espnId: string, golferId: string): Promise
 /**
  * The ESPN tournament behind a pool event. The 2026 demo pool's events are stored as "demo-1"
  * to "demo-37" so the importer never touches them; they are the 2026 season's events in order
- * (Sony Open, 401811928, onward), and the leaderboard reads those.
+ * (Sony Open, 401811928, onward), and the pages read those. Its Masters (demo-14), while under
+ * way, is the frozen mid-round-3 snapshot instead (lib/golfDemo.ts).
  */
-export function espnTournamentId(espnId: string, poolSlug: string): string | null {
+export function espnTournamentId(espnId: string, poolSlug: string, status?: string): string | null {
   if (/^\d+$/.test(espnId)) return espnId;
   const demo = espnId.match(/^demo-0*(\d+)$/);
-  return demo && poolSlug === "demo-pga-2026" ? String(401811927 + Number(demo[1])) : null;
+  if (!demo || poolSlug !== "demo-pga-2026") return null;
+  if (Number(demo[1]) === 14 && status === "in_progress") return DEMO_LIVE_ID;
+  return String(401811927 + Number(demo[1]));
 }
