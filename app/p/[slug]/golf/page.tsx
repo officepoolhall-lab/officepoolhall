@@ -17,12 +17,15 @@ import {
   missedPickRule,
   golfWeek,
   isOpenForPicks,
+  opensLater,
+  picksOpenAt,
   money,
   type GolfContext,
   type GolfEvent,
   type GolfPick,
   type GolfStanding,
 } from "@/lib/golf";
+import { tzAbbrev } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
 
@@ -39,6 +42,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
   const current = week.current;
   const myPick = current ? myPicks.find((p) => p.event_id === current.id) : undefined;
   const lastFinal = [...events].reverse().find((e) => e.status === "final");
+  const nextOpen = current ? events.find((e) => e.id !== current.id && isOpenForPicks(e, now)) : undefined;
   const rulesNote = ((ctx.pool.settings as Record<string, unknown> | null)?.rules_note as string | null) ?? null;
   const lastPick = lastFinal ? myPicks.find((p) => p.event_id === lastFinal.id) : undefined;
 
@@ -65,7 +69,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                 <div className="text-xs text-muted">
                   {current.start_at
                     ? `First tee ${formatInTimeZone(current.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")}`
-                    : "Tee times not posted yet. Picks open once they are."}
+                    : "Tee times not posted yet. Picks open the Monday of tournament week at 7 a.m. Central."}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-4">
                   {!ctx.isGuest && (
@@ -82,6 +86,14 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                       </div>
                     </div>
                   )}
+                  {opensLater(current, now) && (
+                    <div>
+                      <div className="text-xs text-muted">Picks Open</div>
+                      <div className="mt-0.5 text-base font-bold leading-snug tabular-nums">
+                        {formatInTimeZone(picksOpenAt(current)!, ctx.displayTz, "EEE h:mm a")} {tzAbbrev(picksOpenAt(current)!, ctx.displayTz)}
+                      </div>
+                    </div>
+                  )}
                   {isOpenForPicks(current, now) && current.start_at && (
                     <div>
                       <div className="text-xs text-muted">Picks Lock</div>
@@ -94,6 +106,16 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
               </>
             ) : (
               <p className="text-sm text-muted">The season is over. Thanks for playing.</p>
+            )}
+            {/* Another tournament already open for picks (the next one, opened early). */}
+            {nextOpen && !ctx.isGuest && (
+              <Link href={`/p/${slug}/golf/picks`} className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm hover:bg-hover">
+                <span className="min-w-0">
+                  <span className="block text-xs text-muted">Picks open · {nextOpen.name}</span>
+                  <span className="font-medium">{myPicks.some((p) => p.event_id === nextOpen.id) ? "Change your pick" : "Make your pick"}</span>
+                </span>
+                <ChevronIcon className="size-4 shrink-0 text-muted" />
+              </Link>
             )}
             {lastFinal && !ctx.isGuest && (
               <LastWeek ctx={ctx} event={lastFinal} pick={lastPick} />

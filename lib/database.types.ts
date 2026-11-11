@@ -607,14 +607,14 @@ isOneToOne: false
                 }
             "golf_events": {
                   Row: {
-                    "espn_id": string,"id": string,"name": string,"pool_id": string,"sort_order": number,"start_at": string | null,"status": string
+                    "espn_id": string,"id": string,"name": string,"picks_open_at": string | null,"pool_id": string,"sort_order": number,"start_at": string | null,"status": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "espn_id": string,"id"?: string,"name": string,"pool_id": string,"sort_order": number,"start_at"?: string | null,"status"?: string
+                    "espn_id": string,"id"?: string,"name": string,"picks_open_at"?: string | null,"pool_id": string,"sort_order": number,"start_at"?: string | null,"status"?: string
                   }
                   Update: {
-                    "espn_id"?: string,"id"?: string,"name"?: string,"pool_id"?: string,"sort_order"?: number,"start_at"?: string | null,"status"?: string
+                    "espn_id"?: string,"id"?: string,"name"?: string,"picks_open_at"?: string | null,"pool_id"?: string,"sort_order"?: number,"start_at"?: string | null,"status"?: string
                   }
                   Relationships: []
                 }
