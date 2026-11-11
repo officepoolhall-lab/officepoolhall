@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { FROZEN_HEAD } from "./SeasonStandings";
-import { inputClass, SectionLabel } from "./ui";
+import { SectionLabel } from "./ui";
 
 /**
  * The golf Weekly Standings column with a dropdown of weeks (a season has up to ~37, too many
@@ -44,15 +44,23 @@ export function GolfWeekSwitcher({
     <>
       <div className={FROZEN_HEAD}>
         {lead}
-        <SectionLabel className="flex min-h-9 items-center">Weekly Standings</SectionLabel>
-        <select value={active} onChange={(e) => choose(e.target.value)} aria-label="Choose a week" className={`${inputClass} mb-1 w-full`}>
-          {/* Newest first: the week you're most likely after is at the top. */}
-          {[...weeks].reverse().map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.label}
-            </option>
-          ))}
-        </select>
+        {/* Title and dropdown on one line, so this column's rows start level with Season's. */}
+        <div className="flex min-h-9 items-center gap-3">
+          <SectionLabel className="shrink-0">Weekly Standings</SectionLabel>
+          <select
+            value={active}
+            onChange={(e) => choose(e.target.value)}
+            aria-label="Choose a week"
+            className="h-8 min-w-0 flex-1 truncate rounded-lg border border-line bg-bg px-2 text-sm text-ink"
+          >
+            {/* Newest first: the week you're most likely after is at the top. */}
+            {[...weeks].reverse().map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.label}
+              </option>
+            ))}
+          </select>
+        </div>
         {headers[active]}
       </div>
       {views[active]}
