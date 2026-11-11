@@ -56,7 +56,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
           <tr>
             <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted">
               <div className="flex items-end justify-between gap-3">
-                <span className="min-w-20">Player</span>
+                <span className="min-w-20">Entry</span>
                 <span className="shrink-0 whitespace-nowrap text-right">Season</span>
               </div>
             </th>

@@ -8,13 +8,16 @@ export type LeaderRow = {
   id: string;
   name: string;
   country: string | null;
+  /** The country's flag image, when known. */
+  flag: string | null;
   /** "1", "T7"; "MC"/"WD" for a golfer out of the event; "" before it starts. */
   pos: string;
   toPar: string | null;
-  /** "F", "14", or a tee time label ("Thu 7:40 AM") for a golfer yet to start the round. */
+  /** "F", "14" (holes played), or a tee time label ("Thu 7:40 AM") for a golfer yet to start the round. */
   thru: string | null;
   rounds: (number | null)[];
-  total: number | null;
+  /** Score to par for the round being played, for a golfer part-way through it ("-2"); else null. */
+  today: string | null;
   earnings: number;
   /** How many entries picked this golfer (only counted once picks are visible). */
   pickedBy: number;
@@ -31,11 +34,14 @@ const toParText = (t: string | null) => (t ? t.replace(/^-/, "−") : "");
  */
 export function GolfLeaderboard({
   rows,
+  round,
   state,
   tournamentId,
   eventName,
 }: {
   rows: LeaderRow[];
+  /** The round being played, while live. */
+  round?: number | null;
   state: "scheduled" | "live" | "final";
   /** ESPN's tournament, for scorecards; null when there's none to read. */
   tournamentId: string | null;
@@ -65,7 +71,6 @@ export function GolfLeaderboard({
                       R{n}
                     </th>
                   ))}
-                  <th className={`${th} hidden w-12 border-b border-line px-1 text-right sm:table-cell`}>Tot</th>
                   {state === "final" && <th className={`${th} hidden w-28 border-b border-line pl-2 pr-4 text-right md:table-cell md:pr-0`}>Earnings</th>}
                 </>
               ) : (
@@ -97,7 +102,17 @@ export function GolfLeaderboard({
                       ) : (
                         <span className={`font-medium ${r.mine ? "text-accent" : ""}`}>{r.name}</span>
                       )}
-                      {r.country && <span className="text-[10px] text-faint">{r.country}</span>}
+                      {r.flag && (
+                        // eslint-disable-next-line @next/next/no-img-element -- ESPN's flag image, as with team logos
+                        <img
+                          src={r.flag}
+                          alt={r.country ?? ""}
+                          title={r.country ?? undefined}
+                          loading="lazy"
+                          className="h-3 w-4 shrink-0 self-center rounded-[2px] object-cover"
+                          onError={(e) => (e.currentTarget.style.display = "none")}
+                        />
+                      )}
                       {r.pickedBy > 0 && (
                         <span className="whitespace-nowrap rounded-full bg-surface px-1.5 text-[10px] font-medium text-muted" title={`Picked by ${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"}`}>
                           {r.mine ? "Your pick" : "Picked"}
@@ -110,12 +125,20 @@ export function GolfLeaderboard({
                     <>
                       <td className={`border-b border-line px-1 py-2 text-right font-semibold tabular-nums ${r.toPar?.startsWith("-") ? "text-loss" : ""}`}>{toParText(r.toPar)}</td>
                       <td className="border-b border-line px-1 py-2 text-right text-xs tabular-nums text-muted">{state === "final" ? "" : r.thru}</td>
-                      {[0, 1, 2, 3].map((n) => (
-                        <td key={n} className="hidden border-b border-line px-1 py-2 text-right tabular-nums text-muted sm:table-cell">
-                          {r.rounds[n] ?? ""}
-                        </td>
-                      ))}
-                      <td className="hidden border-b border-line px-1 py-2 text-right font-medium tabular-nums sm:table-cell">{r.total ?? ""}</td>
+                      {[0, 1, 2, 3].map((n) => {
+                        // The round being played shows the score to par so far for a golfer on the course.
+                        const live = r.today !== null && round === n + 1 && r.rounds[n] === null;
+                        return (
+                          <td
+                            key={n}
+                            className={`hidden border-b border-line px-1 py-2 text-right tabular-nums sm:table-cell ${
+                              live ? `font-semibold ${r.today!.startsWith("-") ? "text-loss" : "text-ink"}` : "text-muted"
+                            }`}
+                          >
+                            {live ? r.today!.replace(/^-/, "−") : (r.rounds[n] ?? "")}
+                          </td>
+                        );
+                      })}
                       {state === "final" && (
                         <td className={`hidden border-b border-line py-2 pl-2 pr-4 text-right tabular-nums md:table-cell md:pr-0 ${r.earnings > 0 ? "" : "text-muted"}`}>{r.earnings > 0 ? money(r.earnings) : "–"}</td>
                       )}

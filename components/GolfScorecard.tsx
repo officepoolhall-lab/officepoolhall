@@ -8,7 +8,8 @@ type Round = { round: number; strokes: number | null; toPar: string | null; hole
 
 /** The usual scorecard marks: circles under par, squares over (two for eagle or double bogey). */
 function Mark({ strokes, par }: { strokes: number | null; par: number | null }) {
-  if (strokes === null) return <span className="text-faint">–</span>;
+  // A hole not played yet stays empty (its par shows in the row above).
+  if (strokes === null) return <span className="inline-block size-5" aria-label="Not played yet" />;
   if (par === null) return <span>{strokes}</span>;
   const d = strokes - par;
   const shape =
@@ -32,7 +33,9 @@ function Mark({ strokes, par }: { strokes: number | null; par: number | null }) 
 
 function Nine({ holes, label }: { holes: Hole[]; label: string }) {
   if (!holes.length) return null;
-  const sum = (k: "par" | "strokes") => (holes.every((h) => h[k] !== null) ? holes.reduce((s, h) => s + (h[k] ?? 0), 0) : null);
+  // Par totals need every hole's par; score totals add whatever has been played.
+  const sum = (k: "par" | "strokes") =>
+    k === "par" ? (holes.every((h) => h.par !== null) ? holes.reduce((s, h) => s + (h.par ?? 0), 0) : null) : holes.some((h) => h.strokes !== null) ? holes.reduce((s, h) => s + (h.strokes ?? 0), 0) : null;
   const cell = "min-w-7 px-0.5 py-1 text-center";
   return (
     <table className="w-full table-fixed border-collapse text-xs">
@@ -69,7 +72,7 @@ function Nine({ holes, label }: { holes: Hole[]; label: string }) {
 
 /**
  * A golfer's scorecard: one tab per round played, each split into the front and back nine with
- * the par and score for every hole. Loads from /api/golf/scorecard when opened.
+ * the par of every hole and the score for each one played (holes still to play stay empty). Loads from /api/golf/scorecard when opened.
  */
 export function GolfScorecard({
   tournamentId,
@@ -136,8 +139,6 @@ export function GolfScorecard({
             <h2 className="text-lg font-bold leading-snug">{golfer.name}</h2>
             <p className="text-xs text-muted">
               {eventName}
-              {golfer.pos ? ` · ${golfer.pos}` : ""}
-              {golfer.toPar ? ` · ${golfer.toPar.replace(/^-/, "−")}` : ""}
             </p>
           </div>
           <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">
@@ -171,7 +172,10 @@ export function GolfScorecard({
                 <Nine holes={front} label="Out" />
                 <Nine holes={back} label="In" />
                 <p className="text-sm">
-                  <span className="text-muted">Round {round.round}: </span>
+                  <span className="text-muted">
+                    Round {round.round}
+                    {round.holes.some((h) => h.strokes === null) ? " so far" : ""}:{" "}
+                  </span>
                   <span className="font-bold tabular-nums">{round.strokes ?? "–"}</span>
                   {round.toPar && <span className={`ml-1.5 font-semibold tabular-nums ${round.toPar.startsWith("-") ? "text-loss" : ""}`}>({round.toPar.replace(/^-/, "−")})</span>}
                 </p>

@@ -22,7 +22,7 @@ import {
   type GolfStanding,
   type GolfTickerMode,
 } from "@/lib/golf";
-import { espnTournamentId, formatToPar, getLiveLeaderboard, posRank } from "@/lib/golfLive";
+import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
 
@@ -81,11 +81,6 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                           <span className="text-muted">None</span>
                         )}
                       </div>
-                      {myPick && current.status === "in_progress" && (
-                        <Suspense fallback={null}>
-                          <MyPickLive espnId={espnTournamentId(current.espn_id, ctx.pool.slug, current.status) ?? current.espn_id} golferId={myPick.espn_golfer_id} />
-                        </Suspense>
-                      )}
                     </div>
                   )}
                   {isOpenForPicks(current, now) && current.start_at && (
@@ -182,15 +177,7 @@ async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: G
   }
 
   // eslint-disable-next-line react-hooks/purity
-  return <GolfTicker mode={mode} eventName={event.name} golfers={golfers} myGolferId={mine} timezone={ctx.displayTz} now={Date.now()} />;
-}
-
-/** The viewer's pick on the live leaderboard: "T12 · −4 · Thru 9". */
-async function MyPickLive({ espnId, golferId }: { espnId: string; golferId: string }) {
-  const g = (await getLiveLeaderboard(espnId, 120))?.find((x) => x.id === golferId);
-  if (!g) return null;
-  const parts = [g.pos !== "-" ? g.pos : null, g.toPar ? formatToPar(g.toPar) : null, g.thru ? (g.thru === "F" ? "F" : `Thru ${g.thru}`) : null].filter(Boolean);
-  return parts.length ? <div className="text-xs tabular-nums text-muted">{parts.join(" · ")}</div> : null;
+  return <GolfTicker mode={mode} eventName={event.name} golfers={golfers} myGolferId={mine} timezone={ctx.displayTz} now={Date.now()} round={mode === "live" && source ? await currentRound(source, live) : null} />;
 }
 
 /** Last week: the event, the entry's pick, where they finished and what they earned. */

@@ -34,7 +34,20 @@ type SnapGolfer = {
 type Snapshot = { eventName: string; pars: number[]; golfers: SnapGolfer[] };
 const data = snapshot as unknown as Snapshot;
 
+// ESPN's flag images are named by country code (…/countries/500/usa.png).
+const FLAG_CODE: Record<string, string> = {
+  USA: "usa", England: "eng", Australia: "aus", "South Africa": "rsa", Denmark: "den", Spain: "esp", Canada: "can",
+  "South Korea": "kor", "Northern Ireland": "nir", Sweden: "swe", Norway: "nor", Japan: "jpn", Argentina: "arg",
+  Scotland: "sco", Fiji: "fij", "New Zealand": "nzl", Colombia: "col", Finland: "fin", Ireland: "irl", Thailand: "tha",
+  Mexico: "mex", Austria: "aut", China: "chn",
+};
+const flagFor = (country: string | null) =>
+  country && FLAG_CODE[country] ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/countries/500/${FLAG_CODE[country]}.png&w=40&h=40&scale=crop` : null;
+
 const at = (now: number, offsetMin: number | null) => (offsetMin === null ? null : new Date(now + offsetMin * 60_000).toISOString());
+
+/** The demo course's par (Augusta National, 72). */
+export const DEMO_COURSE_PAR = data.pars.reduce((t, p) => t + p, 0);
 
 /** The demo leaderboard as of now (tee times moved to fit). */
 export function getDemoLeaderboard(now = Date.now()): LiveGolfer[] {
@@ -53,6 +66,7 @@ export function getDemoLeaderboard(now = Date.now()): LiveGolfer[] {
     rounds: g.rounds,
     total: g.total,
     country: g.country,
+    flag: flagFor(g.country),
   }));
 }
 
@@ -62,12 +76,13 @@ export function getDemoScorecard(golferId: string): Scorecard | null {
   if (!g) return null;
   const rounds = g.holes
     .map((strokes, i) => {
-      const holes = strokes.map((s, h) => ({ hole: h + 1, par: data.pars[h] ?? null, strokes: s })).filter((h) => h.strokes !== null);
-      const sum = holes.reduce((t, h) => t + (h.strokes ?? 0), 0);
-      const parSum = holes.reduce((t, h) => t + (h.par ?? 0), 0);
-      const d = sum - parSum;
-      return { round: i + 1, strokes: holes.length ? sum : null, toPar: holes.length ? (d === 0 ? "E" : d > 0 ? `+${d}` : String(d)) : null, holes };
+      // All 18 holes, each with its par; holes not played yet have no score.
+      const holes = Array.from({ length: 18 }, (_, h) => ({ hole: h + 1, par: data.pars[h] ?? null, strokes: strokes[h] ?? null }));
+      const played = holes.filter((h) => h.strokes !== null);
+      const sum = played.reduce((t, h) => t + (h.strokes ?? 0), 0);
+      const d = sum - played.reduce((t, h) => t + (h.par ?? 0), 0);
+      return { round: i + 1, strokes: played.length ? sum : null, toPar: played.length ? (d === 0 ? "E" : d > 0 ? `+${d}` : String(d)) : null, holes };
     })
-    .filter((r) => r.holes.length > 0);
+    .filter((r) => r.holes.some((h) => h.strokes !== null));
   return rounds.length ? { rounds } : null;
 }

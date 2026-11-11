@@ -10,7 +10,7 @@ import {
   type GolfContext,
   type GolfPick,
 } from "./golf";
-import { espnTournamentId, formatToPar, getLiveLeaderboard, posRank } from "./golfLive";
+import { espnTournamentId, getLiveLeaderboard, posRank } from "./golfLive";
 
 // The golf Standings page's numbers, worked out from every pick the viewer can see (their own,
 // and everyone's once an event has started) and where those golfers finished. Prize money
@@ -156,9 +156,8 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
       const lastRow = lastFinal ? b.log.find((r) => r.eventId === lastFinal.id) : undefined;
       const curPick = current ? pickOf.get(`${id}|${current.id}`) : undefined;
       const g = curPick ? liveById.get(curPick.espn_golfer_id) : undefined;
-      const liveLine = g
-        ? [g.pos !== "-" ? g.pos : g.out, g.toPar ? formatToPar(g.toPar) : null, g.thru ? (g.thru === "F" ? "F" : `Thru ${g.thru}`) : null].filter(Boolean).join(" · ")
-        : null;
+      // Just the golfer's current place ("T7", "MC"); scores and holes are on the Leaderboard.
+      const liveLine = g ? (g.pos !== "-" ? g.pos : g.out) : null;
       return {
         userId: id,
         name: b.m.display_name,

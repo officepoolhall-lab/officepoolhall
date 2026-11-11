@@ -33,6 +33,7 @@ export function GolfTicker({
   myGolferId,
   timezone,
   now,
+  round,
 }: {
   mode: GolfTickerMode;
   eventName: string;
@@ -40,9 +41,11 @@ export function GolfTicker({
   myGolferId: string | null;
   timezone: string;
   now: number;
+  /** The round being played (shown beside "Live"), when known. */
+  round?: number | null;
 }) {
   if (!golfers.length) return null;
-  const label = mode === "live" ? "Live" : mode === "results" ? "Final" : golfers.some((g) => g.tee) ? "Tee times" : "Field";
+  const label = mode === "live" ? (round ? `Live · Round ${round}` : "Live") : mode === "results" ? "Final" : golfers.some((g) => g.tee) ? "Tee times" : "Field";
   // A golfer shows a tee time instead of a score before the event, and during it when they
   // haven't started yet (no score) or haven't started today's round (tee time still ahead).
   const showTee = (g: TickerGolfer) =>
