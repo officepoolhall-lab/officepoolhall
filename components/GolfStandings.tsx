@@ -3,8 +3,8 @@ import type { StandingRow } from "@/lib/golfStandings";
 import { LockIcon } from "./ui";
 
 // The golf Standings columns, laid out like the football and basketball ones
-// (SeasonStandings): place, player, the numbers right-aligned. Names wrap rather than being
-// cut off, and on phones a week's golfer sits under the player's name.
+// (SeasonStandings): place, entry, the numbers right-aligned. Names wrap rather than being
+// cut off.
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const head = "text-[11px] font-medium text-muted";
@@ -57,7 +57,7 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
   );
 }
 
-/** Entry · Golfer · Earnings, matching GolfWeekStandings' columns (Golfer folds under Player on phones). */
+/** Entry · Golfer · Earnings (or Current Position), matching GolfWeekStandings' columns, on one line. */
 export function GolfWeekHeaderRow({ final, live = false }: { final: boolean; live?: boolean }) {
   return (
     <>
@@ -68,11 +68,9 @@ export function GolfWeekHeaderRow({ final, live = false }: { final: boolean; liv
     )}
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
       <span className="w-7 shrink-0" />
-      <span className={`min-w-0 flex-1 ${head}`}>
-        Entry<span className="sm:hidden"> · Golfer</span>
-      </span>
-      <span className={`hidden min-w-0 flex-1 sm:block ${head}`}>Golfer</span>
-      <span className={`w-28 shrink-0 text-right ${head}`}>{final ? "Earnings" : "Current Position"}</span>
+      <span className={`min-w-0 flex-1 ${head}`}>Entry</span>
+      <span className={`min-w-0 flex-1 ${head}`}>Golfer</span>
+      <span className={`w-[5.5rem] shrink-0 text-right leading-tight sm:w-28 ${head}`}>{final ? "Earnings" : "Current Position"}</span>
     </div>
     </>
   );
@@ -115,19 +113,13 @@ export function GolfWeekStandings({ rows, final, playerHref }: { rows: WeekRow[]
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
           <Place place={r.place} tied={r.tied} />
-          <span className="min-w-0 flex-1 break-words leading-snug">
-            <span className="font-medium">
-              <Player r={r} href={playerHref} />
-            </span>
-            {/* Phones: the golfer on a second line under the player. */}
-            <span className="block text-[13px] text-muted sm:hidden">
-              <Golfer r={r} final={final} />
-            </span>
+          <span className="min-w-0 flex-1 break-words font-medium leading-snug">
+            <Player r={r} href={playerHref} />
           </span>
-          <span className="hidden min-w-0 flex-1 break-words leading-snug sm:block">
+          <span className="min-w-0 flex-1 break-words leading-snug">
             <Golfer r={r} final={final} />
           </span>
-          <span className={`w-28 shrink-0 text-right tabular-nums ${final ? (r.earned > 0 ? "text-[15px] font-semibold" : "text-muted") : "text-xs text-muted"}`}>
+          <span className={`w-[5.5rem] shrink-0 text-right tabular-nums sm:w-28 ${final ? (r.earned > 0 ? "text-[15px] font-semibold" : "text-muted") : "text-xs text-muted"}`}>
             {final ? money(r.earned) : r.finish}
           </span>
         </li>

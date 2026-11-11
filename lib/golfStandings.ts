@@ -9,6 +9,7 @@ import {
   isOpenForPicks,
   type GolfContext,
   type GolfPick,
+  missedPickRule,
 } from "./golf";
 import { espnTournamentId, getLiveLeaderboard, posRank } from "./golfLive";
 
@@ -93,6 +94,15 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
     current?.status === "in_progress" ? getLiveLeaderboard(espnTournamentId(current.espn_id, ctx.pool.slug, current.status) ?? current.espn_id, 120) : Promise.resolve(null),
   ]);
   const liveById = new Map((live ?? []).map((g) => [g.id, g]));
+  // A final week with no pick earns $0, or (by the commissioner's rule) the lowest any picking
+  // entry earned that week.
+  const lowest = new Map<string, number>();
+  if (missedPickRule(ctx.pool) === "lowest") {
+    for (const e of finals) {
+      const amounts = picks.filter((p) => p.event_id === e.id).map((p) => results.get(`${e.id}|${p.espn_golfer_id}`)?.earnings ?? 0);
+      lowest.set(e.id, amounts.length ? Math.min(...amounts) : 0);
+    }
+  }
   const pickOf = new Map<string, GolfPick>(picks.map((p) => [`${p.user_id}|${p.event_id}`, p] as [string, GolfPick]));
 
   // Per entry: the season log, totals and stats.
@@ -107,7 +117,7 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
         event: e.name,
         golfer: pick?.golfer_name ?? null,
         finish: pick ? finishLabel(result?.pos, final) : "",
-        earned: final ? (result?.earnings ?? 0) : 0,
+        earned: final ? (pick ? (result?.earnings ?? 0) : (lowest.get(e.id) ?? 0)) : 0,
         final,
         place: posRank(result?.pos ?? null),
       };

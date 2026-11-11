@@ -17,7 +17,8 @@ export async function saveGolfSettings(slug: string, _: ActionState, form: FormD
   if (!Number.isFinite(fee) || fee < 0) return { error: "The entry fee must be 0 or more." };
   const rules = String(form.get("rules_note") ?? "").trim();
   if (rules.length > 4000) return { error: "Keep the rules and notes to 4,000 characters." };
-  const settings = { ...((ctx.pool.settings as Record<string, unknown> | null) ?? {}), rules_note: rules || null };
+  const missed = form.get("missed_pick") === "lowest" ? "lowest" : "zero";
+  const settings = { ...((ctx.pool.settings as Record<string, unknown> | null) ?? {}), rules_note: rules || null, missed_pick: missed };
   const { error } = await ctx.supabase.from("pools").update({ name, entry_fee: fee, settings }).eq("id", ctx.pool.id);
   if (error) return { error: error.message };
   revalidatePath(`/p/${slug}`, "layout");

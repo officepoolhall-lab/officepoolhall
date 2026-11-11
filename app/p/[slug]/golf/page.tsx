@@ -13,6 +13,8 @@ import {
   getGolfMyPicks,
   getGolfResults,
   getGolfStandings,
+  getMissedPickValues,
+  missedPickRule,
   golfWeek,
   isOpenForPicks,
   money,
@@ -122,7 +124,8 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
               <li>One golfer per tournament; each golfer once per season.</li>
               <li>Picks lock at the tournament&apos;s first tee time.</li>
               <li>Standings are season prize money from your picks.</li>
-              <li>No pick, a missed cut or a withdrawal earns $0.</li>
+              <li>A missed cut or a withdrawal earns $0.</li>
+              <li>{missedPickRule(ctx.pool) === "lowest" ? "No pick earns the lowest prize money any entry earned that week." : "No pick earns $0."}</li>
             </ul>
             {rulesNote && <p className="mb-3 whitespace-pre-line text-sm">{rulesNote}</p>}
           </details>
@@ -145,6 +148,8 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
 /** Last week: the event, the entry's pick, where they finished and what they earned. */
 async function LastWeek({ ctx, event, pick }: { ctx: GolfContext; event: GolfEvent; pick: GolfPick | undefined }) {
   const result = pick ? (await getGolfResults(ctx, event.id)).find((r) => r.espn_golfer_id === pick.espn_golfer_id) : undefined;
+  // No pick earns $0, or the week's lowest (the commissioner's rule).
+  const missed = pick ? 0 : ((await getMissedPickValues(ctx, [event.id])).get(event.id) ?? 0);
   return (
     <div className="mt-3 rounded-lg bg-surface px-3 py-2 text-sm">
       <div className="text-xs text-muted">Last week · {event.name}</div>
@@ -158,7 +163,10 @@ async function LastWeek({ ctx, event, pick }: { ctx: GolfContext; event: GolfEve
           <span className="font-semibold tabular-nums">{money(Number(result?.earnings ?? 0))}</span>
         </div>
       ) : (
-        <div className="text-muted">No pick ($0)</div>
+        <div className="flex items-baseline justify-between gap-3 text-muted">
+          <span>No pick</span>
+          <span className="font-semibold tabular-nums">{money(missed)}</span>
+        </div>
       )}
     </div>
   );

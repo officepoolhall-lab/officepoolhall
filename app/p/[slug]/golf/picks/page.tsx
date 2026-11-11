@@ -12,6 +12,7 @@ import {
   getGolfEvents,
   getGolfMyPicks,
   getGolfPickResults,
+  getMissedPickValues,
   getGolfResults,
   golfWeek,
   isOpenForPicks,
@@ -52,6 +53,11 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   const weekOf = new Map(counted.map((e, i) => [e.id, i + 1]));
   const pickByEvent = new Map<string, GolfPick>(myPicks.map((p) => [p.event_id, p] as [string, GolfPick]));
   const results = await getGolfPickResults(ctx, myPicks);
+  // What a week with no pick earned, under the commissioner's rule ($0 or the week's lowest).
+  const missedValue = await getMissedPickValues(
+    ctx,
+    counted.filter((e) => e.status === "final" && !myPicks.some((p) => p.event_id === e.id)).map((e) => e.id),
+  );
 
   const played = counted.filter((e) => e.status === "final" || e.status === "in_progress");
   const upcoming = counted.filter((e) => e.status === "scheduled" && e.id !== current?.id);
@@ -65,7 +71,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   const log = played.map((ev) => {
     const pick = pickByEvent.get(ev.id);
     const result = pick ? results.get(`${ev.id}|${pick.espn_golfer_id}`) : undefined;
-    const earned = ev.status === "final" ? (result?.earnings ?? 0) : 0;
+    const earned = ev.status === "final" ? (pick ? (result?.earnings ?? 0) : (missedValue.get(ev.id) ?? 0)) : 0;
     total += earned;
     return { ev, pick, result, earned, total };
   });

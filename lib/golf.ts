@@ -146,6 +146,28 @@ export function finishLabel(pos: string | null | undefined, eventFinal: boolean)
   return eventFinal ? "MC" : "";
 }
 
+/**
+ * What a week with no pick earns, set by the commissioner (pools.settings.missed_pick): $0, or
+ * the lowest prize money any entry that picked earned that week. Matches golf_standings.
+ */
+export type MissedPickRule = "zero" | "lowest";
+export function missedPickRule(pool: { settings: unknown }): MissedPickRule {
+  return (pool.settings as Record<string, unknown> | null)?.missed_pick === "lowest" ? "lowest" : "zero";
+}
+
+/** For each of these final events, what a missed pick earns under the pool's rule. */
+export async function getMissedPickValues(ctx: PoolBase, eventIds: string[]): Promise<Map<string, number>> {
+  if (!eventIds.length || missedPickRule(ctx.pool) === "zero") return new Map(eventIds.map((id) => [id, 0]));
+  const picks = (await getGolfVisiblePicks(ctx)).filter((p) => eventIds.includes(p.event_id));
+  const results = await getGolfResultsFor(ctx, eventIds, [...new Set(picks.map((p) => p.espn_golfer_id))]);
+  const low = new Map<string, number>(eventIds.map((id) => [id, 0]));
+  for (const id of eventIds) {
+    const amounts = picks.filter((p) => p.event_id === id).map((p) => results.get(`${id}|${p.espn_golfer_id}`)?.earnings ?? 0);
+    if (amounts.length) low.set(id, Math.min(...amounts));
+  }
+  return low;
+}
+
 /** Season prize money per entry, from the database's golf_standings (every page of it). */
 export const getGolfStandings = cache(async (ctx: PoolBase): Promise<GolfStanding[]> => {
   const rows = await allRows<GolfStanding>((from, to) => ctx.supabase
