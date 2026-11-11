@@ -8,8 +8,8 @@ type Tab = "week" | "log" | "upcoming";
 /**
  * My Picks layout. Phones: one panel at a time, chosen from This Week / Season Log / Upcoming
  * Schedule. Desktop: This Week always on the left; the right column switches between Season
- * Log and Upcoming Schedule. The left panel takes its height from the right column (with a
- * floor), so the golfer list fills the same length instead of a short scrolling box.
+ * Log and Upcoming Schedule. The left panel takes its height from the right column, so both
+ * sides end at the same line (a small floor keeps a few golfers visible when the right is short).
  */
 export function GolfPicksTabs({ thisWeek, log, upcoming }: { thisWeek: ReactNode; log: ReactNode; upcoming: ReactNode }) {
   const [tab, setTab] = useState<Tab>("week");
@@ -31,7 +31,7 @@ export function GolfPicksTabs({ thisWeek, log, upcoming }: { thisWeek: ReactNode
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)]">
         {/* Out of the row's height on desktop (absolute), so the right column sets it. */}
-        <div className={`relative lg:block lg:min-h-[44rem] ${tab === "week" ? "" : "hidden"}`}>
+        <div className={`relative lg:block lg:min-h-[24rem] ${tab === "week" ? "" : "hidden"}`}>
           <section aria-label="This week" className="lg:absolute lg:inset-0 lg:flex lg:flex-col">
             {thisWeek}
           </section>

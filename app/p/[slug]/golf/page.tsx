@@ -72,7 +72,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                   {!ctx.isGuest && (
                     <div className="min-w-0">
                       <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
-                      <div className="mt-0.5 truncate text-2xl font-extrabold tracking-[-0.02em]">
+                      <div className="mt-0.5 break-words text-base font-bold leading-snug">
                         {myPick ? (
                           myPick.golfer_name
                         ) : isOpenForPicks(current, now) ? (
@@ -91,7 +91,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                   {isOpenForPicks(current, now) && current.start_at && (
                     <div>
                       <div className="text-xs text-muted">Picks Lock</div>
-                      <div className="mt-0.5 text-2xl font-extrabold tracking-[-0.02em] tabular-nums">
+                      <div className="mt-0.5 text-base font-bold leading-snug tabular-nums">
                         <Countdown to={current.start_at} done="locked" />
                       </div>
                     </div>
