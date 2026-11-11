@@ -39,7 +39,7 @@ export type StandingRow = {
   behind: number;
   lastWeek: { golfer: string | null; finish: string; earned: number } | null;
   /** The current event: hidden until picks lock unless it's the viewer's own. */
-  thisWeek: { golfer: string | null; hidden: boolean; live: string | null } | null;
+  thisWeek: { golfer: string | null; hidden: boolean; live: string | null; liveRank: number | null } | null;
   best: { earned: number; golfer: string; event: string; week: number } | null;
   /** Picks in final events, and how many of them made the cut. */
   picks: number;
@@ -60,6 +60,8 @@ export type GolfStandingsData = {
   /** Entries with the most weekly wins, most first. */
   weeklyLeaders: { name: string; wins: number; isMe: boolean }[];
   current: { name: string; week: number; open: boolean; live: boolean } | null;
+  /** Events played so far (final or under way), in order. */
+  played: { week: number; name: string; final: boolean }[];
   lastFinal: { name: string; week: number } | null;
   finalCount: number;
 };
@@ -162,7 +164,7 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
         behind: leader - b.total,
         lastWeek: lastRow ? { golfer: lastRow.golfer, finish: lastRow.finish, earned: lastRow.earned } : null,
         // Other entries' picks for an open event aren't sent to the viewer at all.
-        thisWeek: current ? { golfer: curPick?.golfer_name ?? null, hidden: currentOpen && !isMe && !curPick, live: liveLine || null } : null,
+        thisWeek: current ? { golfer: curPick?.golfer_name ?? null, hidden: currentOpen && !isMe && !curPick, live: liveLine || null, liveRank: g ? posRank(g.pos) : null } : null,
         best: b.best && b.best.earned > 0 ? b.best : null,
         picks: b.picks,
         cuts: b.cuts,
@@ -182,6 +184,7 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
       .filter((r) => r.weeklyWins > 0)
       .map((r) => ({ name: r.name, wins: r.weeklyWins, isMe: r.isMe }))
       .sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name)),
+    played: played.map((e) => ({ week: weekOf.get(e.id)!, name: e.name, final: e.status === "final" })),
     current: current ? { name: current.name, week: weekOf.get(current.id)!, open: currentOpen, live: current.status === "in_progress" } : null,
     lastFinal: lastFinal ? { name: lastFinal.name, week: weekOf.get(lastFinal.id)! } : null,
     finalCount: finals.length,

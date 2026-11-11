@@ -1,108 +1,137 @@
 import type { Metadata } from "next";
 import { AutoRefresh } from "@/components/AutoRefresh";
-import { GolfStandingsTable } from "@/components/GolfStandingsTable";
+import { GolfSeasonHeaderRow, GolfSeasonStandings, GolfWeekHeaderRow, GolfWeekStandings, type WeekRow } from "@/components/GolfStandings";
+import { OptionSwitcher, type SwitchOption } from "@/components/OptionSwitcher";
+import { FROZEN_HEAD } from "@/components/SeasonStandings";
+import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs";
 import { Empty, PageTitle, SectionLabel } from "@/components/ui";
-import { getGolfContext, money } from "@/lib/golf";
-import { getGolfStandingsData } from "@/lib/golfStandings";
+import { getGolfContext } from "@/lib/golf";
+import { getGolfStandingsData, type StandingRow } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "Standings" };
 
-const ordinal = (n: number) => `${n}${["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4) % 4]}`;
+/** Competition ranking by a number, best first: 1, 2, 2, 4. */
+function ranked<T>(rows: T[], value: (r: T) => number, name: (r: T) => string) {
+  const sorted = [...rows].sort((a, b) => value(b) - value(a) || name(a).localeCompare(name(b)));
+  const values = sorted.map(value);
+  return sorted.map((r) => ({ r, place: values.indexOf(value(r)) + 1, tied: values.filter((v) => v === value(r)).length > 1 }));
+}
 
-export default async function GolfStandingsPage({ params }: PageProps<"/p/[slug]/golf/standings">) {
+/**
+ * Laid out like the football and basketball Standings: Season and Weekly columns side by side
+ * on desktop, one at a time behind tabs on phones. Every week is built up front, so the week
+ * buttons switch instantly; ?week= picks the starting week. A player's name opens their season.
+ */
+export default async function GolfStandingsPage({ params, searchParams }: PageProps<"/p/[slug]/golf/standings">) {
   const { slug } = await params;
+  const { week: weekParam } = await searchParams;
   const ctx = await getGolfContext(slug);
   // eslint-disable-next-line react-hooks/purity
   const data = await getGolfStandingsData(ctx, Date.now());
-  const me = data.rows.find((r) => r.isMe);
+  const playerHref = (userId: string) => `/p/${slug}/golf/standings/${userId}`;
+
+  // Weeks to choose from: every event played, plus the current one while it's still open.
+  const weeks = [...data.played];
+  if (data.current && !weeks.some((w) => w.week === data.current!.week)) weeks.push({ week: data.current.week, name: data.current.name, final: false });
+  const weekOptions: SwitchOption[] = weeks.map((w) => ({ id: String(w.week), label: `Wk ${w.week}` }));
+  const weekIds = weekOptions.map((o) => o.id);
+
+  const weekRows = (week: number): WeekRow[] => {
+    const isCurrent = data.current?.week === week;
+    const final = weeks.find((w) => w.week === week)!.final;
+    const base = (r: StandingRow) => ({ userId: r.userId, name: r.name, isMe: r.isMe });
+    if (final) {
+      const logOf = (r: StandingRow) => r.log.find((l) => l.week === week);
+      return ranked(data.rows, (r) => logOf(r)?.earned ?? 0, (r) => r.name).map(({ r, place, tied }) => {
+        const l = logOf(r);
+        return { ...base(r), place, tied, golfer: l?.golfer ?? null, hidden: false, finish: l?.finish ?? "", earned: l?.earned ?? 0 };
+      });
+    }
+    // Under way: by the golfer's live place. Still open: in season order, picks hidden.
+    const rows = data.rows.map((r) => ({
+      ...base(r),
+      place: null,
+      tied: false,
+      golfer: isCurrent ? (r.thisWeek?.golfer ?? null) : (r.log.find((l) => l.week === week)?.golfer ?? null),
+      hidden: isCurrent ? (r.thisWeek?.hidden ?? false) : false,
+      finish: isCurrent ? (r.thisWeek?.live ?? "") : "",
+      earned: 0,
+      liveRank: isCurrent ? (r.thisWeek?.liveRank ?? 99999) : 99999,
+    }));
+    return rows.sort((a, b) => a.liveRank - b.liveRank);
+  };
+
+  // Start on the week asked for; else the event under way; else the last finished one.
+  const lastFinal = data.lastFinal ? String(data.lastFinal.week) : null;
+  const defaultWeek = data.current?.live ? String(data.current.week) : (lastFinal ?? weekIds[weekIds.length - 1] ?? "");
+  const startWeek = typeof weekParam === "string" && weekIds.includes(weekParam) ? weekParam : defaultWeek;
+  const each = <T,>(make: (id: string) => T) => Object.fromEntries(weekIds.map((id) => [id, make(id)])) as Record<string, T>;
+  const isFinal = (id: string) => weeks.find((w) => String(w.week) === id)!.final;
 
   return (
+    // data-wide: full screen width on desktop.
     <div data-wide>
-      <PageTitle
-        sub={
-          data.finalCount === 0
-            ? "No events are final yet."
-            : `Season prize money through ${data.lastFinal ? `Week ${data.lastFinal.week}, ${data.lastFinal.name}` : `${data.finalCount} events`}`
-        }
-      >
-        Standings
-      </PageTitle>
+      <PageTitle>Standings</PageTitle>
       <AutoRefresh active={!!data.current?.live} seconds={120} />
 
       {data.rows.length === 0 ? (
         <Empty>No standings yet.</Empty>
       ) : (
-        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-          <section aria-label="Season standings">
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-              {me && !ctx.isGuest ? (
-                <a href="#my-row" className="text-accent hover:underline">
-                  {ctx.managing ? `${ctx.managing.ownerName}: ` : "You: "}
-                  <span className="font-semibold">
-                    {me.tied ? "T-" : ""}
-                    {ordinal(me.place)}
-                  </span>{" "}
-                  of {data.rows.length}
-                  {me.behind > 0 ? `, ${money(me.behind)} back` : ""}
-                </a>
-              ) : (
-                <span className="text-muted">{data.rows.length} entries</span>
-              )}
-              {data.current && (
-                <span className="text-xs text-muted">
-                  Week {data.current.week} · {data.current.name}
-                  {data.current.live ? " · under way" : data.current.open ? " · picks show at the lock" : ""}
-                </span>
-              )}
-            </div>
-            <GolfStandingsTable rows={data.rows} hasCurrent={!!data.current} hasLastWeek={!!data.lastFinal} />
-            <p className="mt-2 text-xs text-muted">Select an entry to see its season. ▲▼ show places gained or lost last week.</p>
-          </section>
+        <StandingsTabs initial={typeof weekParam === "string" ? "weekly" : "season"} hasSegments={false}>
+          <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+            <TabPanel id="season" label="Season standings">
+              <div className={FROZEN_HEAD}>
+                <MobileTabs />
+                <SectionLabel className="flex min-h-9 items-center">
+                  <span>
+                    Season
+                    {data.lastFinal && (
+                      <span className="font-normal normal-case tracking-normal">
+                        &nbsp;· through Week {data.lastFinal.week}
+                      </span>
+                    )}
+                  </span>
+                </SectionLabel>
+                <GolfSeasonHeaderRow />
+              </div>
+              <GolfSeasonStandings rows={data.rows} playerHref={playerHref} />
+            </TabPanel>
 
-          {/* Who earned the most each week. */}
-          <section aria-labelledby="weekly-winners">
-            <SectionLabel>
-              <span id="weekly-winners">Weekly winners</span>
-            </SectionLabel>
-            {data.weekly.length === 0 ? (
-              <p className="mt-2 border-y border-line py-3 text-sm text-muted">No events are final yet.</p>
-            ) : (
-              <>
-                {data.weeklyLeaders.length > 0 && (
-                  <ol className="mt-2 flex flex-wrap gap-1.5">
-                    {data.weeklyLeaders.slice(0, 6).map((l) => (
-                      <li key={l.name} className={`rounded-full bg-surface px-2.5 py-1 text-xs ${l.isMe ? "ring-2 ring-accent" : ""}`}>
-                        <span className="font-medium">{l.name}</span> <span className="tabular-nums text-muted">×{l.wins}</span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-                <ol className="mt-3 divide-y divide-line border-y border-line">
-                  {data.weekly.map((w) => (
-                    <li key={w.week} className="py-2 text-sm">
-                      <div className="flex items-baseline justify-between gap-2 text-xs text-muted">
-                        <span className="min-w-0 truncate">
-                          Wk {w.week} · {w.event}
-                        </span>
-                        <span className="shrink-0 font-semibold tabular-nums text-ink">{w.earned > 0 ? money(w.earned) : "–"}</span>
-                      </div>
-                      {w.winners.length === 0 ? (
-                        <div className="text-muted">No one earned prize money</div>
-                      ) : (
-                        w.winners.map((x) => (
-                          <div key={x.name} className="flex items-baseline justify-between gap-2">
-                            <span className={`min-w-0 truncate ${x.isMe ? "font-bold" : "font-medium"}`}>{x.name}</span>
-                            <span className="shrink-0 text-xs text-muted">{x.golfer}</span>
-                          </div>
-                        ))
-                      )}
-                    </li>
+            <TabPanel id="weekly" label="Week standings">
+              {weekIds.length === 0 ? (
+                <>
+                  <div className={FROZEN_HEAD}>
+                    <MobileTabs />
+                    <SectionLabel className="flex min-h-9 items-center">Weekly Standings</SectionLabel>
+                  </div>
+                  <p className="border-y border-line py-3 text-sm text-muted">No events yet.</p>
+                </>
+              ) : (
+                <OptionSwitcher
+                  options={weekOptions}
+                  initial={startWeek}
+                  param="week"
+                  defaultId={defaultWeek}
+                  views={each((id) => (
+                    <GolfWeekStandings rows={weekRows(Number(id))} final={isFinal(id)} playerHref={playerHref} />
                   ))}
-                </ol>
-              </>
-            )}
-          </section>
-        </div>
+                  headers={each((id) => (
+                    <GolfWeekHeaderRow final={isFinal(id)} />
+                  ))}
+                  // The week is the highlighted button; the heading names its tournament.
+                  titles={each((id) => (
+                    <>
+                      Weekly Standings
+                      <span className="font-normal normal-case tracking-normal">&nbsp;· {weeks.find((w) => String(w.week) === id)!.name}</span>
+                    </>
+                  ))}
+                  lead={<MobileTabs />}
+                  ariaLabel="Choose a week"
+                />
+              )}
+            </TabPanel>
+          </div>
+        </StandingsTabs>
       )}
     </div>
   );
