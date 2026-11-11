@@ -26,7 +26,8 @@ import {
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getLiveLeaderboard } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
-import { getPurses, shortPurse } from "@/lib/golfPurse";
+import { getEventInfo, shortPurse } from "@/lib/golfEventInfo";
+import { SignatureTag } from "@/components/SignatureTag";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
 
@@ -59,8 +60,8 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   const weekOf = new Map(counted.map((e, i) => [e.id, i + 1]));
   const pickByEvent = new Map<string, GolfPick>(myPicks.map((p) => [p.event_id, p] as [string, GolfPick]));
   const results = await getGolfPickResults(ctx, myPicks);
-  // Each tournament's purse (ESPN), for this week's event and the upcoming schedule.
-  const purses = await getPurses(counted.filter((e) => e.status === "scheduled" || e.id === current?.id), ctx.pool.slug);
+  // Each tournament's purse and Signature status (ESPN), for this week's event and the schedule.
+  const info = await getEventInfo(counted.filter((e) => e.status === "scheduled" || e.id === current?.id), ctx.pool.slug);
   // What a week with no pick earned, under the commissioner's rule ($0 or the week's lowest).
   const missedValue = await getMissedPickValues(
     ctx,
@@ -100,7 +101,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
       <GolfPicksTabs
         thisWeek={
           current ? (
-            <ThisWeek ctx={ctx} slug={slug} event={current} purse={purses.get(current.id) ?? null} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
+            <ThisWeek ctx={ctx} slug={slug} event={current} purse={info.get(current.id)?.purse ?? null} signature={info.get(current.id)?.signature ?? false} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
           ) : (
             <p className="text-sm text-muted">The season is over. Thanks for playing.</p>
           )
@@ -166,9 +167,10 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                   <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
                     <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
                     <span className="min-w-0 flex-1 truncate">{ev.name}</span>
-                    {purses.has(ev.id) && (
-                      <span className="shrink-0 text-xs font-semibold tabular-nums" title={`Purse ${money(purses.get(ev.id)!)}`}>
-                        {shortPurse(purses.get(ev.id)!)}
+                    {info.get(ev.id)?.signature && <SignatureTag />}
+                    {info.get(ev.id)?.purse && (
+                      <span className="shrink-0 text-xs font-semibold tabular-nums" title={`Purse ${money(info.get(ev.id)!.purse!)}`}>
+                        {shortPurse(info.get(ev.id)!.purse!)}
                       </span>
                     )}
                     <span className="w-12 shrink-0 text-right text-xs text-muted">{ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "MMM d") : "TBA"}</span>
@@ -189,6 +191,7 @@ async function ThisWeek({
   slug,
   event,
   purse,
+  signature,
   weekNumber,
   weeks,
   pick,
@@ -200,6 +203,8 @@ async function ThisWeek({
   event: GolfEvent;
   /** The tournament's purse, when ESPN gives one. */
   purse: number | null;
+  /** A PGA Tour Signature Event. */
+  signature: boolean;
   weekNumber: number;
   weeks: number;
   pick: GolfPick | undefined;
@@ -219,6 +224,7 @@ async function ThisWeek({
         {event.name}
         {/* The purse, so bigger-money weeks stand out. */}
         {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} purse</span>}
+        {signature && <SignatureTag className="ml-2 align-middle" />}
       </h2>
       <p className="text-xs text-muted">
         {event.start_at
