@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
+import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { GolfPicker, type PickerGolfer } from "@/components/GolfPicker";
 import { GolfPicksTabs } from "@/components/GolfPicksTabs";
 import { Empty, PageTitle } from "@/components/ui";
@@ -71,6 +72,12 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
 
   return (
     <div data-wide>
+      {/* The same scroll as Home: last week's finish, tee times, or the live leaderboard. */}
+      <Suspense fallback={<div className="mb-4 h-7" />}>
+        <div className="mb-4">
+          <GolfLiveTicker ctx={ctx} />
+        </div>
+      </Suspense>
       <PageTitle sub={ctx.managing ? `Co-managing ${ctx.managing.ownerName}'s entry` : undefined}>
         My Picks
       </PageTitle>

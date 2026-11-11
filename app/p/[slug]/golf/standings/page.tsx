@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfSeasonHeaderRow, GolfSeasonStandings, GolfWeekHeaderRow, GolfWeekStandings, type WeekRow } from "@/components/GolfStandings";
 import { GolfWeekSwitcher } from "@/components/GolfWeekSwitcher";
@@ -77,7 +79,17 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
   return (
     // data-wide: full screen width on desktop.
     <div data-wide>
-      <PageTitle>Standings</PageTitle>
+      {/* Title on the left; the golf scroll fills the space to its right (below it on phones), as on football's Standings. */}
+      <div className="sm:flex sm:items-start sm:gap-6">
+        <div className="shrink-0">
+          <PageTitle>Standings</PageTitle>
+        </div>
+        <Suspense fallback={null}>
+          <div className="-mt-2 mb-4 min-w-0 sm:mt-1.5 sm:mb-0 sm:flex-1">
+            <GolfLiveTicker ctx={ctx} />
+          </div>
+        </Suspense>
+      </div>
       <AutoRefresh active={!!data.current?.live} seconds={120} />
 
       {data.rows.length === 0 ? (

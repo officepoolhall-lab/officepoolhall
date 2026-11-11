@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
-import { GolfTicker, type TickerGolfer } from "@/components/GolfTicker";
+import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { NewsList } from "@/components/NewsList";
 import { ChevronIcon, SectionLabel, chipClass } from "@/components/ui";
 import {
@@ -20,9 +20,7 @@ import {
   type GolfEvent,
   type GolfPick,
   type GolfStanding,
-  type GolfTickerMode,
 } from "@/lib/golf";
-import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
 
@@ -45,11 +43,9 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
     // data-wide: full screen width on desktop, like the football and basketball home.
     <div data-wide className="space-y-6">
       {/* Mon–Tue last week's finish, from Wednesday tee times, then the live leaderboard. */}
-      {week.mode && week.tickerEvent && (
-        <Suspense fallback={<div className="h-7" />}>
-          <Ticker ctx={ctx} mode={week.mode} event={week.tickerEvent} myPicks={myPicks} />
-        </Suspense>
-      )}
+      <Suspense fallback={<div className="h-7" />}>
+        <GolfLiveTicker ctx={ctx} />
+      </Suspense>
       <AutoRefresh active={week.mode === "live"} seconds={120} />
 
       {/* Desktop: this week + standings | news | world rankings. Phones: week, standings, rankings, news. */}
@@ -128,56 +124,6 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
       </div>
     </div>
   );
-}
-
-/**
- * The ticker's golfers: ESPN's live page when it can be read (real events), otherwise the
- * pool's own copy of the field and finishes (demo events, or ESPN unavailable).
- */
-async function Ticker({ ctx, mode, event, myPicks }: { ctx: GolfContext; mode: GolfTickerMode; event: GolfEvent; myPicks: GolfPick[] }) {
-  // Live scores every 2 minutes; tee times every 10; a final leaderboard doesn't change.
-  const source = espnTournamentId(event.espn_id, ctx.pool.slug, event.status);
-  // The demo's upcoming event is last year's real one, already final: use its stored field.
-  const live = source && (/^\d+$/.test(event.espn_id) || event.status !== "scheduled") ? await getLiveLeaderboard(source, mode === "live" ? 120 : mode === "tees" ? 600 : 3600) : null;
-  let golfers: TickerGolfer[] = live
-    ? live
-    : (await getGolfResults(ctx, event.id)).map((r) => ({
-        id: r.espn_golfer_id,
-        name: r.golfer_name,
-        pos: r.pos ?? "-",
-        toPar: null,
-        thru: null,
-        tee: r.tee_at,
-        earnings: Number(r.earnings),
-        lastName: r.golfer_name.split(" ").slice(-1)[0],
-        order: null,
-      }));
-  const mine = myPicks.find((p) => p.event_id === event.id)?.espn_golfer_id ?? null;
-
-  const byTee = (a: TickerGolfer, b: TickerGolfer) => (a.tee ?? "~").localeCompare(b.tee ?? "~") || a.lastName.localeCompare(b.lastName);
-  // ESPN's own order when it gives one (it breaks ties the way its leaderboard does).
-  const byPlace = (a: TickerGolfer, b: TickerGolfer) =>
-    posRank(a.pos) - posRank(b.pos) || (a.order ?? 9999) - (b.order ?? 9999) || b.earnings - a.earnings || a.lastName.localeCompare(b.lastName);
-
-  if (mode === "tees") {
-    // Before the event: everyone by tee time (A–Z by last name until times are posted).
-    golfers.sort(byTee);
-  } else if (mode === "live") {
-    // Under way: the leaderboard of everyone who has a score, then everyone still to tee off
-    // by tee time. Golfers who missed the cut or withdrew drop off.
-    const started = golfers.filter((g) => g.toPar !== null && posRank(g.pos) < 9999).sort(byPlace);
-    const waiting = golfers.filter((g) => g.toPar === null).sort(byTee);
-    golfers = [...started, ...waiting];
-  } else {
-    // Last week's finish: the top 40, plus the viewer's pick wherever it finished.
-    golfers.sort(byPlace);
-    const top = golfers.filter((g) => posRank(g.pos) < 9999).slice(0, 40);
-    const pick = golfers.find((g) => g.id === mine);
-    golfers = pick && !top.includes(pick) ? [...top, pick] : top;
-  }
-
-  // eslint-disable-next-line react-hooks/purity
-  return <GolfTicker mode={mode} eventName={event.name} golfers={golfers} myGolferId={mine} timezone={ctx.displayTz} now={Date.now()} round={mode === "live" && source ? await currentRound(source, live) : null} />;
 }
 
 /** Last week: the event, the entry's pick, where they finished and what they earned. */
