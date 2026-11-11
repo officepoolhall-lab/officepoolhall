@@ -142,7 +142,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
         </tbody>
         <tfoot>
           <tr>
-            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">Pool Picks</th>
+            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">Pool Pick</th>
             {weeks.map((w) => (
               <td key={w.week} className="border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
                 {w.popular ? (

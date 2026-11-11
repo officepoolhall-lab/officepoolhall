@@ -41,7 +41,7 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
     <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
-          <Place place={r.place} tied={r.tied} />
+          {final && <Place place={r.place} tied={r.tied} />}
           <span className="min-w-0 flex-1 break-words font-medium leading-snug">
             <Player r={r} href={playerHref} />
             {r.missed > 0 && <span className="ml-1.5 whitespace-nowrap text-xs font-normal text-muted">{r.missed} missed</span>}
@@ -67,7 +67,8 @@ export function GolfWeekHeaderRow({ final, live = false }: { final: boolean; liv
       </div>
     )}
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
-      <span className="w-7 shrink-0" />
+      {/* Places only once the week is final; until then Entry starts at the left edge. */}
+      {final && <span className="w-7 shrink-0" />}
       <span className={`min-w-0 flex-1 ${head}`}>Entry</span>
       <span className={`min-w-0 flex-1 ${head}`}>Golfer</span>
       <span className={`w-[5.5rem] shrink-0 text-right leading-tight sm:w-28 ${head}`}>{final ? "Earnings" : "Current Position"}</span>
@@ -112,7 +113,7 @@ export function GolfWeekStandings({ rows, final, playerHref }: { rows: WeekRow[]
     <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
-          <Place place={r.place} tied={r.tied} />
+          {final && <Place place={r.place} tied={r.tied} />}
           <span className="min-w-0 flex-1 break-words font-medium leading-snug">
             <Player r={r} href={playerHref} />
           </span>

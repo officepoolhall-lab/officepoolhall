@@ -121,7 +121,7 @@ export function GolfLeaderboard({
                           className={`whitespace-nowrap rounded-full px-1.5 text-[10px] font-medium ${r.mine ? "bg-accent text-bg" : "bg-surface text-muted"}`}
                           title={`${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"} in the pool picked ${r.name}${r.mine ? ", including you" : ""}`}
                         >
-                          Pool Picks ×{r.pickedBy}
+                          Pool Pick ×{r.pickedBy}
                         </span>
                       )}
                     </div>
