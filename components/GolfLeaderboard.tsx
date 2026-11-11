@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
+import { AxisLockScroll } from "./AxisLockScroll";
 import { GolfScorecard } from "./GolfScorecard";
 
 export type LeaderRow = {
@@ -47,9 +48,11 @@ export function GolfLeaderboard({
 
   return (
     <>
-      <div className="-mx-4 overflow-x-auto sm:mx-0">
+      {/* Its own scroll box filling the screen (as on the League Grid): the column labels stay
+          pinned at its top, so they never slide under the app's header. */}
+      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
         <table className="w-full border-separate border-spacing-0 text-sm">
-          <thead className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] z-10 bg-bg sm:top-[calc(3rem+3px+env(safe-area-inset-top))]">
+          <thead className="sticky top-0 z-20 bg-bg">
             <tr className="text-left">
               <th className={`${th} w-12 border-b border-line pl-4 pr-1 sm:pl-0`}>{started ? "Pos" : ""}</th>
               <th className={`${th} border-b border-line px-2`}>Golfer</th>
@@ -125,8 +128,8 @@ export function GolfLeaderboard({
             ))}
           </tbody>
         </table>
-      </div>
-      {started && <p className="mt-2 text-xs text-muted">Select a golfer for their hole-by-hole scorecard. Under par in red.</p>}
+      </AxisLockScroll>
+      {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a golfer for their scorecard. Under par in red.</p>}
       {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} onClose={() => setOpen(null)} />}
     </>
   );

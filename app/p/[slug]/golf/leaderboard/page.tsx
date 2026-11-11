@@ -106,19 +106,27 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           : "Tee times not posted yet";
 
   return (
-    <div data-wide>
-      <PageTitle>Leaderboard</PageTitle>
+    // Fills the screen like the League Grid: the header stays put and the board scrolls below it.
+    <div
+      data-fill-viewport
+      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+    >
+      <h1 className="sr-only">Leaderboard</h1>
       <AutoRefresh active={state === "live"} seconds={60} />
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      {/* One compact header: the tournament and its status on the left, the dropdown on the right. */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2">
         <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted">Week {weekNo}</div>
-          <h2 className="text-lg font-bold leading-snug">{event.name}</h2>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+            Leaderboard · Week {weekNo}
+          </div>
+          <h2 className="text-lg font-bold leading-tight">{event.name}</h2>
           <p className={`text-xs ${state === "live" ? "text-live" : "text-muted"}`}>{status}</p>
         </div>
         <GolfEventSelect
           basePath={`/p/${slug}/golf/leaderboard`}
           value={event.id}
-          events={[...counted].reverse().map((e) => ({ id: e.id, label: `Week ${counted.indexOf(e) + 1} · ${e.name}` }))}
+          // Week 1 at the top, through the season.
+          events={counted.map((e, i) => ({ id: e.id, label: `Week ${i + 1} · ${e.name}` }))}
         />
       </div>
       {rows.length === 0 ? (
