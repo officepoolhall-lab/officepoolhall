@@ -2,19 +2,18 @@ import { CopyButton } from "@/components/CopyButton";
 import { OnlineDot } from "@/components/PoolPresence";
 import { Button, CheckIcon, Panel, SectionLabel } from "@/components/ui";
 import type { PoolBase } from "@/lib/pool";
-import { disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setContactEmail, setPaid } from "@/app/p/[slug]/admin/actions";
-import { ContactEmailForm } from "./ContactEmailForm";
+import { disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setPaid } from "@/app/p/[slug]/admin/actions";
 
 /**
  * The commissioner's roster, the same for every sport: the invite link, every entry with its
- * email, account status, co-managers and paid mark, and guests with their own link. Each entry
- * can be given a contact email for this pool (their sign-in email stays theirs).
+ * email (the one they sign in with), account status, co-managers and paid mark, and guests
+ * with their own link.
  */
 export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug: string; timezone: string }) {
   const [{ data: members }, { data: invite }, { data: accounts, error: accountsError }, { data: comanagers }, { data: guestInvite }, { data: guestRows }] = await Promise.all([
     ctx.supabase
       .from("pool_members")
-      .select("user_id, role, paid, joined_at, contact_email, profile:profiles!inner ( display_name )")
+      .select("user_id, role, paid, joined_at, profile:profiles!inner ( display_name )")
       .eq("pool_id", ctx.pool.id)
       .order("joined_at"),
     ctx.supabase.from("invites").select("token").eq("pool_id", ctx.pool.id).eq("guest", false).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -54,12 +53,9 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
   const setUpCount = (members ?? []).filter((m) => setUp(m.user_id)).length;
   const signedIn = (iso: string | null) =>
     iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: timezone })}` : "Never signed in";
-  // The address to use for each entry in this pool: the commissioner's contact email, else
-  // the one they sign in with.
-  const contactOf = (m: { user_id: string; contact_email: string | null }) => m.contact_email ?? emailOf.get(m.user_id);
   // Everyone's address in one line, for pasting into an email's To: field.
   const allEmails = (members ?? [])
-    .map((m) => contactOf(m))
+    .map((m) => emailOf.get(m.user_id))
     .filter((e): e is string => Boolean(e))
     .join(", ");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -120,16 +116,11 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
                   <OnlineDot userId={m.user_id} className="ml-1.5 align-middle" />
                   {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
                 </span>
-                {contactOf(m) && (
-                  <a href={`mailto:${contactOf(m)}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">
-                    {contactOf(m)}
+                {emailOf.get(m.user_id) && (
+                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">
+                    {emailOf.get(m.user_id)}
                   </a>
                 )}
-                {/* A contact email set by the commissioner; the sign-in email is theirs to change. */}
-                {m.contact_email && emailOf.get(m.user_id) && m.contact_email !== emailOf.get(m.user_id) && (
-                  <span className="block truncate text-xs text-faint">Signs in as {emailOf.get(m.user_id)}</span>
-                )}
-                <ContactEmailForm action={setContactEmail.bind(null, slug, m.user_id)} current={m.contact_email} />
                 {/* Account status: password chosen and name confirmed = set up. */}
                 {accountOf.get(m.user_id) && (
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">

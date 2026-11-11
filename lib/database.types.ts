@@ -253,14 +253,14 @@ isOneToOne: false
                   ]
                 },"pool_members": {
                   Row: {
-                    "contact_email": string | null,"joined_at": string,"paid": boolean,"pool_id": string,"role": string,"user_id": string
+                    "joined_at": string,"paid": boolean,"pool_id": string,"role": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "contact_email"?: string | null,"joined_at"?: string,"paid"?: boolean,"pool_id": string,"role"?: string,"user_id": string
+                    "joined_at"?: string,"paid"?: boolean,"pool_id": string,"role"?: string,"user_id": string
                   }
                   Update: {
-                    "contact_email"?: string | null,"joined_at"?: string,"paid"?: boolean,"pool_id"?: string,"role"?: string,"user_id"?: string
+                    "joined_at"?: string,"paid"?: boolean,"pool_id"?: string,"role"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
