@@ -29,10 +29,10 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
     ["Place", `${row.tied ? "T-" : ""}${ordinal(row.place)} of ${data.rows.length}`],
     ["Earnings", money(row.total)],
     ["Behind", row.behind > 0 ? money(row.behind) : "Leader"],
-    ["Cuts made", `${row.cuts} of ${row.picks}`],
+    ["Cuts Made", `${row.cuts} of ${row.picks}`],
     ["Top 10s", String(row.top10s)],
     ["Wins", String(row.wins)],
-    ["Weeks won", String(row.weeklyWins)],
+    ["Weeks Won", String(row.weeklyWins)],
     ["Missed", String(row.missed)],
   ];
 
@@ -41,7 +41,7 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
       <Link href={`/p/${slug}/golf/standings`} className="mb-2 inline-flex h-9 items-center gap-0.5 text-sm font-medium text-accent">
         <ChevronIcon className="size-4 rotate-180" /> Standings
       </Link>
-      <PageTitle sub={row.isMe ? "Your season" : "Season so far"}>{row.name}</PageTitle>
+      <PageTitle sub={row.isMe ? "Your Season" : "Season So Far"}>{row.name}</PageTitle>
 
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {stats.map(([label, value]) => (
@@ -53,7 +53,7 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
       </dl>
       {row.best && (
         <p className="mt-3 text-sm text-muted">
-          Best week: <span className="font-medium text-ink">{row.best.golfer}</span> at the {row.best.event.replace(/^the /i, "")} (Week {row.best.week}),{" "}
+          Best Week: <span className="font-medium text-ink">{row.best.golfer}</span> at the {row.best.event.replace(/^the /i, "")} (Week {row.best.week}),{" "}
           <span className="font-medium text-ink">{money(row.best.earned)}</span>
         </p>
       )}
@@ -78,7 +78,7 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
                 <tr key={l.week}>
                   <td className="py-2 pr-1 tabular-nums text-muted">{l.week}</td>
                   <td className="truncate py-2 pr-2">{l.event}</td>
-                  <td className={`break-words py-2 leading-snug pr-2 ${l.golfer ? "font-medium" : "text-muted"}`}>{l.golfer ?? "No pick"}</td>
+                  <td className={`break-words py-2 leading-snug pr-2 ${l.golfer ? "font-medium" : "text-muted"}`}>{l.golfer ?? "No Pick"}</td>
                   <td className="py-2 pr-2 tabular-nums text-muted">
                     {l.finish}
                     {!l.final && <span className="ml-1 text-xs text-live">Live</span>}

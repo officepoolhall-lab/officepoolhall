@@ -121,10 +121,10 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
     state === "final"
       ? "Final"
       : state === "live"
-        ? "Under way · updates every minute"
+        ? "Under Way · Updates Every Minute"
         : event.start_at
           ? `Starts ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
-          : "Tee times not posted yet";
+          : "Tee Times Not Posted Yet";
 
   return (
     // Fills the screen like the League Grid: the header stays put and the board scrolls below it.

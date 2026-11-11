@@ -136,7 +136,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                         <tr key={ev.id}>
                           <td className="py-2 pr-1 tabular-nums text-muted sm:pr-2">{weekOf.get(ev.id)}</td>
                           <td className="truncate py-2 pr-2 sm:max-w-[11rem] sm:pr-3">{ev.name}</td>
-                          <td className={`break-words py-2 leading-snug pr-2 sm:pr-3 ${pick ? "font-medium" : "text-muted"}`}>{pick ? pick.golfer_name : "No pick"}</td>
+                          <td className={`break-words py-2 leading-snug pr-2 sm:pr-3 ${pick ? "font-medium" : "text-muted"}`}>{pick ? pick.golfer_name : "No Pick"}</td>
                           <td className="py-2 pr-2 tabular-nums text-muted sm:pr-3">
                             {pick ? finishLabel(result?.pos, final) : ""}
                             {!final && <span className="ml-1 text-xs text-live">Live</span>}
@@ -202,20 +202,20 @@ async function ThisWeek({
     <>
       <div className="text-xs font-semibold uppercase tracking-wide text-muted">
         Week {weekNumber} of {weeks}
-        {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under way</span>}
+        {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
       </div>
       <h2 className="mt-0.5 text-xl font-bold leading-snug">{event.name}</h2>
       <p className="text-xs text-muted">
         {event.start_at
           ? `Tournament Locks ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
-          : "Tee times not posted yet. Picks open the Monday of tournament week at 7 a.m. Central."}
+          : "Tee Times Not Posted Yet · Picks Open Monday of Tournament Week, 7 AM Central"}
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-4 border-y border-line py-3">
         <div className="min-w-0">
           <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
           <div className={`mt-0.5 break-words text-base font-bold leading-snug ${pick ? "" : "text-muted"}`}>
-            {pick ? pick.golfer_name : ctx.isGuest ? "–" : open ? "Not picked" : "None"}
+            {pick ? pick.golfer_name : ctx.isGuest ? "–" : open ? "Not Picked" : "None"}
           </div>
         </div>
         <div>
@@ -228,7 +228,7 @@ async function ThisWeek({
             ) : event.start_at ? (
               "Locked"
             ) : (
-              "Not open"
+              "Not Open"
             )}
           </div>
         </div>

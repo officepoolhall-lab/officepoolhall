@@ -63,13 +63,13 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
               <>
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted">
                   Week {week.weekNumber} of {week.weeks}
-                  {current.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under way</span>}
+                  {current.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
                 </div>
                 <div className="mt-0.5 text-lg font-bold leading-snug text-ink">{current.name}</div>
                 <div className="text-xs text-muted">
                   {current.start_at
-                    ? `First tee ${formatInTimeZone(current.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")}`
-                    : "Tee times not posted yet. Picks open the Monday of tournament week at 7 a.m. Central."}
+                    ? `First Tee ${formatInTimeZone(current.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")}`
+                    : "Tee Times Not Posted Yet · Picks Open Monday of Tournament Week, 7 AM Central"}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-4">
                   {!ctx.isGuest && (
@@ -111,8 +111,8 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
             {nextOpen && !ctx.isGuest && (
               <Link href={`/p/${slug}/golf/picks`} className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm hover:bg-hover">
                 <span className="min-w-0">
-                  <span className="block text-xs text-muted">Picks open · {nextOpen.name}</span>
-                  <span className="font-medium">{myPicks.some((p) => p.event_id === nextOpen.id) ? "Change your pick" : "Make your pick"}</span>
+                  <span className="block text-xs text-muted">Picks Open · {nextOpen.name}</span>
+                  <span className="font-medium">{myPicks.some((p) => p.event_id === nextOpen.id) ? "Change Your Pick" : "Make Your Pick"}</span>
                 </span>
                 <ChevronIcon className="size-4 shrink-0 text-muted" />
               </Link>
@@ -174,19 +174,19 @@ async function LastWeek({ ctx, event, pick }: { ctx: GolfContext; event: GolfEve
   const missed = pick ? 0 : ((await getMissedPickValues(ctx, [event.id])).get(event.id) ?? 0);
   return (
     <div className="mt-3 rounded-lg bg-surface px-3 py-2 text-sm">
-      <div className="text-xs text-muted">Last week · {event.name}</div>
+      <div className="text-xs text-muted">Last Week · {event.name}</div>
       {pick ? (
         <div className="flex items-baseline justify-between gap-3">
           <span className="min-w-0 truncate font-medium">
             {pick.golfer_name}
             {result?.pos && result.pos !== "-" && <span className="ml-1.5 text-xs font-normal text-muted">{result.pos}</span>}
-            {result && (!result.pos || result.pos === "-") && <span className="ml-1.5 text-xs font-normal text-muted">Missed cut</span>}
+            {result && (!result.pos || result.pos === "-") && <span className="ml-1.5 text-xs font-normal text-muted">Missed Cut</span>}
           </span>
           <span className="font-semibold tabular-nums">{money(Number(result?.earnings ?? 0))}</span>
         </div>
       ) : (
         <div className="flex items-baseline justify-between gap-3 text-muted">
-          <span>No pick</span>
+          <span>No Pick</span>
           <span className="font-semibold tabular-nums">{money(missed)}</span>
         </div>
       )}
