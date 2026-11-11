@@ -26,6 +26,7 @@ import {
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getLiveLeaderboard } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
+import { getPurses, shortPurse } from "@/lib/golfPurse";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
 
@@ -58,6 +59,8 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   const weekOf = new Map(counted.map((e, i) => [e.id, i + 1]));
   const pickByEvent = new Map<string, GolfPick>(myPicks.map((p) => [p.event_id, p] as [string, GolfPick]));
   const results = await getGolfPickResults(ctx, myPicks);
+  // Each tournament's purse (ESPN), for this week's event and the upcoming schedule.
+  const purses = await getPurses(counted.filter((e) => e.status === "scheduled" || e.id === current?.id), ctx.pool.slug);
   // What a week with no pick earned, under the commissioner's rule ($0 or the week's lowest).
   const missedValue = await getMissedPickValues(
     ctx,
@@ -97,7 +100,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
       <GolfPicksTabs
         thisWeek={
           current ? (
-            <ThisWeek ctx={ctx} slug={slug} event={current} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
+            <ThisWeek ctx={ctx} slug={slug} event={current} purse={purses.get(current.id) ?? null} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
           ) : (
             <p className="text-sm text-muted">The season is over. Thanks for playing.</p>
           )
@@ -163,7 +166,12 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                   <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
                     <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
                     <span className="min-w-0 flex-1 truncate">{ev.name}</span>
-                    <span className="shrink-0 text-xs text-muted">{ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "MMM d") : "TBA"}</span>
+                    {purses.has(ev.id) && (
+                      <span className="shrink-0 text-xs font-semibold tabular-nums" title={`Purse ${money(purses.get(ev.id)!)}`}>
+                        {shortPurse(purses.get(ev.id)!)}
+                      </span>
+                    )}
+                    <span className="w-12 shrink-0 text-right text-xs text-muted">{ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "MMM d") : "TBA"}</span>
                   </li>
                 ))}
               </ol>
@@ -180,6 +188,7 @@ async function ThisWeek({
   ctx,
   slug,
   event,
+  purse,
   weekNumber,
   weeks,
   pick,
@@ -189,6 +198,8 @@ async function ThisWeek({
   ctx: GolfContext;
   slug: string;
   event: GolfEvent;
+  /** The tournament's purse, when ESPN gives one. */
+  purse: number | null;
   weekNumber: number;
   weeks: number;
   pick: GolfPick | undefined;
@@ -204,7 +215,11 @@ async function ThisWeek({
         Week {weekNumber} of {weeks}
         {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
       </div>
-      <h2 className="mt-0.5 text-xl font-bold leading-snug">{event.name}</h2>
+      <h2 className="mt-0.5 text-xl font-bold leading-snug">
+        {event.name}
+        {/* The purse, so bigger-money weeks stand out. */}
+        {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} purse</span>}
+      </h2>
       <p className="text-xs text-muted">
         {event.start_at
           ? `Tournament Locks ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
