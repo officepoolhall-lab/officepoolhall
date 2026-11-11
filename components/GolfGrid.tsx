@@ -100,7 +100,13 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                 const id = `${r.userId}-${i}`;
                 const open = detail === id;
                 return (
-                  <td key={i} className="relative h-9 min-w-[4.75rem] border-b border-line p-0 text-center">
+                  <td
+                    key={i}
+                    // The week's top pick (most prize money; ties all marked): the whole cell in green.
+                    className={`relative h-9 min-w-[4.75rem] border-b border-line p-0 text-center ${
+                      c.topOfWeek ? "bg-[color-mix(in_srgb,var(--win)_22%,transparent)]" : ""
+                    }`}
+                  >
                     {c.hidden ? (
                       <LockIcon className="mx-auto size-3 text-faint" />
                     ) : !c.golfer ? (
@@ -116,7 +122,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                           )}
                           <span className="truncate">{lastName(c.golfer)}</span>
                         </div>
-                        <div className={`text-[12px] tabular-nums ${c.final ? (c.earned > 0 ? `font-semibold ${c.topOfWeek ? "text-win" : "text-ink"}` : "text-muted") : "text-muted"}`}>
+                        <div className={`text-[12px] tabular-nums ${c.final ? (c.earned > 0 ? "font-semibold text-ink" : "text-muted") : "text-muted"}`}>
                           {c.final ? (c.earned > 0 ? short$(c.earned) : c.finish || "$0") : c.finish}
                           {c.topOfWeek && <span className="sr-only"> (top pick this week)</span>}
                         </div>
