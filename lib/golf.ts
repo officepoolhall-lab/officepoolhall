@@ -83,14 +83,45 @@ export const getGolfMyPicks = cache(async (ctx: GolfContext): Promise<GolfPick[]
   return (data ?? []) as GolfPick[];
 });
 
+/** The API returns at most 1,000 rows a request; this reads every page of a larger result. */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  const size = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += size) {
+    const { data } = await page(from, from + size - 1);
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < size) return rows;
+  }
+}
+
 /** Every pick the viewer can see: their own, plus everyone's for events that have started. */
 export const getGolfVisiblePicks = cache(async (ctx: PoolBase): Promise<GolfPick[]> => {
-  const { data } = await ctx.supabase
-    .from("golf_picks")
-    .select("user_id, event_id, espn_golfer_id, golfer_name")
-    .eq("pool_id", ctx.pool.id);
-  return (data ?? []) as GolfPick[];
+  return allRows<GolfPick>((from, to) =>
+    ctx.supabase
+      .from("golf_picks")
+      .select("user_id, event_id, espn_golfer_id, golfer_name")
+      .eq("pool_id", ctx.pool.id)
+      .order("event_id")
+      .order("user_id")
+      .range(from, to),
+  );
 });
+
+/** Finishes for these golfers in these events, keyed "eventId|golferId" (for a whole pool's picks). */
+export async function getGolfResultsFor(ctx: PoolBase, eventIds: string[], golferIds: string[]): Promise<Map<string, GolfResult>> {
+  if (!eventIds.length || !golferIds.length) return new Map();
+  const rows = await allRows<GolfResult & { event_id: string }>((from, to) =>
+    ctx.supabase
+      .from("golf_results")
+      .select("event_id, espn_golfer_id, golfer_name, pos, earnings, tee_at")
+      .in("event_id", eventIds)
+      .in("espn_golfer_id", golferIds)
+      .order("event_id")
+      .order("espn_golfer_id")
+      .range(from, to),
+  );
+  return new Map(rows.map((r) => [`${r.event_id}|${r.espn_golfer_id}`, { ...r, earnings: Number(r.earnings) }] as [string, GolfResult]));
+}
 
 /** Where each of these picks finished: keyed "eventId|golferId". */
 export async function getGolfPickResults(ctx: PoolBase, picks: GolfPick[]): Promise<Map<string, GolfResult>> {
