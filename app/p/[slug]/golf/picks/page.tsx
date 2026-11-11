@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
 import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { GolfPicker, type PickerGolfer } from "@/components/GolfPicker";
@@ -162,21 +162,35 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
             {upcoming.length === 0 ? (
               <p className="mt-2 border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (
-              <ol className="mt-2 divide-y divide-line border-y border-line">
-                {upcoming.map((ev) => (
-                  <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
-                    <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
-                    <span className="min-w-0 flex-1 truncate">{ev.name}</span>
-                    {info.get(ev.id)?.signature && <SignatureTag />}
-                    {info.get(ev.id)?.purse && (
-                      <span className="shrink-0 text-xs font-semibold tabular-nums" title={`Purse ${money(info.get(ev.id)!.purse!)}`}>
-                        {shortPurse(info.get(ev.id)!.purse!)}
-                      </span>
-                    )}
-                    <span className="w-12 shrink-0 text-right text-xs text-muted">{ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "MMM d") : "TBA"}</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="mt-2 border-y border-line">
+                {/* Column titles, lined up with the rows below. */}
+                <div className="flex items-end gap-2.5 border-b border-line pb-1.5 pt-2 text-[11px] font-medium text-muted" aria-hidden>
+                  <span className="w-10">Wk</span>
+                  <span className="min-w-0 flex-1">Tournament</span>
+                  <span className="w-14 text-right">Purse</span>
+                  <span className="w-[4.5rem] text-right">Start Date</span>
+                </div>
+                <ol className="divide-y divide-line">
+                  {upcoming.map((ev) => {
+                    const i = info.get(ev.id);
+                    // The first tee time once posted; before that ESPN's start date for the event.
+                    const start = ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d") : i?.startDate ? formatInTimeZone(fromZonedTime(`${i.startDate}T12:00:00`, "America/New_York"), "America/New_York", "EEE MMM d") : "TBA";
+                    return (
+                      <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
+                        <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                          <span className="min-w-0 truncate">{ev.name}</span>
+                          {i?.signature && <SignatureTag />}
+                        </span>
+                        <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
+                          {i?.purse ? shortPurse(i.purse) : <span className="font-normal text-faint">–</span>}
+                        </span>
+                        <span className="w-[4.5rem] shrink-0 text-right text-xs tabular-nums text-muted">{start}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
             )}
           </>
         }
@@ -223,7 +237,7 @@ async function ThisWeek({
       <h2 className="mt-0.5 text-xl font-bold leading-snug">
         {event.name}
         {/* The purse, so bigger-money weeks stand out. */}
-        {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} purse</span>}
+        {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} Purse</span>}
         {signature && <SignatureTag className="ml-2 align-middle" />}
       </h2>
       <p className="text-xs text-muted">

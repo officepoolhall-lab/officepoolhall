@@ -1,13 +1,19 @@
 import "server-only";
 import { espnTournamentId } from "./golfLive";
 
-// Each tournament's purse (total prize money) and whether it's a Signature Event, from ESPN's
-// event data (sports.core.api.espn.com/.../events/{id}: purse, displayPurse, isSignature; the
-// fields seen Nov 2026). Cached a day: both are announced ahead and rarely change.
+// Each tournament's purse (total prize money), whether it's a Signature Event, and its start
+// date, from ESPN's event data (sports.core.api.espn.com/.../events/{id}: purse, displayPurse,
+// isSignature, date; the fields seen Nov 2026). Cached a day: both are announced ahead and rarely change.
 
 const FETCH_TIMEOUT_MS = 5000;
 
-export type EventInfo = { purse: number | null; signature: boolean };
+export type EventInfo = {
+  purse: number | null;
+  signature: boolean;
+  /** The tournament's first day (yyyy-MM-dd), known long before tee times are posted. */
+  startDate: string | null;
+};
+const NONE: EventInfo = { purse: null, signature: false, startDate: null };
 
 async function infoFor(tournamentId: string): Promise<EventInfo> {
   try {
@@ -16,12 +22,18 @@ async function infoFor(tournamentId: string): Promise<EventInfo> {
       next: { revalidate: 86_400 },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
-    if (!res.ok) return { purse: null, signature: false };
-    const body = (await res.json()) as { purse?: unknown; displayPurse?: unknown; isSignature?: unknown };
+    if (!res.ok) return NONE;
+    const body = (await res.json()) as { purse?: unknown; displayPurse?: unknown; isSignature?: unknown; date?: unknown };
     const n = typeof body.purse === "number" ? body.purse : typeof body.displayPurse === "string" ? Number(body.displayPurse.replace(/[^0-9.]/g, "")) : NaN;
-    return { purse: Number.isFinite(n) && n > 0 ? n : null, signature: body.isSignature === true };
+    // ESPN dates an event at midnight Eastern of its first day (e.g. 2025-04-10T04:00Z), so the
+    // day is read in Eastern time.
+    const startDate =
+      typeof body.date === "string" && !Number.isNaN(Date.parse(body.date))
+        ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(body.date))
+        : null;
+    return { purse: Number.isFinite(n) && n > 0 ? n : null, signature: body.isSignature === true, startDate };
   } catch {
-    return { purse: null, signature: false };
+    return NONE;
   }
 }
 
@@ -31,7 +43,7 @@ export async function getEventInfo(events: { id: string; espn_id: string }[], po
     events.map(async (e) => {
       // Not the demo's frozen Masters snapshot id: these come from the real event.
       const id = espnTournamentId(e.espn_id, poolSlug);
-      return [e.id, id && /^\d+$/.test(id) ? await infoFor(id) : { purse: null, signature: false }] as const;
+      return [e.id, id && /^\d+$/.test(id) ? await infoFor(id) : NONE] as const;
     }),
   );
   return new Map(found);
