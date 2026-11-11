@@ -50,31 +50,34 @@ export function GolfLeaderboard({
   const [open, setOpen] = useState<LeaderRow | null>(null);
   const started = state !== "scheduled";
   const cutAt = rows.findIndex((r) => /^(MC|CUT)$/.test(r.pos));
-  const th = "py-2 text-[11px] font-medium text-muted";
+  // Each header cell is pinned itself (not the <thead>, which mobile Safari doesn't pin
+  // reliably), with a solid page-colored band above it so no row ever shows over or through
+  // it at the top of the box, and its bottom rule drawn as a shadow so it stays with it.
+  const th = "sticky top-0 z-20 bg-bg py-2 text-[11px] font-medium text-muted shadow-[0_-8px_0_var(--bg),inset_0_-1px_0_var(--line)]";
 
   return (
     <>
       {/* Its own scroll box filling the screen (as on the League Grid): the column labels stay
           pinned at its top, so they never slide under the app's header. */}
-      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
+      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto overscroll-contain isolate sm:mx-0">
         <table className="w-full border-separate border-spacing-0 text-sm">
-          <thead className="sticky top-0 z-20 bg-bg">
+          <thead>
             <tr className="text-left">
-              <th className={`${th} w-12 border-b border-line pl-4 pr-1 sm:pl-0`}>{started ? "Pos" : ""}</th>
-              <th className={`${th} border-b border-line px-2`}>Golfer</th>
+              <th className={`${th} w-12 pl-4 pr-1 sm:pl-0`}>{started ? "Pos" : ""}</th>
+              <th className={`${th} px-2`}>Golfer</th>
               {started ? (
                 <>
-                  <th className={`${th} w-14 border-b border-line px-1 text-right`}>To par</th>
-                  <th className={`${th} w-16 border-b border-line px-1 text-right`}>{state === "final" ? "" : "Thru"}</th>
+                  <th className={`${th} w-14 px-1 text-right`}>To par</th>
+                  <th className={`${th} w-16 px-1 text-right`}>{state === "final" ? "" : "Thru"}</th>
                   {[1, 2, 3, 4].map((n) => (
-                    <th key={n} className={`${th} hidden w-10 border-b border-line px-1 text-right sm:table-cell`}>
+                    <th key={n} className={`${th} hidden w-10 px-1 text-right sm:table-cell`}>
                       R{n}
                     </th>
                   ))}
-                  {state === "final" && <th className={`${th} hidden w-28 border-b border-line pl-2 pr-4 text-right md:table-cell md:pr-0`}>Earnings</th>}
+                  {state === "final" && <th className={`${th} hidden w-28 pl-2 pr-4 text-right md:table-cell md:pr-0`}>Earnings</th>}
                 </>
               ) : (
-                <th className={`${th} w-32 border-b border-line pl-2 pr-4 text-right sm:pr-0`}>Tee time</th>
+                <th className={`${th} w-32 pl-2 pr-4 text-right sm:pr-0`}>Tee time</th>
               )}
             </tr>
           </thead>
