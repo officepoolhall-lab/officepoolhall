@@ -56,21 +56,21 @@ export function PoolNav({ slug, sport, isCommissioner, week }: { slug: string; s
     };
   }, [open]);
 
-  const underline = <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden />;
+  const underline = <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden />;
 
   return (
     <nav className="sticky top-[calc(3rem+3px+env(safe-area-inset-top))] z-20 border-b border-line bg-bg/90 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:backdrop-blur-none">
-      {/* Phones: the main tabs and More in equal widths (min-w-0 keeps a long label like
-          "Leaderboard" from widening its own tab; the text is a touch smaller to fit). */}
-      <ul className="flex pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:hidden">
+      {/* Phones: the main tabs and More, each as wide as its label, with equal space between
+          them (justify-evenly). The text is a touch smaller so "Leaderboard" fits. */}
+      <ul className="flex justify-evenly pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] sm:hidden">
         {main.map((t) => {
           const active = t.match(pathname);
           return (
-            <li key={t.label} className="min-w-0 flex-1 basis-0">
+            <li key={t.label} className="min-w-0">
               <Link
                 href={t.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-11 items-center justify-center truncate px-0.5 text-[13px] tracking-tight ${active ? "font-semibold text-accent" : "font-medium text-muted hover:text-ink"}`}
+                className={`relative flex h-11 items-center justify-center whitespace-nowrap px-2 text-[13px] tracking-tight ${active ? "font-semibold text-accent" : "font-medium text-muted hover:text-ink"}`}
               >
                 {t.short ?? t.label}
                 {active && underline}
@@ -79,13 +79,13 @@ export function PoolNav({ slug, sport, isCommissioner, week }: { slug: string; s
           );
         })}
         {more.length > 0 && (
-          <li ref={menuRef} className="relative min-w-0 flex-1 basis-0">
+          <li ref={menuRef} className="relative min-w-0">
             <button
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-haspopup="menu"
-              className={`relative flex h-11 w-full items-center justify-center gap-0.5 px-0.5 text-[13px] tracking-tight ${activeMore ? "font-semibold text-accent" : open ? "font-medium text-ink" : "font-medium text-muted hover:text-ink"}`}
+              className={`relative flex h-11 w-full items-center justify-center gap-0.5 whitespace-nowrap px-2 text-[13px] tracking-tight ${activeMore ? "font-semibold text-accent" : open ? "font-medium text-ink" : "font-medium text-muted hover:text-ink"}`}
             >
               More
               <svg viewBox="0 0 12 12" className={`size-3 transition ${open ? "rotate-180" : ""}`} aria-hidden>

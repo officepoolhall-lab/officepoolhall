@@ -78,15 +78,15 @@ export function GolfPicker({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search the field"
+          placeholder="Search the Field"
           aria-label="Search the field"
           className={`${inputClass} min-w-0 flex-1 basis-48`}
         />
         <div className="flex gap-1 text-xs" role="group" aria-label="Sort by">
           {(
             [
-              ["rank", "World rank"],
-              ["tee", "Tee time"],
+              ["rank", "World Rank"],
+              ["tee", "Tee Time"],
               ["name", "Name"],
             ] as const
           )
@@ -105,7 +105,7 @@ export function GolfPicker({
         </div>
       </div>
       <p className="mt-2 text-xs text-muted">
-        {golfers.length} in the field · {available} available to you
+        {golfers.length} in the Field · {available} Available to You
       </p>
 
       <ul className="mt-2 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line [scrollbar-gutter:stable] lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
@@ -147,7 +147,7 @@ export function GolfPicker({
               ) : isSelected ? (
                 <span className="shrink-0 text-xs font-semibold text-accent">{g.id === currentId ? "Your pick" : "Selected"}</span>
               ) : g.id === currentId ? (
-                <span className="shrink-0 text-xs font-semibold text-accent">Your pick</span>
+                <span className="shrink-0 text-xs font-semibold text-accent">Your Pick</span>
               ) : null}
               <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted sm:w-12">{g.rank ? `#${g.rank}` : "–"}</span>
               <button
@@ -170,14 +170,14 @@ export function GolfPicker({
         <span className="min-w-0 truncate text-sm">
           {chosen ? (
             <>
-              <span className="text-muted">{changed ? "Selected: " : "Current pick: "}</span>
+              <span className="text-muted">{changed ? "Selected: " : "Current Pick: "}</span>
               <span className="font-semibold">{chosen.name}</span>
             </>
           ) : (
-            <span className="text-muted">Choose a golfer.</span>
+            <span className="text-muted">Choose a Golfer</span>
           )}
         </span>
-        <SubmitButton disabled={!selected || !changed}>{currentId ? "Change pick" : "Save pick"}</SubmitButton>
+        <SubmitButton disabled={!selected || !changed}>{currentId ? "Change Pick" : "Save Pick"}</SubmitButton>
       </div>
 
       {historyFor && (

@@ -8,7 +8,7 @@ import { updateGolfEvent } from "../actions";
 
 export const metadata: Metadata = { title: "Tournaments" };
 
-const STATUS: Record<string, string> = { scheduled: "Upcoming", in_progress: "Under way", final: "Final", canceled: "Canceled" };
+const STATUS: Record<string, string> = { scheduled: "Upcoming", in_progress: "Under Way", final: "Final", canceled: "Canceled" };
 
 /**
  * The season's tournaments. Lock times, status and results come from ESPN every 10 minutes;
@@ -33,7 +33,7 @@ export default async function GolfTournamentsPage({ params }: PageProps<"/p/[slu
               <span className="text-xs tabular-nums text-muted">{ev.status === "canceled" ? "—" : `Wk ${week}`}</span>
               <GolfEventAdminRow name={ev.name} status={ev.status} action={updateGolfEvent.bind(null, slug, ev.id)} />
               <span className="text-xs tabular-nums text-muted">
-                {ev.start_at ? `Locks ${formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d, h:mm a")} ${tzAbbrev(ev.start_at, ctx.displayTz)}` : "Tee times not posted"}
+                {ev.start_at ? `Locks ${formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d, h:mm a")} ${tzAbbrev(ev.start_at, ctx.displayTz)}` : "Tee Times Not Posted"}
               </span>
               <span className={`text-xs font-semibold ${ev.status === "in_progress" ? "text-live" : ev.status === "canceled" ? "text-loss" : "text-muted"}`}>{STATUS[ev.status]}</span>
             </li>

@@ -43,7 +43,7 @@ export function GolferHistoryDialog({
           <div className="min-w-0">
             <h2 className="truncate text-lg font-bold">{golfer.name}</h2>
             <p className="text-xs text-muted">
-              {golfer.rank ? `World rank #${golfer.rank}` : "Outside the world top 300"}
+              {golfer.rank ? `World Rank #${golfer.rank}` : "Outside the World Top 300"}
             </p>
           </div>
           <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">
@@ -121,7 +121,7 @@ function Results({ golferId, history }: { golferId: string; history: Promise<Fie
                             </>
                           ) : (
                             <td colSpan={3} className="py-1.5 text-muted">
-                              Did not play
+                              Did Not Play
                               {y.formerName && <span className="block truncate text-[11px] text-faint">{y.formerName}</span>}
                             </td>
                           )}
@@ -134,7 +134,7 @@ function Results({ golferId, history }: { golferId: string; history: Promise<Fie
             )}
 
             <section className="mt-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This season</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This Season</h3>
               {rows.length === 0 ? (
                 <p className="mt-2 border-y border-line py-3 text-sm text-muted">
                   {eventsPlayed === 0 ? "No events have been played yet this season." : `Hasn't played in any of the ${eventsPlayed} events so far this season.`}
@@ -144,7 +144,7 @@ function Results({ golferId, history }: { golferId: string; history: Promise<Fie
                   <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
                     {[
                       ["Events", `${rows.length} of ${eventsPlayed}`],
-                      ["Cuts made", `${cuts} of ${finished.length}`],
+                      ["Cuts Made", `${cuts} of ${finished.length}`],
                       ["Best", bestLabel],
                       ["Top 10s", String(top10)],
                     ].map(([label, value]) => (
@@ -178,7 +178,7 @@ function Results({ golferId, history }: { golferId: string; history: Promise<Fie
                     </tbody>
                     <tfoot>
                       <tr className="border-t border-line">
-                        <td colSpan={3} className="py-2 text-muted">Season prize money</td>
+                        <td colSpan={3} className="py-2 text-muted">Season Prize Money</td>
                         <td className="py-2 text-right font-bold tabular-nums">{money(total)}</td>
                       </tr>
                     </tfoot>

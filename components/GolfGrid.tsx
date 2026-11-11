@@ -104,7 +104,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                     {c.hidden ? (
                       <LockIcon className="mx-auto size-3 text-faint" />
                     ) : !c.golfer ? (
-                      <span className="text-[11px] text-faint">{w.final ? "No pick" : ""}</span>
+                      <span className="text-[11px] text-faint">{w.final ? "No Pick" : ""}</span>
                     ) : (
                       <button type="button" onClick={() => setDetail(open ? null : id)} title={`${c.golfer}${c.finish ? ` · ${c.finish}` : ""}${c.final ? ` · ${money(c.earned)}` : ""}`} className="block h-full w-full px-1 leading-tight">
                         <div className="flex items-center justify-center gap-0.5 text-[11px] font-medium text-ink">

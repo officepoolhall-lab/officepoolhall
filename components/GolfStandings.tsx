@@ -44,7 +44,7 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
           <Place place={r.place} tied={r.tied} />
           <span className="min-w-0 flex-1 break-words font-medium leading-snug">
             <Player r={r} href={playerHref} />
-            {r.missed > 0 && <span className="ml-1.5 whitespace-nowrap text-xs font-normal text-muted">{r.missed} missed</span>}
+            {r.missed > 0 && <span className="ml-1.5 whitespace-nowrap text-xs font-normal text-muted">{r.missed} Missed</span>}
           </span>
           <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted">
             {r.cuts}/{r.picks}
@@ -60,20 +60,21 @@ export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[];
 /** Entry · Golfer · Earnings (or Current Position), matching GolfWeekStandings' columns, on one line. */
 export function GolfWeekHeaderRow({ final, live = false }: { final: boolean; live?: boolean }) {
   return (
-    <>
-    {live && (
-      <div className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-live">
-        <span className="size-1.5 animate-pulse rounded-full bg-live" /> Live: the tournament is under way
-      </div>
-    )}
     <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
       {/* Places only once the week is final; until then Entry starts at the left edge. */}
       {final && <span className="w-7 shrink-0" />}
       <span className={`min-w-0 flex-1 ${head}`}>Entry</span>
       <span className={`min-w-0 flex-1 ${head}`}>Golfer</span>
-      <span className={`w-[5.5rem] shrink-0 text-right leading-tight sm:w-28 ${head}`}>{final ? "Earnings" : "Current Position"}</span>
+      <span className={`w-[5.5rem] shrink-0 text-right leading-tight sm:w-28 ${head}`}>{final ? (
+          "Earnings"
+        ) : (
+          <>
+            {live && <span className="mr-1 font-semibold text-live">Live</span>}
+            Current Position
+          </>
+        )}
+      </span>
     </div>
-    </>
   );
 }
 
@@ -95,10 +96,10 @@ function Golfer({ r, final }: { r: WeekRow; final: boolean }) {
   if (r.hidden)
     return (
       <span className="inline-flex items-center gap-1 text-xs text-faint">
-        <LockIcon className="size-3" /> Hidden until the lock
+        <LockIcon className="size-3" /> Hidden Until the Lock
       </span>
     );
-  if (!r.golfer) return <span className="text-xs text-muted">No pick</span>;
+  if (!r.golfer) return <span className="text-xs text-muted">No Pick</span>;
   return (
     <>
       {r.golfer}

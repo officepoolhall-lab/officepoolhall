@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { formatInTimeZone } from "date-fns-tz";
-import type { GolfTickerMode } from "@/lib/golf";
+import { shortEventName, type GolfTickerMode } from "@/lib/golf";
 import { formatToPar } from "@/lib/golfLive";
 
 export type TickerGolfer = {
@@ -45,7 +45,10 @@ export function GolfTicker({
   round?: number | null;
 }) {
   if (!golfers.length) return null;
-  const label = mode === "live" ? (round ? `Live · Round ${round}` : "Live") : mode === "results" ? "Final" : golfers.some((g) => g.tee) ? "Tee times" : "Field";
+  // Short so it fits on phones: "Masters · R3" while live (the red dot says live), else
+  // "Masters · Final" / "· Tee Times" / "· Field".
+  const label = mode === "live" ? (round ? `R${round}` : null) : mode === "results" ? "Final" : golfers.some((g) => g.tee) ? "Tee Times" : "Field";
+  const spoken = mode === "live" ? `live${round ? `, round ${round}` : ""}` : (label ?? "").toLowerCase();
   // A golfer shows a tee time instead of a score before the event, and during it when they
   // haven't started yet (no score) or haven't started today's round (tee time still ahead).
   const showTee = (g: TickerGolfer) =>
@@ -84,11 +87,11 @@ export function GolfTicker({
   );
 
   return (
-    <div className="flex min-w-0 items-center gap-2" aria-label={`${eventName}: ${label.toLowerCase()}`}>
+    <div className="flex min-w-0 items-center gap-2" aria-label={`${eventName}: ${spoken}`}>
       <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-ink px-2.5 text-xs font-semibold text-bg">
         {mode === "live" && <span className="size-1.5 animate-pulse rounded-full bg-live" />}
-        <span className="max-w-[10rem] truncate">{eventName}</span>
-        <span className="font-normal opacity-80">· {label}</span>
+        <span className="max-w-[9rem] truncate">{shortEventName(eventName)}</span>
+        {label && <span className="font-normal opacity-80">· {label}</span>}
       </span>
       <div className={`ticker min-w-0 flex-1 overflow-hidden ${moving ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)]" : ""}`}>
         {/* About 3 seconds per golfer. */}

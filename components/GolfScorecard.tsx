@@ -174,16 +174,16 @@ export function GolfScorecard({
                 <p className="text-sm">
                   <span className="text-muted">
                     Round {round.round}
-                    {round.holes.some((h) => h.strokes === null) ? " so far" : ""}:{" "}
+                    {round.holes.some((h) => h.strokes === null) ? " So Far" : ""}:{" "}
                   </span>
                   <span className="font-bold tabular-nums">{round.strokes ?? "–"}</span>
                   {round.toPar && <span className={`ml-1.5 font-semibold tabular-nums ${round.toPar.startsWith("-") ? "text-loss" : ""}`}>({round.toPar.replace(/^-/, "−")})</span>}
                 </p>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-muted">No hole scores for this round yet.</p>
+              <p className="mt-3 text-sm text-muted">No Hole Scores for This Round Yet</p>
             )}
-            <p className="mt-3 text-[11px] text-muted">○ birdie · ◎ eagle · □ bogey · ▣ double bogey or worse{live ? " · updates every minute" : ""}</p>
+            <p className="mt-3 text-[11px] text-muted">○ Birdie · ◎ Eagle · □ Bogey · ▣ Double Bogey or Worse{live ? " · Updates Every Minute" : ""}</p>
           </>
         )}
       </div>

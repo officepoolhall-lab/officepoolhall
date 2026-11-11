@@ -67,7 +67,7 @@ export function GolfLeaderboard({
               <th className={`${th} px-2`}>Golfer</th>
               {started ? (
                 <>
-                  <th className={`${th} w-14 px-1 text-right`}>To par</th>
+                  <th className={`${th} w-14 px-1 text-right`}>To Par</th>
                   <th className={`${th} w-16 px-1 text-right`}>{state === "final" ? "" : "Thru"}</th>
                   {[1, 2, 3, 4].map((n) => (
                     <th key={n} className={`${th} hidden w-10 px-1 text-right sm:table-cell`}>
@@ -77,7 +77,7 @@ export function GolfLeaderboard({
                   {state === "final" && <th className={`${th} hidden w-28 pl-2 pr-4 text-right md:table-cell md:pr-0`}>Earnings</th>}
                 </>
               ) : (
-                <th className={`${th} w-32 pl-2 pr-4 text-right sm:pr-0`}>Tee time</th>
+                <th className={`${th} w-32 pl-2 pr-4 text-right sm:pr-0`}>Tee Time</th>
               )}
             </tr>
           </thead>
@@ -87,7 +87,7 @@ export function GolfLeaderboard({
                 {i === cutAt && (
                   <tr>
                     <td colSpan={11} className="border-b border-line bg-surface px-4 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted sm:px-0">
-                      Missed the cut
+                      Missed the Cut
                     </td>
                   </tr>
                 )}
@@ -157,7 +157,7 @@ export function GolfLeaderboard({
           </tbody>
         </table>
       </AxisLockScroll>
-      {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a golfer for their scorecard. Under par in red.</p>}
+      {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a Golfer to See Their Scorecard</p>}
       {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} live={state === "live"} onClose={() => setOpen(null)} />}
     </>
   );
