@@ -71,7 +71,20 @@ function Nine({ holes, label }: { holes: Hole[]; label: string }) {
  * A golfer's scorecard: one tab per round played, each split into the front and back nine with
  * the par and score for every hole. Loads from /api/golf/scorecard when opened.
  */
-export function GolfScorecard({ tournamentId, eventName, golfer, onClose }: { tournamentId: string; eventName: string; golfer: LeaderRow; onClose: () => void }) {
+export function GolfScorecard({
+  tournamentId,
+  eventName,
+  golfer,
+  live,
+  onClose,
+}: {
+  tournamentId: string;
+  eventName: string;
+  golfer: LeaderRow;
+  /** While the tournament is under way, the card reloads every minute as holes are finished. */
+  live: boolean;
+  onClose: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [rounds, setRounds] = useState<Round[] | null | "error">(null);
   const [tab, setTab] = useState(0);
@@ -81,20 +94,29 @@ export function GolfScorecard({ tournamentId, eventName, golfer, onClose }: { to
   }, []);
   useEffect(() => {
     let stale = false;
-    fetch(`/api/golf/scorecard?event=${tournamentId}&golfer=${golfer.id}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((b: { card: { rounds: Round[] } | null }) => {
-        if (stale) return;
-        const list = b.card?.rounds ?? [];
-        setRounds(list);
-        // Open on the latest round with scores.
-        setTab(Math.max(0, list.findLastIndex((r) => r.holes.some((h) => h.strokes !== null))));
-      })
-      .catch(() => !stale && setRounds("error"));
+    let first = true;
+    const load = () =>
+      fetch(`/api/golf/scorecard?event=${tournamentId}&golfer=${golfer.id}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((b: { card: { rounds: Round[] } | null }) => {
+          if (stale) return;
+          const list = b.card?.rounds ?? [];
+          setRounds(list);
+          // Open on the latest round with scores; later reloads keep the round being viewed.
+          if (first) setTab(Math.max(0, list.findLastIndex((r) => r.holes.some((h) => h.strokes !== null))));
+          first = false;
+        })
+        .catch(() => {
+          // A failed reload keeps what's showing; only the first load reports an error.
+          if (!stale && first) setRounds("error");
+        });
+    load();
+    const id = live ? setInterval(() => document.visibilityState === "visible" && load(), 60_000) : undefined;
     return () => {
       stale = true;
+      if (id) clearInterval(id);
     };
-  }, [tournamentId, golfer.id]);
+  }, [tournamentId, golfer.id, live]);
 
   const round = Array.isArray(rounds) ? rounds[tab] : undefined;
   const front = round?.holes.filter((h) => h.hole <= 9) ?? [];
@@ -157,7 +179,7 @@ export function GolfScorecard({ tournamentId, eventName, golfer, onClose }: { to
             ) : (
               <p className="mt-3 text-sm text-muted">No hole scores for this round yet.</p>
             )}
-            <p className="mt-3 text-[11px] text-muted">○ birdie · ◎ eagle · □ bogey · ▣ double bogey or worse</p>
+            <p className="mt-3 text-[11px] text-muted">○ birdie · ◎ eagle · □ bogey · ▣ double bogey or worse{live ? " · updates every minute" : ""}</p>
           </>
         )}
       </div>

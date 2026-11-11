@@ -37,12 +37,18 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   const week = golfWeek(events, now);
   const event = counted.find((e) => e.id === eventParam) ?? week.tickerEvent ?? week.current ?? counted[counted.length - 1];
   const weekNo = counted.indexOf(event) + 1;
-  const state: "scheduled" | "live" | "final" = event.status === "final" ? "final" : event.status === "in_progress" ? "live" : "scheduled";
+  const dbState: "scheduled" | "live" | "final" = event.status === "final" ? "final" : event.status === "in_progress" ? "live" : "scheduled";
   const tournamentId = espnTournamentId(event.espn_id, ctx.pool.slug);
   // The demo's upcoming event is last year's real one, already final: show its stored field instead.
-  const readEspn = tournamentId && (/^\d+$/.test(event.espn_id) || state !== "scheduled");
-
-  const live = readEspn ? await getLiveLeaderboard(tournamentId!, state === "live" ? 60 : state === "final" ? 3600 : 600) : null;
+  const readEspn = tournamentId && (/^\d+$/.test(event.espn_id) || dbState !== "scheduled");
+  // From the first tee time on, read ESPN every minute even if the pool's own status (set by the
+  // 10-minute import) hasn't caught up yet.
+  const teedOff = dbState === "scheduled" && !!event.start_at && Date.parse(event.start_at) <= now;
+  const live = readEspn ? await getLiveLeaderboard(tournamentId!, dbState === "live" || teedOff ? 60 : dbState === "final" ? 3600 : 600) : null;
+  // ESPN's own word wins for a real event: anyone started or finished means it's under way;
+  // final needs round 4 and prize money too (between rounds everyone can show finished).
+  const espnState = live && /^\d+$/.test(event.espn_id) ? (live.every((g) => g.status === "post") && live.some((g) => g.rounds[3] !== null) && live.some((g) => g.earnings > 0) ? "final" : live.some((g) => g.status === "in" || g.status === "post" || (g.thru !== null && g.thru !== "0")) ? "live" : null) : null;
+  const state: "scheduled" | "live" | "final" = dbState === "final" ? "final" : (espnState ?? dbState);
   const stored = live ? [] : await getGolfResults(ctx, event.id);
 
   const pickedBy = new Map<string, number>();
@@ -112,7 +118,8 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
       className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <h1 className="sr-only">Leaderboard</h1>
-      <AutoRefresh active={state === "live"} seconds={60} />
+      {/* Refresh every minute while under way, and from the first tee time so it notices the start. */}
+      <AutoRefresh active={state === "live" || teedOff} seconds={60} />
       {/* One compact header: the tournament and its status on the left, the dropdown on the right. */}
       <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2">
         <div className="min-w-0">

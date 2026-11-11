@@ -130,7 +130,7 @@ export function GolfLeaderboard({
         </table>
       </AxisLockScroll>
       {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a golfer for their scorecard. Under par in red.</p>}
-      {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} onClose={() => setOpen(null)} />}
+      {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} live={state === "live"} onClose={() => setOpen(null)} />}
     </>
   );
 }

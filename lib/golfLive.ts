@@ -2,7 +2,7 @@ import "server-only";
 
 // ESPN's PGA Tour leaderboard page, read live for the home page ticker: each golfer's place,
 // score to par, holes played and tee time. Same embedded data the scheduled import reads
-// (supabase/functions/_shared/golf.ts); this copy keeps a few more fields and never writes.
+// (supabase/functions/poll-golf/index.ts); this copy keeps a few more fields and never writes.
 //
 // Fields confirmed (Nov 2026) on final and pre-event pages: name, lastNm, id, pos, status
 // ("pre"/"post"), tee (ISO, the golfer's latest round), thru (a number; 0 before starting),
