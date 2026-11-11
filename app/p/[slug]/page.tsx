@@ -103,9 +103,11 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 {!ctx.isGuest && (
                 <div>
                   <div className="text-xs text-muted">
-                    {/* Basketball: "My Week 2 Score", the entry's points so far over the most it can still reach. */}
+                    {/* Basketball: "My Week 2 Score" (co-managers too), the entry's points so far over the most
+                        it can still reach. The week is the current one: the published week whose
+                        window holds today (getCurrentSlate), so it moves on by itself each week. */}
                     {ctx.pool.sport === "ncaab"
-                      ? `${ctx.managing ? `${ctx.managing.ownerName}'s` : "My"} ${slate.label ?? `Week ${slate.week}`} Score`
+                      ? `My ${slate.label ?? `Week ${slate.week}`} Score`
                       : ctx.managing
                         ? `${ctx.managing.ownerName}'s picks (you co-manage)`
                         : "My Picks"}
