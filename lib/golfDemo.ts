@@ -62,12 +62,13 @@ export function getDemoScorecard(golferId: string): Scorecard | null {
   if (!g) return null;
   const rounds = g.holes
     .map((strokes, i) => {
-      const holes = strokes.map((s, h) => ({ hole: h + 1, par: data.pars[h] ?? null, strokes: s })).filter((h) => h.strokes !== null);
-      const sum = holes.reduce((t, h) => t + (h.strokes ?? 0), 0);
-      const parSum = holes.reduce((t, h) => t + (h.par ?? 0), 0);
-      const d = sum - parSum;
-      return { round: i + 1, strokes: holes.length ? sum : null, toPar: holes.length ? (d === 0 ? "E" : d > 0 ? `+${d}` : String(d)) : null, holes };
+      // All 18 holes, each with its par; holes not played yet have no score.
+      const holes = Array.from({ length: 18 }, (_, h) => ({ hole: h + 1, par: data.pars[h] ?? null, strokes: strokes[h] ?? null }));
+      const played = holes.filter((h) => h.strokes !== null);
+      const sum = played.reduce((t, h) => t + (h.strokes ?? 0), 0);
+      const d = sum - played.reduce((t, h) => t + (h.par ?? 0), 0);
+      return { round: i + 1, strokes: played.length ? sum : null, toPar: played.length ? (d === 0 ? "E" : d > 0 ? `+${d}` : String(d)) : null, holes };
     })
-    .filter((r) => r.holes.length > 0);
+    .filter((r) => r.holes.some((h) => h.strokes !== null));
   return rounds.length ? { rounds } : null;
 }
