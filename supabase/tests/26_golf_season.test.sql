@@ -1,7 +1,7 @@
 -- PGA season pool: picks lock at the first tee time, a golfer is used once per entry,
 -- other entries' picks show only after tee time, and standings sum final prize money.
 begin;
-select plan(9);
+select plan(10);
 
 insert into auth.users (id, email) values
   ('c6000000-0000-0000-0000-000000000001', 'gc@test.dev'),
@@ -12,10 +12,12 @@ insert into pools (id, name, slug, sport, season, commissioner_id, settings) val
 insert into pool_members (pool_id, user_id, role) values
   ('c6100000-0000-0000-0000-000000000000', 'c6000000-0000-0000-0000-000000000001', 'commissioner'),
   ('c6100000-0000-0000-0000-000000000000', 'c6000000-0000-0000-0000-000000000002', 'player');
-insert into golf_events (id, pool_id, espn_id, name, sort_order, start_at, status) values
-  ('c6200000-0000-0000-0000-000000000001', 'c6100000-0000-0000-0000-000000000000', 'e1', 'Open Event', 1, now() + interval '1 day', 'scheduled'),
-  ('c6200000-0000-0000-0000-000000000002', 'c6100000-0000-0000-0000-000000000000', 'e2', 'Started Event', 2, now() - interval '1 hour', 'scheduled'),
-  ('c6200000-0000-0000-0000-000000000003', 'c6100000-0000-0000-0000-000000000000', 'e3', 'Later Event', 3, now() + interval '2 days', 'scheduled');
+-- Picks opened an hour ago for each (fixed, so the test doesn't depend on the weekday it runs).
+insert into golf_events (id, pool_id, espn_id, name, sort_order, start_at, picks_open_at, status) values
+  ('c6200000-0000-0000-0000-000000000001', 'c6100000-0000-0000-0000-000000000000', 'e1', 'Open Event', 1, now() + interval '1 day', now() - interval '1 hour', 'scheduled'),
+  ('c6200000-0000-0000-0000-000000000002', 'c6100000-0000-0000-0000-000000000000', 'e2', 'Started Event', 2, now() - interval '1 hour', now() - interval '2 hours', 'scheduled'),
+  ('c6200000-0000-0000-0000-000000000003', 'c6100000-0000-0000-0000-000000000000', 'e3', 'Later Event', 3, now() + interval '2 days', now() - interval '1 hour', 'scheduled'),
+  ('c6200000-0000-0000-0000-000000000004', 'c6100000-0000-0000-0000-000000000000', 'e4', 'Not Open Yet', 4, now() + interval '9 days', null, 'scheduled');
 
 -- Commissioner's entry picks Scheffler for the open event.
 set local role authenticated;
@@ -32,6 +34,10 @@ select throws_like(
 select throws_like(
   $$select submit_golf_pick('c6200000-0000-0000-0000-000000000003', '9478', 'Scottie Scheffler')$$,
   '%already on this entry%', 'a golfer can be used only once per entry per season');
+
+select throws_like(
+  $$select submit_golf_pick('c6200000-0000-0000-0000-000000000004', '1234', 'Someone Else')$$,
+  '%aren''t open yet%', 'picks for a tournament open at 7 a.m. Monday of its week, not before');
 
 -- The player's own pick for the open event.
 reset role;

@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import { getPoolBase, type PoolBase } from "./pool";
+import { fromZonedTime } from "date-fns-tz";
 import { getViewerTimeZone } from "./viewerTime";
 
 /** Golf times show in Central unless the viewer's browser reports another zone. */
@@ -22,6 +23,8 @@ export type GolfEvent = {
   sort_order: number;
   start_at: string | null;
   status: "scheduled" | "in_progress" | "final" | "canceled";
+  /** When picks open, if set by hand; otherwise 7 a.m. Central on the Monday of its week. */
+  picks_open_at: string | null;
 };
 
 export type GolfResult = {
@@ -47,9 +50,40 @@ export type GolfStanding = {
   events_picked: number;
 };
 
-/** An event takes picks until its first tee time, and only while it's still scheduled. */
+/**
+ * When picks open for an event: its own picks_open_at if set (the demo pool), otherwise 7:00 a.m.
+ * Central on the Monday of the week of its first tee time. Null until the tee time is known.
+ * Matches the database's golf_default_picks_open.
+ */
+export function picksOpenAt(ev: GolfEvent): string | null {
+  if (ev.picks_open_at) return ev.picks_open_at;
+  if (!ev.start_at) return null;
+  return fromZonedTime(`${mondayOfWeek(ev.start_at, "America/Chicago")}T07:00:00`, "America/Chicago").toISOString();
+}
+
+/** The Monday (yyyy-MM-dd) of the Monday–Sunday week containing this moment, in a time zone. */
+export function mondayOfWeek(iso: string, timeZone: string) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })
+      .formatToParts(new Date(iso))
+      .map((p) => [p.type, p.value]),
+  );
+  const back = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(parts.weekday);
+  // Date-only arithmetic in UTC, so no clock change can shift the day.
+  const d = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) - back));
+  return d.toISOString().slice(0, 10);
+}
+
+/** An event takes picks from its opening (Monday 7 a.m.) until its first tee time, while scheduled. */
 export function isOpenForPicks(ev: GolfEvent, now = Date.now()) {
-  return ev.status === "scheduled" && !!ev.start_at && Date.parse(ev.start_at) > now;
+  const opens = picksOpenAt(ev);
+  return ev.status === "scheduled" && !!ev.start_at && Date.parse(ev.start_at) > now && !!opens && Date.parse(opens) <= now;
+}
+
+/** Picks aren't open yet, but will be: the tee time is known and the opening is still ahead. */
+export function opensLater(ev: GolfEvent, now = Date.now()) {
+  const opens = picksOpenAt(ev);
+  return ev.status === "scheduled" && !!opens && Date.parse(opens) > now;
 }
 
 /** The API returns at most 1,000 rows a request; this reads every page of a larger result. */
@@ -67,7 +101,7 @@ async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data
 export const getGolfEvents = cache(async (ctx: PoolBase): Promise<GolfEvent[]> => {
   const { data } = await ctx.supabase
     .from("golf_events")
-    .select("id, espn_id, name, sort_order, start_at, status")
+    .select("id, espn_id, name, sort_order, start_at, status, picks_open_at")
     .eq("pool_id", ctx.pool.id)
     .order("sort_order");
   return (data ?? []) as GolfEvent[];

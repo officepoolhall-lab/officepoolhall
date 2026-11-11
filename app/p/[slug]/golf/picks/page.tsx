@@ -16,6 +16,8 @@ import {
   getGolfResults,
   golfWeek,
   isOpenForPicks,
+  opensLater,
+  picksOpenAt,
   money,
   type GolfContext,
   type GolfEvent,
@@ -47,7 +49,10 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   }
 
   const week = golfWeek(events, now);
-  const current = week.current;
+  // The tournament to pick for: one open for picks (normally the week's own, from Monday 7 a.m.),
+  // else the week's event (under way, or not open yet).
+  const openNow = events.find((e) => isOpenForPicks(e, now));
+  const current = openNow ?? week.current;
   // Week numbers count the season's events in order, skipping canceled ones.
   const counted = events.filter((e) => e.status !== "canceled");
   const weekOf = new Map(counted.map((e, i) => [e.id, i + 1]));
@@ -92,7 +97,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
       <GolfPicksTabs
         thisWeek={
           current ? (
-            <ThisWeek ctx={ctx} slug={slug} event={current} weekNumber={week.weekNumber!} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
+            <ThisWeek ctx={ctx} slug={slug} event={current} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
           ) : (
             <p className="text-sm text-muted">The season is over. Thanks for playing.</p>
           )
@@ -203,7 +208,7 @@ async function ThisWeek({
       <p className="text-xs text-muted">
         {event.start_at
           ? `Tournament Locks ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
-          : "Tee times not posted yet. Picks open once they are."}
+          : "Tee times not posted yet. Picks open the Monday of tournament week at 7 a.m. Central."}
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-4 border-y border-line py-3">
@@ -214,9 +219,17 @@ async function ThisWeek({
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted">{open ? "Picks Lock" : "Picks"}</div>
+          <div className="text-xs text-muted">{open ? "Picks Lock" : opensLater(event, now) ? "Picks Open" : "Picks"}</div>
           <div className="mt-0.5 text-base font-bold leading-snug tabular-nums">
-            {open && event.start_at ? <Countdown to={event.start_at} done="locked" /> : event.start_at ? "Locked" : "Not open"}
+            {open && event.start_at ? (
+              <Countdown to={event.start_at} done="locked" />
+            ) : opensLater(event, now) ? (
+              `${formatInTimeZone(picksOpenAt(event)!, ctx.displayTz, "EEE h:mm a")} ${tzAbbrev(picksOpenAt(event)!, ctx.displayTz)}`
+            ) : event.start_at ? (
+              "Locked"
+            ) : (
+              "Not open"
+            )}
           </div>
         </div>
       </div>
