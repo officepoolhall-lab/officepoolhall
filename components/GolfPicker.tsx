@@ -46,7 +46,8 @@ export function GolfPicker({
 }) {
   const [query, setQuery] = useState("");
   const hasTees = golfers.some((g) => g.tee);
-  const [sort, setSort] = useState<Sort>(hasTees ? "tee" : "rank");
+  // World rank first; tee time and name are a tap away.
+  const [sort, setSort] = useState<Sort>("rank");
   const [selected, setSelected] = useState<string | null>(currentId);
   const [historyFor, setHistoryFor] = useState<PickerGolfer | null>(null);
 
@@ -84,8 +85,8 @@ export function GolfPicker({
         <div className="flex gap-1 text-xs" role="group" aria-label="Sort by">
           {(
             [
-              ["tee", "Tee time"],
               ["rank", "World rank"],
+              ["tee", "Tee time"],
               ["name", "Name"],
             ] as const
           )
