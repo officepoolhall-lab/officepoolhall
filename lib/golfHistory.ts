@@ -1,10 +1,11 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { getLiveLeaderboard, type LiveGolfer } from "./golfLive";
 
 // How the field has done at one tournament in earlier years. ESPN's season calendar gives each
 // year's tournament ids (checked Nov 2026: scoreboard?dates=YYYY → leagues[0].calendar), and
-// that year's final leaderboard page reads like the current one. Past results never change,
-// so both are cached for a long time; the first look at a tournament fetches a page per year.
+// that year's final leaderboard page reads like the current one. Past results never change, so
+// the finished history is saved for a week; the first look at a tournament fetches a page per year.
 
 const YEARS_BACK = 5;
 const CALENDAR_REVALIDATE = 7 * 86_400;
@@ -13,9 +14,9 @@ const FETCH_TIMEOUT_MS = 8000;
 
 type CalendarEntry = { id: string; label: string };
 
-async function seasonCalendar(year: number): Promise<CalendarEntry[]> {
+async function calendarFrom(url: string): Promise<CalendarEntry[]> {
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?dates=${year}`, {
+    const res = await fetch(url, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
       next: { revalidate: CALENDAR_REVALIDATE },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -28,6 +29,16 @@ async function seasonCalendar(year: number): Promise<CalendarEntry[]> {
   } catch {
     return [];
   }
+}
+
+/**
+ * A season's tournament list. Asked for by a single day, ESPN returns the whole calendar with
+ * at most that day's event (checked Nov 2026); asking for the whole year also returns every
+ * event's full results, a response too large for the fetch cache. The year is the fallback.
+ */
+async function seasonCalendar(year: number): Promise<CalendarEntry[]> {
+  const byDay = await calendarFrom(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?dates=${year}0601`);
+  return byDay.length ? byDay : calendarFrom(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?dates=${year}`);
 }
 
 // Words that come and go with sponsors and wording, ignored when comparing names.
@@ -118,18 +129,32 @@ export type TournamentYear = {
   golfers: Map<string, LiveGolfer>;
 };
 
-/** The last few years of one tournament, newest first; years that can't be found are left out. */
-export async function getTournamentHistory(eventName: string, season: number): Promise<TournamentYear[]> {
+type StoredYear = { year: number; name: string; renamed: boolean; golfers: LiveGolfer[] };
+
+/** The last few years of one tournament, read fresh from ESPN. */
+async function readTournamentHistory(eventName: string, season: number): Promise<StoredYear[]> {
   const years = Array.from({ length: YEARS_BACK }, (_, i) => season - 1 - i);
   const found = await Promise.all(
-    years.map(async (year): Promise<TournamentYear | null> => {
+    years.map(async (year): Promise<StoredYear | null> => {
       const match = findEdition(eventName, await seasonCalendar(year));
       if (!match) return null;
       const golfers = await getLiveLeaderboard(match.id, LEADERBOARD_REVALIDATE, FETCH_TIMEOUT_MS);
       // A year with nobody finished (canceled, or not played yet) isn't history.
       if (!golfers || !golfers.some((g) => g.status === "post")) return null;
-      return { year, name: match.label, renamed: !sameName(match.label, eventName), golfers: new Map(golfers.map((g) => [g.id, g])) };
+      return { year, name: match.label, renamed: !sameName(match.label, eventName), golfers };
     }),
   );
-  return found.filter((y): y is TournamentYear => !!y);
+  return found.filter((y): y is StoredYear => !!y);
+}
+
+// The finished history is small (about 100 golfers a year), so it's saved as one entry per
+// tournament for a week. An empty result (ESPN unreachable) is retried after 10 minutes.
+const cachedHistory = unstable_cache(readTournamentHistory, ["golf-tournament-history-v2"], { revalidate: 7 * 86_400 });
+const cachedEmpty = unstable_cache(readTournamentHistory, ["golf-tournament-history-v2-retry"], { revalidate: 600 });
+
+/** The last few years of one tournament, newest first; years that can't be found are left out. */
+export async function getTournamentHistory(eventName: string, season: number): Promise<TournamentYear[]> {
+  let years = await cachedHistory(eventName, season);
+  if (!years.length) years = await cachedEmpty(eventName, season);
+  return years.map((y) => ({ year: y.year, name: y.name, renamed: y.renamed, golfers: new Map(y.golfers.map((g) => [g.id, g])) }));
 }
