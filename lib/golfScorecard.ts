@@ -2,8 +2,9 @@ import "server-only";
 
 // One golfer's hole-by-hole scores for a tournament, from ESPN's core API:
 // events/{id}/competitions/{id}/competitors/{golfer}/linescores → one item per round, each
-// with a linescores list of holes. Field names are read defensively (see checks noted below);
-// anything not recognised is left out and the scorecard says so.
+// with a linescores list of holes. Confirmed Nov 2026 (2025 Masters): rounds carry period,
+// value (strokes), displayValue (to par); holes carry period (hole), value (strokes), par.
+// Rounds not yet played have no value or holes and are left out.
 
 const FETCH_TIMEOUT_MS = 6000;
 

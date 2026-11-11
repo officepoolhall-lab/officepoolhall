@@ -4,10 +4,10 @@ import "server-only";
 // score to par, holes played and tee time. Same embedded data the scheduled import reads
 // (supabase/functions/_shared/golf.ts); this copy keeps a few more fields and never writes.
 //
-// Fields confirmed on a final page (Nov 2026): name, lastNm, id, pos, status, tee (ISO, the
-// golfer's latest round), thru (a number), toPar, tot, order (leaderboard order), "$$".
-// Not yet seen on a pre-event or in-progress page, so each is optional; anything missing
-// just doesn't show.
+// Fields confirmed (Nov 2026) on final and pre-event pages: name, lastNm, id, pos, status
+// ("pre"/"post"), tee (ISO, the golfer's latest round), thru (a number; 0 before starting),
+// toPar ("-" before starting), tot ("--" before starting), r1–r4, order, "$$". Not yet seen on
+// an in-progress page, so each is optional; anything missing just doesn't show.
 
 const FETCH_TIMEOUT_MS = 5000;
 
@@ -71,7 +71,8 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       pos: str(o.pos) ?? "-",
       // A golfer who hasn't started has no score yet ("-" or nothing).
       toPar: str(o.toPar) === "-" ? null : str(o.toPar),
-      thru: thru === "18" ? "F" : thru,
+      // Before a golfer starts, ESPN sends thru 0 (checked Nov 2026: status "pre", toPar "-").
+      thru: thru === "18" ? "F" : thru === "0" ? null : thru,
       tee: teeTime(o.tee),
       status: typeof o.status === "string" ? o.status : "",
       earnings: Number(o["$$"]) || 0,
