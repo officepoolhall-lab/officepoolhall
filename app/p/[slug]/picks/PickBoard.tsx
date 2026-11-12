@@ -650,9 +650,11 @@ function GameRow({
             disabled={disabled}
             onClick={() => onTeam(side)}
             aria-pressed={selected}
-            className={`group col-span-3 grid grid-cols-subgrid items-center rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed ${
-              i === 0 ? "row-start-2" : "row-start-3"
-            }`}
+            // Its own columns (name, score, pick cell) matching the card's, not a CSS subgrid: browsers
+            // without subgrid (older Chrome, e.g. some Chromebooks) stacked the three on separate lines.
+            className={`group col-span-3 grid items-center gap-x-2 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed lg:gap-x-1.5 ${
+              confidence ? "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_2.5rem]" : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem]"
+            } ${i === 0 ? "row-start-2" : "row-start-3"}`}
           >
             <span className="flex min-w-0 items-center gap-2">
               <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
