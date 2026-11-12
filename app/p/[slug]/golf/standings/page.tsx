@@ -108,7 +108,7 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
                     Season
                     {data.lastFinal && (
                       <span className="font-normal normal-case tracking-normal">
-                        &nbsp;· through Week {data.lastFinal.week}
+                        &nbsp;· Through Week {data.lastFinal.week}
                       </span>
                     )}
                   </span>
