@@ -7,7 +7,7 @@ import { requirePoolCommissioner } from "@/lib/pool";
 // Golf commissioner actions. Each re-checks the commissioner; the database checks again
 // (RLS on pools, golf_admin_update_event).
 
-/** Pool name, entry fee, and the commissioner's rules and notes shown to players on Home. */
+/** Pool name, entry fee and the missed-pick rule. */
 export async function saveGolfSettings(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
   const name = String(form.get("name") ?? "").trim();
@@ -15,10 +15,8 @@ export async function saveGolfSettings(slug: string, _: ActionState, form: FormD
   if (name.length > 80) return { error: "Keep the name to 80 characters." };
   const fee = Number(form.get("entry_fee") || 0);
   if (!Number.isFinite(fee) || fee < 0) return { error: "The entry fee must be 0 or more." };
-  const rules = String(form.get("rules_note") ?? "").trim();
-  if (rules.length > 4000) return { error: "Keep the rules and notes to 4,000 characters." };
   const missed = form.get("missed_pick") === "lowest" ? "lowest" : "zero";
-  const settings = { ...((ctx.pool.settings as Record<string, unknown> | null) ?? {}), rules_note: rules || null, missed_pick: missed };
+  const settings = { ...((ctx.pool.settings as Record<string, unknown> | null) ?? {}), missed_pick: missed };
   const { error } = await ctx.supabase.from("pools").update({ name, entry_fee: fee, settings }).eq("id", ctx.pool.id);
   if (error) return { error: error.message };
   revalidatePath(`/p/${slug}`, "layout");

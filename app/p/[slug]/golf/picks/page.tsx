@@ -109,10 +109,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
         // Every event played so far, which is also the list of golfers used.
         log={
           <>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="text-xs text-muted">
-                {used.length} of {counted.length} weeks picked
-              </span>
+            <div className="flex items-baseline justify-end gap-3 text-sm">
               <span>
                 <span className="text-muted">Season total </span>
                 <span className="font-bold tabular-nums">{money(total)}</span>
@@ -158,17 +155,16 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
         // The rest of the schedule.
         upcoming={
           <>
-            <div className="text-xs text-muted">{upcoming.length} to go</div>
             {upcoming.length === 0 ? (
-              <p className="mt-2 border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
+              <p className="border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (
-              <div className="mt-2 border-y border-line">
+              <div className="border-y border-line">
                 {/* Column titles, lined up with the rows below. */}
-                <div className="flex items-end gap-2.5 border-b border-line pb-1.5 pt-2 text-[11px] font-medium text-muted" aria-hidden>
-                  <span className="w-10">Wk</span>
+                <div className="flex items-end gap-2 border-b border-line pb-1.5 pt-2 sm:gap-2.5 text-[11px] font-medium text-muted" aria-hidden>
+                  <span className="w-9 shrink-0 sm:w-10">Wk</span>
                   <span className="min-w-0 flex-1">Tournament</span>
-                  <span className="w-14 text-right">Purse</span>
-                  <span className="w-[4.5rem] text-right">Start Date</span>
+                  <span className="w-12 shrink-0 text-right sm:w-14">Purse</span>
+                  <span className="w-[4.25rem] shrink-0 text-right sm:w-[4.5rem]">Start Date</span>
                 </div>
                 <ol className="divide-y divide-line">
                   {upcoming.map((ev) => {
@@ -176,16 +172,17 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                     // The first tee time once posted; before that ESPN's start date for the event.
                     const start = ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d") : i?.startDate ? formatInTimeZone(fromZonedTime(`${i.startDate}T12:00:00`, "America/New_York"), "America/New_York", "EEE MMM d") : "TBA";
                     return (
-                      <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
-                        <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
-                        <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                          <span className="min-w-0 truncate">{ev.name}</span>
+                      <li key={ev.id} className="flex min-h-9 items-center gap-2 py-1.5 text-sm sm:gap-2.5">
+                        <span className="w-9 shrink-0 text-xs tabular-nums text-muted sm:w-10">Wk {weekOf.get(ev.id)}</span>
+                        {/* Phones: the name wraps (tag beneath when it doesn't fit) so the row never runs off screen. */}
+                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 sm:flex-nowrap">
+                          <span className="min-w-0 break-words leading-snug sm:truncate">{ev.name}</span>
                           <EventTag name={ev.name} signature={!!i?.signature} />
                         </span>
-                        <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
+                        <span className="w-12 shrink-0 text-right text-xs font-semibold sm:w-14 tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
                           {i?.purse ? shortPurse(i.purse) : <span className="font-normal text-faint">–</span>}
                         </span>
-                        <span className="w-[4.5rem] shrink-0 text-right text-xs tabular-nums text-muted">{start}</span>
+                        <span className="w-[4.25rem] shrink-0 text-right text-xs tabular-nums text-muted sm:w-[4.5rem]">{start}</span>
                       </li>
                     );
                   })}
@@ -246,16 +243,16 @@ async function ThisWeek({
           : "Tee Times Not Posted Yet · Picks Open Monday of Tournament Week, 7 AM Central"}
       </p>
 
-      <div className="mt-3 grid grid-cols-2 gap-4 border-y border-line py-3">
+      <div className="mt-2 grid grid-cols-2 gap-4 border-y border-line py-2">
         <div className="min-w-0">
-          <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
-          <div className={`mt-0.5 break-words text-base font-bold leading-snug ${pick ? "" : "text-muted"}`}>
+          <div className="text-[11px] text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
+          <div className={`break-words text-sm font-bold leading-snug ${pick ? "" : "text-muted"}`}>
             {pick ? pick.golfer_name : ctx.isGuest ? "–" : open ? "Not Picked" : "None"}
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted">{open ? "Picks Lock" : opensLater(event, now) ? "Picks Open" : "Picks"}</div>
-          <div className="mt-0.5 text-base font-bold leading-snug tabular-nums">
+          <div className="text-[11px] text-muted">{open ? "Picks Lock" : opensLater(event, now) ? "Picks Open" : "Picks"}</div>
+          <div className="text-sm font-bold leading-snug tabular-nums">
             {open && event.start_at ? (
               <Countdown to={event.start_at} done="locked" />
             ) : opensLater(event, now) ? (
