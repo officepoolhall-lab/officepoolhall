@@ -6,7 +6,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
 import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { NewsList } from "@/components/NewsList";
-import { ChevronIcon, SectionLabel, chipClass } from "@/components/ui";
+import { ChevronIcon, SectionLabel } from "@/components/ui";
 import {
   getGolfContext,
   getGolfEvents,
@@ -14,7 +14,6 @@ import {
   getGolfResults,
   getGolfStandings,
   getMissedPickValues,
-  missedPickRule,
   golfWeek,
   isOpenForPicks,
   opensLater,
@@ -43,7 +42,6 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
   const myPick = current ? myPicks.find((p) => p.event_id === current.id) : undefined;
   const lastFinal = [...events].reverse().find((e) => e.status === "final");
   const nextOpen = current ? events.find((e) => e.id !== current.id && isOpenForPicks(e, now)) : undefined;
-  const rulesNote = ((ctx.pool.settings as Record<string, unknown> | null)?.rules_note as string | null) ?? null;
   const lastPick = lastFinal ? myPicks.find((p) => p.event_id === lastFinal.id) : undefined;
 
   return (
@@ -58,7 +56,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
       {/* Desktop: this week + standings | news | world rankings. Phones: week, standings, rankings, news. */}
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
         <div>
-          <section className="mb-6 border-b border-line pb-4">
+          <section className="mb-4 border-b border-line pb-3">
             {current ? (
               <>
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -71,7 +69,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                     ? `First Tee ${formatInTimeZone(current.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")}`
                     : "Tee Times Not Posted Yet · Picks Open Monday of Tournament Week, 7 AM Central"}
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-4">
+                <div className="mt-2 grid grid-cols-2 gap-4">
                   {!ctx.isGuest && (
                     <div className="min-w-0">
                       <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
@@ -109,7 +107,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
             )}
             {/* Another tournament already open for picks (the next one, opened early). */}
             {nextOpen && !ctx.isGuest && (
-              <Link href={`/p/${slug}/golf/picks`} className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm hover:bg-hover">
+              <Link href={`/p/${slug}/golf/picks`} className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm hover:bg-hover">
                 <span className="min-w-0">
                   <span className="block text-xs text-muted">Picks Open · {nextOpen.name}</span>
                   <span className="font-medium">{myPicks.some((p) => p.event_id === nextOpen.id) ? "Change Your Pick" : "Make Your Pick"}</span>
@@ -120,10 +118,6 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
             {lastFinal && !ctx.isGuest && (
               <LastWeek ctx={ctx} event={lastFinal} pick={lastPick} />
             )}
-            <div className="mt-3 flex gap-1.5">
-              {!ctx.isGuest && <Link href={`/p/${slug}/golf/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>}
-              <Link href={`/p/${slug}/golf/grid`} className={chipClass(ctx.isGuest, "", "sm")}>Everyone&apos;s picks</Link>
-            </div>
           </section>
 
           <section>
@@ -136,21 +130,6 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
             <StandingsPreview rows={standings} me={ctx.entryUserId} limit={10} />
           </section>
 
-          {/* The pool's rules, plus anything the commissioner added in Admin → Settings. */}
-          <details className="group mt-6 border-y border-line py-1">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold">
-              Pool rules
-              <ChevronIcon className="size-4 text-muted transition group-open:rotate-90" />
-            </summary>
-            <ul className="mb-3 list-disc space-y-1 pl-5 text-sm text-muted">
-              <li>One golfer per tournament; each golfer once per season.</li>
-              <li>Picks lock at the tournament&apos;s first tee time.</li>
-              <li>Standings are season prize money from your picks.</li>
-              <li>A missed cut or a withdrawal earns $0.</li>
-              <li>{missedPickRule(ctx.pool) === "lowest" ? "No pick earns the lowest prize money any entry earned that week." : "No pick earns $0."}</li>
-            </ul>
-            {rulesNote && <p className="mb-3 whitespace-pre-line text-sm">{rulesNote}</p>}
-          </details>
         </div>
 
         <div className="order-last lg:order-none">
@@ -173,7 +152,7 @@ async function LastWeek({ ctx, event, pick }: { ctx: GolfContext; event: GolfEve
   // No pick earns $0, or the week's lowest (the commissioner's rule).
   const missed = pick ? 0 : ((await getMissedPickValues(ctx, [event.id])).get(event.id) ?? 0);
   return (
-    <div className="mt-3 rounded-lg bg-surface px-3 py-2 text-sm">
+    <div className="mt-2 rounded-lg bg-surface px-3 py-2 text-sm">
       <div className="text-xs text-muted">Last Week · {event.name}</div>
       {pick ? (
         <div className="flex items-baseline justify-between gap-3">

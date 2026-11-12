@@ -9,12 +9,11 @@ export const metadata: Metadata = { title: "Pool settings" };
 // Inputs sit on a bg-surface panel, so they take the page color to stay visible.
 const field = inputClass.replace("bg-surface", "bg-bg");
 
-/** The pool's name and entry fee, the rules every golf pool plays by, and the commissioner's own notes. */
+/** The pool's name and entry fee, and the rules every golf pool plays by. Payouts and other notes go on the Message Board. */
 export default async function GolfSettingsPage({ params }: PageProps<"/p/[slug]/golf/admin/settings">) {
   const { slug } = await params;
   const ctx = await getGolfContext(slug);
   const missed = missedPickRule(ctx.pool);
-  const note = ((ctx.pool.settings as Record<string, unknown> | null)?.rules_note as string | null) ?? "";
 
   return (
     <ActionForm action={saveGolfSettings.bind(null, slug)} className="space-y-4">
@@ -49,18 +48,7 @@ export default async function GolfSettingsPage({ params }: PageProps<"/p/[slug]/
           </label>
           <p className="text-xs text-muted">Changes the standings for the whole season, including weeks already played.</p>
         </fieldset>
-        <div className="mt-4">
-          <Field label="Your rules and notes (shown to players on Home)">
-            <textarea
-              name="rules_note"
-              defaultValue={note}
-              rows={6}
-              maxLength={4000}
-              placeholder="Payouts, tiebreakers, deadlines for paying, anything else players should know."
-              className={`${field} min-h-32 py-2`}
-            />
-          </Field>
-        </div>
+        <p className="mt-4 text-sm text-muted">Payouts, tiebreakers and anything else players should know: post them on the Message Board.</p>
       </Panel>
       <SubmitButton kind="primary" className="w-full sm:w-auto">
         Save settings
