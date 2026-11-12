@@ -84,3 +84,9 @@ begin
       and g.status = 'final';
 end;
 $$;
+
+-- The full schedule is read once a day (6 a.m.), but a new poll can land after that and before
+-- that day's games (the AP poll on Monday, the CFP rankings on Tuesday evening). Re-read the
+-- next three days every hour so upcoming games pick up new ranks within the hour.
+-- (cron.schedule with an existing name replaces that job.)
+select cron.schedule('sync-ranks', '17 * * * *', $$select public.invoke_edge_function('sync-schedule', '{"days": 3}')$$);
