@@ -109,10 +109,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
         // Every event played so far, which is also the list of golfers used.
         log={
           <>
-            <div className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="text-xs text-muted">
-                {used.length} of {counted.length} weeks picked
-              </span>
+            <div className="flex items-baseline justify-end gap-3 text-sm">
               <span>
                 <span className="text-muted">Season total </span>
                 <span className="font-bold tabular-nums">{money(total)}</span>
@@ -158,11 +155,10 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
         // The rest of the schedule.
         upcoming={
           <>
-            <div className="text-xs text-muted">{upcoming.length} to go</div>
             {upcoming.length === 0 ? (
-              <p className="mt-2 border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
+              <p className="border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (
-              <div className="mt-2 border-y border-line">
+              <div className="border-y border-line">
                 {/* Column titles, lined up with the rows below. */}
                 <div className="flex items-end gap-2 border-b border-line pb-1.5 pt-2 sm:gap-2.5 text-[11px] font-medium text-muted" aria-hidden>
                   <span className="w-9 shrink-0 sm:w-10">Wk</span>
