@@ -68,7 +68,7 @@ export function GolfPicker({
   const changed = selected !== currentId;
 
   return (
-    <ActionForm action={action} className="mt-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+    <ActionForm action={action} className="mt-3 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       {forUserId && <input type="hidden" name="for" value={forUserId} />}
       {/* The choice is submitted from here, so a search that hides it doesn't drop it. */}
       {selected && <input type="hidden" name="golfer" value={selected} />}
@@ -80,7 +80,7 @@ export function GolfPicker({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search the Field"
           aria-label="Search the field"
-          className={`${inputClass} min-w-0 flex-1 basis-48`}
+          className={`${inputClass.replace("h-11", "h-9")} min-w-0 flex-1 basis-48`}
         />
         <div className="flex gap-1 text-xs" role="group" aria-label="Sort by">
           {(
@@ -97,18 +97,18 @@ export function GolfPicker({
                 type="button"
                 onClick={() => setSort(k)}
                 aria-pressed={sort === k}
-                className={`h-9 rounded-full px-3 font-medium ${sort === k ? "bg-ink text-bg" : "bg-surface text-muted hover:text-ink"}`}
+                className={`h-8 rounded-full px-2.5 font-medium ${sort === k ? "bg-ink text-bg" : "bg-surface text-muted hover:text-ink"}`}
               >
                 {label}
               </button>
             ))}
         </div>
       </div>
-      <p className="mt-2 text-xs text-muted">
+      <p className="mt-1.5 text-xs text-muted">
         {golfers.length} in the Field · {available} Available to You
       </p>
 
-      <ul className="mt-2 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line [scrollbar-gutter:stable] lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
+      <ul className="mt-1.5 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line [scrollbar-gutter:stable] lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
         {visible.length === 0 && <li className="px-3 py-4 text-sm text-muted">No golfer matches “{query}”.</li>}
         {visible.map((g) => {
           const used = !!g.usedWeek;

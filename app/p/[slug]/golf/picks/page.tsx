@@ -243,16 +243,16 @@ async function ThisWeek({
           : "Tee Times Not Posted Yet · Picks Open Monday of Tournament Week, 7 AM Central"}
       </p>
 
-      <div className="mt-3 grid grid-cols-2 gap-4 border-y border-line py-3">
+      <div className="mt-2 grid grid-cols-2 gap-4 border-y border-line py-2">
         <div className="min-w-0">
-          <div className="text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
-          <div className={`mt-0.5 break-words text-base font-bold leading-snug ${pick ? "" : "text-muted"}`}>
+          <div className="text-[11px] text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
+          <div className={`break-words text-sm font-bold leading-snug ${pick ? "" : "text-muted"}`}>
             {pick ? pick.golfer_name : ctx.isGuest ? "–" : open ? "Not Picked" : "None"}
           </div>
         </div>
         <div>
-          <div className="text-xs text-muted">{open ? "Picks Lock" : opensLater(event, now) ? "Picks Open" : "Picks"}</div>
-          <div className="mt-0.5 text-base font-bold leading-snug tabular-nums">
+          <div className="text-[11px] text-muted">{open ? "Picks Lock" : opensLater(event, now) ? "Picks Open" : "Picks"}</div>
+          <div className="text-sm font-bold leading-snug tabular-nums">
             {open && event.start_at ? (
               <Countdown to={event.start_at} done="locked" />
             ) : opensLater(event, now) ? (
