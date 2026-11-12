@@ -290,11 +290,12 @@ export function PickBoard({
     <div
       data-wide
       // Smaller desktops (1024–1599px): a narrower sidebar so the games get the room; 1600px and up as before.
-      className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10"
+      className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10"
     >
-      {/* Desktop: both columns fill the frozen screen; each scrolls on its own if it must. */}
-      {/* Desktop: the saved list scrolls on its own and View Pick History stays pinned under it. */}
-      <aside ref={asideRef} className="lg:flex lg:min-h-0 lg:flex-col">
+      {/* Desktop: no scroll box of its own. The column runs the full length of the games beside
+          it, and its contents stay in view (sticky, just under the header) as the page scrolls. */}
+      <aside ref={asideRef} className="lg:self-stretch">
+      <div className="lg:sticky lg:top-[calc(3rem+3px+1rem+env(safe-area-inset-top))]">
       {myPicks.length === 0 && (
         <section className="hidden lg:block" aria-labelledby="my-picks-empty">
           <h2 id="my-picks-empty" className="mb-1 text-lg font-extrabold tracking-[-0.03em]">{onBehalf ? "Their picks" : "My Picks"}</h2>
@@ -302,7 +303,7 @@ export function PickBoard({
         </section>
       )}
       {myPicks.length > 0 && (
-        <section className="mb-5 lg:mb-0 lg:flex lg:min-h-0 lg:flex-col" aria-labelledby="my-picks">
+        <section className="mb-5 lg:mb-0" aria-labelledby="my-picks">
           <div className="mb-1 flex items-baseline justify-between gap-3">
             <h2 id="my-picks" className="text-lg font-extrabold tracking-[-0.03em]">{onBehalf ? "Their picks" : "My Picks"}</h2>
             <span className="text-xs tabular-nums text-muted">
@@ -310,7 +311,7 @@ export function PickBoard({
               {manualSave && dirty && " · unsaved changes"}
             </span>
           </div>
-          <ul className="divide-y divide-line border-y border-line lg:min-h-0 lg:overflow-y-auto">
+          <ul className="divide-y divide-line border-y border-line">
             {myPicks.map((g) => (
               <MyPickRow key={g.id} game={g} pick={saved[g.id]} graded={graded[g.id]} locked={isLocked(g)} now={now} settings={settings} />
             ))}
@@ -322,9 +323,10 @@ export function PickBoard({
           View Pick History <ChevronIcon className="size-3.5" />
         </Link>
       )}
+      </div>
       </aside>
 
-      <div className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+      <div className="min-w-0">
       {/* Urgency is plain ink weight: the live token is reserved for games in progress. */}
       <p className={`mb-3 text-sm ${urgent ? "font-semibold text-ink" : "text-muted"}`}>
         {onBehalf ? (
@@ -351,7 +353,7 @@ export function PickBoard({
         <section key={day.key} className="mb-5 lg:mb-4">
           {/* Each day opens with a shaded band (accent bar, the date, how many games) that stays
               pinned while its games scroll, so it's always clear which day a game is on. */}
-          <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] lg:top-0 z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
+          <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
             <span>{day.label}</span>
             <span className="ml-auto text-xs font-medium text-muted tabular-nums">
               {day.games.length} game{day.games.length === 1 ? "" : "s"}
