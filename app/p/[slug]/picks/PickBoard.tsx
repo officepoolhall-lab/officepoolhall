@@ -287,7 +287,11 @@ export function PickBoard({
     // Desktop (lg+): full width, My Picks pinned in a left column, the games scroll on the
     // right. Phones and tablets: one column, My Picks on top. data-wide lifts the layout's
     // width cap for this page.
-    <div data-wide className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[22rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-10">
+    <div
+      data-wide
+      // Smaller desktops (1024–1599px): a narrower sidebar so the games get the room; 1600px and up as before.
+      className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10"
+    >
       {/* Desktop: both columns fill the frozen screen; each scrolls on its own if it must. */}
       {/* Desktop: the saved list scrolls on its own and View Pick History stays pinned under it. */}
       <aside ref={asideRef} className="lg:flex lg:min-h-0 lg:flex-col">
@@ -354,7 +358,9 @@ export function PickBoard({
             </span>
           </h3>
           {/* Desktop: compact cards, two a line, three from 1280px, four from 1600px, five from 2000px. */}
-          <ul className="lg:grid lg:grid-cols-2 lg:gap-x-5 xl:grid-cols-3 min-[1600px]:grid-cols-4 min-[2000px]:grid-cols-5">
+          {/* Smaller desktops: as many columns as fit with each game at least 18.5rem wide (2 at 1024px,
+              3 from about 1280px). 1600px and up keeps its fixed 4 and 5 columns. */}
+          <ul className="lg:grid lg:grid-cols-[repeat(auto-fill,minmax(18.5rem,1fr))] lg:gap-x-5 min-[1600px]:grid-cols-4 min-[2000px]:grid-cols-5">
             {day.games.map((g) => (
               <GameRow
                 key={g.id}
