@@ -164,11 +164,11 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
             ) : (
               <div className="mt-2 border-y border-line">
                 {/* Column titles, lined up with the rows below. */}
-                <div className="flex items-end gap-2.5 border-b border-line pb-1.5 pt-2 text-[11px] font-medium text-muted" aria-hidden>
-                  <span className="w-10">Wk</span>
+                <div className="flex items-end gap-2 border-b border-line pb-1.5 pt-2 sm:gap-2.5 text-[11px] font-medium text-muted" aria-hidden>
+                  <span className="w-9 shrink-0 sm:w-10">Wk</span>
                   <span className="min-w-0 flex-1">Tournament</span>
-                  <span className="w-14 text-right">Purse</span>
-                  <span className="w-[4.5rem] text-right">Start Date</span>
+                  <span className="w-12 shrink-0 text-right sm:w-14">Purse</span>
+                  <span className="w-[4.25rem] shrink-0 text-right sm:w-[4.5rem]">Start Date</span>
                 </div>
                 <ol className="divide-y divide-line">
                   {upcoming.map((ev) => {
@@ -176,16 +176,17 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                     // The first tee time once posted; before that ESPN's start date for the event.
                     const start = ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d") : i?.startDate ? formatInTimeZone(fromZonedTime(`${i.startDate}T12:00:00`, "America/New_York"), "America/New_York", "EEE MMM d") : "TBA";
                     return (
-                      <li key={ev.id} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
-                        <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
-                        <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                          <span className="min-w-0 truncate">{ev.name}</span>
+                      <li key={ev.id} className="flex min-h-9 items-center gap-2 py-1.5 text-sm sm:gap-2.5">
+                        <span className="w-9 shrink-0 text-xs tabular-nums text-muted sm:w-10">Wk {weekOf.get(ev.id)}</span>
+                        {/* Phones: the name wraps (tag beneath when it doesn't fit) so the row never runs off screen. */}
+                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 sm:flex-nowrap">
+                          <span className="min-w-0 break-words leading-snug sm:truncate">{ev.name}</span>
                           <EventTag name={ev.name} signature={!!i?.signature} />
                         </span>
-                        <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
+                        <span className="w-12 shrink-0 text-right text-xs font-semibold sm:w-14 tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
                           {i?.purse ? shortPurse(i.purse) : <span className="font-normal text-faint">–</span>}
                         </span>
-                        <span className="w-[4.5rem] shrink-0 text-right text-xs tabular-nums text-muted">{start}</span>
+                        <span className="w-[4.25rem] shrink-0 text-right text-xs tabular-nums text-muted sm:w-[4.5rem]">{start}</span>
                       </li>
                     );
                   })}
