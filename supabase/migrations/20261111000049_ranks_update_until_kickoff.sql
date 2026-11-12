@@ -1,10 +1,13 @@
 -- Team ranks on a game (shown beside team names on My Picks, the Scoreboard and the Grid)
 -- used to freeze once the game went on a published slate. A slate is published before the
--- College Football Playoff committee's Tuesday release (and the AP poll's Sunday one), so
--- that week's games kept last week's ranks. Ranks aren't used in scoring, so they now follow
--- ESPN (which switches to the CFP rankings once they're out) until the game kicks off, and
--- hold from then on, so a past game keeps the rank it was played at.
--- Otherwise identical to ingest_espn in 20261017000008_pool_rules.sql.
+-- College Football Playoff committee's Tuesday release and the AP poll's Monday one, so that
+-- week's games kept last week's ranks. Ranks aren't used in scoring, so they now follow ESPN
+-- (the CFP rankings for football once they're out, the AP poll for basketball) until the game
+-- starts, and hold from then on, so a past game keeps the rank it was played at.
+-- Both sports: one ingest serves football and basketball.
+-- Otherwise identical to ingest_espn in 20261102000037_ingest_score_sides.sql (scores and
+-- ranks mapped to the stored sides by team id).
+
 create or replace function ingest_espn(p_sport text, p_teams jsonb, p_games jsonb)
 returns setof uuid
 language plpgsql security definer set search_path = public as $$
@@ -51,14 +54,16 @@ begin
                             excluded.start_at, excluded.time_tbd, excluded.status) then games.manual_time
       else false end,
     status = excluded.status,
-    home_score = excluded.home_score,
-    away_score = excluded.away_score,
+    home_score = case when games.home_team_id = excluded.home_team_id then excluded.home_score else excluded.away_score end,
+    away_score = case when games.home_team_id = excluded.home_team_id then excluded.away_score else excluded.home_score end,
     neutral_site = excluded.neutral_site,
     tv_network = coalesce(excluded.tv_network, games.tv_network),
     venue = coalesce(excluded.venue, games.venue),
-    -- Ranks follow the feed until kickoff, then hold.
-    home_rank = case when games.status = 'scheduled' then excluded.home_rank else games.home_rank end,
-    away_rank = case when games.status = 'scheduled' then excluded.away_rank else games.away_rank end,
+    -- Ranks follow the feed (mapped to the stored sides) until tip-off / kickoff, then hold.
+    home_rank = case when games.status <> 'scheduled' then games.home_rank
+                     when games.home_team_id = excluded.home_team_id then excluded.home_rank else excluded.away_rank end,
+    away_rank = case when games.status <> 'scheduled' then games.away_rank
+                     when games.home_team_id = excluded.home_team_id then excluded.away_rank else excluded.home_rank end,
     updated_at = now();
 
   -- A moved tip can move a first-day group's deadline on an open slate.
