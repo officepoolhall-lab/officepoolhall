@@ -164,13 +164,13 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                   <span className="w-9 shrink-0 sm:w-10">Wk</span>
                   <span className="min-w-0 flex-1">Tournament</span>
                   <span className="w-12 shrink-0 text-right sm:w-14">Purse</span>
-                  <span className="w-[4.25rem] shrink-0 text-right sm:w-[4.5rem]">Start Date</span>
+                  <span className="w-16 shrink-0 text-right">Start Date</span>
                 </div>
                 <ol className="divide-y divide-line">
                   {upcoming.map((ev) => {
                     const i = info.get(ev.id);
                     // The first tee time once posted; before that ESPN's start date for the event.
-                    const start = ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d") : i?.startDate ? formatInTimeZone(fromZonedTime(`${i.startDate}T12:00:00`, "America/New_York"), "America/New_York", "EEE MMM d") : "TBA";
+                    const start = ev.start_at ? formatInTimeZone(ev.start_at, ctx.displayTz, "MMM d") : i?.startDate ? formatInTimeZone(fromZonedTime(`${i.startDate}T12:00:00`, "America/New_York"), "America/New_York", "MMM d") : "TBA";
                     return (
                       <li key={ev.id} className="flex min-h-9 items-center gap-2 py-1.5 text-sm sm:gap-2.5">
                         <span className="w-9 shrink-0 text-xs tabular-nums text-muted sm:w-10">Wk {weekOf.get(ev.id)}</span>
@@ -182,7 +182,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                         <span className="w-12 shrink-0 text-right text-xs font-semibold sm:w-14 tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
                           {i?.purse ? shortPurse(i.purse) : <span className="font-normal text-faint">–</span>}
                         </span>
-                        <span className="w-[4.25rem] shrink-0 text-right text-xs tabular-nums text-muted sm:w-[4.5rem]">{start}</span>
+                        <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted">{start}</span>
                       </li>
                     );
                   })}
