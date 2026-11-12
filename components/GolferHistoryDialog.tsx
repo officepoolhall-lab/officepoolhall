@@ -3,6 +3,7 @@
 import { Suspense, use, useEffect, useRef } from "react";
 import type { FieldHistory } from "@/lib/golfFieldHistory";
 import { buttonClass } from "./ui";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const place = (pos: string | null) => parseInt((pos ?? "").replace(/^T/, ""), 10);
@@ -25,6 +26,8 @@ export function GolferHistoryDialog({
   onPick?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  // The page behind stays put while this is open.
+  useScrollLock();
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
@@ -38,7 +41,7 @@ export function GolferHistoryDialog({
       className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
       aria-label={`${golfer.name}: results`}
     >
-      <div className="max-h-[85vh] overflow-y-auto p-5">
+      <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-bold">{golfer.name}</h2>

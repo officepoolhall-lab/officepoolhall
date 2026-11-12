@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { LeaderRow } from "./GolfLeaderboard";
+import { useScrollLock } from "@/lib/useScrollLock";
 
 type Hole = { hole: number; par: number | null; strokes: number | null };
 type Round = { round: number; strokes: number | null; toPar: string | null; holes: Hole[] };
@@ -92,6 +93,8 @@ export function GolfScorecard({
   const [rounds, setRounds] = useState<Round[] | null | "error">(null);
   const [tab, setTab] = useState(0);
 
+  // The page behind stays put while this is open.
+  useScrollLock();
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
@@ -133,7 +136,7 @@ export function GolfScorecard({
       className="m-auto w-[min(40rem,calc(100vw-1rem))] rounded-xl bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
       aria-label={`${golfer.name}: scorecard`}
     >
-      <div className="max-h-[85vh] overflow-y-auto p-4 sm:p-5">
+      <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-bold leading-snug">{golfer.name}</h2>
