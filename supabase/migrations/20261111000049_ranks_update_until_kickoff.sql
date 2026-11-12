@@ -1,11 +1,10 @@
 -- Team ranks on a game (shown beside team names on My Picks, the Scoreboard and the Grid)
--- used to freeze once the game went on a published slate. A slate is published before the
--- College Football Playoff committee's Tuesday release and the AP poll's Monday one, so that
--- week's games kept last week's ranks. Ranks aren't used in scoring, so they now follow ESPN
--- (the CFP rankings for football once they're out, the AP poll for basketball) until the game
--- starts, and hold from then on, so a past game keeps the rank it was played at.
+-- used to freeze once the game went on a published slate, which is before the AP poll
+-- (Monday) and the CFP rankings (Tuesday), so a week's games kept last week's ranks. Ranks
+-- aren't used in scoring, so they now always match ESPN's for that game, including games
+-- already played (re-read by the sync-ranks function).
 -- Both sports: one ingest serves football and basketball.
--- Otherwise identical to ingest_espn in 20261102000037_ingest_score_sides.sql (scores and
+-- Final games keep their status and scores. Otherwise identical to ingest_espn in 20261102000037_ingest_score_sides.sql (scores and
 -- ranks mapped to the stored sides by team id).
 
 create or replace function ingest_espn(p_sport text, p_teams jsonb, p_games jsonb)
@@ -53,17 +52,19 @@ begin
       when game_time_frozen(games.id, games.start_at, games.time_tbd, games.status,
                             excluded.start_at, excluded.time_tbd, excluded.status) then games.manual_time
       else false end,
-    status = excluded.status,
-    home_score = case when games.home_team_id = excluded.home_team_id then excluded.home_score else excluded.away_score end,
-    away_score = case when games.home_team_id = excluded.home_team_id then excluded.away_score else excluded.home_score end,
+    -- A game already final (and graded) keeps its status and scores: re-reading past days for
+    -- ranks must not change a result without re-grading it.
+    status = case when games.status = 'final' then games.status else excluded.status end,
+    home_score = case when games.status = 'final' then games.home_score
+                      when games.home_team_id = excluded.home_team_id then excluded.home_score else excluded.away_score end,
+    away_score = case when games.status = 'final' then games.away_score
+                      when games.home_team_id = excluded.home_team_id then excluded.away_score else excluded.home_score end,
     neutral_site = excluded.neutral_site,
     tv_network = coalesce(excluded.tv_network, games.tv_network),
     venue = coalesce(excluded.venue, games.venue),
-    -- Ranks follow the feed (mapped to the stored sides) until tip-off / kickoff, then hold.
-    home_rank = case when games.status <> 'scheduled' then games.home_rank
-                     when games.home_team_id = excluded.home_team_id then excluded.home_rank else excluded.away_rank end,
-    away_rank = case when games.status <> 'scheduled' then games.away_rank
-                     when games.home_team_id = excluded.home_team_id then excluded.away_rank else excluded.home_rank end,
+    -- Ranks are whatever ESPN shows for the game (mapped to the stored sides), always.
+    home_rank = case when games.home_team_id = excluded.home_team_id then excluded.home_rank else excluded.away_rank end,
+    away_rank = case when games.home_team_id = excluded.home_team_id then excluded.away_rank else excluded.home_rank end,
     updated_at = now();
 
   -- A moved tip can move a first-day group's deadline on an open slate.
@@ -84,3 +85,7 @@ begin
       and g.status = 'final';
 end;
 $$;
+
+-- Every hour, re-read the last 8 days and the next 3 (sync-ranks), so new polls reach this
+-- week's games, played or not. cron.schedule with an existing name replaces that job.
+select cron.schedule('sync-ranks', '17 * * * *', $$select public.invoke_edge_function('sync-ranks', '{"back": 8, "days": 3}')$$);
