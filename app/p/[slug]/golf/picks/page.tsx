@@ -27,7 +27,7 @@ import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getLiveLeaderboard } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
 import { getEventInfo, shortPurse } from "@/lib/golfEventInfo";
-import { SignatureTag } from "@/components/SignatureTag";
+import { EventTag } from "@/components/EventTags";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
 
@@ -180,7 +180,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
                         <span className="w-10 text-xs tabular-nums text-muted">Wk {weekOf.get(ev.id)}</span>
                         <span className="flex min-w-0 flex-1 items-center gap-1.5">
                           <span className="min-w-0 truncate">{ev.name}</span>
-                          {i?.signature && <SignatureTag />}
+                          <EventTag name={ev.name} signature={!!i?.signature} />
                         </span>
                         <span className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums" title={i?.purse ? `Purse ${money(i.purse)}` : undefined}>
                           {i?.purse ? shortPurse(i.purse) : <span className="font-normal text-faint">–</span>}
@@ -238,7 +238,7 @@ async function ThisWeek({
         {event.name}
         {/* The purse, so bigger-money weeks stand out. */}
         {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} Purse</span>}
-        {signature && <SignatureTag className="ml-2 align-middle" />}
+        <EventTag name={event.name} signature={signature} className="ml-2 align-middle" />
       </h2>
       <p className="text-xs text-muted">
         {event.start_at

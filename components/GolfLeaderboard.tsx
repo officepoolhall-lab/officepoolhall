@@ -55,8 +55,12 @@ export function GolfLeaderboard({
   // it at the top of the box, and its bottom rule drawn as a shadow so it stays with it.
   const th = "sticky top-0 z-20 bg-bg py-2 text-[11px] font-medium text-muted shadow-[0_-8px_0_var(--bg),inset_0_-1px_0_var(--line)]";
 
+  // Golfers picked in the pool, in leaderboard order, for the side panel on wide screens.
+  const picked = rows.filter((r) => r.pickedBy > 0);
+
   return (
-    <>
+    <div className="flex min-h-0 flex-1 gap-6">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:max-w-5xl">
       {/* Its own scroll box filling the screen (as on the League Grid): the column labels stay
           pinned at its top, so they never slide under the app's header. */}
       <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto overscroll-contain isolate sm:mx-0">
@@ -158,7 +162,33 @@ export function GolfLeaderboard({
         </table>
       </AxisLockScroll>
       {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a Golfer to See Their Scorecard</p>}
-      {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} live={state === "live"} onClose={() => setOpen(null)} />}
-    </>
+    </div>
+    {/* Wide screens: the pool's picks this week at a glance. */}
+    <aside className="hidden min-h-0 w-72 shrink-0 flex-col xl:flex" aria-label="Pool Picks">
+      <div className="border-b-2 border-ink/25 bg-surface px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Pool Picks</div>
+      {picked.length === 0 ? (
+        <p className="px-3 py-3 text-sm text-muted">{state === "scheduled" ? "Picks Show at the Lock" : "No Picks This Week"}</p>
+      ) : (
+        <ol className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
+          {picked.map((r) => (
+            <li key={r.id}>
+              <button
+                type="button"
+                disabled={!started || !tournamentId}
+                onClick={() => setOpen(r)}
+                className={`flex min-h-10 w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${started && tournamentId ? "hover:bg-surface" : ""} ${r.mine ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}`}
+              >
+                <span className="w-9 shrink-0 tabular-nums text-muted">{started ? r.pos : ""}</span>
+                <span className={`min-w-0 flex-1 truncate font-medium ${r.mine ? "text-accent" : ""}`}>{r.name}</span>
+                {started && r.toPar && <span className={`shrink-0 font-semibold tabular-nums ${r.toPar.startsWith("-") ? "text-loss" : ""}`}>{toParText(r.toPar)}</span>}
+                <span className="w-8 shrink-0 text-right text-xs tabular-nums text-muted">×{r.pickedBy}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </aside>
+    {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} live={state === "live"} onClose={() => setOpen(null)} />}
+    </div>
   );
 }

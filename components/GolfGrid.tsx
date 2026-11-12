@@ -54,7 +54,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
       <table ref={inner} className="border-separate border-spacing-0 text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted">
+            <th className="sticky left-0 top-0 z-30 border-b-2 border-r border-b-ink/25 border-r-line bg-surface px-4 py-1.5 text-left align-bottom text-xs font-semibold text-muted">
               <div className="flex items-end justify-between gap-3">
                 <span className="min-w-20">Entry</span>
                 <span className="shrink-0 whitespace-nowrap text-right">Season</span>
@@ -64,12 +64,13 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
               <th
                 key={w.week}
                 title={w.name}
-                className="sticky top-0 z-20 min-w-[4.75rem] max-w-24 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
+                // The tournament row stands apart from the picks: a shaded band, bold names, a heavier rule.
+                className="sticky top-0 z-20 min-w-[4.75rem] max-w-24 border-b-2 border-l border-b-ink/25 border-l-line/60 bg-surface px-1 py-2 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
               >
                 <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal">
                   {w.live ? <LiveDot>Live</LiveDot> : w.final ? <span className="font-semibold">Final</span> : <span>Wk {w.week}</span>}
                 </div>
-                <div className="mx-auto line-clamp-2 max-w-[5.5rem] text-ink">{w.short}</div>
+                <div className="mx-auto line-clamp-2 max-w-[5.5rem] text-[12px] font-bold text-ink">{w.short}</div>
                 {!w.live && w.final && <div className="text-[10px] font-normal tabular-nums">Wk {w.week}</div>}
                 {/* Others' picks in this column are hidden until the lock. */}
                 {w.open && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
@@ -148,7 +149,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
         </tbody>
         <tfoot>
           <tr>
-            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">Pool Pick</th>
+            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">Pool Picks</th>
             {weeks.map((w) => (
               <td key={w.week} className="border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
                 {w.popular ? (

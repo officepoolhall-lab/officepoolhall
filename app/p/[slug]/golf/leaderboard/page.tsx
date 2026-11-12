@@ -136,7 +136,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
       {/* Refresh every minute while under way, and from the first tee time so it notices the start. */}
       <AutoRefresh active={state === "live" || teedOff} seconds={60} />
       {/* One compact header: the tournament and its status on the left, the dropdown on the right. */}
-      <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2">
+      <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2 xl:max-w-[calc(64rem+18rem+1.5rem)]">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
             Leaderboard · Week {weekNo}
