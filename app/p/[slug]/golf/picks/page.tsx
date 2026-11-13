@@ -165,6 +165,8 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
         // The rest of the schedule.
         upcoming={
           <>
+            {/* Large screens, beside the Season Log: the same space its total takes, so both lists start level. */}
+            <div className="mb-2 hidden h-5 shrink-0 2xl:block" aria-hidden />
             {upcoming.length === 0 ? (
               <p className="border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (

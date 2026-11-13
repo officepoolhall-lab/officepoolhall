@@ -33,20 +33,23 @@ export function GolfPicksTabs({ title, thisWeek, log, upcoming }: { title: React
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-8 lg:mx-auto lg:w-full lg:max-w-7xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)] gap-8 lg:mx-auto lg:w-full lg:max-w-7xl lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)] 2xl:max-w-[112rem] 2xl:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <section aria-label="This week" className={`min-h-0 flex-col lg:flex ${tab === "week" ? "flex" : "hidden"}`}>
           {thisWeek}
         </section>
 
-        <div className={`min-h-0 min-w-0 flex-col lg:flex ${tab === "week" ? "hidden" : "flex"}`}>
-          <div className="mb-3 hidden shrink-0 gap-1.5 lg:flex" role="group" aria-label="Show">
+        {/* Large screens: the Season Log and Upcoming Schedule side by side, no switching. */}
+        <div className={`min-h-0 min-w-0 flex-col lg:flex 2xl:grid 2xl:grid-cols-2 2xl:grid-rows-[minmax(0,1fr)] 2xl:gap-8 ${tab === "week" ? "hidden" : "flex"}`}>
+          <div className="mb-3 hidden shrink-0 gap-1.5 lg:flex 2xl:hidden" role="group" aria-label="Show">
             {button("log", "Season Log", right === "log")}
             {button("upcoming", "Upcoming Schedule", right === "upcoming")}
           </div>
-          <section aria-label="Season log" className={`min-h-0 flex-1 flex-col ${right === "log" ? "flex" : "hidden"}`}>
+          <section aria-label="Season log" className={`min-h-0 flex-1 flex-col 2xl:flex ${right === "log" ? "flex" : "hidden"}`}>
+            <h2 className="mb-2 hidden shrink-0 text-xs font-semibold uppercase tracking-wide text-muted 2xl:block">Season Log</h2>
             {log}
           </section>
-          <section aria-label="Upcoming schedule" className={`min-h-0 flex-1 flex-col ${right === "upcoming" ? "flex" : "hidden"}`}>
+          <section aria-label="Upcoming schedule" className={`min-h-0 flex-1 flex-col 2xl:flex ${right === "upcoming" ? "flex" : "hidden"}`}>
+            <h2 className="mb-2 hidden shrink-0 text-xs font-semibold uppercase tracking-wide text-muted 2xl:block">Upcoming Schedule</h2>
             {upcoming}
           </section>
         </div>
