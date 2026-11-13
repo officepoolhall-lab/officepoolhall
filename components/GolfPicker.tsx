@@ -68,12 +68,12 @@ export function GolfPicker({
   const changed = selected !== currentId;
 
   return (
-    <ActionForm action={action} className="mt-3 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+    <ActionForm action={action} className="mt-3 flex min-h-0 flex-1 flex-col">
       {forUserId && <input type="hidden" name="for" value={forUserId} />}
       {/* The choice is submitted from here, so a search that hides it doesn't drop it. */}
       {selected && <input type="hidden" name="golfer" value={selected} />}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <input
           type="search"
           value={query}
@@ -104,11 +104,12 @@ export function GolfPicker({
             ))}
         </div>
       </div>
-      <p className="mt-1.5 text-xs text-muted">
+      <p className="mt-1.5 shrink-0 text-xs text-muted">
         {golfers.length} in the Field · {available} Available to You
       </p>
 
-      <ul className="mt-1.5 max-h-[60vh] divide-y divide-line overflow-y-auto rounded-lg border border-line [scrollbar-gutter:stable] lg:max-h-none lg:min-h-0 lg:flex-1" aria-label="Field">
+      {/* Fills the rest of the screen and scrolls inside, so Save stays in view below it. */}
+      <ul className="mt-1.5 min-h-[10rem] flex-1 divide-y divide-line overflow-y-auto overscroll-contain rounded-lg border border-line [scrollbar-gutter:stable]" aria-label="Field">
         {visible.length === 0 && <li className="px-3 py-4 text-sm text-muted">No golfer matches “{query}”.</li>}
         {visible.map((g) => {
           const used = !!g.usedWeek;
@@ -166,7 +167,7 @@ export function GolfPicker({
         })}
       </ul>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-3">
         <span className="min-w-0 truncate text-sm">
           {chosen ? (
             <>
