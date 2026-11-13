@@ -86,19 +86,28 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
   });
 
   return (
-    <div data-wide>
+    // Sized to the screen like the Leaderboard: the field, log and schedule scroll inside their
+    // own boxes, so the Save button and the column titles stay in view. A floor keeps it usable
+    // on very short screens (the page scrolls then).
+    <div
+      data-fill-viewport
+      className="flex h-[max(34rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:h-[max(34rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+    >
       {/* The same scroll as Home: last week's finish, tee times, or the live leaderboard. */}
-      <Suspense fallback={<div className="mb-4 h-7" />}>
-        <div className="mb-4">
+      <Suspense fallback={<div className="mb-3 h-7 shrink-0" />}>
+        <div className="mb-3 shrink-0 empty:hidden">
           <GolfLiveTicker ctx={ctx} />
         </div>
       </Suspense>
-      <PageTitle sub={ctx.managing ? `Co-managing ${ctx.managing.ownerName}'s entry` : undefined}>
-        My Picks
-      </PageTitle>
-      {ctx.isGuest && <p className="mb-4 text-sm text-muted">Guests can view picks but can&apos;t make them.</p>}
 
       <GolfPicksTabs
+        title={
+          <div className="min-w-0">
+            <h1 className="text-xl font-extrabold leading-tight tracking-[-0.03em]">My Picks</h1>
+            {ctx.managing && <p className="text-xs text-muted">Co-managing {ctx.managing.ownerName}&apos;s entry</p>}
+            {ctx.isGuest && <p className="text-xs text-muted">Guests can view picks but can&apos;t make them.</p>}
+          </div>
+        }
         thisWeek={
           current ? (
             <ThisWeek ctx={ctx} slug={slug} event={current} purse={info.get(current.id)?.purse ?? null} signature={info.get(current.id)?.signature ?? false} weekNumber={events.filter((e) => e.status !== "canceled").indexOf(current) + 1} weeks={week.weeks} pick={pickByEvent.get(current.id)} used={used} now={now} />
@@ -109,7 +118,7 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
         // Every event played so far, which is also the list of golfers used.
         log={
           <>
-            <div className="flex items-baseline justify-end gap-3 text-sm">
+            <div className="flex shrink-0 items-baseline justify-end gap-3 text-sm">
               <span>
                 <span className="text-muted">Season total </span>
                 <span className="font-bold tabular-nums">{money(total)}</span>
@@ -118,11 +127,12 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
             {log.length === 0 ? (
               <p className="mt-2 border-y border-line py-3 text-sm text-muted">No events have been played yet.</p>
             ) : (
-              <div className="mt-2 overflow-x-auto border-y border-line">
+              <div className="mt-2 min-h-0 flex-1 overflow-auto overscroll-contain border-y border-line">
                 {/* Phones: smaller type and tighter columns so it fits without scrolling sideways. */}
                 <table className="w-full table-fixed text-xs sm:table-auto sm:text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-muted">
+                    {/* Pinned at the top of the box as it scrolls. */}
+                    <tr className="sticky top-0 z-10 bg-bg text-left text-xs text-muted shadow-[inset_0_-1px_0_var(--line)]">
                       <th className="w-7 py-2 pr-1 font-medium sm:w-10 sm:pr-2">Wk</th>
                       <th className="py-2 pr-2 font-medium sm:pr-3">Tournament</th>
                       <th className="py-2 pr-2 font-medium sm:pr-3">Golfer</th>
@@ -158,15 +168,15 @@ export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/gol
             {upcoming.length === 0 ? (
               <p className="border-y border-line py-3 text-sm text-muted">Nothing after this week.</p>
             ) : (
-              <div className="border-y border-line">
+              <div className="flex min-h-0 flex-1 flex-col border-y border-line">
                 {/* Column titles, lined up with the rows below. */}
-                <div className="flex items-end gap-2 border-b border-line pb-1.5 pt-2 sm:gap-2.5 text-[11px] font-medium text-muted" aria-hidden>
+                <div className="flex shrink-0 items-end gap-2 border-b border-line pb-1.5 pt-2 sm:gap-2.5 text-[11px] font-medium text-muted" aria-hidden>
                   <span className="w-9 shrink-0 sm:w-10">Wk</span>
                   <span className="min-w-0 flex-1">Tournament</span>
                   <span className="w-12 shrink-0 text-right sm:w-14">Purse</span>
                   <span className="w-16 shrink-0 text-right">Start Date</span>
                 </div>
-                <ol className="divide-y divide-line">
+                <ol className="min-h-0 flex-1 divide-y divide-line overflow-y-auto overscroll-contain">
                   {upcoming.map((ev) => {
                     const i = info.get(ev.id);
                     // The first tee time once posted; before that ESPN's start date for the event.
@@ -227,23 +237,23 @@ async function ThisWeek({
 
   return (
     <>
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+      <div className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">
         Week {weekNumber} of {weeks}
         {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
       </div>
-      <h2 className="mt-0.5 text-xl font-bold leading-snug">
+      <h2 className="mt-0.5 shrink-0 text-lg font-bold leading-snug">
         {event.name}
         {/* The purse, so bigger-money weeks stand out. */}
         {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} Purse</span>}
         <EventTag name={event.name} signature={signature} className="ml-2 align-middle" />
       </h2>
-      <p className="text-xs text-muted">
+      <p className="shrink-0 text-xs text-muted">
         {event.start_at
           ? `Tournament Locks ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
           : "Tee Times Not Posted Yet · Picks Open Monday of Tournament Week, 7 AM Central"}
       </p>
 
-      <div className="mt-2 grid grid-cols-2 gap-4 border-y border-line py-2">
+      <div className="mt-2 grid shrink-0 grid-cols-2 gap-4 border-y border-line py-2">
         <div className="min-w-0">
           <div className="text-[11px] text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s pick` : "My Pick"}</div>
           <div className={`break-words text-sm font-bold leading-snug ${pick ? "" : "text-muted"}`}>
