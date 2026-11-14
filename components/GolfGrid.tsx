@@ -67,13 +67,14 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                 // The tournament row stands apart from the picks: a shaded band, bold names, a heavier rule.
                 className="sticky top-0 z-20 min-w-[4.75rem] max-w-24 border-b-2 border-l border-b-ink/25 border-l-line/60 bg-surface px-1 py-2 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
               >
-                <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal">
-                  {w.live ? <LiveDot>Live</LiveDot> : w.final ? <span className="font-semibold">Final</span> : <span>Wk {w.week}</span>}
-                </div>
+                {/* Just the tournament and its week (a Live dot while it's under way). */}
+                {w.live && (
+                  <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal">
+                    <LiveDot>Live</LiveDot>
+                  </div>
+                )}
                 <div className="mx-auto line-clamp-2 max-w-[5.5rem] text-[12px] font-bold text-ink">{w.short}</div>
-                {!w.live && w.final && <div className="text-[10px] font-normal tabular-nums">Wk {w.week}</div>}
-                {/* Others' picks in this column are hidden until the lock. */}
-                {w.open && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
+                <div className="text-[10px] font-normal tabular-nums">Wk {w.week}</div>
               </th>
             ))}
           </tr>
@@ -111,7 +112,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                     {c.hidden ? (
                       <LockIcon className="mx-auto size-3 text-faint" />
                     ) : !c.golfer ? (
-                      <span className="text-[11px] text-faint">{w.final ? "No Pick" : ""}</span>
+                      <span className="text-[11px] text-faint">{w.final ? <><span aria-hidden>–</span><span className="sr-only">No pick</span></> : ""}</span>
                     ) : (
                       <button type="button" onClick={() => setDetail(open ? null : id)} title={`${c.golfer}${c.finish ? ` · ${c.finish}` : ""}${c.final ? ` · ${money(c.earned)}` : ""}`} className="block h-full w-full px-1 leading-tight">
                         <div className="flex items-center justify-center gap-0.5 text-[11px] font-medium text-ink">
@@ -123,8 +124,9 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                           )}
                           <span className="truncate">{lastName(c.golfer)}</span>
                         </div>
-                        <div className={`text-[12px] tabular-nums ${c.final ? (c.earned > 0 ? "font-semibold text-ink" : "text-muted") : "text-muted"}`}>
-                          {c.final ? (c.earned > 0 ? short$(c.earned) : c.finish || "$0") : c.finish}
+                        {/* Nothing won: a small grey MC / WD, or a faint dash. */}
+                        <div className={`tabular-nums ${c.final ? (c.earned > 0 ? "text-[12px] font-semibold text-ink" : "text-[10px] text-faint") : "text-[12px] text-muted"}`}>
+                          {c.final ? (c.earned > 0 ? short$(c.earned) : c.finish || "–") : c.finish}
                           {c.topOfWeek && <span className="sr-only"> (top pick this week)</span>}
                         </div>
                       </button>

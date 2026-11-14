@@ -127,16 +127,18 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           : "Tee Times Not Posted Yet";
 
   return (
-    // Fills the screen like the League Grid: the header stays put and the board scrolls below it.
+    // Phones and tablets: fills the screen like the League Grid, the header staying put and the
+    // board scrolling below it. Desktop: the board runs the full width and the page scrolls as
+    // one (no scroll box), the column titles pinned under the app header.
     <div
       data-fill-viewport
-      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+      className="flex lg:max-h-none max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <h1 className="sr-only">Leaderboard</h1>
       {/* Refresh every minute while under way, and from the first tee time so it notices the start. */}
       <AutoRefresh active={state === "live" || teedOff} seconds={60} />
       {/* One compact header: the tournament and its status on the left, the dropdown on the right. */}
-      <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2 xl:max-w-[calc(64rem+18rem+1.5rem)]">
+      <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
             Leaderboard · Week {weekNo}
