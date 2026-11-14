@@ -165,7 +165,7 @@ export function GolfLeaderboard({
     </div>
     {/* Wide screens: the pool's picks this week at a glance. */}
     {/* Pinned beside the board as the page scrolls. */}
-    <aside className={`sticky ${H.replace("lg:top","top")} hidden max-h-[calc(100dvh-3rem-3px-2rem)] w-72 shrink-0 flex-col self-start xl:flex 2xl:w-80`} aria-label="Pool Picks">
+    <aside className={`sticky top-[calc(3rem+3px+env(safe-area-inset-top))] hidden max-h-[calc(100dvh-3rem-3px-2rem)] w-72 shrink-0 flex-col self-start xl:flex 2xl:w-80`} aria-label="Pool Picks">
       <div className="border-b-2 border-ink/25 bg-surface px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Pool Picks</div>
       {picked.length === 0 ? (
         <p className="px-3 py-3 text-sm text-muted">{state === "scheduled" ? "Picks Show at the Lock" : "No Picks This Week"}</p>
