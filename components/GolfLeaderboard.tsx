@@ -53,17 +53,17 @@ export function GolfLeaderboard({
   // Each header cell is pinned itself (not the <thead>, which mobile Safari doesn't pin
   // reliably), with a solid page-colored band above it so no row ever shows over or through
   // it at the top of the box, and its bottom rule drawn as a shadow so it stays with it.
-  const th = "sticky top-0 z-20 bg-bg py-2 text-[11px] font-medium text-muted shadow-[0_-8px_0_var(--bg),inset_0_-1px_0_var(--line)]";
+  const th = "sticky top-0 lg:top-[calc(3rem+3px+env(safe-area-inset-top))] z-20 bg-bg py-2 text-[11px] font-medium text-muted shadow-[0_-8px_0_var(--bg),inset_0_-1px_0_var(--line)]";
 
   // Golfers picked in the pool, in leaderboard order, for the side panel on wide screens.
   const picked = rows.filter((r) => r.pickedBy > 0);
 
   return (
-    <div className="flex min-h-0 flex-1 gap-6">
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col xl:max-w-5xl">
+    <div className="flex min-h-0 flex-1 gap-6 2xl:gap-8">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* Its own scroll box filling the screen (as on the League Grid): the column labels stay
           pinned at its top, so they never slide under the app's header. */}
-      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto overscroll-contain isolate sm:mx-0">
+      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto overscroll-contain isolate sm:mx-0 lg:flex-none lg:overflow-visible">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left">
@@ -71,10 +71,10 @@ export function GolfLeaderboard({
               <th className={`${th} px-2`}>Golfer</th>
               {started ? (
                 <>
-                  <th className={`${th} w-14 px-1 text-right`}>To Par</th>
-                  <th className={`${th} w-16 px-1 text-right`}>{state === "final" ? "" : "Thru"}</th>
+                  <th className={`${th} w-14 px-1 text-right 2xl:w-20`}>To Par</th>
+                  <th className={`${th} w-16 px-1 text-right 2xl:w-20`}>{state === "final" ? "" : "Thru"}</th>
                   {[1, 2, 3, 4].map((n) => (
-                    <th key={n} className={`${th} hidden w-10 px-1 text-right sm:table-cell`}>
+                    <th key={n} className={`${th} hidden w-10 px-1 text-right sm:table-cell 2xl:w-14`}>
                       R{n}
                     </th>
                   ))}
@@ -164,7 +164,8 @@ export function GolfLeaderboard({
       {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a Golfer to See Their Scorecard</p>}
     </div>
     {/* Wide screens: the pool's picks this week at a glance. */}
-    <aside className="hidden min-h-0 w-72 shrink-0 flex-col xl:flex" aria-label="Pool Picks">
+    {/* Pinned beside the board as the page scrolls. */}
+    <aside className={`sticky ${H.replace("lg:top","top")} hidden max-h-[calc(100dvh-3rem-3px-2rem)] w-72 shrink-0 flex-col self-start xl:flex 2xl:w-80`} aria-label="Pool Picks">
       <div className="border-b-2 border-ink/25 bg-surface px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Pool Picks</div>
       {picked.length === 0 ? (
         <p className="px-3 py-3 text-sm text-muted">{state === "scheduled" ? "Picks Show at the Lock" : "No Picks This Week"}</p>

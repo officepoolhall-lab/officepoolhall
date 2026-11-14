@@ -40,6 +40,12 @@ export function AxisLockScroll({ className, children }: { className?: string; ch
         tracking = false;
         return;
       }
+      // Not scrolling at all (e.g. desktop layouts where the box grows to fit): leave the swipe
+      // to the page.
+      if (el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1) {
+        tracking = false;
+        return;
+      }
       const t = e.touches[0];
       startX = lastX = t.clientX;
       startY = lastY = t.clientY;
