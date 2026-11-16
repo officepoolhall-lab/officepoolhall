@@ -187,8 +187,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                   title={`${t.name}: champion pick`}
                   className="sticky top-0 z-20 w-12 min-w-12 max-w-12 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
                 >
-                  {/* The name in full (wrapping, never cut off; "Tournament" dropped), a trophy under it. */}
-                  <div className="font-semibold text-ink [overflow-wrap:anywhere]">{t.name.replace(/\s*\btournament\b\s*/gi, " ").trim()}</div>
+                  {/* The name in full ("Tournament" dropped), a trophy under it. */}
+                  {/* Sideways, reading bottom to top, on one line: never cut off or split. */}
+                  <div className="mx-auto whitespace-nowrap font-semibold text-ink [transform:rotate(180deg)] [writing-mode:vertical-rl]">
+                    {t.name.replace(/\s*\btournament\b\s*/gi, " ").trim()}
+                  </div>
                   <TrophyIcon className="mx-auto mt-0.5 size-3.5 text-[#b8860b] dark:text-[#e0b84c]" />
                 </th>
               ))}
