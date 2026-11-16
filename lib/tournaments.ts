@@ -91,6 +91,13 @@ export async function getTournamentPicks(ctx: PoolContext, ids: string[], userId
   return (data ?? []).map((p) => ({ ...p, points: p.points === null ? null : Number(p.points) }));
 }
 
+/** The commissioner's view of one player's champion picks, even before a tournament locks. */
+export async function getMemberTournamentPicks(ctx: PoolContext, userId: string): Promise<TournamentPick[]> {
+  const { data, error } = await ctx.supabase.rpc("member_tournament_picks", { p_pool_id: ctx.pool.id, p_user_id: userId });
+  if (error) throw error;
+  return (data ?? []).map((p) => ({ ...p, points: p.points === null ? null : Number(p.points) }));
+}
+
 /** A champion's points: the most one in-season tournament pick can add to a week. */
 export const CHAMPION_POINTS = 5;
 
