@@ -11,7 +11,7 @@ import { TournamentPicks } from "@/components/TournamentPicks";
 import { BracketCard } from "@/components/BracketCard";
 import { pickCount } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
-import { SCORING_LABEL, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
+import { SCORING_LABEL, getMemberTournamentPicks, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 import { getTeamRecords } from "@/lib/teamRecords";
 import { withLiveClocks } from "@/lib/liveClock";
 import { PickBoard } from "./PickBoard";
@@ -88,7 +88,11 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
 
   // This week's tournament champion picks (basketball), with this entry's pick on each.
   const weekTournaments = (await getTournaments(ctx)).filter((t) => t.week === slate.week);
-  const tournamentPicks = await getTournamentPicks(ctx, weekTournaments.map((t) => t.id), userId);
+  // The commissioner viewing a player's entry needs their own access (row security hides
+  // others' champion picks until the lock), as member_picks does for games.
+  const tournamentPicks = forUserId
+    ? (await getMemberTournamentPicks(ctx, forUserId)).filter((p) => weekTournaments.some((t) => t.id === p.tournament_id))
+    : await getTournamentPicks(ctx, weekTournaments.map((t) => t.id), userId);
   const tournamentCards = weekTournaments.map((t) => {
     const p = tournamentPicks.find((x) => x.tournament_id === t.id);
     const team = p ? t.teams.find((x) => x.id === p.team_id) : undefined;
