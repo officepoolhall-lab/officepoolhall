@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { effectiveLockAt } from "./locks";
+import { getApPoll } from "./apPoll";
 import { poolSettingsSchema } from "./poolSettings";
 import { getViewerTimeZone } from "./viewerTime";
 
@@ -101,8 +102,19 @@ const GAME_SELECT = `
  * when it actually stops taking picks: the same rule the database enforces.
  */
 export async function getSlateGames(ctx: PoolContext, slateId: string) {
-  const { data, error } = await ctx.supabase.from("slate_games").select(GAME_SELECT).eq("slate_id", slateId);
+  const [{ data, error }, poll] = await Promise.all([
+    ctx.supabase.from("slate_games").select(GAME_SELECT).eq("slate_id", slateId),
+    getApPoll(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf"),
+  ]);
   if (error) throw error;
+  // Ranks come from the same poll as Home (AP; CFP for football once out) for every game
+  // played since it was released, so a new poll shows the day it comes out. Earlier games keep
+  // the rank stored when they were played. (The stored ranks come from ESPN's scoreboards,
+  // which can lag a new poll by a day or more.)
+  const pollRank = new Map((poll?.teams ?? []).filter((t) => t.espnId).map((t) => [t.espnId!, t.rank]));
+  // eslint-disable-next-line react-hooks/purity -- server render
+  const since = poll ? (poll.date ? Date.parse(poll.date) : Date.now()) : null;
+  const fromPoll = (startAt: string) => since !== null && pollRank.size > 0 && Date.parse(startAt) >= since;
   return (data ?? [])
     .map((sg) => {
       // Slates published before per-game deadlines existed only have the slate's lock_at.
@@ -121,8 +133,8 @@ export async function getSlateGames(ctx: PoolContext, slateId: string) {
         neutral: sg.game.neutral_site,
         venue: sg.game.venue,
         tv: sg.game.tv_network,
-        homeRank: sg.game.home_rank,
-        awayRank: sg.game.away_rank,
+        homeRank: fromPoll(sg.game.start_at) ? (pollRank.get(sg.game.home.espn_id ?? "") ?? null) : sg.game.home_rank,
+        awayRank: fromPoll(sg.game.start_at) ? (pollRank.get(sg.game.away.espn_id ?? "") ?? null) : sg.game.away_rank,
         spread: sg.locked_home_spread === null ? null : Number(sg.locked_home_spread),
         voided: sg.voided,
         espnId: sg.game.espn_id,
