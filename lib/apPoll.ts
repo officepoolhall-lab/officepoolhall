@@ -10,6 +10,8 @@ const REVALIDATE_SECONDS = 3600;
 
 export type PollTeam = {
   rank: number;
+  /** ESPN's team id (matches teams.espn_id). */
+  espnId: string | null;
   /** Last week's rank; null when the team was unranked. */
   previous: number | null;
   name: string;
@@ -32,7 +34,7 @@ type EspnRank = {
   previous?: number;
   firstPlaceVotes?: number;
   recordSummary?: string;
-  team?: { nickname?: string; location?: string; name?: string; abbreviation?: string; logo?: string; logos?: { href?: string }[] };
+  team?: { id?: string | number; nickname?: string; location?: string; name?: string; abbreviation?: string; logo?: string; logos?: { href?: string }[] };
 };
 type EspnRanking = { type?: string; name?: string; shortName?: string; date?: string; occurrence?: { displayValue?: string }; ranks?: EspnRank[] };
 
@@ -60,6 +62,7 @@ export async function getApPoll(sport: "ncaaf" | "ncaab"): Promise<ApPoll | null
       .filter((r): r is EspnRank & { current: number } => typeof r.current === "number" && r.current > 0)
       .map((r) => ({
         rank: r.current,
+        espnId: r.team?.id != null ? String(r.team.id) : null,
         previous: r.previous && r.previous > 0 ? r.previous : null,
         name: r.team?.nickname ?? r.team?.location ?? r.team?.name ?? "—",
         abbreviation: r.team?.abbreviation ?? "",
