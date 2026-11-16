@@ -7,6 +7,7 @@ import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
+import { getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 
 export const metadata: Metadata = { title: "League Grid" };
 
@@ -51,7 +52,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const slate = slates?.find((s) => s.week === Number(week));
   if (!slate) return (<><PageTitle>League Grid</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
 
-  const [games, standings, season, picks, { data: submissions }] = await Promise.all([
+  const [games, standings, season, picks, { data: submissions }, allTournaments] = await Promise.all([
     getSlateGames(ctx, slate.id),
     getStandings(ctx, slate.id),
     sort === "season" ? getStandings(ctx) : null,
@@ -59,13 +60,28 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     slatePicks(ctx, slate.id),
     // Who has submitted this week (counts only; picks stay hidden until kickoff).
     ctx.supabase.rpc("slate_submissions", { p_slate_id: slate.id }),
+    getTournaments(ctx),
   ]);
+  // Champion picks for tournaments set in this week: their own columns at the start of the grid.
+  const tournaments = allTournaments.filter((t) => t.week === slate.week);
+  const tournamentPicks = await getTournamentPicks(ctx, tournaments.map((t) => t.id));
+  const champPick = new Map(tournamentPicks.map((p) => [`${p.user_id}:${p.tournament_id}`, p]));
   // Until that database function exists, fall back to "missed" from the week's scores.
   const submitted = submissions ? new Map<string, number>((submissions as { user_id: string; picks: number }[]).map((x) => [x.user_id, x.picks])) : null;
   const noPicks = (r: { userId: string; missed: number }) => (submitted ? (submitted.get(r.userId) ?? 0) === 0 : r.missed > 0);
   const byCell = new Map((picks ?? []).map((p) => [`${p.user_id}:${p.game_id}`, p]));
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which columns have locked
   const now = Date.now();
+  // Everyone's champion picks (the viewer's own included) show once the tournament locks.
+  const tLocked = (t: (typeof tournaments)[number]) => Date.parse(t.lockAt) <= now;
+  const teamOf = (t: (typeof tournaments)[number], id: string) => t.teams.find((x) => x.id === id) ?? null;
+  // The most-picked team per tournament, for the footer.
+  const topPick = (t: (typeof tournaments)[number]) => {
+    const n = new Map<string, number>();
+    for (const p of tournamentPicks) if (p.tournament_id === t.id) n.set(p.team_id, (n.get(p.team_id) ?? 0) + 1);
+    const best = [...n.entries()].sort((a, b) => b[1] - a[1])[0];
+    return best ? { team: teamOf(t, best[0]), count: best[1] } : null;
+  };
 
   const ats = ctx.settings.pick_type === "ats";
   // Column times in the viewer's own zone.
@@ -92,8 +108,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const openGameIds = games.filter((g) => !g.voided && !isLocked(g)).map((g) => g.id);
   const picksByUser = new Map<string, NonNullable<typeof picks>>();
   for (const p of picks ?? []) picksByUser.set(p.user_id, [...(picksByUser.get(p.user_id) ?? []), p]);
+  // In-season tournaments count toward the week: one still being played can add up to a
+  // champion's points (5) for anyone with a pick in it.
+  const tournamentUpside = (userId: string) =>
+    tournaments.filter((t) => t.scoring !== "champion_only" && !t.decided && champPick.has(`${userId}:${t.id}`)).length * 5;
   const possible = (r: (typeof standings)[number]) =>
-    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues });
+    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues }) + tournamentUpside(r.userId);
 
   // Picks per side, for the footer. Only meaningful once a game locks: before that RLS
   // returns just the viewer's own pick.
@@ -159,6 +179,16 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                   </span>
                 </div>
               </th>
+              {tournaments.map((t) => (
+                <th
+                  key={t.id}
+                  title={`${t.name}: champion pick`}
+                  className="sticky top-0 z-20 min-w-20 border-b border-r border-line bg-bg px-1.5 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
+                >
+                  {/* Just the tournament's name, in full (wraps rather than cut off). */}
+                  <div className="mx-auto max-w-28 font-semibold text-ink">{t.name}</div>
+                </th>
+              ))}
               {games.map((g) => {
                 const revealed = isRevealed(g);
                 // Same live states as the Picks tab's status line.
@@ -240,6 +270,24 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       </span>
                     </div>
                   </th>
+                  {tournaments.map((t) => {
+                    const p = tLocked(t) ? champPick.get(`${r.userId}:${t.id}`) : undefined;
+                    const team = p ? teamOf(t, p.team_id) : null;
+                    const scored = p?.points != null;
+                    const tone = scored ? (p!.points! > 0 ? "text-win" : "text-loss") : "text-ink";
+                    const place = team ? placeLabel(t.scoring, team.placement) : null;
+                    return (
+                      <td key={t.id} title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined} className={`h-9 min-w-16 border-b border-r border-line px-1 text-center ${tone}`}>
+                        {team && (
+                          <div className="leading-tight">
+                            <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>{team.abbreviation ?? team.short_name ?? team.name}</div>
+                            {scored && <div className="text-[13px] font-semibold tabular-nums">{points(p!.points!)}</div>}
+                            {place && <span className="sr-only">, {place}</span>}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                   {games.map((g) => {
                     // Nothing shows before kickoff, the viewer's own pick included.
                     const p = isRevealed(g) ? byCell.get(`${r.userId}:${g.id}`) : undefined;
@@ -293,6 +341,20 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">
                 {standings.length} {standings.length === 1 ? "player" : "players"}
               </th>
+              {tournaments.map((t) => {
+                const top = tLocked(t) ? topPick(t) : null;
+                return (
+                  <td key={t.id} className="border-r border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
+                    {!tLocked(t) ? (
+                      <LockIcon className="mx-auto size-3 text-muted" />
+                    ) : top?.team ? (
+                      <div className="whitespace-nowrap" title="Most-picked champion">
+                        <span className="text-muted">{top.team.abbreviation ?? top.team.short_name}</span> <span className="font-semibold tabular-nums">{top.count}</span>
+                      </div>
+                    ) : null}
+                  </td>
+                );
+              })}
               {games.map((g) => {
                 const c = sides.get(g.id) ?? { away: 0, home: 0 };
                 return (

@@ -30,7 +30,7 @@ export const metadata: Metadata = { title: "Standings" };
  */
 export default async function StandingsPage({ params, searchParams }: PageProps<"/p/[slug]/standings">) {
   const { slug } = await params;
-  const { week: weekParam, segment: segmentParam, split: splitParam } = await searchParams;
+  const { week: weekParam, segment: segmentParam, split: splitParam, tournaments: tourneyParam } = await searchParams;
   const ctx = await getPoolContext(slug);
   // Favorites/Underdogs only mean something against the spread; straight-up pools show All only.
   const splits = ctx.settings.pick_type === "ats" ? SPLITS : SPLITS.filter((x) => x.id === "all");
@@ -54,7 +54,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const defaultSegmentNumber = Math.max(1, currentSegmentNumber);
   const startSegment = askedSegment ? askedSegmentNumber : defaultSegmentNumber;
   // Phones lead with the week if one was asked for, else the segment, else the season.
-  const startTab = askedWeek ? "weekly" : askedSegment ? "segment" : "season";
+  const startTab = askedWeek ? "weekly" : askedSegment ? "segment" : typeof tourneyParam === "string" ? "tournaments" : "season";
 
   const flat = !ctx.settings.confidence;
   const [book, games, picks] = await Promise.all([
@@ -68,11 +68,17 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   ]);
   const seasonRows = book.season();
 
-  // ---------- Tournament champion picks: their own bonus line ----------
+  // ---------- Tournament champion picks ----------
+  // Three views on the Tournaments tab: MTEs (in-season events; their points already count in
+  // their week, so this is just the breakdown), Conference tournaments (scored separately),
+  // and the NCAA bracket (below).
   const tournaments = await getTournaments(ctx);
   const tPicks = await getTournamentPicks(ctx, tournaments.map((t) => t.id));
-  const tournamentRows: TournamentRow[] = seasonRows.map((r) => {
-    const mine = tPicks.filter((p) => p.user_id === r.userId);
+  const mtes = tournaments.filter((t) => t.scoring !== "champion_only");
+  const conferences = tournaments.filter((t) => t.scoring === "champion_only");
+  const rowsFor = (list: typeof tournaments): TournamentRow[] => seasonRows.map((r) => {
+    const ids = new Set(list.map((t) => t.id));
+    const mine = tPicks.filter((p) => p.user_id === r.userId && ids.has(p.tournament_id));
     return {
       userId: r.userId,
       name: r.name,
@@ -80,6 +86,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       champs: mine.filter((p) => tournaments.find((t) => t.id === p.tournament_id)?.teams.find((x) => x.id === p.team_id)?.placement === "champion").length,
     };
   });
+  const mteRows = rowsFor(mtes);
+  const conferenceRows = rowsFor(conferences);
   // eslint-disable-next-line react-hooks/purity -- whether brackets have locked, at render time
   const renderedAt = Date.now();
   // ---------- NCAA Tournament bracket: its own line ----------
@@ -94,7 +102,16 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   });
   // The Bracket column waits for the tournament itself: it appears once brackets lock (March).
   const showBracket = Boolean(bracket) && bracketLocked;
-  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (tournaments.length > 0 ? 1 : 0) + (showBracket ? 1 : 0);
+  // The NCAA bracket is the third view on the Tournaments tab (not a column of its own).
+  const hasTournamentTab = tournaments.length > 0 || showBracket;
+  const tournamentOptions: SwitchOption[] = [
+    { id: "mte", label: "MTEs" },
+    { id: "conference", label: "Conference" },
+    { id: "ncaa", label: "NCAA" },
+  ];
+  // Opens on the latest stage of the season that has started.
+  const tournamentDefault = showBracket ? "ncaa" : conferences.some((t) => Date.parse(t.lockAt) <= renderedAt) ? "conference" : "mte";
+  const columnCount = 2 + (segments.length > 0 ? 1 : 0) + (hasTournamentTab ? 1 : 0);
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or open
   const now = Date.now();
@@ -194,7 +211,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
       {!slates.length ? (
         <Empty>Standings appear once the first week is published.</Empty>
       ) : (
-        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={tournaments.length > 0} hasBracket={showBracket}>
+        <StandingsTabs initial={startTab} hasSegments={segments.length > 0} hasTournaments={hasTournamentTab} hasBracket={false}>
           <div className={`lg:grid lg:items-start lg:gap-8 ${columnCount >= 5 ? "lg:grid-cols-5 lg:gap-5" : columnCount === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <TabPanel id="season" label="Season standings">
               <OptionSwitcher
@@ -241,24 +258,43 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                 />
               </TabPanel>
             )}
-            {tournaments.length > 0 && (
+            {hasTournamentTab && (
               <TabPanel id="tournaments" label="Tournament standings">
-                <div className={FROZEN_HEAD}>
-                  <MobileTabs />
-                  <SectionLabel className="flex min-h-9 items-center">Tournaments</SectionLabel>
-                  <TournamentHeaderRow />
-                </div>
-                <TournamentStandings rows={tournamentRows} me={me} playerHref={playerHref} />
-              </TabPanel>
-            )}
-            {bracket && showBracket && (
-              <TabPanel id="bracket" label="NCAA bracket standings">
-                <div className={FROZEN_HEAD}>
-                  <MobileTabs />
-                  <SectionLabel className="flex min-h-9 items-center">{bracket.name}</SectionLabel>
-                  <BracketHeaderRow />
-                </div>
-                <BracketStandings rows={bracketRows} me={me} locked={bracketLocked} bracketHref={(id) => (id === me ? `/p/${slug}/bracket` : `/p/${slug}/bracket?user=${id}`)} />
+                <OptionSwitcher
+                  options={tournamentOptions}
+                  initial={typeof tourneyParam === "string" ? tourneyParam : tournamentDefault}
+                  param="tournaments"
+                  defaultId={tournamentDefault}
+                  views={{
+                    mte: mtes.length ? (
+                      <TournamentStandings rows={mteRows} me={me} playerHref={playerHref} />
+                    ) : (
+                      <p className="py-3 text-sm text-muted">No in-season tournaments yet.</p>
+                    ),
+                    conference: conferences.length ? (
+                      <TournamentStandings rows={conferenceRows} me={me} playerHref={playerHref} />
+                    ) : (
+                      <p className="py-3 text-sm text-muted">Conference tournament picks open in March.</p>
+                    ),
+                    ncaa: bracket && showBracket ? (
+                      <BracketStandings rows={bracketRows} me={me} locked={bracketLocked} bracketHref={(id) => (id === me ? `/p/${slug}/bracket` : `/p/${slug}/bracket?user=${id}`)} />
+                    ) : (
+                      <p className="py-3 text-sm text-muted">Bracket standings show once brackets lock.</p>
+                    ),
+                  }}
+                  headers={{
+                    mte: mtes.length ? <TournamentHeaderRow /> : null,
+                    conference: conferences.length ? <TournamentHeaderRow /> : null,
+                    ncaa: bracket && showBracket ? <BracketHeaderRow /> : null,
+                  }}
+                  titles={{
+                    mte: <>Tournaments<span className="font-normal normal-case tracking-normal">&nbsp;· Counted in Their Week</span></>,
+                    conference: <>Tournaments</>,
+                    ncaa: <>{bracket?.name ?? "Tournaments"}</>,
+                  }}
+                  lead={<MobileTabs />}
+                  ariaLabel="Choose tournaments"
+                />
               </TabPanel>
             )}
           </div>
