@@ -109,10 +109,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const openGameIds = games.filter((g) => !g.voided && !isLocked(g)).map((g) => g.id);
   const picksByUser = new Map<string, NonNullable<typeof picks>>();
   for (const p of picks ?? []) picksByUser.set(p.user_id, [...(picksByUser.get(p.user_id) ?? []), p]);
-  // In-season tournaments count toward the week: one still being played can add up to a
-  // champion's points (5) for anyone with a pick in it.
+  // In-season tournaments count toward the week: one not yet decided can add up to a
+  // champion's points (5). Before it locks everyone can still pick (and others' picks aren't
+  // visible yet), so everyone has it; after, only entries with a pick in it.
   const tournamentUpside = (userId: string) =>
-    tournaments.filter((t) => t.scoring !== "champion_only" && !t.decided && champPick.has(`${userId}:${t.id}`)).length * 5;
+    tournaments.filter((t) => t.scoring !== "champion_only" && !t.decided && (!tLocked(t) || champPick.has(`${userId}:${t.id}`))).length * 5;
   const possible = (r: (typeof standings)[number]) =>
     possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues }) + tournamentUpside(r.userId);
 
