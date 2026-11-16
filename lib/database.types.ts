@@ -664,7 +664,10 @@ isOneToOne: false
 "ingest_golf_results":
 { Args: { "p_event_id": string,"p_results": unknown,"p_status": string }; Returns: undefined
                            },
-            "add_open_slate_game":
+            "update_slate_deadlines":
+{ Args: { "p_first_day_lock_at": string | null,"p_lock_at": string,"p_slate_id": string }; Returns: undefined
+                           },
+"add_open_slate_game":
 { Args: { "p_game_id": string,"p_home_spread"?: number | null,"p_slate_id": string }; Returns: undefined
                            },
 "add_manual_game":

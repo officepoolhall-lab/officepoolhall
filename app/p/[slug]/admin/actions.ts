@@ -88,6 +88,30 @@ export async function saveDeadlines(slug: string, slateId: string, _: ActionStat
   return done(slug, "Deadlines saved.");
 }
 
+/**
+ * Move an open (published) week's deadlines. Games already locked stay locked; the database
+ * enforces that and that the new deadlines haven't passed.
+ */
+export async function updateOpenDeadlines(slug: string, slateId: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  if (ctx.settings.lock.mode !== "weekly") return { error: "This pool locks each game at its start." };
+  const main = String(form.get("lock_at") ?? "");
+  const firstDay = String(form.get("first_day_lock_at") ?? "");
+  if (!main) return { error: "Set the week's deadline." };
+  const lockAt = fromZonedTime(main, ctx.settings.timezone);
+  const firstDayAt = firstDay ? fromZonedTime(firstDay, ctx.settings.timezone) : null;
+  if (Number.isNaN(lockAt.getTime()) || (firstDayAt && Number.isNaN(firstDayAt.getTime()))) {
+    return { error: "Enter a date and time for each deadline." };
+  }
+  const { error } = await ctx.supabase.rpc("update_slate_deadlines", {
+    p_slate_id: slateId,
+    p_lock_at: lockAt.toISOString(),
+    p_first_day_lock_at: firstDayAt?.toISOString() ?? null,
+  });
+  if (error) return { error: error.message };
+  return done(slug, "Deadlines saved.");
+}
+
 /** Give a TBD game its real tip time (datetime-local, pool time zone). Shared game row: every pool sees it. */
 export async function setGameTime(slug: string, slateId: string, gameId: string, local: string): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
