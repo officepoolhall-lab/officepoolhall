@@ -17,6 +17,7 @@ import { getNews } from "@/lib/news";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
+import { getTournamentPicks, getTournaments, tournamentUpside } from "@/lib/tournaments";
 import { getStandingsBook } from "@/lib/standings";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
@@ -28,7 +29,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   // scores for both tables), the week's games, the entry's picks and score, and how many
   // picks it has for next week if that's open early. News and rankings come from other
   // sites, so they stream in below (Suspense) rather than hold up the page.
-  const [book, games, { data: mine }, { data: score }, upcomingPicked, bracket] = await Promise.all([
+  const [book, games, { data: mine }, { data: score }, upcomingPicked, bracket, allTournaments] = await Promise.all([
     getStandingsBook(ctx),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
     slate
@@ -43,7 +44,11 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
     getBracket(ctx),
+    getTournaments(ctx),
   ]);
+  // This week's in-season tournaments (MTEs) count toward its score, so they're in "possible" too.
+  const weekTournaments = slate ? allTournaments.filter((t) => t.week === slate.week) : [];
+  const myTournamentPicks = await getTournamentPicks(ctx, weekTournaments.map((t) => t.id), ctx.entryUserId);
   // The NCAA Tournament bracket, from when it's set until it has a champion.
   const bracketEntry = bracket && !bracket.results["6-0"] ? (await getBracketEntries(ctx, bracket.id, ctx.entryUserId))[0] : undefined;
   const season = book.season();
@@ -74,7 +79,9 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       // Something to score: at least one of the player's picks has been decided.
       decided: picks.some((p) => p.result !== null),
       points: weekPoints,
-      possible: possiblePoints({ points: weekPoints, picks, openGameIds, slotValues: slotValuesFor(ctx.settings) }),
+      possible:
+        possiblePoints({ points: weekPoints, picks, openGameIds, slotValues: slotValuesFor(ctx.settings) }) +
+        tournamentUpside(weekTournaments, myTournamentPicks, ctx.entryUserId, now),
       // Weekly lock (basketball): the week's deadline, when every pick is due.
       nextLock: slate.status !== "open" ? null : weekly ? (slate.lock_at && new Date(slate.lock_at).getTime() > now ? slate.lock_at : nextLock ?? null) : nextLock ?? null,
       weekly,

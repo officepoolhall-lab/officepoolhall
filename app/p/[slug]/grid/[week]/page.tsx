@@ -7,7 +7,7 @@ import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
-import { getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
+import { getTournamentPicks, getTournaments, placeLabel, tournamentUpside } from "@/lib/tournaments";
 import { TrophyIcon } from "@/components/GolfGrid";
 
 export const metadata: Metadata = { title: "League Grid" };
@@ -109,12 +109,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const openGameIds = games.filter((g) => !g.voided && !isLocked(g)).map((g) => g.id);
   const picksByUser = new Map<string, NonNullable<typeof picks>>();
   for (const p of picks ?? []) picksByUser.set(p.user_id, [...(picksByUser.get(p.user_id) ?? []), p]);
-  // In-season tournaments count toward the week: one still being played can add up to a
-  // champion's points (5) for anyone with a pick in it.
-  const tournamentUpside = (userId: string) =>
-    tournaments.filter((t) => t.scoring !== "champion_only" && !t.decided && champPick.has(`${userId}:${t.id}`)).length * 5;
+  // In-season tournaments count toward the week: one not yet decided can add up to a
+  // champion's points (5). Before it locks everyone can still pick (and others' picks aren't
+  // visible yet), so everyone has it; after, only entries with a pick in it.
+  const upside = (userId: string) => tournamentUpside(tournaments, tournamentPicks, userId, now);
   const possible = (r: (typeof standings)[number]) =>
-    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues }) + tournamentUpside(r.userId);
+    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues }) + upside(r.userId);
 
   // Picks per side, for the footer. Only meaningful once a game locks: before that RLS
   // returns just the viewer's own pick.
@@ -186,8 +186,13 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                   title={`${t.name}: champion pick`}
                   className="sticky top-0 z-20 w-12 min-w-12 max-w-12 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
                 >
-                  {/* The name in full (wrapping, never cut off; "Tournament" dropped), a trophy under it. */}
-                  <div className="font-semibold text-ink [overflow-wrap:anywhere]">{t.name.replace(/\s*\btournament\b\s*/gi, " ").trim()}</div>
+                  {/* The name in full ("Tournament" dropped), a trophy under it. */}
+                  {/* Sideways, reading bottom to top, on one line: never cut off or split. Centered in the column. */}
+                  <div className="flex justify-center">
+                    <span className="whitespace-nowrap font-semibold text-ink [transform:rotate(180deg)] [writing-mode:vertical-rl]">
+                      {t.name.replace(/\s*\btournament\b\s*/gi, " ").trim()}
+                    </span>
+                  </div>
                   <TrophyIcon className="mx-auto mt-0.5 size-3.5 text-[#b8860b] dark:text-[#e0b84c]" />
                 </th>
               ))}

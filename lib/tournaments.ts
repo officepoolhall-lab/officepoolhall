@@ -90,3 +90,23 @@ export async function getTournamentPicks(ctx: PoolContext, ids: string[], userId
   const { data } = await q;
   return (data ?? []).map((p) => ({ ...p, points: p.points === null ? null : Number(p.points) }));
 }
+
+/** A champion's points: the most one in-season tournament pick can add to a week. */
+export const CHAMPION_POINTS = 5;
+
+/**
+ * What a week's in-season tournaments (MTEs; not conference tournaments) can still add to an
+ * entry's week score: a champion's points for each one not yet decided. Before one locks
+ * anyone can still pick (and others' picks aren't visible yet), so every entry has it; after,
+ * only entries with a pick in it. Used for "possible" points on Home and the Grid.
+ */
+export function tournamentUpside(weekTournaments: Tournament[], picks: TournamentPick[], userId: string, now: number) {
+  return (
+    weekTournaments.filter(
+      (t) =>
+        t.scoring !== "champion_only" &&
+        !t.decided &&
+        (Date.parse(t.lockAt) > now || picks.some((p) => p.tournament_id === t.id && p.user_id === userId)),
+    ).length * CHAMPION_POINTS
+  );
+}
