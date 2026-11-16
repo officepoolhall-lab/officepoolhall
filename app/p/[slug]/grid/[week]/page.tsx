@@ -8,7 +8,6 @@ import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 import { getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
-import { TrophyIcon } from "@/components/GolfGrid";
 
 export const metadata: Metadata = { title: "League Grid" };
 
@@ -184,14 +183,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 <th
                   key={t.id}
                   title={`${t.name}: champion pick`}
-                  className="sticky top-0 z-20 min-w-16 max-w-24 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
+                  className="sticky top-0 z-20 min-w-20 border-b border-r border-line bg-bg px-1.5 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
                 >
-                  <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
-                    {t.decided ? <span className="font-semibold">Final</span> : tLocked(t) ? "Champion" : shortGameTime(t.lockAt, tz, false)}
-                  </div>
-                  <TrophyIcon className="mx-auto mb-0.5 size-3.5 text-[#b8860b] dark:text-[#e0b84c]" />
-                  <div className="mx-auto line-clamp-2 max-w-[5.5rem] font-semibold text-ink">{t.name}</div>
-                  {!tLocked(t) && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
+                  {/* Just the tournament's name, in full (wraps rather than cut off). */}
+                  <div className="mx-auto max-w-28 font-semibold text-ink">{t.name}</div>
                 </th>
               ))}
               {games.map((g) => {
