@@ -8,7 +8,7 @@ import { gameDateZone, isGameLocked } from "@/lib/locks";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
 import { getTeamRecords } from "@/lib/teamRecords";
-import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines } from "../actions";
+import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines, updateOpenDeadlines } from "../actions";
 import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
 import { Matchup } from "@/components/Matchup";
 
@@ -305,6 +305,34 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">League Grid</LinkButton>
           </div>
         </div>
+        {slate.status === "open" && ctx.settings.lock.mode === "weekly" && slate.lock_at && (
+          <section>
+            <SectionLabel className="border-b border-line pb-2">Change the deadline</SectionLabel>
+            <p className="mt-2 text-sm text-muted">
+              Games already locked stay locked; every other game moves to the new deadline (or locks at tip-off if that&apos;s earlier).
+            </p>
+            {/* datetime-local's value has to change for the form to reset after a save, so key it. */}
+            <ActionForm key={`${slate.lock_at}-${slate.first_day_lock_at}`} action={updateOpenDeadlines.bind(null, slug, slate.id)} className="mt-3 grid gap-3 sm:grid-cols-2">
+              {slate.first_day_lock_at && (
+                <Field label={`${firstDay} games`} hint="Leave as is once it has passed.">
+                  <input
+                    type="datetime-local" name="first_day_lock_at" className={`${inputClass} tabular-nums`}
+                    defaultValue={formatInTimeZone(slate.first_day_lock_at, tz, LOCAL_INPUT)}
+                  />
+                </Field>
+              )}
+              <Field label={slate.first_day_lock_at ? "Everything else" : "Week locks"} hint={`${tz.replace("America/", "").replace("_", " ")} time`}>
+                <input
+                  type="datetime-local" name="lock_at" required className={`${inputClass} tabular-nums`}
+                  defaultValue={formatInTimeZone(slate.lock_at, tz, LOCAL_INPUT)}
+                />
+              </Field>
+              <SubmitButton kind="secondary" pending="Saving…" className="!px-4 !text-sm sm:col-span-2 sm:justify-self-start">
+                Save deadline
+              </SubmitButton>
+            </ActionForm>
+          </section>
+        )}
         {slate.status === "open" && (
           <section>
             <SectionLabel className="border-b border-line pb-2">Add a game to this week</SectionLabel>
