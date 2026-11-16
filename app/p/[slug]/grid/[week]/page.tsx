@@ -8,6 +8,7 @@ import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings } from "@/lib/standings";
 import { getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
+import { TrophyIcon } from "@/components/GolfGrid";
 
 export const metadata: Metadata = { title: "League Grid" };
 
@@ -183,10 +184,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 <th
                   key={t.id}
                   title={`${t.name}: champion pick`}
-                  className="sticky top-0 z-20 min-w-20 border-b border-r border-line bg-bg px-1.5 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
+                  className="sticky top-0 z-20 w-12 min-w-12 max-w-12 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
                 >
-                  {/* Just the tournament's name, in full (wraps rather than cut off). */}
-                  <div className="mx-auto max-w-28 font-semibold text-ink">{t.name}</div>
+                  {/* The name in full (wrapping, never cut off; "Tournament" dropped), a trophy under it. */}
+                  <div className="font-semibold text-ink [overflow-wrap:anywhere]">{t.name.replace(/\s*\btournament\b\s*/gi, " ").trim()}</div>
+                  <TrophyIcon className="mx-auto mt-0.5 size-3.5 text-[#b8860b] dark:text-[#e0b84c]" />
                 </th>
               ))}
               {games.map((g) => {
@@ -277,7 +279,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     const tone = scored ? (p!.points! > 0 ? "text-win" : "text-loss") : "text-ink";
                     const place = team ? placeLabel(t.scoring, team.placement) : null;
                     return (
-                      <td key={t.id} title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined} className={`h-9 min-w-16 border-b border-r border-line px-1 text-center ${tone}`}>
+                      <td key={t.id} title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined} className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone}`}>
                         {team && (
                           <div className="leading-tight">
                             <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>{team.abbreviation ?? team.short_name ?? team.name}</div>
