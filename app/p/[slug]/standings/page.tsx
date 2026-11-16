@@ -68,8 +68,9 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   ]);
   const seasonRows = book.season();
 
-  // ---------- Tournament champion picks: their own bonus line ----------
-  const tournaments = await getTournaments(ctx);
+  // ---------- Conference tournament champion picks: their own line ----------
+  // In-season tournaments (Players Era, Maui…) count toward their week's score instead.
+  const tournaments = (await getTournaments(ctx)).filter((t) => t.scoring === "champion_only");
   const tPicks = await getTournamentPicks(ctx, tournaments.map((t) => t.id));
   const tournamentRows: TournamentRow[] = seasonRows.map((r) => {
     const mine = tPicks.filter((p) => p.user_id === r.userId);

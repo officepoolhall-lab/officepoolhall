@@ -109,8 +109,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const openGameIds = games.filter((g) => !g.voided && !isLocked(g)).map((g) => g.id);
   const picksByUser = new Map<string, NonNullable<typeof picks>>();
   for (const p of picks ?? []) picksByUser.set(p.user_id, [...(picksByUser.get(p.user_id) ?? []), p]);
+  // In-season tournaments count toward the week: one still being played can add up to a
+  // champion's points (5) for anyone with a pick in it.
+  const tournamentUpside = (userId: string) =>
+    tournaments.filter((t) => t.scoring !== "champion_only" && !t.decided && champPick.has(`${userId}:${t.id}`)).length * 5;
   const possible = (r: (typeof standings)[number]) =>
-    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues });
+    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues }) + tournamentUpside(r.userId);
 
   // Picks per side, for the footer. Only meaningful once a game locks: before that RLS
   // returns just the viewer's own pick.
