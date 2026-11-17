@@ -665,6 +665,11 @@ function GameRow({
                   <span className="ml-1.5 text-xs font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
                 )}
               </span>
+              {/* Which side is home (a neutral-site game shows its city in the line above instead).
+                  Outside the name so a long name truncating never hides it. */}
+              {!g.neutral && (
+                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted lg:text-[9px]">{side === "home" ? "Home" : "Away"}</span>
+              )}
             </span>
             {/* A football marks the team with the ball while the game is live. */}
             <span className="inline-flex min-w-6 items-center justify-end gap-1 text-right text-[15px] font-semibold tabular-nums lg:text-[13px]">
