@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Cell, CheckIcon, ChevronIcon, chipClass, LiveDot, LockIcon, TeamLogo } from "@/components/ui";
+import { FitText } from "@/components/FitText";
 import { formatInTimeZone } from "date-fns-tz";
 import { dayKey, dayLabel, formatDuration, formatSpread, points as formatPoints, signedPoints, timeOnly } from "@/lib/format";
 import { gameDateZone, hasStarted, isGameLocked } from "@/lib/locks";
@@ -553,8 +554,8 @@ function GameRow({
   }
 
   const pickHeader = settings.pickType === "ats" ? "Spread" : confidence ? "Pick" : "Winner";
-  // Basketball (confidence) keeps the line short: "SEC" or "NC" for nonconference.
-  const conf = confidence ? shortConferenceLabel(g.away.conference, g.home.conference) : conferenceLabel(g.away.conference, g.home.conference);
+  // The conference ("SEC") for a conference game, "NC" for nonconference.
+  const conf = shortConferenceLabel(g.away.conference, g.home.conference);
   // Neutral site: the away team is listed first and the city stands in for "Home".
   const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
 
@@ -658,17 +659,18 @@ function GameRow({
           >
             <span className="flex min-w-0 items-center gap-2">
               <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
-              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
-                {rank ? <span className="mr-1 text-xs font-medium tabular-nums text-muted">{rank}</span> : null}
+              {/* The full name and record on one line: the font steps down to fit a long name
+                  rather than wrapping or cutting it off. */}
+              <FitText min={10} className={`flex-1 text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
+                {rank ? <span className="mr-1 text-[0.8em] font-medium tabular-nums text-muted">{rank}</span> : null}
                 {team.short_name ?? team.name}
                 {team.espn_id && records[team.espn_id] && (
-                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
+                  <span className="ml-1.5 text-[0.8em] font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
                 )}
-              </span>
-              {/* Which side is home (a neutral-site game shows its city in the line above instead).
-                  Outside the name so a long name truncating never hides it. */}
+              </FitText>
+              {/* Which side is home (a neutral-site game shows its city in the line above instead). */}
               {!g.neutral && (
-                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted lg:text-[9px]">{side === "home" ? "Home" : "Away"}</span>
+                <span className="shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
               )}
             </span>
             {/* A football marks the team with the ball while the game is live. */}
@@ -788,12 +790,6 @@ function pickPoints(g: SlateGame, pick: Draft, graded: Graded | undefined, setti
 
 function teamName(team: SlateGame["home"]) {
   return team.short_name ?? team.name;
-}
-
-/** "SEC game" for an in-conference matchup, "Nonconference" across conferences. */
-function conferenceLabel(away: string | null, home: string | null) {
-  if (!away || !home) return null;
-  return away === home ? `${away} game` : "Nonconference";
 }
 
 /** "SEC" for an in-conference matchup, "NC" (nonconference) across conferences. */
