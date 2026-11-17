@@ -553,8 +553,8 @@ function GameRow({
   }
 
   const pickHeader = settings.pickType === "ats" ? "Spread" : confidence ? "Pick" : "Winner";
-  // Basketball (confidence) keeps the line short: "SEC" or "NC" for nonconference.
-  const conf = confidence ? shortConferenceLabel(g.away.conference, g.home.conference) : conferenceLabel(g.away.conference, g.home.conference);
+  // The conference ("SEC") for a conference game, "NC" for nonconference.
+  const conf = shortConferenceLabel(g.away.conference, g.home.conference);
   // Neutral site: the away team is listed first and the city stands in for "Home".
   const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
 
@@ -658,11 +658,12 @@ function GameRow({
           >
             <span className="flex min-w-0 items-center gap-2">
               <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
-              <span className={`min-w-0 truncate text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
+              {/* The full name and record, wrapping onto a second line rather than cut off. */}
+              <span className={`min-w-0 break-words text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
                 {rank ? <span className="mr-1 text-xs font-medium tabular-nums text-muted">{rank}</span> : null}
                 {team.short_name ?? team.name}
                 {team.espn_id && records[team.espn_id] && (
-                  <span className="ml-1.5 text-xs font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
+                  <span className="ml-1.5 whitespace-nowrap text-xs font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
                 )}
               </span>
               {/* Which side is home (a neutral-site game shows its city in the line above instead).
@@ -788,12 +789,6 @@ function pickPoints(g: SlateGame, pick: Draft, graded: Graded | undefined, setti
 
 function teamName(team: SlateGame["home"]) {
   return team.short_name ?? team.name;
-}
-
-/** "SEC game" for an in-conference matchup, "Nonconference" across conferences. */
-function conferenceLabel(away: string | null, home: string | null) {
-  if (!away || !home) return null;
-  return away === home ? `${away} game` : "Nonconference";
 }
 
 /** "SEC" for an in-conference matchup, "NC" (nonconference) across conferences. */

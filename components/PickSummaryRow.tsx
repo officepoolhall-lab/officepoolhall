@@ -58,7 +58,7 @@ export function PickSummaryRow({
     return (
       <li className={rowClass}>
         <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
-        <span className={`min-w-0 flex-1 truncate ${dense ? "text-sm" : "text-[15px]"}`}>
+        <span className={`min-w-0 flex-1 break-words leading-snug ${dense ? "text-sm" : "text-[15px]"}`}>
           <span className="font-semibold">{teamName(team)}</span>
           {live && g.possession === side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
           <span className="ml-1.5 text-sm text-muted">
@@ -90,7 +90,7 @@ export function PickSummaryRow({
   return (
     <li className={`flex items-center ${dense ? "min-h-9 gap-2 py-1" : "min-h-11 gap-2.5 py-2"} ${g.voided ? "opacity-50" : ""}`}>
       <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
-      <span className={`min-w-0 flex-1 truncate ${dense ? "text-sm" : "text-[15px]"}`}>
+      <span className={`min-w-0 flex-1 break-words leading-snug ${dense ? "text-sm" : "text-[15px]"}`}>
         <span className="font-semibold">{teamName(team)}</span>
         {live && g.possession === side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
         {pickType === "ats" && <span className="ml-1.5 font-semibold tabular-nums text-accent">{formatSpread(spread)}</span>}
