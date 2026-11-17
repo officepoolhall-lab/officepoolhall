@@ -221,11 +221,13 @@ function BoxScore({ summary }: { summary: GameSummary }) {
     return (
         <div className="space-y-4">
           {t.groups.map((g) => (
-            <div key={g.name} className="-mx-4 overflow-x-auto px-4">
-              <table className="w-full min-w-max text-xs tabular-nums">
+            // Scrolls sideways edge to edge with no padding of its own: the pinned name column sits
+            // right at the box's left edge, so no stats ever show to the left of (or behind) names.
+            <div key={g.name} className="-mx-4 overflow-x-auto">
+              <table className="w-full min-w-max text-xs tabular-nums [&_tr>*:last-child]:pr-4">
                 <thead>
                   <tr className="border-b border-line text-muted">
-                    <th className="sticky left-0 bg-bg py-1.5 pr-3 text-left font-semibold capitalize text-ink">{g.name}</th>
+                    <th className="sticky left-0 z-10 bg-bg py-1.5 pl-4 pr-3 text-left font-semibold capitalize text-ink">{g.name}</th>
                     {g.labels.map((l) => (
                       <th key={l} className="px-1.5 py-1.5 text-right font-medium">{l}</th>
                     ))}
@@ -234,7 +236,7 @@ function BoxScore({ summary }: { summary: GameSummary }) {
                 <tbody className="divide-y divide-line">
                   {g.rows.map((r) => (
                     <tr key={r.name}>
-                      <td className="sticky left-0 bg-bg py-1 pr-3 text-sm">{r.name}</td>
+                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">{r.name}</td>
                       {r.stats.map((v, i) => (
                         <td key={i} className="px-1.5 py-1 text-right">{v}</td>
                       ))}
@@ -242,7 +244,7 @@ function BoxScore({ summary }: { summary: GameSummary }) {
                   ))}
                   {g.totals && (
                     <tr className="font-semibold">
-                      <td className="sticky left-0 bg-bg py-1 pr-3 text-sm">Team</td>
+                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">Team</td>
                       {g.totals.map((v, i) => (
                         <td key={i} className="px-1.5 py-1 text-right">{v}</td>
                       ))}
