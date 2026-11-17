@@ -108,12 +108,20 @@ export default async function GamePage({ params, searchParams }: PageProps<"/p/[
   );
 }
 
-function PlayRow({ p, summary }: { p: Play; summary: GameSummary }) {
+function PlayRow({ p, summary, showTeam = false }: { p: Play; summary: GameSummary; showTeam?: boolean }) {
+  // Basketball: the team's logo before each play (a blank slot for plays with no team, such as
+  // the end of a half, so the descriptions stay lined up). Football shows it on the drive instead.
+  const team = p.teamId === summary.away?.id ? summary.away : p.teamId === summary.home?.id ? summary.home : null;
   return (
     <li className={`flex gap-3 py-1.5 text-sm ${p.scoring ? "font-semibold" : ""}`}>
       <span className="w-14 shrink-0 text-xs tabular-nums text-muted">
         {p.period ? summary.periodLabel(p.period).replace(" Half", "") : ""} {p.clock ?? ""}
       </span>
+      {showTeam && (
+        <span className="-mx-1 flex size-5 shrink-0 items-center justify-center" aria-label={team?.name ?? undefined}>
+          {team && <TeamLogo src={team.logo} abbr={team.abbreviation} className="size-5" />}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         {p.down && <span className="mr-1.5 text-xs font-semibold text-muted">{p.down}</span>}
         {p.text}
@@ -167,7 +175,7 @@ function PlayByPlay({ summary }: { summary: GameSummary }) {
     return (
       <ul className="divide-y divide-line border-y border-line">
         {summary.plays.map((p) => (
-          <PlayRow key={p.id} p={p} summary={summary} />
+          <PlayRow key={p.id} p={p} summary={summary} showTeam />
         ))}
       </ul>
     );
