@@ -2,6 +2,7 @@ import { formatSpread, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 import { FootballIcon } from "./FootballIcon";
+import { FitText } from "./FitText";
 import { LiveDot, LockIcon, TeamLogo } from "./ui";
 
 const teamName = (team: SlateGame["home"]) => team.short_name ?? team.name;
@@ -58,14 +59,15 @@ export function PickSummaryRow({
     return (
       <li className={rowClass}>
         <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
-        <span className={`min-w-0 flex-1 break-words leading-snug ${dense ? "text-sm" : "text-[15px]"}`}>
+        {/* One line: the font steps down to fit rather than wrapping. */}
+      <FitText min={10} className={`flex-1 ${dense ? "text-sm" : "text-[15px]"}`}>
           <span className="font-semibold">{teamName(team)}</span>
           {live && g.possession === side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
-          <span className="ml-1.5 text-sm text-muted">
+          <span className="ml-1.5 text-[0.93em] text-muted">
             {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
             {live && g.possession !== null && g.possession !== side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
           </span>
-        </span>
+        </FitText>
         {/* Score (with Live while it's on) first, then the points on the far right. */}
         <span className="flex shrink-0 items-center gap-2 text-xs tabular-nums text-muted">
           {live && <LiveDot>{g.clock ?? "Live"}</LiveDot>}
@@ -90,16 +92,17 @@ export function PickSummaryRow({
   return (
     <li className={`flex items-center ${dense ? "min-h-9 gap-2 py-1" : "min-h-11 gap-2.5 py-2"} ${g.voided ? "opacity-50" : ""}`}>
       <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={dense ? "size-5" : "size-6"} />
-      <span className={`min-w-0 flex-1 break-words leading-snug ${dense ? "text-sm" : "text-[15px]"}`}>
+      {/* One line: the font steps down to fit rather than wrapping. */}
+      <FitText min={10} className={`flex-1 ${dense ? "text-sm" : "text-[15px]"}`}>
         <span className="font-semibold">{teamName(team)}</span>
         {live && g.possession === side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
         {pickType === "ats" && <span className="ml-1.5 font-semibold tabular-nums text-accent">{formatSpread(spread)}</span>}
-        {confidence != null && <span className="ml-1.5 text-xs tabular-nums text-muted">{confidence} pts</span>}
-        <span className="ml-1.5 text-sm text-muted">
+        {confidence != null && <span className="ml-1.5 text-[0.8em] tabular-nums text-muted">{confidence} pts</span>}
+        <span className="ml-1.5 text-[0.93em] text-muted">
           {side === "away" && !g.neutral ? "@" : "vs"} {opp.abbreviation ?? teamName(opp)}
           {live && g.possession !== null && g.possession !== side && <FootballIcon className="ml-1 h-2.5 w-[15px]" />}
         </span>
-      </span>
+      </FitText>
       <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted">
         {g.voided ? (
           <span className="font-semibold text-loss">Void</span>
