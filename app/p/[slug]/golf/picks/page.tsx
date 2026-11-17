@@ -14,6 +14,7 @@ import {
   getGolfPickResults,
   getMissedPickValues,
   getGolfResults,
+  golfFormat,
   golfWeek,
   isOpenForPicks,
   opensLater,
@@ -30,12 +31,17 @@ import { getEventInfo, shortPurse } from "@/lib/golfEventInfo";
 import { EventTag } from "@/components/EventTags";
 import { getWorldRankMap, golferKey } from "@/lib/worldRankings";
 import { saveGolfPick } from "../actions";
+import { MajorsPicks } from "./MajorsPicks";
 
 export const metadata: Metadata = { title: "My Picks" };
 
-export default async function GolfPicksPage({ params }: PageProps<"/p/[slug]/golf/picks">) {
+export default async function GolfPicksPage({ params, searchParams }: PageProps<"/p/[slug]/golf/picks">) {
   const { slug } = await params;
   const ctx = await getGolfContext(slug);
+  if (golfFormat(ctx.pool) === "majors") {
+    const { event } = await searchParams;
+    return <MajorsPicks slug={slug} ctx={ctx} events={await getGolfEvents(ctx)} eventParam={typeof event === "string" ? event : undefined} />;
+  }
   const [events, myPicks] = await Promise.all([getGolfEvents(ctx), getGolfMyPicks(ctx)]);
   // Server render time is fine here; the countdown itself ticks client-side.
   // eslint-disable-next-line react-hooks/purity

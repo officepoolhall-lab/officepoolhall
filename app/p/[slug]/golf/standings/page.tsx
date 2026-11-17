@@ -7,7 +7,8 @@ import { GolfWeekSwitcher } from "@/components/GolfWeekSwitcher";
 import { FROZEN_HEAD } from "@/components/SeasonStandings";
 import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs";
 import { Empty, PageTitle, SectionLabel } from "@/components/ui";
-import { getGolfContext } from "@/lib/golf";
+import { getGolfContext, getGolfEvents, golfFormat } from "@/lib/golf";
+import { MajorsStandings } from "./MajorsStandings";
 import { getGolfStandingsData, type StandingRow } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "Standings" };
@@ -32,8 +33,11 @@ function ranked<T>(rows: T[], value: (r: T) => number, name: (r: T) => string) {
  */
 export default async function GolfStandingsPage({ params, searchParams }: PageProps<"/p/[slug]/golf/standings">) {
   const { slug } = await params;
-  const { week: weekParam } = await searchParams;
+  const { week: weekParam, event: eventParam } = await searchParams;
   const ctx = await getGolfContext(slug);
+  if (golfFormat(ctx.pool) === "majors") {
+    return <MajorsStandings slug={slug} ctx={ctx} events={await getGolfEvents(ctx)} eventParam={typeof eventParam === "string" ? eventParam : undefined} />;
+  }
   // eslint-disable-next-line react-hooks/purity
   const data = await getGolfStandingsData(ctx, Date.now());
   const playerHref = (userId: string) => `/p/${slug}/golf/standings/${userId}`;
