@@ -661,16 +661,16 @@ function GameRow({
               <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
               {/* The full name and record on one line: the font steps down to fit a long name
                   rather than wrapping or cutting it off. */}
-              <FitText min={10} className={`flex-1 text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
+              <FitText min={10} className={`text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
                 {rank ? <span className="mr-1 text-[0.8em] font-medium tabular-nums text-muted">{rank}</span> : null}
                 {team.short_name ?? team.name}
                 {team.espn_id && records[team.espn_id] && (
                   <span className="ml-1.5 text-[0.8em] font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
                 )}
               </FitText>
-              {/* Which side is home (a neutral-site game shows its city in the line above instead). */}
+              {/* Which side is home, right after the name (a neutral-site game shows its city in the line above instead). */}
               {!g.neutral && (
-                <span className="shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
+                <span className="-ml-1 shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
               )}
             </span>
             {/* A football marks the team with the ball while the game is live. */}
