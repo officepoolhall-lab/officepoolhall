@@ -174,7 +174,6 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     me: ctx.isGuest ? null : ctx.entryUserId,
     ats,
     confidence: Boolean(ctx.settings.confidence),
-    names: ctx.pool.sport !== "ncaaf",
   };
 
   return (
