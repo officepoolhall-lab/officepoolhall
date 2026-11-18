@@ -10,6 +10,8 @@ import { formatShown, formatToPar, golferShown, scoreLineup, withProjectedEarnin
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
+import { ScorecardLink } from "@/components/ScorecardLink";
+import { espnTournamentId } from "@/lib/golfLive";
 
 /**
  * My Picks for a Majors pool: the major's field to pick from (tiers or salary cap) until it
@@ -67,6 +69,8 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
     const score = scoreLineup(mine.map((l) => l.espn_golfer_id), results, s, final);
     const counts = new Map(score.golfers.map((g) => [g.espn_golfer_id, g.counts]));
     const salary = s.contest === "salary";
+    // ESPN's tournament (or the demo's saved one) for the scorecard pop-ups.
+    const tournamentId = espnTournamentId(event.espn_id, ctx.pool.slug, event.status);
     const shown = (id: string) => formatShown(golferShown(id, results, salary ? s : { ...s, tiers: { ...s.tiers, scoring: "to_par" } }, final));
     const cash = (id: string) => (byId.has(id) ? money(byId.get(id)!.earnings) : "–");
     // Totals of the golfers who count.
@@ -103,7 +107,29 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                   return (
                     <tr key={l.espn_golfer_id} className={counted ? "" : "text-muted"}>
                       <td className="py-2 text-xs tabular-nums text-muted">{salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : `Tier ${l.tier}`}</td>
-                      <td className={`truncate py-2 ${counted ? "font-semibold" : "font-medium"}`}>{l.golfer_name}</td>
+                      <td className={`truncate py-2 ${counted ? "font-semibold" : "font-medium"}`}>
+                        {/* Tap a golfer for their hole-by-hole scorecard. */}
+                        <ScorecardLink
+                          golfer={{
+                            id: l.espn_golfer_id,
+                            name: l.golfer_name,
+                            country: null,
+                            flag: null,
+                            pos: r ? (r.out ? "MC" : (r.pos ?? "")) : "",
+                            toPar: r?.to_par === null || r?.to_par === undefined ? null : r.to_par === 0 ? "E" : r.to_par > 0 ? `+${r.to_par}` : String(r.to_par),
+                            thru: r?.thru === null || r?.thru === undefined ? null : r.thru >= 18 ? "F" : String(r.thru),
+                            rounds: r?.rounds ?? [null, null, null, null],
+                            today: null,
+                            earnings: final ? (r?.earnings ?? 0) : 0,
+                            projected: final ? null : (r?.earnings ?? null),
+                            pickedBy: 0,
+                            mine: true,
+                          }}
+                          tournamentId={tournamentId}
+                          eventName={event.name}
+                          live={event.status === "in_progress"}
+                        />
+                      </td>
                       <td className="py-2 text-right text-xs tabular-nums text-muted">{r?.out ? (r.pos && !/^\d|^T/.test(r.pos) ? r.pos : "MC") : (r?.pos ?? "")}</td>
                       <td className="py-2 text-right font-semibold tabular-nums">{shown(l.espn_golfer_id)}</td>
                       <td className="py-2 text-right tabular-nums">{cash(l.espn_golfer_id)}</td>
