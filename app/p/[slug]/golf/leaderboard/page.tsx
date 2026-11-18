@@ -164,12 +164,13 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           <h2 className="text-lg font-bold leading-tight">{event.name}</h2>
           <p className={`text-xs ${state === "live" ? "text-live" : "text-muted"}`}>{status}</p>
         </div>
-        <GolfEventSelect
+        {/* A pool with one tournament (a single-major pool) has nothing to switch between. */}
+        {counted.length > 1 && <GolfEventSelect
           basePath={`/p/${slug}/golf/leaderboard`}
           value={event.id}
           // Week 1 at the top, through the season.
           events={counted.map((e, i) => ({ id: e.id, label: majors ? e.name : `Week ${i + 1} · ${e.name}` }))}
-        />
+        />}
       </div>
       {rows.length === 0 ? (
         <Empty>The field for this tournament hasn&apos;t been posted yet.</Empty>

@@ -61,7 +61,9 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
     : { data: [] as { event_id: string }[] };
   const fieldCount = new Map<string, number>();
   for (const r of fieldRows ?? []) fieldCount.set(r.event_id, (fieldCount.get(r.event_id) ?? 0) + 1);
-  const missing = MAJORS.filter((m) => !events.some((e) => e.major === m.id));
+  // A single-major pool (made for one major) doesn't add others.
+  const scope = (ctx.pool.settings as { majors?: { scope?: string } } | null)?.majors?.scope ?? "all";
+  const missing = MAJORS.filter((m) => !events.some((e) => e.major === m.id) && (scope === "all" || scope === m.id));
   // eslint-disable-next-line react-hooks/purity -- server render
   const now = Date.now();
   const isOpen = (e: GolfEvent) =>

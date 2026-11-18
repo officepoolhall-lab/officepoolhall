@@ -11,6 +11,12 @@ export const MAJORS: { id: Major; name: string; oddsKey: string }[] = [
   { id: "open", name: "The Open", oddsKey: "golf_the_open_championship_winner" },
 ];
 
+/** ESPN's tournament ids for each major, by season (from the published schedule). */
+export const MAJOR_ESPN_IDS: Record<number, Record<Major, string>> = {
+  2026: { masters: "401811941", pga: "401811947", us_open: "401811952", open: "401811957" },
+  2027: { masters: "401916383", pga: "401916390", us_open: "401916394", open: "401916399" },
+};
+
 export type TierSource = "rank" | "odds" | "blend" | "custom";
 
 export type MajorsSettings = {
