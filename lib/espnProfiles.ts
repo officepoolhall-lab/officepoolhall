@@ -144,6 +144,8 @@ export type TeamGame = {
   date: string;
   atVs: "vs" | "@";
   opponent: string;
+  /** "Kansas City" / "Alabama": the opponent's name, for screens with room for it. */
+  opponentName: string | null;
   opponentLogo: string | null;
   result: "W" | "L" | "T" | null;
   /** "31–17", the team's score first. */
@@ -212,6 +214,7 @@ export async function getTeamHistory(
       home: us.homeAway === "home",
       neutral: comp?.neutralSite === true,
       opponent: str(them?.team?.abbreviation) ?? str(them?.team?.shortDisplayName) ?? "—",
+      opponentName: str(them?.team?.location) ?? str(them?.team?.shortDisplayName) ?? str(them?.team?.displayName),
       opponentLogo: logoOf(them?.team),
       result: us.winner === true ? "W" : them.winner === true ? "L" : a !== null && b !== null ? (a > b ? "W" : a < b ? "L" : "T") : null,
       score: a !== null && b !== null ? `${a}–${b}` : null,
