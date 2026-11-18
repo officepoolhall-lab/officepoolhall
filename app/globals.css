@@ -80,12 +80,3 @@ textarea {
   .ticker-track { animation: none; }
   .ticker-copy { display: none; }
 }
-
-/* The Grid (app/p/[slug]/grid): with a mouse, the row under the pointer is tinted (its pinned
-   name cell too) and GridHover tints the column, so one player or one game is easy to follow.
-   An inset shadow tints over a cell's win/loss fill instead of replacing it. */
-:root { --grid-hover: color-mix(in srgb, var(--accent) 8%, transparent); }
-@media (hover: hover) {
-  .pick-grid tbody tr:hover > td { box-shadow: inset 0 0 0 999px var(--grid-hover); }
-  .pick-grid tbody tr:hover > th { background-color: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
-}

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
-import { GridHover } from "@/components/GridHover";
 import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -170,11 +169,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
       {/* On touch screens each swipe scrolls one way only (up/down or left/right). */}
       <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
-        <GridHover>
         {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
             but never narrower than a readable column each; past that it scrolls as on phones. */}
         <table
-          className="pick-grid border-separate border-spacing-0 text-sm lg:w-full lg:min-w-[var(--grid-min)] lg:table-fixed"
+          className="border-separate border-spacing-0 text-sm lg:w-full lg:min-w-[var(--grid-min)] lg:table-fixed"
           style={{ "--grid-min": `${18 + tournaments.length * 3 + games.length * 4.5}rem` } as CSSProperties}
         >
           <thead>
@@ -191,7 +189,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               {tournaments.map((t) => (
                 <th
                   key={t.id}
-                  data-col={`t${t.id}`}
+                 
                   title={`${t.name}: champion pick`}
                   className="sticky top-0 z-20 w-12 min-w-12 max-w-12 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
                 >
@@ -219,7 +217,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <th
                     key={g.id}
-                    data-col={g.id}
+                   
                     className={`sticky top-0 z-20 min-w-12 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:text-xs ${g.voided ? "line-through opacity-50" : ""}`}
                   >
                     <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
@@ -294,7 +292,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     const tone = scored ? (p!.points! > 0 ? "text-win" : "text-loss") : "text-ink";
                     const place = team ? placeLabel(t.scoring, team.placement) : null;
                     return (
-                      <td key={t.id} data-col={`t${t.id}`} title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined} className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone}`}>
+                      <td key={t.id} title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined} className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone}`}>
                         {team && (
                           <div className="leading-tight">
                             <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>{team.abbreviation ?? team.short_name ?? team.name}</div>
@@ -322,7 +320,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     // loss reads "−5"; a zero-points loss keeps its value, struck through.
                     const base = p?.result != null && p.points != null ? Number(p.points) - bonus : null;
                     return (
-                      <td key={g.id} data-col={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-12 ${tone} ${fill}`}>
+                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-12 ${tone} ${fill}`}>
                         {team && (
                           <div className="leading-tight">
                             {/* Desktop has room for the team's logo over its abbreviation. */}
@@ -370,7 +368,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               {tournaments.map((t) => {
                 const top = tLocked(t) ? topPick(t) : null;
                 return (
-                  <td key={t.id} data-col={`t${t.id}`} className="border-r border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
+                  <td key={t.id} className="border-r border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
                     {!tLocked(t) ? (
                       <LockIcon className="mx-auto size-3 text-muted" />
                     ) : top?.team ? (
@@ -386,7 +384,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <td
                     key={g.id}
-                    data-col={g.id}
+                   
                     className={`border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight ${g.voided ? "opacity-50" : ""}`}
                   >
                     {/* Counted from kickoff, when every player's pick is visible. */}
@@ -404,7 +402,6 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             </tr>
           </tfoot>
         </table>
-        </GridHover>
       </AxisLockScroll>
     </div>
   );
