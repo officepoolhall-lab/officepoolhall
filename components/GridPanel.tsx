@@ -137,6 +137,10 @@ export function GridPanel({
                 <>
                   <TeamLogo src={winner.logo_url} abbr={winner.abbreviation} className="size-4" />
                   <span className="truncate">{winner.abbreviation}</span>
+                  {/* The line the winner covered, from its side. */}
+                  {ats && g.spread !== null && (
+                    <span className="shrink-0 font-normal tabular-nums text-muted">{formatSpread(winner === g.home ? g.spread : -g.spread)}</span>
+                  )}
                 </>
               ) : (
                 <span className="truncate font-normal text-muted">{graded ? "Push" : "Live"}</span>

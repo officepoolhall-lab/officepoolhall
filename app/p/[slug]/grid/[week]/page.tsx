@@ -315,10 +315,21 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     const tone = scored ? (p!.points! > 0 ? "text-win" : "text-loss") : "text-ink";
                     const place = team ? placeLabel(t.scoring, team.placement) : null;
                     return (
-                      <td key={t.id} title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined} className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone}`}>
+                      <td
+                        key={t.id}
+                        title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined}
+                        className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone} ${
+                          // Desktop: a green fill once it scored, red once it didn't, as on the game picks.
+                          scored ? (p!.points! > 0 ? "lg:bg-[color-mix(in_srgb,var(--win)_10%,transparent)]" : "lg:bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]") : ""
+                        }`}
+                      >
                         {team && (
                           <div className="leading-tight">
-                            <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>{team.abbreviation ?? team.short_name ?? team.name}</div>
+                            {/* Desktop: the champion pick's logo alone, like the game picks. */}
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto hidden size-6 lg:block" />
+                            <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>
+                              <span className="lg:sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
+                            </div>
                             {scored && <div className="text-[13px] font-semibold tabular-nums">{points(p!.points!)}</div>}
                             {place && <span className="sr-only">, {place}</span>}
                           </div>
