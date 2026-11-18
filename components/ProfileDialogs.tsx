@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerProfile, TeamHistory } from "@/lib/espnProfiles";
 import { useScrollLock } from "@/lib/useScrollLock";
 import { CheckIcon, TeamLogo } from "./ui";
+import { FitText } from "./FitText";
 
 type Sport = "ncaaf" | "ncaab" | "nfl";
 
@@ -94,7 +95,10 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
             {/* The team's logo beside the name; team, position, number and (college) year on one line. */}
             <div className="flex min-w-0 items-center gap-2">
               {p?.teamLogo && <TeamLogo src={p.teamLogo} abbr={null} className="size-6" />}
-              <h2 className="truncate text-lg font-bold">{p?.name ?? name}</h2>
+              {/* The whole name: a long one's text shrinks to fit rather than being cut off. */}
+              <h2 className="min-w-0 flex-1 text-lg font-bold">
+                <FitText min={12}>{p?.name ?? name}</FitText>
+              </h2>
             </div>
             <p className="truncate whitespace-nowrap text-xs text-muted">
               {[p?.team, p?.position, p?.jersey ? `#${p.jersey}` : null, p?.year].filter(Boolean).join(" · ")}
