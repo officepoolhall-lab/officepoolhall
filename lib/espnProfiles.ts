@@ -248,9 +248,9 @@ export async function getTeamHistory(
       tally("atsOverall", "Overall", () => true),
       tally("atsHome", "Home", (g) => g.home && !g.neutral),
       tally("atsAway", "Away", (g) => !g.home && !g.neutral),
-      tally("atsNeutral", "Neutral site", (g) => g.neutral),
-      tally("atsFavorite", "As favorite", (g) => (g.spread ?? 0) < 0),
-      tally("atsUnderdog", "As underdog", (g) => (g.spread ?? 0) > 0),
+      tally("atsNeutral", "Neutral Site", (g) => g.neutral),
+      tally("atsFavorite", "As Favorite", (g) => (g.spread ?? 0) < 0),
+      tally("atsUnderdog", "As Underdog", (g) => (g.spread ?? 0) > 0),
     ].filter((x) => x.wins + x.losses + x.pushes > 0);
   }
 

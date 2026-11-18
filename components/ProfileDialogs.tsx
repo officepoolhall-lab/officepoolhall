@@ -4,7 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerProfile, TeamHistory } from "@/lib/espnProfiles";
 import { useScrollLock } from "@/lib/useScrollLock";
-import { TeamLogo } from "./ui";
+import { CheckIcon, TeamLogo } from "./ui";
 
 type Sport = "ncaaf" | "ncaab" | "nfl";
 
@@ -197,7 +197,7 @@ export function TeamHistoryDialog({
           <div className="min-w-0">
             <h2 className="truncate text-lg font-bold">{t?.name ?? name}</h2>
             <p className="text-xs text-muted tabular-nums">
-              {t?.record ? `${t.record.replace(/-/g, "–")} overall` : ""}
+              {t?.record ? `${t.record.replace(/-/g, "–")} Overall` : ""}
               {ats && overall ? `${t?.record ? " · " : ""}${overall.wins}–${overall.losses}${overall.pushes ? `–${overall.pushes}` : ""} ATS` : ""}
             </p>
           </div>
@@ -212,7 +212,7 @@ export function TeamHistoryDialog({
         <>
           {ats && t.ats.length > 0 && (
             <section className="mt-4">
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Against the spread</h3>
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Against The Spread</h3>
               <ul className="grid grid-cols-2 gap-x-6 border-t border-line text-sm">
                 {t.ats.map((s) => (
                   <li key={s.name} className="flex justify-between border-b border-line py-1.5">
@@ -228,7 +228,7 @@ export function TeamHistoryDialog({
           )}
           {ats && !t.ats.length && <Note>No lines found for this team&apos;s games yet.</Note>}
           <section className="mt-4">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent games</h3>
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent Games</h3>
             {t.recent.length ? (
               <ul className="border-t border-line text-sm">
                 {t.recent.slice(0, ats ? 15 : 10).map((g) => (
@@ -243,10 +243,16 @@ export function TeamHistoryDialog({
                     {ats && (
                       <>
                         <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{g.spread === null ? "—" : g.spread === 0 ? "PK" : g.spread > 0 ? `+${g.spread}` : g.spread}</span>
-                        <span
-                          className={`w-16 shrink-0 text-right text-xs font-semibold ${g.ats === "W" ? "text-win" : g.ats === "L" ? "text-loss" : "text-muted"}`}
-                        >
-                          {g.ats === "W" ? "Covered" : g.ats === "L" ? "Didn't" : g.ats === "P" ? "Push" : ""}
+                        {/* Covered: a green check. Didn't: a red X. A push says so. */}
+                        <span className="flex w-10 shrink-0 justify-end text-xs font-semibold text-muted">
+                          {g.ats === "W" ? (
+                            <CheckIcon className="size-5 text-win" />
+                          ) : g.ats === "L" ? (
+                            <XIcon className="size-5 text-loss" />
+                          ) : g.ats === "P" ? (
+                            "Push"
+                          ) : null}
+                          <span className="sr-only">{g.ats === "W" ? "Covered" : g.ats === "L" ? "Did Not Cover" : ""}</span>
                         </span>
                       </>
                     )}
@@ -260,5 +266,13 @@ export function TeamHistoryDialog({
         </>
       )}
     </Shell>
+  );
+}
+
+function XIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden className={className}>
+      <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+    </svg>
   );
 }
