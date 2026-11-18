@@ -126,29 +126,13 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
               <table className="w-full min-w-max border-separate border-spacing-0 whitespace-nowrap text-xs tabular-nums">
                 <thead>
                   <tr className="text-muted">
-                    <th className="sticky left-0 bg-bg py-1.5 pr-3 text-left font-medium">Game</th>
+                    <th className="sticky left-0 border-b border-line bg-bg py-1.5 pr-3 text-left font-medium">Game</th>
                     {t.labels.map((l, i) => (
-                      <th key={i} className="whitespace-nowrap px-1.5 py-1.5 text-right font-medium">{l}</th>
+                      <th key={i} className="whitespace-nowrap border-b border-line px-1.5 py-1.5 text-right font-medium">{l}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {t.averages && (
-                    <tr className="font-semibold">
-                      <td className="sticky left-0 border-t border-line bg-bg py-1.5 pr-3">Per game</td>
-                      {t.averages.map((v, i) => (
-                        <td key={i} className="border-t border-line px-1.5 py-1.5 text-right">{v}</td>
-                      ))}
-                    </tr>
-                  )}
-                  {t.totals && (
-                    <tr className={t.averages ? "text-muted" : "font-semibold"}>
-                      <td className="sticky left-0 border-y border-line bg-bg py-1.5 pr-3">{t.averages ? "Totals" : "Season"}</td>
-                      {t.totals.map((v, i) => (
-                        <td key={i} className="border-y border-line px-1.5 py-1.5 text-right">{v}</td>
-                      ))}
-                    </tr>
-                  )}
                   {t.games.map((g) => (
                     <tr key={g.id}>
                       <td className="sticky left-0 border-b border-line bg-bg py-1.5 pr-3">
@@ -165,6 +149,23 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
                       ))}
                     </tr>
                   ))}
+                  {/* Season lines at the bottom, under the games: per-game averages, then the totals. */}
+                  {t.averages && (
+                    <tr className="font-semibold">
+                      <td className="sticky left-0 border-b border-line bg-bg py-1.5 pr-3">Per game</td>
+                      {t.averages.map((v, i) => (
+                        <td key={i} className="border-b border-line px-1.5 py-1.5 text-right">{v}</td>
+                      ))}
+                    </tr>
+                  )}
+                  {t.totals && (
+                    <tr className={t.averages ? "text-muted" : "font-semibold"}>
+                      <td className="sticky left-0 border-b border-line bg-bg py-1.5 pr-3">{t.averages ? "Totals" : "Season"}</td>
+                      {t.totals.map((v, i) => (
+                        <td key={i} className="border-b border-line px-1.5 py-1.5 text-right">{v}</td>
+                      ))}
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

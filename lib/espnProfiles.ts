@@ -95,8 +95,8 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
       });
     }
   }
-  // Newest game first.
-  games.sort((x, y) => (y.date ?? "").localeCompare(x.date ?? ""));
+  // Oldest game first, the latest at the bottom (just above the season lines).
+  games.sort((x, y) => (x.date ?? "").localeCompare(y.date ?? ""));
   if (!totals && Array.isArray(seasonType?.summary?.stats?.[0]?.stats)) totals = seasonType.summary.stats[0].stats.map(String);
   if (labels.length && games.length) {
     // Basketball: per-game averages over the games in the log.
