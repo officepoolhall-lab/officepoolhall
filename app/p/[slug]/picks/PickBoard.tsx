@@ -14,6 +14,7 @@ import { PointsSheet } from "./PointsSheet";
 import { PickSummaryRow } from "@/components/PickSummaryRow";
 import { useLiveGames } from "@/components/useLiveGames";
 import { FootballIcon } from "@/components/FootballIcon";
+import { TeamHistoryDialog } from "@/components/ProfileDialogs";
 
 type Side = "home" | "away";
 type Draft = { side: Side | null; confidence: number | null };
@@ -89,6 +90,8 @@ export function PickBoard({
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });
   const [notice, setNotice] = useState<string | null>(null);
   const [sheetGameId, setSheetGameId] = useState<string | null>(null);
+  // The team whose recent games (and ATS record) are open, from a tap on its name.
+  const [history, setHistory] = useState<SlateGame["home"] | null>(null);
   const now = useNow(games, slate.lockAt);
   // Live games' clock, score, situation and last play, polled every few seconds while any is
   // on, laid over the games from the server (which also refresh every minute).
@@ -377,6 +380,7 @@ export function PickBoard({
                 now={now}
                 settings={settings}
                 onTeam={(side) => tapTeam(g, side)}
+                onHistory={(side) => setHistory(side === "home" ? g.home : g.away)}
                 records={records}
                 onPoints={() => openSheet(g)}
                 gameHref={`/p/${slug}/game/${g.id}${slate.week ? `?week=${slate.week}` : ""}`}
@@ -389,6 +393,17 @@ export function PickBoard({
       {(notice || save.state === "error") && <div aria-hidden className="h-12" />}
       </div>
 
+      {history?.espn_id && (
+        <TeamHistoryDialog
+          sport={sport ?? "ncaaf"}
+          espnId={history.espn_id}
+          name={history.short_name ?? history.name}
+          logo={history.logo_url}
+          ats={settings.pickType === "ats"}
+          timezone={settings.timezone}
+          onClose={() => setHistory(null)}
+        />
+      )}
       {showSheet && (
         <PointsSheet
           key={sheetGame.id}
@@ -508,6 +523,7 @@ function GameRow({
   now,
   settings,
   onTeam,
+  onHistory,
   onPoints,
   records,
   gameHref,
@@ -522,6 +538,8 @@ function GameRow({
   now: number;
   settings: Settings;
   onTeam: (side: Side) => void;
+  /** Open a team's recent games (and record against the spread). */
+  onHistory: (side: Side) => void;
   onPoints: () => void;
   records: Record<string, string>;
   /** Play-by-play and box score, for a live or final game. */
@@ -591,7 +609,8 @@ function GameRow({
   return (
     <li
       // Desktop packs 3–4 games a line, so the cells and type step down a size there.
-      className={`grid gap-x-2 gap-y-1 border-b border-line py-2 lg:gap-x-1.5 lg:gap-y-0.5 lg:py-1 ${
+      // relative: a live or finished game's Box Score link stretches over the whole card.
+      className={`relative grid gap-x-2 gap-y-1 border-b border-line py-2 lg:gap-x-1.5 lg:gap-y-0.5 lg:py-1 ${
         confidence
           ? "grid-cols-[minmax(0,1fr)_auto_4.5rem_4rem] lg:grid-cols-[minmax(0,1fr)_auto_2.5rem_2.25rem]"
           : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem]"
@@ -623,9 +642,14 @@ function GameRow({
         {g.tv && <span className="shrink-0 font-normal">· {g.tv}</span>}
         {meta && <span className={`font-normal ${confidence ? "" : "truncate"}`}>· {meta}</span>}
         {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
-        {/* Live or final: play-by-play and box score. */}
+        {/* Live or final: play-by-play and box score. The link covers the whole card (its ::after),
+            so a tap anywhere on the game opens it; picks are locked by then. */}
         {(live || (final && !g.voided)) && (
-          <Link href={gameHref} className="ml-auto shrink-0 font-semibold text-accent hover:underline">
+          <Link
+            href={gameHref}
+            // The card's background lightens on hover, like the scoreboard's game cards.
+            className="ml-auto shrink-0 font-semibold text-accent after:absolute after:inset-0 after:z-10 after:rounded-lg after:transition after:content-[''] hover:after:bg-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
+          >
             Box Score ›
           </Link>
         )}
@@ -637,63 +661,80 @@ function GameRow({
       </div>
       {!confidence && <span className="self-end text-center text-xs text-muted lg:hidden">{pickHeader}</span>}
 
-      {/* Team rows: the whole row (name, score and pick cell) is one button per side */}
+      {/* Team rows: the logo and name open the team's recent games (and ATS record); the score
+          and pick cell are the pick button. */}
       {(["away", "home"] as const).map((side, i) => {
         const team = side === "home" ? g.home : g.away;
         const rank = side === "home" ? g.homeRank : g.awayRank;
         const score = side === "home" ? g.homeScore : g.awayScore;
         const selected = draft?.side === side;
         const spread = g.spread === null ? null : side === "home" ? g.spread : -g.spread;
-        return (
-          <button
-            key={side}
-            type="button"
-            disabled={disabled}
-            onClick={() => onTeam(side)}
-            aria-pressed={selected}
-            // Its own columns (name, score, pick cell) matching the card's, not a CSS subgrid: browsers
-            // without subgrid (older Chrome, e.g. some Chromebooks) stacked the three on separate lines.
-            className={`group col-span-3 grid items-center gap-x-2 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed lg:gap-x-1.5 ${
-              confidence ? "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_2.5rem]" : "grid-cols-[minmax(0,1fr)_auto_4.5rem] lg:grid-cols-[minmax(0,1fr)_auto_3rem]"
-            } ${i === 0 ? "row-start-2" : "row-start-3"}`}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
-              {/* The full name and record on one line: the font steps down to fit a long name
-                  rather than wrapping or cutting it off. */}
-              <FitText min={10} className={`text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
-                {rank ? <span className="mr-1 text-[0.8em] font-medium tabular-nums text-muted">{rank}</span> : null}
-                {team.short_name ?? team.name}
-                {team.espn_id && records[team.espn_id] && (
-                  <span className="ml-1.5 text-[0.8em] font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
-                )}
-              </FitText>
-              {/* Which side is home, right after the name (a neutral-site game shows its city in the line above instead). */}
-              {!g.neutral && (
-                <span className="-ml-1 shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
+        const name = (
+          <>
+            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 lg:size-4" />
+            {/* The full name and record on one line: the font steps down to fit a long name
+                rather than wrapping or cutting it off. */}
+            <FitText min={10} className={`text-[15px] font-semibold leading-tight lg:text-[13px] ${g.voided ? "text-muted" : "text-ink"}`}>
+              {rank ? <span className="mr-1 text-[0.8em] font-medium tabular-nums text-muted">{rank}</span> : null}
+              {team.short_name ?? team.name}
+              {team.espn_id && records[team.espn_id] && (
+                <span className="ml-1.5 text-[0.8em] font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
               )}
-            </span>
-            {/* A football marks the team with the ball while the game is live. */}
-            <span className="inline-flex min-w-6 items-center justify-end gap-1 text-right text-[15px] font-semibold tabular-nums lg:text-[13px]">
-              {live && g.possession === side && <FootballIcon />}
-              {started && score !== null ? score : ""}
-            </span>
-            <Cell
-              value={
-                settings.pickType === "ats" ? (
-                  formatSpread(spread)
-                ) : selected ? (
-                  <CheckIcon className="size-5 lg:size-4" />
-                ) : (
-                  <span className="block size-4 rounded-full border-2 border-faint lg:size-3" />
-                )
-              }
-              selected={selected}
+            </FitText>
+            {/* Which side is home, right after the name (a neutral-site game shows its city in the line above instead). */}
+            {!g.neutral && (
+              <span className="-ml-1 shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
+            )}
+          </>
+        );
+        return (
+          // Its own columns (name, then the pick button's score and cell) matching the card's, not a
+          // CSS subgrid: browsers without subgrid (older Chrome, e.g. some Chromebooks) stacked them.
+          <div key={side} className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"}`}>
+            {team.espn_id ? (
+              <button
+                type="button"
+                onClick={() => onHistory(side)}
+                className="flex min-h-9 min-w-0 items-center gap-2 rounded-[10px] text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent lg:min-h-6"
+                aria-label={`${team.short_name ?? team.name}: recent games${settings.pickType === "ats" ? " and record against the spread" : ""}`}
+              >
+                {name}
+              </button>
+            ) : (
+              <span className="flex min-w-0 items-center gap-2">{name}</span>
+            )}
+            <button
+              type="button"
               disabled={disabled}
-              compact
-              className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
-            />
-          </button>
+              onClick={() => onTeam(side)}
+              aria-pressed={selected}
+              aria-label={`Pick ${team.short_name ?? team.name}${settings.pickType === "ats" ? ` ${formatSpread(spread)}` : ""}`}
+              className={`group grid items-center gap-x-2 rounded-[10px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed lg:gap-x-1.5 grid-cols-[auto_4.5rem] ${
+                confidence ? "lg:grid-cols-[auto_2.5rem]" : "lg:grid-cols-[auto_3rem]"
+              }`}
+            >
+              {/* A football marks the team with the ball while the game is live. */}
+              <span className="inline-flex min-w-6 items-center justify-end gap-1 text-right text-[15px] font-semibold tabular-nums lg:text-[13px]">
+                {live && g.possession === side && <FootballIcon />}
+                {started && score !== null ? score : ""}
+              </span>
+              <Cell
+                value={
+                  settings.pickType === "ats" ? (
+                    formatSpread(spread)
+                  ) : selected ? (
+                    <CheckIcon className="size-5 lg:size-4" />
+                  ) : (
+                    <span className="block size-4 rounded-full border-2 border-faint lg:size-3" />
+                  )
+                }
+                selected={selected}
+                disabled={disabled}
+                compact
+                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
+              />
+            </button>
+          </div>
         );
       })}
 

@@ -38,23 +38,33 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
   const first = slate ? formatInTimeZone(slate.window_start, tz, "yyyy-MM-dd") : today;
   const last = slate ? formatInTimeZone(new Date(new Date(slate.window_end).getTime() - 1), tz, "yyyy-MM-dd") : plusDays(today, 6);
-  const days: string[] = [];
-  for (let d = first; d <= last && days.length < 14; d = plusDays(d, 1)) days.push(d);
+  const allDays: string[] = [];
+  for (let d = first; d <= last && allDays.length < 14; d = plusDays(d, 1)) allDays.push(d);
+  const sport = teamSport(ctx.pool.sport);
+  // College: one day at a time (buttons for each day of the week). The NFL: the whole week.
+  const days = allDays;
   const day = typeof dayParam === "string" && ISO_DATE.test(dayParam) && days.includes(dayParam) ? dayParam : days.includes(today) ? today : days[0];
 
   // ESPN counts days in Eastern time, so a late tip here can sit on its next day: read both
   // and keep the games on this local day.
-  const sport = teamSport(ctx.pool.sport);
   const espn = (d: string) => d.replaceAll("-", "");
-  const [a, b, slateGames] = await Promise.all([
-    getEspnDay(sport, espn(day), day === today),
-    getEspnDay(sport, espn(plusDays(day, 1)), day === today),
+  // The NFL shows the whole week at once: each of its days (plus the day after, for late games
+  // ESPN files under it), one request a day like the college days. ESPN's date-range form
+  // returned nothing for the NFL.
+  const nfl = sport === "nfl";
+  const [dayLists, slateGames] = await Promise.all([
+    Promise.all(
+      nfl
+        ? [...allDays, plusDays(last, 1)].map((d) => getEspnDay(sport, espn(d), d === today))
+        : [getEspnDay(sport, espn(day), day === today), getEspnDay(sport, espn(plusDays(day, 1)), day === today)],
+    ),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const seen = new Set<string>();
-  const dayGames = [...a, ...b].filter((g) => {
+  const dayGames = dayLists.flat().filter((g) => {
     // Same day rule the cards use (a TBD time counts in Eastern), so nothing from the next day slips in.
-    if (seen.has(g.id) || dayKey(g.startAt, gameDateZone(g.timeTbd, tz)) !== day) return false;
+    const key = dayKey(g.startAt, gameDateZone(g.timeTbd, tz));
+    if (seen.has(g.id) || (nfl ? !allDays.includes(key) : key !== day)) return false;
     seen.add(g.id);
     return true;
   });
@@ -85,7 +95,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
           ))}
         </div>
       )}
-      {/* The week's days; today is the default. */}
+      {/* The week's days; today is the default. The NFL lists the whole week instead. */}
+      {!nfl && (
       <div className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 py-1.5">
         {days.map((d) => (
           <Link
@@ -98,6 +109,7 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
           </Link>
         ))}
       </div>
+      )}
       {/* Finals and tip times come from the server each minute; plays poll faster in the client. */}
       <AutoRefresh active={anyLive} />
       {/* No key on the day: switching days keeps the chosen filter. */}
@@ -113,6 +125,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
         records={records}
         ats={ctx.settings.pick_type === "ats"}
         inPool={[...slateByEspn.keys()]}
+        showFilters={!nfl}
+        weekDays={nfl ? allDays : undefined}
       />
       <p className="mt-4 text-xs text-muted">
         {sport === "ncaab" ? "Every Division I men's game between D-I teams." : sport === "nfl" ? "Every NFL game." : "Every FBS game."} Scores and plays from ESPN.

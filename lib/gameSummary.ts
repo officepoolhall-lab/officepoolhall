@@ -18,7 +18,7 @@ export type Drive = {
   awayScore: number | null;
   homeScore: number | null;
 };
-export type StatGroup = { name: string; labels: string[]; rows: { name: string; stats: string[] }[]; totals: string[] | null };
+export type StatGroup = { name: string; labels: string[]; rows: { id: string | null; name: string; stats: string[]; starter: boolean }[]; totals: string[] | null };
 export type TeamStat = { label: string; away: string; home: string };
 
 export type GameSummary = {
@@ -129,7 +129,14 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
         name: str(g?.text) ?? str(g?.name) ?? "",
         labels: (g?.labels ?? []).map((l: any) => String(l)),
         rows: (g?.athletes ?? [])
-          .map((a: any) => ({ name: str(a?.athlete?.shortName) ?? str(a?.athlete?.displayName) ?? "", stats: (a?.stats ?? []).map((v: any) => String(v)) }))
+          .map((a: any) => ({
+            // ESPN's player id: the box score's names open the player's game log.
+            id: str(a?.athlete?.id),
+            // Basketball: ESPN marks the starting five.
+            starter: a?.starter === true,
+            name: str(a?.athlete?.shortName) ?? str(a?.athlete?.displayName) ?? "",
+            stats: (a?.stats ?? []).map((v: any) => String(v)),
+          }))
           .filter((r: { name: string; stats: string[] }) => r.name && r.stats.length),
         totals: Array.isArray(g?.totals) && g.totals.length ? g.totals.map((v: any) => String(v)) : null,
       }))

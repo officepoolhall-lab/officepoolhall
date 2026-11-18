@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,6 +9,7 @@ import { ViewTabs } from "@/components/ViewTabs";
 import { getGameSummary, type GameSummary, type Play } from "@/lib/gameSummary";
 import { getPoolContext } from "@/lib/pool";
 import { teamSport } from "@/lib/sports";
+import { PlayerName } from "@/components/ProfileDialogs";
 
 export const metadata: Metadata = { title: "Game" };
 
@@ -102,7 +104,7 @@ export default async function GamePage({ params, searchParams }: PageProps<"/p/[
         ariaLabel="Show"
         views={[
           { id: "plays", label: "Play-by-Play", content: <PlayByPlay summary={summary} /> },
-          { id: "box", label: "Box Score", content: <BoxScore summary={summary} /> },
+          { id: "box", label: "Box Score", content: <BoxScore summary={summary} sport={sport} /> },
         ]}
       />
     </div>
@@ -190,8 +192,12 @@ function phoneName(team: GameSummary["home"]) {
   return team.name.length > 14 && team.abbreviation ? team.abbreviation : team.name;
 }
 
+/** Basketball columns phones leave out so the box score fits without scrolling. */
+const PHONE_HIDDEN = new Set(["OREB", "DREB", "PF", "+/-"]);
+const phoneHidden = (sport: string, label: string | undefined) => (sport === "ncaab" && label && PHONE_HIDDEN.has(label) ? "max-sm:hidden" : "");
+
 /** Box score, one part at a time: Team Stats, then each team's player stats (home, away). */
-function BoxScore({ summary }: { summary: GameSummary }) {
+function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "ncaab" | "nfl" }) {
   const { away, home } = summary;
   if (!summary.teamStats.length && !summary.players.length) {
     return <p className="border-y border-line py-3 text-sm text-muted">No box score yet.</p>;
@@ -222,32 +228,57 @@ function BoxScore({ summary }: { summary: GameSummary }) {
     return (
         <div className="space-y-4">
           {t.groups.map((g) => (
-            // Scrolls sideways edge to edge with no padding of its own: the pinned name column sits
-            // right at the box's left edge, so no stats ever show to the left of (or behind) names.
-            <div key={g.name} className="-mx-4 overflow-x-auto">
-              <table className="w-full min-w-max text-xs tabular-nums [&_tr>*:last-child]:pr-4">
+            // Fits the screen, never scrolls: the name column takes a share of the width, the stat
+            // columns split the rest (fixed layout) and their type scales with the screen. Phones
+            // leave out basketball's least-read columns (OREB, DREB, PF, +/-) so the rest stay legible.
+            <div key={g.name} className="-mx-4">
+              <table className="w-full table-fixed text-[length:clamp(9px,2.6vw,13px)] tabular-nums tracking-tight [&_tr>*:last-child]:pr-4">
                 <thead>
                   <tr className="border-b border-line text-muted">
-                    <th className="sticky left-0 z-10 bg-bg py-1.5 pl-4 pr-3 text-left font-semibold capitalize text-ink">{g.name}</th>
-                    {g.labels.map((l) => (
-                      <th key={l} className="px-1.5 py-1.5 text-right font-medium">{l}</th>
+                    <th className="w-[26%] truncate bg-bg py-1.5 pl-4 pr-2 text-left font-semibold capitalize text-ink sm:w-48">{g.name}</th>
+                    {g.labels.map((l, i) => (
+                      <th
+                        key={l}
+                        // Made–attempted columns ("10-17") get room for five characters at the stat
+                        // size; the rest share what's left.
+                        style={g.rows.some((r) => /^\d+[-/]\d+$/.test(r.stats[i] ?? "")) ? { width: "calc(3.5 * clamp(9px, 2.6vw, 13px))" } : undefined}
+                        className={`truncate px-px py-1.5 text-right text-[9px] font-medium tracking-tighter sm:px-0.5 sm:text-[11px] sm:tracking-normal ${phoneHidden(sport, l)}`}
+                      >
+                        {l}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {g.rows.map((r) => (
-                    <tr key={r.name}>
-                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">{r.name}</td>
+                  {/* Basketball: the starting five first, then the bench, each under a label. */}
+                  {(sport === "ncaab" && g.rows.some((r) => r.starter)
+                    ? [...g.rows.filter((r) => r.starter), ...g.rows.filter((r) => !r.starter)]
+                    : g.rows
+                  ).map((r, i, rows) => (
+                    <Fragment key={r.id ?? r.name}>
+                    {sport === "ncaab" && rows.some((x) => x.starter) && (i === 0 || (!r.starter && rows[i - 1].starter)) && (
+                      <tr>
+                        <td colSpan={g.labels.length + 1} className="bg-surface py-1 pl-4 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                          {r.starter ? "Starters" : "Bench"}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
+                      {/* Tap a name for the player's game log and season totals. */}
+                      <td className="py-1 pl-4 pr-2 text-[length:clamp(12px,3.4vw,14px)]">
+                        <PlayerName sport={sport} id={r.id} name={r.name} className="block w-full truncate" />
+                      </td>
                       {r.stats.map((v, i) => (
-                        <td key={i} className="px-1.5 py-1 text-right">{v}</td>
+                        <td key={i} className={`whitespace-nowrap px-0.5 py-1 text-right ${phoneHidden(sport, g.labels[i])}`}>{v}</td>
                       ))}
                     </tr>
+                    </Fragment>
                   ))}
                   {g.totals && (
                     <tr className="font-semibold">
-                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">Team</td>
+                      <td className="py-1 pl-4 pr-2">Team</td>
                       {g.totals.map((v, i) => (
-                        <td key={i} className="px-1.5 py-1 text-right">{v}</td>
+                        <td key={i} className={`whitespace-nowrap px-0.5 py-1 text-right ${phoneHidden(sport, g.labels[i])}`}>{v}</td>
                       ))}
                     </tr>
                   )}

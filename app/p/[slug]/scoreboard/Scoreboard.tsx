@@ -31,6 +31,8 @@ export function Scoreboard({
   records,
   ats,
   inPool,
+  showFilters = true,
+  weekDays,
 }: {
   /** The chosen day (yyyy-mm-dd); only its games show. */
   day: string;
@@ -48,11 +50,18 @@ export function Scoreboard({
   ats: boolean;
   /** ESPN ids of the games on the pool's slate. */
   inPool: string[];
+  /** All / Pool games / Top 25 / conference buttons (college). The NFL shows every game, no filters. */
+  showFilters?: boolean;
+  /** The NFL: the whole week at once (these days, yyyy-mm-dd), each day under its date heading. */
+  weekDays?: string[];
 }) {
   const now = useTicking();
-  // Only the chosen day's games, never a spillover from the next day.
-  const all = useLiveGames(games, now, sport).filter((g) => dayKey(g.startAt, gameDateZone(g.timeTbd, timezone)) === selectedDay);
-  const [view, setViewState] = useState<View>(VIEWS.includes(initialView as View) ? (initialView as View) : "all");
+  // Only the chosen day's games (or the week's, for the NFL), never a spillover from the next day.
+  const all = useLiveGames(games, now, sport).filter((g) => {
+    const key = dayKey(g.startAt, gameDateZone(g.timeTbd, timezone));
+    return weekDays ? weekDays.includes(key) : key === selectedDay;
+  });
+  const [view, setViewState] = useState<View>(showFilters && VIEWS.includes(initialView as View) ? (initialView as View) : "all");
   const [conf, setConfState] = useState(initialConf ?? "");
   // This page's address with the current filter: kept in the bar (so a refresh keeps it) and
   // handed to each game, whose Back link returns here.
@@ -128,8 +137,10 @@ export function Scoreboard({
     if (day) day.games.push(g);
     else days.push({ key, label: dayLabel(g.startAt, zone), games: [g] });
   }
+  // A whole week reads in date order (Thursday, Sunday, Monday), live games first within a day.
+  if (weekDays) days.sort((a, b) => a.key.localeCompare(b.key));
 
-  const filters = (
+  const filters = !showFilters ? null : (
     <div className="mb-3 flex flex-wrap items-center gap-1.5" role="group" aria-label="Show">
       <button type="button" onClick={() => setView("all")} aria-pressed={view === "all"} className={chipClass(view === "all", "", "sm")}>
         All <span className="opacity-70 tabular-nums">{all.length}</span>
@@ -170,7 +181,7 @@ export function Scoreboard({
               : view === "top25"
                 ? "No Top 25 teams play this day."
                 : "No games for that conference this day."
-            : "No Division I games this day."}
+            : sport === "nfl" ? "No NFL games this week." : "No Division I games this day."}
         </p>
       </>
     );
