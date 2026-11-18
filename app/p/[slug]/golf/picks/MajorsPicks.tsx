@@ -4,8 +4,9 @@ import { GolfEventSelect } from "@/components/GolfEventSelect";
 import { MajorPicker } from "@/components/MajorPicker";
 import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
-import type { GolfContext, GolfEvent } from "@/lib/golf";
-import { formatShown, golferShown } from "@/lib/golfMajors";
+import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
+import { getEventInfo } from "@/lib/golfEventInfo";
+import { formatShown, formatToPar, golferShown, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
@@ -58,11 +59,24 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
   );
 
   if (started) {
-    const results = (await getMajorResults(ctx, [event.id])).get(event.id) ?? [];
-    const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
     const final = event.status === "final";
-    // Score to par while it's played; prize money once final in money pools; points for salary cap.
-    const value = (id: string) => (byId.has(id) ? formatShown(golferShown(id, results, s, final)) : "–");
+    const [raw, info] = await Promise.all([getMajorResults(ctx, [event.id]), getEventInfo([event], ctx.pool.slug)]);
+    // Prize money projected from each golfer's place now and the purse, until it's posted.
+    const results = withProjectedEarnings(raw.get(event.id) ?? [], info.get(event.id)?.purse ?? null, final);
+    const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
+    const score = scoreLineup(mine.map((l) => l.espn_golfer_id), results, s, final);
+    const counts = new Map(score.golfers.map((g) => [g.espn_golfer_id, g.counts]));
+    const salary = s.contest === "salary";
+    const shown = (id: string) => formatShown(golferShown(id, results, salary ? s : { ...s, tiers: { ...s.tiers, scoring: "to_par" } }, final));
+    const cash = (id: string) => (byId.has(id) ? money(byId.get(id)!.earnings) : "–");
+    // Totals of the golfers who count.
+    const countedIds = mine.map((l) => l.espn_golfer_id).filter((id) => counts.get(id));
+    const toParTotal = countedIds.reduce<number | null>((t, id) => {
+      const v = golferShown(id, results, { ...s, contest: "tiers", tiers: { ...s.tiers, scoring: "to_par" } }, final).value;
+      return v === null ? t : (t ?? 0) + v;
+    }, null);
+    const cashTotal = countedIds.reduce((t, id) => t + (byId.get(id)?.earnings ?? 0), 0);
+    const th = "py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted";
     return (
       <div data-wide>
         {head}
@@ -70,23 +84,45 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
         {mine.length === 0 ? (
           <Empty>No lineup for this major.</Empty>
         ) : (
-          // Across the screen in columns on wider screens.
-          <ul className="grid border-t border-line sm:grid-cols-2 sm:gap-x-6 xl:grid-cols-4 [&>li]:border-b [&>li]:border-line">
-            {[...mine]
-              .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0))
-              .map((l) => {
-                const r = byId.get(l.espn_golfer_id);
-                return (
-                  <li key={l.espn_golfer_id} className="flex min-h-11 items-center gap-2 py-1.5 text-sm">
-                    <span className="w-14 shrink-0 text-xs tabular-nums text-muted">{s.contest === "salary" ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : `Tier ${l.tier}`}</span>
-                    <span className="min-w-0 flex-1 truncate font-medium">{l.golfer_name}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{r?.out ? (r.pos && !/^\d|^T/.test(r.pos) ? r.pos : "MC") : (r?.pos ?? "")}</span>
-                    <span className="w-20 shrink-0 text-right font-semibold tabular-nums">{value(l.espn_golfer_id)}</span>
-                  </li>
-                );
-              })}
-          </ul>
+          <table className="w-full max-w-4xl text-sm">
+            <thead>
+              <tr className="border-b border-line text-left">
+                <th className={`${th} w-16`}>{salary ? "Salary" : "Tier"}</th>
+                <th className={th}>Golfer</th>
+                <th className={`${th} w-14 text-right`}>Place</th>
+                <th className={`${th} w-16 text-right`}>{salary ? "Points" : "Score"}</th>
+                <th className={`${th} w-28 text-right`}>{final ? "Earnings" : "Proj. Earnings"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {[...mine]
+                .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0) || a.golfer_name.localeCompare(b.golfer_name))
+                .map((l) => {
+                  const r = byId.get(l.espn_golfer_id);
+                  const counted = counts.get(l.espn_golfer_id);
+                  return (
+                    <tr key={l.espn_golfer_id} className={counted ? "" : "text-muted"}>
+                      <td className="py-2 text-xs tabular-nums text-muted">{salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : `Tier ${l.tier}`}</td>
+                      <td className={`truncate py-2 ${counted ? "font-semibold" : "font-medium"}`}>{l.golfer_name}</td>
+                      <td className="py-2 text-right text-xs tabular-nums text-muted">{r?.out ? (r.pos && !/^\d|^T/.test(r.pos) ? r.pos : "MC") : (r?.pos ?? "")}</td>
+                      <td className="py-2 text-right font-semibold tabular-nums">{shown(l.espn_golfer_id)}</td>
+                      <td className="py-2 text-right tabular-nums">{cash(l.espn_golfer_id)}</td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-ink/25">
+                <td colSpan={3} className="py-2 text-xs text-muted">
+                  {counts.size && countedIds.length < mine.length ? `Total (the ${countedIds.length} that count)` : "Total"}
+                </td>
+                <td className="py-2 text-right font-bold tabular-nums">{salary ? formatShown({ kind: "points", value: score.total }) : formatToPar(toParTotal)}</td>
+                <td className="py-2 text-right font-bold tabular-nums">{money(cashTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
         )}
+        {!final && <p className="mt-2 text-[11px] text-muted">Projected earnings: where each golfer stands now and the purse, by the PGA Tour&apos;s usual share for each place (ties split), until the prize money is posted.</p>}
       </div>
     );
   }
