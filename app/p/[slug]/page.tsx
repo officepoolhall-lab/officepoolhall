@@ -93,6 +93,10 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
     };
   }
 
+  // Desktop: enough standings rows that the left column ends about level with the right one,
+  // the AP Top 25 for college pools (25 rows) or the NFL's division standings (shorter).
+  const homeRowsLg = sport === "nfl" ? 15 : 19;
+
   return (
     // data-wide: full screen width on desktop, like the Picks and Grid tabs.
     <div data-wide className="space-y-6">
@@ -194,7 +198,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 label: "Season",
                 title: "Season standings",
                 href: `/p/${slug}/standings`,
-                content: <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
+                content: <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} limitLg={homeRowsLg} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
               },
               ...(slate && weekly
                 ? [
@@ -203,7 +207,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                       label: slate.label ?? `Week ${slate.week}`,
                       title: `${slate.label ?? `Week ${slate.week}`} standings`,
                       href: `/p/${slug}/standings?week=${slate.week}`,
-                      content: <StandingsTable rows={weekly} me={ctx.entryUserId} flat={flat} compact weekly limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
+                      content: <StandingsTable rows={weekly} me={ctx.entryUserId} flat={flat} compact weekly limit={8} limitLg={homeRowsLg} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
                     },
                   ]
                 : []),
