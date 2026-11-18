@@ -82,6 +82,7 @@ export function GridPanel({
 
   // ---------- The viewer's picks beside the pool's ----------
   const mine = me ? visible.filter((p) => p.user_id === me).sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)) : [];
+  // The share of the picks on this game that took the same side (not of the whole pool: most entries skip any one game).
   const share = (p: Pick) => {
     const s = sides.get(`${p.game_id}:${p.picked_side === "home" ? "home" : "away"}`)?.n ?? 0;
     const all = visible.filter((x) => x.game_id === p.game_id).length;
@@ -164,7 +165,7 @@ export function GridPanel({
             if (chips) {
               return (
                 <Row key={p.game_id} center>
-                  <span className={`truncate font-semibold ${tone}`} title={`${team.abbreviation}: ${share(p)}% of the pool`}>
+                  <span className={`truncate font-semibold ${tone}`} title={`${team.abbreviation}: ${share(p)}% of the picks on this game`}>
                     {team.abbreviation}
                     {confidence && p.confidence !== null && <span className="ml-0.5 text-muted">{p.confidence}</span>}
                   </span>
@@ -179,7 +180,7 @@ export function GridPanel({
                   {lineOf(p)}
                   {confidence && p.confidence !== null && <span className="ml-1 font-normal text-muted">· {points(p.confidence)}</span>}
                 </span>
-                <span className="shrink-0 tabular-nums text-muted">{share(p)}% of pool</span>
+                <span className="shrink-0 tabular-nums text-muted">{share(p)}% of picks</span>
                 <span className={`w-4 shrink-0 text-right text-[11px] font-semibold ${tone}`}>
                   {p.result === "win" ? "W" : p.result === "loss" ? "L" : p.result === "push" ? "P" : ""}
                 </span>
