@@ -135,7 +135,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // Desktop: the games share whatever width is left after the player and tournament columns
   // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
   // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
-  const GAME_MIN_REM = 2.5;
+  const GAME_MIN_REM = 4;
   const fixedRem = playerRem + tournaments.length * 3 + 2 + 1 + 1.75; // + page padding, scrollbar, the summary tab
   const gridMinRem = playerRem + tournaments.length * 3 + games.length * GAME_MIN_REM;
   // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
@@ -206,8 +206,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               "--cell-font": "clamp(11px, calc(var(--colw) * 0.24), 13px)",
               // Picks are logos only on desktop: 18–22px, with little room around them.
               "--logo": "clamp(18px, calc(var(--colw) - 20px), 22px)",
-              // Header logos: always shown, 14–16px, beside the team's abbreviation or score.
-              "--head-logo": "clamp(14px, calc(var(--colw) * 0.3), 16px)",
+              // Header logos: 14px, beside the team's abbreviation or score.
+              "--head-logo": "14px",
             } as CSSProperties
           }
         >
@@ -254,11 +254,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                   <th
                     key={g.id}
                     title={`${g.away.abbreviation ?? g.away.name} ${g.neutral ? "vs" : "@"} ${g.home.abbreviation ?? g.home.name}${g.tv ? ` · ${g.tv}` : ""}`}
-                    className={`sticky top-0 z-20 min-w-10 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:min-w-0 lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "line-through opacity-50" : ""}`}
+                    className={`sticky top-0 z-20 min-w-16 border-b border-r border-line bg-bg px-1 py-1 text-center align-bottom text-[11px] font-medium leading-tight text-muted last:border-r-0 lg:min-w-0 lg:overflow-hidden ${g.voided ? "line-through opacity-50" : ""}`}
                   >
-                    {/* Compact: status (time / Live / Final), then each team on one line (logo with
-                        its abbreviation, or its score once the game starts), then the line. The
-                        full matchup and network are in the column's tooltip. */}
+                    {/* Compact: status (time / Live / Final) and network, then each team on one line
+                        (logo with its abbreviation, or its score once the game starts), then the
+                        line. Columns are at least 4rem so abbreviations are never cut off; a thin
+                        line separates each game. */}
                     <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
                       {g.voided ? (
                         <span className="font-semibold text-loss">Void</span>
@@ -271,6 +272,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       ) : (
                         shortGameTime(g.startAt, tz, g.timeTbd)
                       )}
+                      {/* Where to watch, through the whole game. */}
+                      {g.tv && <div className="truncate text-[9px] leading-tight">{g.tv}</div>}
                     </div>
                     {(["away", "home"] as const).map((side) => {
                       const team = side === "home" ? g.home : g.away;
