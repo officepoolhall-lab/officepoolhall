@@ -114,3 +114,34 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   .summary-nudge { animation-name: summary-nudge-glow; }
 }
+
+/* Scroll bars: thin, rounded thumbs on a clear track, in the theme's grey (darker on hover).
+   Firefox and current Chrome/Edge use the standard properties; Safari uses the ::-webkit
+   rules (Chrome ignores those once the standard ones are set). Phones keep their own
+   overlay scroll bars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+}
+*:hover {
+  scrollbar-color: color-mix(in srgb, var(--muted) 70%, transparent) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
