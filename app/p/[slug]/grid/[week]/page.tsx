@@ -129,7 +129,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
 
   // Desktop widths, in rem: the player column (narrower on long weeks), then each column's
   // minimum. The grid fills the screen and only scrolls sideways below this.
-  const playerRem = games.length > 16 ? 14 : 18;
+  const playerRem = games.length > 30 ? 11 : games.length > 16 ? 14 : 18;
+  // Desktop never scrolls sideways: the games share whatever width is left after the player
+  // and tournament columns (and the side panel, when it shows). Text and logos scale with
+  // the column (--colw); logos drop out below ~34px, leaving the abbreviation.
+  const fixedRem = playerRem + tournaments.length * 3 + 2 + 1; // + page padding, scrollbar
+  // The width the side panel needs the grid to have beside it: a comfortable 2.75rem a game.
   const gridMinRem = playerRem + tournaments.length * 3 + games.length * 2.75;
   // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
   // at that width, and is tall enough for the panel to fit without scrolling.
@@ -177,18 +182,25 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
       {/* On touch screens each swipe scrolls one way only (up/down or left/right). */}
-      <div className="flex min-h-0 flex-1 gap-6">
+      <div id="grid-wrap" className="flex min-h-0 flex-1 gap-6">
       <AxisLockScroll className="relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0">
         {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
             but never narrower than a readable column each; past that it scrolls as on phones. */}
         <table
-          className="border-separate border-spacing-0 text-sm lg:w-full lg:min-w-[var(--grid-min)] lg:table-fixed"
-          style={{ "--grid-min": `${gridMinRem}rem` } as CSSProperties}
+          className="border-separate border-spacing-0 text-sm lg:w-full lg:table-fixed"
+          style={
+            {
+              "--colw": `calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)})`,
+              "--cell-font": "clamp(9px, calc(var(--colw) * 0.3), 13px)",
+              "--logo": "clamp(0px, calc((var(--colw) - 34px) * 100), 20px)",
+              "--head-logo": "clamp(0px, calc((var(--colw) - 34px) * 100), 24px)",
+            } as CSSProperties
+          }
         >
           <thead>
             <tr>
               {/* Player and Pts share one pinned cell so the points never scroll away. */}
-              <th className={`sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted ${playerRem === 14 ? "lg:w-[14rem]" : "lg:w-[18rem]"}`}>
+              <th className={`sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted ${playerRem === 11 ? "lg:w-[11rem]" : playerRem === 14 ? "lg:w-[14rem]" : "lg:w-[18rem]"}`}>
                 <div className="flex items-end justify-between gap-3">
                   <span className="min-w-20">Player</span>
                   <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
@@ -227,8 +239,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <th
                     key={g.id}
-                   
-                    className={`sticky top-0 z-20 min-w-12 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:text-xs ${g.voided ? "line-through opacity-50" : ""}`}
+                    className={`sticky top-0 z-20 min-w-12 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:min-w-0 lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "line-through opacity-50" : ""}`}
                   >
                     <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
                       {g.voided ? (
@@ -245,17 +256,18 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       {/* Where to watch stays visible through the whole game, as on Picks. */}
                       {g.tv && <div className="mx-auto max-w-14 truncate">{g.tv}</div>}
                     </div>
-                    <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="mx-auto mb-px size-4 lg:size-6" />
-                    <div className={`whitespace-nowrap ${winner !== null && winner < 0 ? "font-semibold text-ink" : ""}`}>
+                    <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="mx-auto mb-px size-4 lg:size-[var(--head-logo)]" />
+                    {/* Desktop stacks the score under the team so narrow columns keep both. */}
+                    <div className={`whitespace-nowrap lg:flex lg:flex-col lg:items-center ${winner !== null && winner < 0 ? "font-semibold text-ink" : ""}`}>
                       {g.away.abbreviation}
-                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink">{g.awayScore}</span>}
+                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink lg:ml-0">{g.awayScore}</span>}
                     </div>
                     <div className="text-[10px] leading-none text-faint">{g.neutral ? "vs" : "@"}</div>
-                    <div className={`whitespace-nowrap ${winner !== null && winner > 0 ? "font-semibold text-ink" : ""}`}>
+                    <div className={`whitespace-nowrap lg:flex lg:flex-col-reverse lg:items-center ${winner !== null && winner > 0 ? "font-semibold text-ink" : ""}`}>
                       {g.home.abbreviation}
-                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink">{g.homeScore}</span>}
+                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink lg:ml-0">{g.homeScore}</span>}
                     </div>
-                    <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-px size-4 lg:size-6" />
+                    <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-px size-4 lg:size-[var(--head-logo)]" />
                     {ats && <div className="mt-px tabular-nums">{formatSpread(g.spread)}</div>}
                     {/* Picks in this column are still hidden (until kickoff). */}
                     {!revealed && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
@@ -330,12 +342,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     // loss reads "−5"; a zero-points loss keeps its value, struck through.
                     const base = p?.result != null && p.points != null ? Number(p.points) - bonus : null;
                     return (
-                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-12 ${tone} ${fill}`}>
+                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-12 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
                         {team && (
                           <div className="leading-tight">
                             {/* Desktop has room for the team's logo over its abbreviation. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`mx-auto mb-0.5 hidden size-5 lg:block ${p?.result === "loss" ? "opacity-60" : ""}`} />
-                            <div className={`text-[11px] font-medium lg:text-[13px] ${p?.result === "loss" ? "line-through" : ""}`}>
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`mx-auto mb-0.5 hidden size-5 lg:block lg:size-[var(--logo)] ${p?.result === "loss" ? "opacity-60" : ""}`} />
+                            <div className={`text-[11px] font-medium lg:text-[length:var(--cell-font)] ${p?.result === "loss" ? "line-through" : ""}`}>
                               {team.abbreviation}
                               {/* Color isn't the only signal for the result. */}
                               {p?.result === "win" && <span className="sr-only">, won</span>}
@@ -395,13 +407,14 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                   <td
                     key={g.id}
                    
-                    className={`border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight ${g.voided ? "opacity-50" : ""}`}
+                    className={`border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "opacity-50" : ""}`}
                   >
                     {/* Counted from kickoff, when every player's pick is visible. */}
                     {isRevealed(g) ? (
                       <>
-                        <div className="whitespace-nowrap"><span className="text-muted">{g.away.abbreviation}</span> <span className="font-semibold tabular-nums">{c.away}</span></div>
-                        <div className="whitespace-nowrap"><span className="text-muted">{g.home.abbreviation}</span> <span className="font-semibold tabular-nums">{c.home}</span></div>
+                        {/* Narrow desktop columns drop the team names (same order as the header). */}
+                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.away.abbreviation} </span><span className="font-semibold tabular-nums">{c.away}</span></div>
+                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.home.abbreviation} </span><span className="font-semibold tabular-nums">{c.home}</span></div>
                       </>
                     ) : (
                       <LockIcon className="mx-auto size-3 text-muted" />
@@ -413,7 +426,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           </tfoot>
         </table>
       </AxisLockScroll>
-      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } }`}</style>
+      {/* The panel takes 18rem plus its gap and border from the grid's width (--panel). */}
+      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } #grid-wrap { --panel: 20.75rem; } }`}</style>
       <GridPanel
         games={games}
         picks={picks ?? []}
