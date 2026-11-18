@@ -23,7 +23,7 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
       {!stories.length ? (
         <p className="border-y border-line py-3 text-sm text-muted">Stories aren&apos;t available right now. Check back soon.</p>
       ) : (
-        {/* data-fill-list: Home's desktop column shows as many stories as fit (FillColumn). */}
+        // data-fill-list: Home's desktop column shows as many stories as fit (FillColumn).
         <ul className="divide-y divide-line border-y border-line" data-fill-list="">
           {stories.map((s) => (
             <li key={s.id}>
