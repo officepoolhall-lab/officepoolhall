@@ -2,7 +2,8 @@ import "server-only";
 import { cache } from "react";
 import { allRows, type GolfEvent } from "./golf";
 import type { PoolBase } from "./pool";
-import { majorsSettings, scoreLineup, majorStandings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
+import { getEventInfo } from "./golfEventInfo";
+import { majorsSettings, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
 
 export type LineupRow = { user_id: string; event_id: string; espn_golfer_id: string; golfer_name: string; tier: number | null; salary: number | null };
 
@@ -74,22 +75,48 @@ export async function getStoredOdds(ctx: PoolBase, oddsKey: string): Promise<{ o
  * Scores and standings for the pool's majors: each entry's score per major (lineups grouped by
  * entry), and standings over the given majors. Only majors that have started count.
  */
+export type SortKey = "score" | "name" | "toPar" | "money";
+
+/**
+ * Scores and standings for the pool's majors. Each entry's score per major (the pool's own
+ * scoring; prize money projected from the leaderboard and the purse until it's final), plus
+ * the same lineup's total score to par and prize money, for sorting. Only majors that have
+ * started count. `results` carries projected prize money while a major is being played.
+ */
 export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], members: { user_id: string }[]) {
   const s = getMajorsSettings(ctx);
   const started = events.filter((e) => e.status === "in_progress" || e.status === "final");
-  const [lineups, results] = await Promise.all([getVisibleLineups(ctx), getMajorResults(ctx, started.map((e) => e.id))]);
+  const [lineups, raw, info] = await Promise.all([
+    getVisibleLineups(ctx),
+    getMajorResults(ctx, started.map((e) => e.id)),
+    started.length ? getEventInfo(started, ctx.pool.slug) : Promise.resolve(new Map()),
+  ]);
+  const results = new Map<string, MajorResult[]>();
+  for (const e of started) results.set(e.id, withProjectedEarnings(raw.get(e.id) ?? [], info.get(e.id)?.purse ?? null, e.status === "final"));
+
   const byEntry = new Map<string, LineupRow[]>();
   for (const l of lineups) {
     const k = `${l.user_id}|${l.event_id}`;
     if (!byEntry.has(k)) byEntry.set(k, []);
     byEntry.get(k)!.push(l);
   }
+  // The same counting rule (best N) scored three ways.
+  const asToPar: MajorsSettings = { ...s, contest: "tiers", tiers: { ...s.tiers, scoring: "to_par", counting: s.contest === "salary" ? s.salary.roster : s.tiers.counting } };
+  const asMoney: MajorsSettings = { ...asToPar, tiers: { ...asToPar.tiers, scoring: "earnings" } };
   const scores = new Map<string, ReturnType<typeof scoreLineup>>();
+  const toPar = new Map<string, number | null>();
+  const money = new Map<string, number | null>();
   for (const e of started) {
     const res = results.get(e.id) ?? [];
+    const final = e.status === "final";
     for (const m of members) {
-      const rows = byEntry.get(`${m.user_id}|${e.id}`);
-      if (rows?.length) scores.set(`${m.user_id}|${e.id}`, scoreLineup(rows.map((r) => r.espn_golfer_id), res, s, e.status === "final"));
+      const k = `${m.user_id}|${e.id}`;
+      const rows = byEntry.get(k);
+      if (!rows?.length) continue;
+      const ids = rows.map((r) => r.espn_golfer_id);
+      scores.set(k, scoreLineup(ids, res, s, final));
+      toPar.set(k, scoreLineup(ids, res, asToPar, final).total);
+      money.set(k, scoreLineup(ids, res, asMoney, final).total);
     }
   }
   const standingsFor = (eventIds: string[]) =>
@@ -99,5 +126,11 @@ export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], me
       (u, e) => scores.get(`${u}|${e}`)?.total,
       s,
     );
-  return { settings: s, lineups: byEntry, scores, results, standingsFor, started };
+  /** An entry's total over these majors by score to par or prize money (null with no lineup). */
+  const totalFor = (by: "toPar" | "money", userId: string, eventIds: string[]) => {
+    const m = by === "toPar" ? toPar : money;
+    const vals = eventIds.map((e) => m.get(`${userId}|${e}`)).filter((v): v is number => typeof v === "number");
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  };
+  return { settings: s, lineups: byEntry, scores, results, standingsFor, totalFor, started, purses: info };
 }

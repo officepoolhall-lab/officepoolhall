@@ -345,3 +345,65 @@ export function majorStandings(
 export function formatToPar(n: number | null) {
   return n === null ? "–" : n === 0 ? "E" : n > 0 ? `+${n}` : `−${-n}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Projected prize money while a major is being played
+
+/**
+ * The PGA Tour's usual share of the purse for each finishing place, 1st–65th (percent). The
+ * majors set their own tables, close to this; it's used only to project prize money before the
+ * real amounts are posted. Tied golfers split the shares of the places they cover.
+ */
+export const PAYOUT_PCT = [
+  18, 10.9, 6.9, 4.9, 4.1, 3.625, 3.375, 3.125, 2.925, 2.725, 2.525, 2.325, 2.125, 1.925, 1.825, 1.725, 1.625, 1.525, 1.425, 1.325, 1.225, 1.125,
+  1.045, 0.965, 0.885, 0.805, 0.775, 0.745, 0.715, 0.685, 0.655, 0.625, 0.595, 0.57, 0.545, 0.52, 0.495, 0.475, 0.455, 0.435, 0.415, 0.395, 0.375,
+  0.355, 0.335, 0.315, 0.295, 0.279, 0.265, 0.257, 0.251, 0.245, 0.241, 0.237, 0.235, 0.233, 0.231, 0.229, 0.227, 0.225, 0.223, 0.221, 0.219, 0.217,
+  0.215,
+];
+
+/**
+ * Prize money per golfer: the real amounts once the major is final; until then a projection
+ * from where each golfer stands now (ties split), given the purse. A golfer out of the event, or
+ * beyond the paid places, projects $0. Without a purse, everyone projects $0.
+ */
+export function projectedEarnings(results: MajorResult[], purse: number | null, final: boolean): Map<string, number> {
+  if (final || !purse) return new Map(results.map((r) => [r.espn_golfer_id, final ? r.earnings : 0]));
+  const byPlace = new Map<number, string[]>();
+  for (const r of results) {
+    const p = r.out ? null : placeNumber(r.pos);
+    if (p) byPlace.set(p, [...(byPlace.get(p) ?? []), r.espn_golfer_id]);
+  }
+  const out = new Map<string, number>(results.map((r) => [r.espn_golfer_id, 0]));
+  for (const [place, ids] of byPlace) {
+    const shares = PAYOUT_PCT.slice(place - 1, place - 1 + ids.length);
+    const each = (shares.reduce((a, b) => a + b, 0) / ids.length / 100) * purse;
+    for (const id of ids) out.set(id, Math.round(each));
+  }
+  return out;
+}
+
+/** Results with prize money replaced by the projection (live) or kept (final). */
+export function withProjectedEarnings(results: MajorResult[], purse: number | null, final: boolean): MajorResult[] {
+  if (final) return results;
+  const money = projectedEarnings(results, purse, false);
+  return results.map((r) => ({ ...r, earnings: money.get(r.espn_golfer_id) ?? 0 }));
+}
+
+/**
+ * What to show beside a golfer: fantasy points (salary cap); prize money once a money pool's
+ * major is final; otherwise score to par (with the missed-cut rule).
+ */
+export type GolferShown = { kind: "points" | "money" | "toPar"; value: number | null };
+export function golferShown(id: string, results: MajorResult[], s: MajorsSettings, final: boolean): GolferShown {
+  const r = results.find((x) => x.espn_golfer_id === id);
+  if (s.contest === "salary") return { kind: "points", value: r ? fantasyPoints(r, final).total : null };
+  if (s.tiers.scoring === "earnings" && final) return { kind: "money", value: r ? r.earnings : null };
+  return { kind: "toPar", value: toParScores(results).get(id) ?? null };
+}
+
+export function formatShown(s: GolferShown) {
+  if (s.value === null) return "–";
+  if (s.kind === "points") return (Math.round(s.value * 10) / 10).toFixed(1).replace(/\.0$/, "");
+  if (s.kind === "money") return `$${Math.round(s.value).toLocaleString("en-US")}`;
+  return formatToPar(s.value);
+}
