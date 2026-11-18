@@ -4,7 +4,7 @@ import { formatSpread, points } from "@/lib/format";
 
 type Team = { id: string; abbreviation: string | null; logo_url: string | null };
 type Game = { id: string; home: Team; away: Team; spread: number | null; voided: boolean };
-type Pick = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null };
+type Pick = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; bonus?: number | null };
 
 /**
  * The Grid's side panel on wide screens: the week's most-picked teams, how the pool's picks
@@ -63,6 +63,20 @@ export function GridPanel({
   }
   const entries = new Set(picks.map((p) => p.user_id)).size;
   const most = [...sides.values()].sort((a, b) => b.n - a.n).slice(0, 6);
+
+  // ---------- Confidence pools: upset bonuses earned (graded correct picks with a bonus) ----------
+  const earned = new Map<string, { game: Game; side: "home" | "away"; bonus: number; n: number }>();
+  for (const p of visible) {
+    const bonus = Number(p.bonus ?? 0);
+    if (p.result !== "win" || bonus <= 0) continue;
+    const side = p.picked_side === "home" ? "home" : "away";
+    const k = `${p.game_id}:${side}`;
+    const e = earned.get(k) ?? { game: byId.get(p.game_id)!, side, bonus, n: 0 };
+    e.n++;
+    e.bonus = Math.max(e.bonus, bonus);
+    earned.set(k, e);
+  }
+  const bonuses = [...earned.values()].sort((a, b) => b.bonus - a.bonus || b.n - a.n);
   const verdict = (r: string | null) =>
     r === "win" ? <span className="text-win">{ats ? "Covered" : "Won"}</span> : r === "loss" ? <span className="text-loss">Lost</span> : r === "push" ? <span className="text-muted">Push</span> : <span className="text-faint">—</span>;
 
@@ -161,6 +175,31 @@ export function GridPanel({
           </Row>
         ))}
       </Section>
+
+      {/* Confidence pools: the teams that paid an upset bonus this week, and to how many entries. */}
+      {confidence && (
+        <Section drawer={drawer} title="Upset bonuses earned" rows={Math.max(bonuses.length, 1)}>
+          {bonuses.length ? (
+            bonuses.map((b) => {
+              const team = b.side === "home" ? b.game.home : b.game.away;
+              return (
+                <Row key={`${b.game.id}:${b.side}`}>
+                  <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-4" />
+                  <span className="w-12 shrink-0 font-semibold">{team.abbreviation}</span>
+                  <span className="font-semibold tabular-nums text-accent">+{points(b.bonus)}</span>
+                  <span className="ml-auto shrink-0 tabular-nums text-muted">
+                    {b.n} {b.n === 1 ? "entry" : "entries"}
+                  </span>
+                </Row>
+              );
+            })
+          ) : (
+            <Row>
+              <span className="text-muted">None yet this week.</span>
+            </Row>
+          )}
+        </Section>
+      )}
 
       {!confidence && me && mine.length > 0 && (
         <Section drawer={drawer} title="Your picks vs the pool" rows={chips ? Math.ceil(mine.length / 5) : mine.length} cols={chips ? 5 : 1}>
