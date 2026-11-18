@@ -153,7 +153,8 @@ function PlayByPlay({ summary }: { summary: GameSummary }) {
                 <ChevronIcon className="size-4 shrink-0 text-muted transition group-open:rotate-90" />
                 {team && <TeamLogo src={team.logo} abbr={team.abbreviation} className="size-5" />}
                 <span className="font-semibold">{d.result ?? abbr(d.teamId)}</span>
-                {d.description && <span className="min-w-0 truncate text-xs text-muted">{d.description}</span>}
+                {/* Plays, yards and time: in the row on wider screens; on phones only once the drive is opened. */}
+                {d.description && <span className="hidden min-w-0 truncate text-xs text-muted sm:inline">{d.description}</span>}
                 {/* The score after this drive. */}
                 {d.awayScore !== null && d.homeScore !== null && (
                   <span className="ml-auto shrink-0 pl-2 text-xs tabular-nums text-muted">
@@ -163,6 +164,7 @@ function PlayByPlay({ summary }: { summary: GameSummary }) {
                   </span>
                 )}
               </summary>
+              {d.description && <p className="pb-1 pl-6 text-xs text-muted sm:hidden">{d.description}</p>}
               <ul className="divide-y divide-line pb-2 pl-6">
                 {d.plays.map((p) => (
                   <PlayRow key={p.id} p={p} summary={summary} />
