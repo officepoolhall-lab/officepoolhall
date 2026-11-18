@@ -89,12 +89,13 @@ export function OptionSwitcher({
           </SectionLabel>
         )}
         {!(hideSingle && options.length <= 1) && asSelect && (
-          <div className="mb-1 py-1">
+          // Same height and look as the filter buttons on the other columns, so the rows line up.
+          <div className="mb-1 flex py-1">
             <select
               value={active}
               aria-label={ariaLabel}
               onChange={(e) => choose(e.target.value)}
-              className="h-7 max-w-full truncate rounded-lg border border-line bg-bg pl-2 pr-7 text-xs font-medium text-ink"
+              className="h-6 max-w-full truncate rounded-full border-0 bg-surface py-0 pl-2.5 pr-7 text-[11px] font-medium text-ink hover:bg-hover"
             >
               {options.map((o) => (
                 <option key={o.id} value={o.id}>
