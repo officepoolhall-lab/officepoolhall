@@ -52,7 +52,6 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
             </>
           )}
         </p>
-        <p className="text-xs text-muted">{rulesLine(s)}</p>
       </div>
       {events.length > 1 && <GolfEventSelect basePath={`/p/${slug}/golf/picks`} value={event.id} events={events.map((e) => ({ id: e.id, label: e.name }))} />}
     </div>
@@ -130,13 +129,4 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
       />
     </div>
   );
-}
-
-function rulesLine(s: ReturnType<typeof getMajorsSettings>) {
-  if (s.contest === "salary") return `${s.salary.roster} golfers under $${s.salary.budget.toLocaleString("en-US")} · DraftKings scoring`;
-  const total = s.tiers.picks.reduce((a, b) => a + b, 0);
-  const pickText = s.tiers.picks.every((n) => n === s.tiers.picks[0])
-    ? `${s.tiers.picks[0]} from each of ${s.tiers.count} tiers`
-    : `${s.tiers.picks.map((n, i) => `${n} from Tier ${i + 1}`).join(", ")}`;
-  return `${pickText} · best ${s.tiers.counting} of ${total} count · ${s.tiers.scoring === "earnings" ? "prize money" : "score to par"}`;
 }
