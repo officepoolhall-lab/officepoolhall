@@ -130,12 +130,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // Desktop widths, in rem: the player column (narrower on long weeks), then each column's
   // minimum. The grid fills the screen and only scrolls sideways below this.
   const playerRem = games.length > 30 ? 11 : games.length > 16 ? 14 : 18;
-  // Desktop never scrolls sideways: the games share whatever width is left after the player
-  // and tournament columns (and the side panel, when it shows). Text and logos scale with
-  // the column (--colw); logos drop out below ~34px, leaving the abbreviation.
+  // Desktop: the games share whatever width is left after the player and tournament columns
+  // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
+  // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
+  const GAME_MIN_REM = 3.25;
   const fixedRem = playerRem + tournaments.length * 3 + 2 + 1; // + page padding, scrollbar
-  // The width the side panel needs the grid to have beside it: a comfortable 2.75rem a game.
-  const gridMinRem = playerRem + tournaments.length * 3 + games.length * 2.75;
+  const gridMinRem = playerRem + tournaments.length * 3 + games.length * GAME_MIN_REM;
   // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
   // at that width, and is tall enough for the panel to fit without scrolling.
   const panelFromPx = Math.ceil((gridMinRem + 18 + 1.25 + 1.5 + 2 + 1) * 16);
@@ -187,16 +187,16 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
         {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
             but never narrower than a readable column each; past that it scrolls as on phones. */}
         <table
-          className="border-separate border-spacing-0 text-sm lg:w-full lg:table-fixed"
+          className="border-separate border-spacing-0 text-sm lg:w-full lg:min-w-[var(--grid-min)] lg:table-fixed"
           style={
             {
-              "--colw": `calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)})`,
-              "--cell-font": "clamp(9px, calc(var(--colw) * 0.3), 13px)",
-              // Picks are logos only on desktop: as big as the column allows, 14–24px.
-              "--logo": "clamp(14px, calc(var(--colw) - 12px), 24px)",
-              // Header logos: about a third of the column, 18px at most (smaller laptops have
-              // narrow columns), gone below ~30px.
-              "--head-logo": "clamp(0px, min(calc((var(--colw) - 30px) * 100), calc(var(--colw) * 0.32)), 18px)",
+              "--grid-min": `${gridMinRem}rem`,
+              "--colw": `max(${GAME_MIN_REM}rem, calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)}))`,
+              "--cell-font": "clamp(11px, calc(var(--colw) * 0.24), 13px)",
+              // Picks are logos only on desktop: 20–24px.
+              "--logo": "clamp(20px, calc(var(--colw) - 24px), 24px)",
+              // Header logos: always shown, 18–22px.
+              "--head-logo": "clamp(18px, calc(var(--colw) * 0.34), 22px)",
             } as CSSProperties
           }
         >
