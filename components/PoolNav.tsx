@@ -95,7 +95,7 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false }: {
               {activeMore && underline}
             </button>
             {open && (
-              <ul role="menu" className="absolute right-2 top-full z-30 mt-1 min-w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg">
+              <ul role="menu" className="absolute right-2 top-full z-30 mt-1 min-w-48 overflow-hidden rounded-xl border-2 border-accent bg-surface py-1 shadow-lg">
                 {more.map((t) => {
                   const active = t.match(pathname);
                   return (
