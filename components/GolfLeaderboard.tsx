@@ -103,9 +103,9 @@ export function GolfLeaderboard({
                 )}
                 <tr
                   onClick={() => started && tournamentId && setOpen(r)}
-                  className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}`}
+                  className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "[&>td]:bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg))] hover:[&>td]:bg-[color-mix(in_srgb,var(--accent)_24%,var(--bg))]" : ""}`}
                 >
-                  <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-0 ${r.mine ? "shadow-[inset_2px_0_0_var(--accent)] sm:shadow-none" : ""}`}>{r.pos}</td>
+                  <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-0 ${r.mine ? "shadow-[inset_3px_0_0_var(--accent)] sm:pl-2" : ""}`}>{r.pos}</td>
                   <td className="border-b border-line px-2 py-2">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">
                       {started && tournamentId ? (
