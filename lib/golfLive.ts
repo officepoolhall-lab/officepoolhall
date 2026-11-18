@@ -163,7 +163,8 @@ export async function currentRound(tournamentId: string, golfers: LiveGolfer[] |
 export function espnTournamentId(espnId: string, poolSlug: string, status?: string): string | null {
   if (/^\d+$/.test(espnId)) return espnId;
   const demo = espnId.match(/^demo-0*(\d+)$/);
-  if (!demo || poolSlug !== "demo-pga-2026") return null;
+  // The demo pools: the 2026 one-and-done and the 2026 Majors demo (same Masters snapshot).
+  if (!demo || !["demo-pga-2026", "demo-majors-2026"].includes(poolSlug)) return null;
   if (Number(demo[1]) === 14 && status === "in_progress") return DEMO_LIVE_ID;
   return String(401811927 + Number(demo[1]));
 }
