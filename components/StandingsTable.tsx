@@ -28,7 +28,8 @@ export function StandingsTable({
   rows: StandingRow[];
   me: string;
   limit?: number;
-  /** A longer limit from 1024px (Home's desktop column, to end level with the rankings beside it). */
+  /** Home's desktop column (FillColumn): send rows past `limit` for desktop to show as many as
+      fit; phones keep `limit`. */
   limitLg?: number;
   weekly?: boolean;
   flat?: boolean;
@@ -44,25 +45,47 @@ export function StandingsTable({
   /** Where a player's name links (their week-by-week history). */
   playerHref?: (userId: string) => string;
 }) {
-  const lg = limit && limitLg && limitLg > limit ? limitLg : limit;
+  const fill = Boolean(limit && limitLg && limitLg > limit);
+  const lg = fill ? limitLg : limit;
   const shown = lg ? rows.slice(0, lg) : rows;
   const mine = rows.find((r) => r.userId === me);
   const mineAt = mine ? rows.indexOf(mine) : -1;
-  // The viewer's own row pinned under the list when it's past the cut: on every screen when
-  // it's past the desktop cut too, else on phones only.
-  const pinned = limit && mine && mineAt >= limit ? mine : null;
-  const pinnedClass = pinned && lg && mineAt < lg ? "lg:hidden" : "";
+  // The viewer's own row pinned under the list when it's past the cut. Phones: when past
+  // `limit`. Desktop (fill): hidden until FillColumn trims the list past it.
+  const pinned = limit && mine && (mineAt >= limit || (fill && mineAt >= 3)) ? mine : null;
+  const pinnedClass = !pinned ? "" : `${mineAt >= (limit ?? 0) ? "" : "max-lg:hidden"} ${fill ? "lg:hidden" : ""}`;
 
   return (
-    <ul className="divide-y divide-line border-b border-line">
+    <ul className="divide-y divide-line border-b border-line" data-fill-list={fill ? "" : undefined}>
       {extras?.length ? <HeaderRow extras={extras} flat={flat} /> : null}
       {shown.map((r, i) => (
-        <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} className={limit && i >= limit ? "max-lg:hidden" : ""} />
+        <Row
+          key={r.userId}
+          r={r}
+          me={me}
+          weekly={weekly}
+          flat={flat}
+          compact={compact}
+          extras={extras}
+          playerHref={playerHref}
+          className={limit && i >= limit ? "max-lg:hidden" : ""}
+          data={r.userId === me ? { "data-fill-me": "" } : undefined}
+        />
       ))}
       {pinned && (
         <>
-          <li className={`py-1 text-center text-xs leading-none text-faint ${pinnedClass}`} aria-hidden>···</li>
-          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} className={pinnedClass} />
+          <li className={`py-1 text-center text-xs leading-none text-faint ${pinnedClass}`} aria-hidden data-fill-pin={fill ? "block" : undefined}>···</li>
+          <Row
+            r={pinned}
+            me={me}
+            weekly={weekly}
+            flat={flat}
+            compact={compact}
+            extras={extras}
+            playerHref={playerHref}
+            className={pinnedClass}
+            data={fill ? { "data-fill-pin": "flex" } : undefined}
+          />
         </>
       )}
       {total && rows.length > 0 && <TotalRow rows={rows} extras={extras} flat={flat} />}
@@ -125,6 +148,7 @@ function Row({
   extras,
   playerHref,
   className = "",
+  data,
 }: {
   r: StandingRow;
   me: string;
@@ -134,12 +158,14 @@ function Row({
   extras?: Extra[];
   playerHref?: (userId: string) => string;
   className?: string;
+  /** data-* attributes for FillColumn. */
+  data?: Record<string, string>;
 }) {
   const columns = Boolean(extras?.length);
   const mine = r.userId === me;
   const record = `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
   return (
-    <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"} ${className}`}>
+    <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"} ${className}`} {...data}>
       <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
       <span className="min-w-0 flex-1 truncate font-medium">
         {playerHref ? (

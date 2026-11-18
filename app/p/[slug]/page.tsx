@@ -9,6 +9,7 @@ import { LiveTicker } from "@/components/LiveTicker";
 import { NewsList } from "@/components/NewsList";
 import { StandingsTable } from "@/components/StandingsTable";
 import { HomeStandings } from "@/components/HomeStandings";
+import { FillColumn } from "@/components/FillColumn";
 import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
 import { BracketCard } from "@/components/BracketCard";
 import { pickCount } from "@/lib/bracket";
@@ -93,9 +94,9 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
     };
   }
 
-  // Desktop: enough standings rows that the left column ends about level with the right one,
-  // the AP Top 25 for college pools (25 rows) or the NFL's division standings (shorter).
-  const homeRowsLg = sport === "nfl" ? 15 : 19;
+  // Desktop: rows sent past the phone limit; FillColumn shows as many as fit beside the
+  // rankings or NFL standings.
+  const homeRowsLg = 40;
 
   return (
     // data-wide: full screen width on desktop, like the Picks and Grid tabs.
@@ -106,8 +107,11 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
 
       {/* Desktop: this week + standings | top stories | rankings, each its natural height,
           all starting right under the ticker. Phones: week, standings, rankings, stories. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
-        <div>
+      {/* Desktop: the rankings (or NFL standings) on the right set the row's height; the left
+          column and the news fill exactly that much (FillColumn), so all three end level. Thin
+          blue lines split the three columns. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        <FillColumn className="lg:flex lg:flex-col lg:pr-6">
           {slate && summary ? (
             <section className="mb-6 border-b border-line pb-4">
               <div className="flex items-baseline gap-2">
@@ -213,22 +217,24 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 : []),
             ]}
           />
-        </div>
-        <div className="order-last lg:order-none">
+        </FillColumn>
+        <FillColumn className="order-last lg:order-none lg:px-6">
           <Suspense fallback={<Placeholder title={NEWS_TITLE[sport]} rows={6} />}>
             <News sport={sport} now={now} />
           </Suspense>
-        </div>
+        </FillColumn>
         {/* The NFL has no poll: its division standings take that spot. */}
-        {sport === "nfl" ? (
-          <Suspense fallback={<Placeholder title="NFL Standings" rows={10} />}>
-            <NflStandingsBox />
-          </Suspense>
-        ) : (
-          <Suspense fallback={<Placeholder title="Rankings" rows={10} />}>
-            <Poll sport={sport} timezone={ctx.displayTz} />
-          </Suspense>
-        )}
+        <div className="lg:pl-6">
+          {sport === "nfl" ? (
+            <Suspense fallback={<Placeholder title="NFL Standings" rows={10} />}>
+              <NflStandingsBox />
+            </Suspense>
+          ) : (
+            <Suspense fallback={<Placeholder title="Rankings" rows={10} />}>
+              <Poll sport={sport} timezone={ctx.displayTz} />
+            </Suspense>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -254,7 +260,7 @@ async function NflStandingsBox() {
 function Placeholder({ title, rows }: { title: string; rows: number }) {
   return (
     <section aria-busy="true" aria-label={title}>
-      <SectionLabel>{title}</SectionLabel>
+      <SectionLabel className="!text-sm">{title}</SectionLabel>
       <ul className="mt-2 space-y-3">
         {Array.from({ length: rows }, (_, i) => (
           <li key={i} className="h-4 animate-pulse rounded bg-surface" style={{ width: `${70 + ((i * 13) % 30)}%` }} />
