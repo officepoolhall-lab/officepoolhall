@@ -8,11 +8,12 @@ import { Countdown } from "@/components/Countdown";
 import { LiveTicker } from "@/components/LiveTicker";
 import { NewsList } from "@/components/NewsList";
 import { StandingsTable } from "@/components/StandingsTable";
+import { HomeStandings } from "@/components/HomeStandings";
 import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
 import { BracketCard } from "@/components/BracketCard";
 import { pickCount } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
-import { ChevronIcon, Empty, SectionLabel, chipClass } from "@/components/ui";
+import { Empty, SectionLabel, chipClass } from "@/components/ui";
 import { getApPoll } from "@/lib/apPoll";
 import { points, windowLabel } from "@/lib/format";
 import { getNews } from "@/lib/news";
@@ -183,28 +184,31 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
               )}
             </Empty>
           )}
-          <section>
-            <div className="flex items-center justify-between">
-              <SectionLabel>Season standings</SectionLabel>
-              <Link href={`/p/${slug}/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
-                All <ChevronIcon className="size-4" />
-              </Link>
-            </div>
-            {/* Top 8, plus the viewer's own row when they're further down. */}
-            <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
-          </section>
-          {slate && weekly && (
-            // Phones skip the week's standings (the season's are enough there); wider screens keep them.
-            <section className="mt-6 hidden sm:block">
-              <div className="flex items-center justify-between">
-                <SectionLabel>{slate.label ?? `Week ${slate.week}`} standings</SectionLabel>
-                <Link href={`/p/${slug}/standings?week=${slate.week}`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
-                  All <ChevronIcon className="size-4" />
-                </Link>
-              </div>
-              <StandingsTable rows={weekly} me={ctx.entryUserId} flat={flat} compact weekly limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
-            </section>
-          )}
+          {/* Season and this week in one table with buttons to switch (season only on phones), so
+              the column ends near the rankings beside it on desktop. Top 8, plus the viewer's own
+              row when they're further down. */}
+          <HomeStandings
+            views={[
+              {
+                id: "season",
+                label: "Season",
+                title: "Season standings",
+                href: `/p/${slug}/standings`,
+                content: <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
+              },
+              ...(slate && weekly
+                ? [
+                    {
+                      id: "week",
+                      label: slate.label ?? `Week ${slate.week}`,
+                      title: `${slate.label ?? `Week ${slate.week}`} standings`,
+                      href: `/p/${slug}/standings?week=${slate.week}`,
+                      content: <StandingsTable rows={weekly} me={ctx.entryUserId} flat={flat} compact weekly limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
         <div className="order-last lg:order-none">
           <Suspense fallback={<Placeholder title={NEWS_TITLE[sport]} rows={6} />}>
