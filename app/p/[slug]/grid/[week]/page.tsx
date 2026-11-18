@@ -192,7 +192,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             {
               "--colw": `calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)})`,
               "--cell-font": "clamp(9px, calc(var(--colw) * 0.3), 13px)",
-              "--logo": "clamp(0px, calc((var(--colw) - 30px) * 100), 14px)",
+              // Picks are logos only on desktop: as big as the column allows, 14–24px.
+              "--logo": "clamp(14px, calc(var(--colw) - 12px), 24px)",
               "--head-logo": "clamp(0px, calc((var(--colw) - 34px) * 100), 24px)",
             } as CSSProperties
           }
@@ -345,10 +346,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-11 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
                         {team && (
                           <div className="leading-tight">
-                            {/* Desktop has room for the team's logo over its abbreviation. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`mx-auto mb-px hidden size-3.5 lg:block lg:size-[var(--logo)] ${p?.result === "loss" ? "opacity-60" : ""}`} />
-                            <div className={`text-[11px] font-medium lg:text-[length:var(--cell-font)] ${p?.result === "loss" ? "line-through" : ""}`}>
-                              {team.abbreviation}
+                            {/* Desktop: the team's logo alone; the cell's green or red fill gives the result. */}
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto hidden size-3.5 lg:block lg:size-[var(--logo)]" />
+                            <div className={`text-[11px] font-medium lg:leading-none ${p?.result === "loss" ? "line-through lg:no-underline" : ""}`}>
+                              {/* Phones show the abbreviation (struck through on a loss); desktop keeps it for screen readers. */}
+                              <span className="lg:sr-only">{team.abbreviation}</span>
                               {/* Color isn't the only signal for the result. */}
                               {p?.result === "win" && <span className="sr-only">, won</span>}
                               {p?.result === "loss" && <span className="sr-only">, lost</span>}

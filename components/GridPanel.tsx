@@ -132,7 +132,7 @@ export function GridPanel({
         {perGame.map(({ g, total, w, l, pu, graded, winner }) => (
           <Row key={g.id}>
             {/* Just the side that won; the pool's record on the game follows. */}
-            <span className="flex w-14 shrink-0 items-center gap-1.5 font-semibold" title={`${g.away.abbreviation} @ ${g.home.abbreviation}`}>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold" title={`${g.away.abbreviation} @ ${g.home.abbreviation}`}>
               {winner ? (
                 <>
                   <TeamLogo src={winner.logo_url} abbr={winner.abbreviation} className="size-4" />
@@ -142,15 +142,7 @@ export function GridPanel({
                 <span className="truncate font-normal text-muted">{graded ? "Push" : "Live"}</span>
               )}
             </span>
-            <span className="flex h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface">
-              {graded ? (
-                <>
-                  <span className="h-full bg-win" style={{ width: `${(w / total) * 100}%` }} />
-                  <span className="h-full bg-loss" style={{ width: `${(l / total) * 100}%` }} />
-                </>
-              ) : null}
-            </span>
-            <span className={`${twoCols ? "w-10" : "w-14"} shrink-0 text-right tabular-nums text-muted`}>
+            <span className="shrink-0 text-right tabular-nums text-muted">
               {graded ? `${w}–${l}${pu ? `–${pu}` : ""}` : total}
             </span>
           </Row>
