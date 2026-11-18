@@ -49,7 +49,7 @@ export function PoolSwitcher({ current, pools }: { current: Pool; pools: Pool[] 
         <ChevronIcon className={`size-3.5 shrink-0 transition ${open ? "-rotate-90" : "rotate-90"}`} />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-64 rounded-2xl border border-line bg-bg p-1 shadow-lg">
+        <div role="menu" className="absolute right-0 top-full z-40 mt-1 w-64 rounded-2xl border-2 border-accent bg-bg p-1 shadow-lg">
           {pools.map((p) => {
             const active = p.slug === current.slug;
             return (
