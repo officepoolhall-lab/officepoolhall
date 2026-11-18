@@ -7,7 +7,7 @@ import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { PoolTitle } from "@/components/PoolTitle";
 import { getGridWeek, getPoolBase } from "@/lib/pool";
 
-export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
+export default async function PoolLayout({ children, modal, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolBase(slug);
   const [gridWeek, { data: memberships }, { data: managed }, { data: guestOf }] = await Promise.all([
@@ -49,6 +49,9 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
         )}
         {children}
       </main>
+      {/* A game opened from inside the app shows here as a pop-up (@modal/(.)game). Outside
+          <main>, so its wide layout doesn't change the width of the page underneath. */}
+      {modal}
     </PoolPresence>
   );
 }

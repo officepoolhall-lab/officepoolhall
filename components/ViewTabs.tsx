@@ -16,8 +16,10 @@ export function ViewTabs({
   param,
   ariaLabel,
 }: {
-  /** In button order; the first is the default (left out of the address). */
-  views: { id: string; label: string; content: ReactNode }[];
+  /** In button order; the first is the default (left out of the address). `scroll`: on desktop
+      this view doesn't set the row's height; it ends where its neighbors end (at least 24rem)
+      and scrolls inside, e.g. a long play-by-play beside the box score. */
+  views: { id: string; label: string; content: ReactNode; scroll?: boolean }[];
   initial?: string;
   param: string;
   ariaLabel: string;
@@ -47,9 +49,15 @@ export function ViewTabs({
       </div>
       <div className="lg:grid lg:grid-flow-col lg:auto-cols-fr lg:items-start lg:gap-10">
         {views.map((v) => (
-          <section key={v.id} aria-label={v.label} className={v.id === active ? "" : "hidden lg:block"}>
-            <h2 className="mb-2 hidden text-lg font-extrabold tracking-[-0.03em] lg:block">{v.label}</h2>
-            {v.content}
+          <section
+            key={v.id}
+            aria-label={v.label}
+            className={`${v.id === active ? "" : "hidden lg:block"} ${v.scroll ? "lg:!flex lg:h-0 lg:min-h-[max(100%,24rem)] lg:flex-col" : ""}`}
+          >
+            <h2 className="mb-2 hidden shrink-0 text-lg font-extrabold tracking-[-0.03em] lg:block">{v.label}</h2>
+            {/* No overscroll containment: at the top or bottom of the list, scrolling carries on
+                into the page or pop-up around it. */}
+            {v.scroll ? <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">{v.content}</div> : v.content}
           </section>
         ))}
       </div>
