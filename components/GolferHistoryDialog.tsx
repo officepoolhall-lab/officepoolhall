@@ -19,7 +19,7 @@ export function GolferHistoryDialog({
   onPick,
   majors = false,
 }: {
-  /** A Majors pool: "this season" is the pool's majors, with no week numbers. */
+  /** A Majors pool: "this season" is every PGA Tour event, without the pool's week numbers. */
   majors?: boolean;
   golfer: { id: string; name: string; rank: number | null };
   /** Past results for the whole field, already loading with the page. */
@@ -82,7 +82,7 @@ export function GolferHistoryDialog({
 
 /** The two sections, once the field's history has arrived. */
 function Results({ golferId, history, majors }: { golferId: string; history: Promise<FieldHistory>; majors: boolean }) {
-  const unit = majors ? "majors" : "events";
+  const unit = "events";
   const data = use(history);
   const atYears = data.years.map((y, i) => ({ ...y, result: data.at[golferId]?.[i] ?? null }));
   const rows = (data.season[golferId] ?? []).map((r) => ({ ...data.played[r.i], pos: r.pos, earnings: r.earnings }));
@@ -141,7 +141,7 @@ function Results({ golferId, history, majors }: { golferId: string; history: Pro
             )}
 
             <section className="mt-5">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{majors ? "This Season's Majors" : "This Season"}</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This Season</h3>
               {rows.length === 0 ? (
                 <p className="mt-2 border-y border-line py-3 text-sm text-muted">
                   {eventsPlayed === 0 ? `No ${unit} have been played yet this season.` : `Hasn't played in any of the ${eventsPlayed} ${unit} so far this season.`}
@@ -150,7 +150,7 @@ function Results({ golferId, history, majors }: { golferId: string; history: Pro
                 <>
                   <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
                     {[
-                      [majors ? "Majors" : "Events", `${rows.length} of ${eventsPlayed}`],
+                      ["Events", `${rows.length} of ${eventsPlayed}`],
                       ["Cuts Made", `${cuts} of ${finished.length}`],
                       ["Best", bestLabel],
                       ["Top 10s", String(top10)],

@@ -122,9 +122,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
         roster={s.salary.roster}
         initial={mine.map((l) => l.espn_golfer_id)}
         readOnly={ctx.isGuest}
-        // Each golfer's past years at this major and this season's majors (not awaited: the
+        // Each golfer's past years at this major and every PGA Tour event this season (not awaited: the
         // field shows straight away and History opens without another request).
-        history={loadFieldHistory(ctx, event, events, field.map((g) => g.espn_golfer_id))}
+        history={loadFieldHistory(ctx, event, events, field.map((g) => g.espn_golfer_id), { allTourEvents: true })}
         save={saveGolfLineup.bind(null, slug, event.id, ctx.managing?.ownerId ?? null)}
       />
     </div>
