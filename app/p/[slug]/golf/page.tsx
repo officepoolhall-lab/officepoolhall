@@ -280,6 +280,10 @@ function Placeholder({ title, rows }: { title: string; rows: number }) {
  * Home for a Majors pool: the live scroll, the next (or current) major with the entry's lineup
  * status and lock countdown, the standings so far, news and world rankings.
  */
+/** $1.2M, $85K, $900 (compact). */
+const shortMoney = (n: number) =>
+  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, "")}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : n > 0 ? `$${n}` : "$0";
+
 async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
   const [events, members, lineups] = await Promise.all([getGolfEvents(ctx), getGolfMembers(ctx), getVisibleLineups(ctx)]);
   // eslint-disable-next-line react-hooks/purity -- server render
@@ -341,6 +345,15 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                     the golfers that count are in bold. */}
                 {mine.length > 0 && (
                   <ul className="mt-1 divide-y divide-line">
+                    {next.status !== "scheduled" && (
+                      <li className="flex items-center gap-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-faint" aria-hidden>
+                        <span className="w-10 shrink-0">{s.contest === "salary" ? "Salary" : "Tier"}</span>
+                        <span className="min-w-0 flex-1">Golfer</span>
+                        <span className="w-9 shrink-0 text-right">Place</span>
+                        <span className="w-11 shrink-0 text-right">{s.contest === "salary" ? "Pts" : "Score"}</span>
+                        <span className="w-14 shrink-0 text-right">{next.status === "final" ? "Earnings" : "Proj. $"}</span>
+                      </li>
+                    )}
                     {[...mine]
                       .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0) || a.golfer_name.localeCompare(b.golfer_name))
                       .map((l) => {
@@ -356,14 +369,21 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                             {started && (
                               <>
                                 <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
-                                {/* Score to par while it's played (prize money once final, in money pools). */}
-                                <span className="w-16 shrink-0 text-right tabular-nums">{formatShown(golferShown(l.espn_golfer_id, myResultList, s, next.status === "final"))}</span>
+                                {/* Score to par (points for salary cap), then prize money: projected from
+                                    current standings until it's posted. */}
+                                <span className="w-11 shrink-0 text-right tabular-nums">
+                                  {formatShown(golferShown(l.espn_golfer_id, myResultList, s.contest === "salary" ? s : { ...s, tiers: { ...s.tiers, scoring: "to_par" } }, next.status === "final"))}
+                                </span>
+                                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{r ? shortMoney(r.earnings) : "–"}</span>
                               </>
                             )}
                           </li>
                         );
                       })}
                   </ul>
+                )}
+                {mine.length > 0 && next.status === "in_progress" && (
+                  <p className="mt-1 text-[11px] text-muted">Proj. $ is projected from current standings and the purse (ties split), until prize money is posted.</p>
                 )}
               </>
             ) : (
