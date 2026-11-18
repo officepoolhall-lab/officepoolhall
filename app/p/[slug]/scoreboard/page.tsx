@@ -38,13 +38,32 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
   const first = slate ? formatInTimeZone(slate.window_start, tz, "yyyy-MM-dd") : today;
   const last = slate ? formatInTimeZone(new Date(new Date(slate.window_end).getTime() - 1), tz, "yyyy-MM-dd") : plusDays(today, 6);
-  const days: string[] = [];
-  for (let d = first; d <= last && days.length < 14; d = plusDays(d, 1)) days.push(d);
-  const day = typeof dayParam === "string" && ISO_DATE.test(dayParam) && days.includes(dayParam) ? dayParam : days.includes(today) ? today : days[0];
+  const allDays: string[] = [];
+  for (let d = first; d <= last && allDays.length < 14; d = plusDays(d, 1)) allDays.push(d);
+  const sport = teamSport(ctx.pool.sport);
+  // The NFL plays a few days a week (Thursday, Sunday, Monday): only those days get a button.
+  // College plays most days, so every day of the week shows.
+  let days = allDays;
+  if (sport === "nfl") {
+    const { data } = await ctx.supabase
+      .from("games")
+      .select("start_at")
+      .eq("sport", "nfl")
+      .gte("start_at", fromZonedTime(`${first}T00:00:00`, tz).toISOString())
+      .lt("start_at", fromZonedTime(`${plusDays(last, 1)}T00:00:00`, tz).toISOString());
+    const played = new Set((data ?? []).map((g) => formatInTimeZone(g.start_at, tz, "yyyy-MM-dd")));
+    if (played.size) days = allDays.filter((d) => played.has(d));
+  }
+  // Today if it has games; else the next game day; else the last one.
+  const day =
+    typeof dayParam === "string" && ISO_DATE.test(dayParam) && days.includes(dayParam)
+      ? dayParam
+      : days.includes(today)
+        ? today
+        : (days.find((d) => d > today) ?? days[days.length - 1]);
 
   // ESPN counts days in Eastern time, so a late tip here can sit on its next day: read both
   // and keep the games on this local day.
-  const sport = teamSport(ctx.pool.sport);
   const espn = (d: string) => d.replaceAll("-", "");
   const [a, b, slateGames] = await Promise.all([
     getEspnDay(sport, espn(day), day === today),
@@ -113,6 +132,7 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
         records={records}
         ats={ctx.settings.pick_type === "ats"}
         inPool={[...slateByEspn.keys()]}
+        showFilters={sport !== "nfl"}
       />
       <p className="mt-4 text-xs text-muted">
         {sport === "ncaab" ? "Every Division I men's game between D-I teams." : sport === "nfl" ? "Every NFL game." : "Every FBS game."} Scores and plays from ESPN.

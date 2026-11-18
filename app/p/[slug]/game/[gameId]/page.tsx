@@ -8,6 +8,7 @@ import { ViewTabs } from "@/components/ViewTabs";
 import { getGameSummary, type GameSummary, type Play } from "@/lib/gameSummary";
 import { getPoolContext } from "@/lib/pool";
 import { teamSport } from "@/lib/sports";
+import { PlayerName } from "@/components/ProfileDialogs";
 
 export const metadata: Metadata = { title: "Game" };
 
@@ -102,7 +103,7 @@ export default async function GamePage({ params, searchParams }: PageProps<"/p/[
         ariaLabel="Show"
         views={[
           { id: "plays", label: "Play-by-Play", content: <PlayByPlay summary={summary} /> },
-          { id: "box", label: "Box Score", content: <BoxScore summary={summary} /> },
+          { id: "box", label: "Box Score", content: <BoxScore summary={summary} sport={sport} /> },
         ]}
       />
     </div>
@@ -191,7 +192,7 @@ function phoneName(team: GameSummary["home"]) {
 }
 
 /** Box score, one part at a time: Team Stats, then each team's player stats (home, away). */
-function BoxScore({ summary }: { summary: GameSummary }) {
+function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "ncaab" | "nfl" }) {
   const { away, home } = summary;
   if (!summary.teamStats.length && !summary.players.length) {
     return <p className="border-y border-line py-3 text-sm text-muted">No box score yet.</p>;
@@ -236,8 +237,11 @@ function BoxScore({ summary }: { summary: GameSummary }) {
                 </thead>
                 <tbody className="divide-y divide-line">
                   {g.rows.map((r) => (
-                    <tr key={r.name}>
-                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">{r.name}</td>
+                    <tr key={r.id ?? r.name}>
+                      {/* Tap a name for the player's game log and season totals. */}
+                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">
+                        <PlayerName sport={sport} id={r.id} name={r.name} />
+                      </td>
                       {r.stats.map((v, i) => (
                         <td key={i} className="px-1.5 py-1 text-right">{v}</td>
                       ))}

@@ -1,0 +1,243 @@
+"use client";
+
+import { formatInTimeZone } from "date-fns-tz";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { PlayerProfile, TeamHistory } from "@/lib/espnProfiles";
+import { useScrollLock } from "@/lib/useScrollLock";
+import { TeamLogo } from "./ui";
+
+type Sport = "ncaaf" | "ncaab" | "nfl";
+
+/** Fetch once per open; "failed" shows a short note instead of the content. */
+function useJson<T>(url: string) {
+  const [state, setState] = useState<T | "loading" | "failed">("loading");
+  useEffect(() => {
+    let live = true;
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => live && setState(d as T))
+      .catch(() => live && setState("failed"));
+    return () => {
+      live = false;
+    };
+  }, [url]);
+  return state;
+}
+
+/** The pop-up shell shared with the golf pop-ups: blue outline, page behind locked, tap outside to close. */
+function Shell({ label, onClose, header, children, wide = false }: { label: string; onClose: () => void; header: ReactNode; children: ReactNode; wide?: boolean }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useScrollLock();
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      onClose={onClose}
+      onClick={(e) => e.target === dialog.current && dialog.current?.close()}
+      className={`m-auto ${wide ? "w-[min(44rem,calc(100vw-2rem))]" : "w-[min(30rem,calc(100vw-2rem))]"} rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50`}
+      aria-label={label}
+    >
+      <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">{header}</div>
+          <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 shrink-0 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </dialog>
+  );
+}
+
+const Note = ({ children }: { children: ReactNode }) => <p className="mt-4 text-sm text-muted">{children}</p>;
+
+// ---------------------------------------------------------------------------------------------
+// Player: from the box score
+// ---------------------------------------------------------------------------------------------
+
+/** A player's name in the box score: tap for their game log and season totals. */
+export function PlayerName({ sport, id, name, className = "" }: { sport: Sport; id: string | null; name: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!id) return <span className={className}>{name}</span>;
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={`text-left hover:text-accent hover:underline ${className}`}>
+        {name}
+      </button>
+      {open && <PlayerDialog sport={sport} id={id} name={name} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; name: string; onClose: () => void }) {
+  const data = useJson<PlayerProfile>(`/api/espn/player?sport=${sport}&id=${id}`);
+  const p = typeof data === "object" ? data : null;
+  return (
+    <Shell
+      label={`${p?.name ?? name}: game log`}
+      onClose={onClose}
+      wide
+      header={
+        <div className="flex items-center gap-3">
+          {p?.headshot && (
+            // eslint-disable-next-line @next/next/no-img-element -- ESPN's headshot, any size
+            <img src={p.headshot} alt="" className="size-14 shrink-0 rounded-full bg-surface object-cover" />
+          )}
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-bold">{p?.name ?? name}</h2>
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              {p?.teamLogo && <TeamLogo src={p.teamLogo} abbr={null} className="size-4" />}
+              {[p?.team, p?.position, p?.jersey ? `#${p.jersey}` : null].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+        </div>
+      }
+    >
+      {data === "loading" ? (
+        <Note>Loading…</Note>
+      ) : data === "failed" || !p ? (
+        <Note>ESPN doesn&apos;t have a game log for this player right now.</Note>
+      ) : !p.tables.length ? (
+        <Note>No games this season yet.</Note>
+      ) : (
+        p.tables.map((t) => (
+          <div key={t.name} className="mt-4">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t.name}</h3>
+            {/* Wide stat lines scroll inside the pop-up; the game column stays put. */}
+            <div className="overflow-x-auto">
+              <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
+                <thead>
+                  <tr className="text-muted">
+                    <th className="sticky left-0 bg-bg py-1.5 pr-3 text-left font-medium">Game</th>
+                    {t.labels.map((l, i) => (
+                      <th key={i} className="whitespace-nowrap px-1.5 py-1.5 text-right font-medium">{l}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {t.totals && (
+                    <tr className="font-semibold">
+                      <td className="sticky left-0 border-y border-line bg-bg py-1.5 pr-3">Season</td>
+                      {t.totals.map((v, i) => (
+                        <td key={i} className="border-y border-line px-1.5 py-1.5 text-right">{v}</td>
+                      ))}
+                    </tr>
+                  )}
+                  {t.games.map((g) => (
+                    <tr key={g.id}>
+                      <td className="sticky left-0 border-b border-line bg-bg py-1.5 pr-3">
+                        <span className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="w-10 text-muted">{g.date ? formatInTimeZone(g.date, "America/New_York", "M/d") : ""}</span>
+                          <span className="text-muted">{g.atVs}</span>
+                          <TeamLogo src={g.opponentLogo} abbr={g.opponent} className="size-4" />
+                          <span className="font-medium">{g.opponent}</span>
+                          {g.result && <span className={`font-semibold ${g.result === "W" ? "text-win" : g.result === "L" ? "text-loss" : "text-muted"}`}>{g.result}</span>}
+                        </span>
+                      </td>
+                      {g.stats.map((v, i) => (
+                        <td key={i} className="border-b border-line px-1.5 py-1.5 text-right">{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
+    </Shell>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Team: from My Picks
+// ---------------------------------------------------------------------------------------------
+
+/** A team's recent results and, in ATS pools, its record against the spread. */
+export function TeamHistoryDialog({
+  sport,
+  espnId,
+  name,
+  logo,
+  ats,
+  timezone,
+  onClose,
+}: {
+  sport: Sport;
+  espnId: string;
+  name: string;
+  logo: string | null;
+  ats: boolean;
+  timezone: string;
+  onClose: () => void;
+}) {
+  const data = useJson<TeamHistory>(`/api/espn/team?sport=${sport}&id=${espnId}${ats ? "&ats=1" : ""}`);
+  const t = typeof data === "object" ? data : null;
+  const overall = t?.ats.find((s) => s.name === "atsOverall") ?? t?.ats[0];
+  return (
+    <Shell
+      label={`${name}: recent games`}
+      onClose={onClose}
+      header={
+        <div className="flex items-center gap-3">
+          <TeamLogo src={t?.logo ?? logo} abbr={null} className="size-10" />
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-bold">{t?.name ?? name}</h2>
+            <p className="text-xs text-muted tabular-nums">
+              {t?.record ? `${t.record.replace(/-/g, "–")} overall` : ""}
+              {ats && overall ? `${t?.record ? " · " : ""}${overall.wins}–${overall.losses}${overall.pushes ? `–${overall.pushes}` : ""} ATS` : ""}
+            </p>
+          </div>
+        </div>
+      }
+    >
+      {data === "loading" ? (
+        <Note>Loading…</Note>
+      ) : data === "failed" || !t ? (
+        <Note>ESPN doesn&apos;t have this team&apos;s results right now.</Note>
+      ) : (
+        <>
+          {ats && t.ats.length > 0 && (
+            <section className="mt-4">
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Against the spread</h3>
+              <ul className="grid grid-cols-2 gap-x-6 border-t border-line text-sm">
+                {t.ats.map((s) => (
+                  <li key={s.name} className="flex justify-between border-b border-line py-1.5">
+                    <span className="text-muted">{s.label}</span>
+                    <span className="font-semibold tabular-nums">
+                      {s.wins}–{s.losses}
+                      {s.pushes ? `–${s.pushes}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {ats && !t.ats.length && <Note>No record against the spread from ESPN yet.</Note>}
+          <section className="mt-4">
+            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent games</h3>
+            {t.recent.length ? (
+              <ul className="border-t border-line text-sm">
+                {t.recent.slice(0, 10).map((g) => (
+                  <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
+                    <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
+                    <span className="w-5 shrink-0 text-xs text-muted">{g.atVs}</span>
+                    <TeamLogo src={g.opponentLogo} abbr={g.opponent} className="size-5" />
+                    <span className="min-w-0 flex-1 truncate font-medium">{g.opponent}</span>
+                    <span className={`w-4 shrink-0 font-semibold ${g.result === "W" ? "text-win" : g.result === "L" ? "text-loss" : "text-muted"}`}>{g.result ?? ""}</span>
+                    <span className="w-14 shrink-0 text-right tabular-nums">{g.score ?? ""}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <Note>No games played yet this season.</Note>
+            )}
+          </section>
+        </>
+      )}
+    </Shell>
+  );
+}
