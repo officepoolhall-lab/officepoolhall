@@ -4,7 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FROZEN_HEAD } from "./SeasonStandings";
 import { chipClass, SectionLabel } from "./ui";
 
-export type SwitchOption = { id: string; label: string; /** What the button shows, if not the label. */ chip?: ReactNode };
+export type SwitchOption = {
+  id: string;
+  label: string;
+  /** What the button shows, if not the label. */
+  chip?: ReactNode;
+  /** What the dropdown shows (asSelect), if not the label. */
+  selectLabel?: string;
+};
 
 /**
  * One standings column with buttons above it: pick types on Season, weeks on Week standings,
@@ -24,6 +31,7 @@ export function OptionSwitcher({
   lead,
   ariaLabel,
   hideSingle = false,
+  asSelect = false,
 }: {
   options: SwitchOption[];
   initial: string;
@@ -41,6 +49,8 @@ export function OptionSwitcher({
   ariaLabel: string;
   /** Leave out the buttons when there's only one option. */
   hideSingle?: boolean;
+  /** A dropdown instead of a row of buttons (weeks and segments, which run long). */
+  asSelect?: boolean;
 }) {
   const [active, setActive] = useState(initial in views ? initial : defaultId in views ? defaultId : (options[0]?.id ?? initial));
 
@@ -78,7 +88,23 @@ export function OptionSwitcher({
             <span>{titles[active]}</span>
           </SectionLabel>
         )}
-        {!(hideSingle && options.length <= 1) && (
+        {!(hideSingle && options.length <= 1) && asSelect && (
+          <div className="mb-1 py-1">
+            <select
+              value={active}
+              aria-label={ariaLabel}
+              onChange={(e) => choose(e.target.value)}
+              className="h-7 max-w-full truncate rounded-lg border border-line bg-bg pl-2 pr-7 text-xs font-medium text-ink"
+            >
+              {options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.selectLabel ?? o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {!(hideSingle && options.length <= 1) && !asSelect && (
         <div ref={row} className="relative -mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1" role="group" aria-label={ariaLabel}>
           {options.map((o) => (
             <button key={o.id} type="button" onClick={() => choose(o.id)} aria-pressed={o.id === active} className={chipClass(o.id === active, "", "xs")}>

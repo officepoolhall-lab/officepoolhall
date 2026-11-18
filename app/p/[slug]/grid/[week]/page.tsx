@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { GridPanel } from "@/components/GridPanel";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
+import { LinkSelect } from "@/components/LinkSelect";
 import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -134,7 +135,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // Desktop: the games share whatever width is left after the player and tournament columns
   // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
   // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
-  const GAME_MIN_REM = 3.25;
+  const GAME_MIN_REM = 2.5;
   const fixedRem = playerRem + tournaments.length * 3 + 2 + 1; // + page padding, scrollbar
   const gridMinRem = playerRem + tournaments.length * 3 + games.length * GAME_MIN_REM;
   // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
@@ -184,20 +185,13 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
         <GridPanelDrawer>
           <GridPanel {...panelProps} layout="drawer" />
         </GridPanelDrawer>
-        <div className="flex min-w-0 flex-1 overflow-x-auto py-1">
-          {/* ml-auto pushes the weeks right; it collapses to 0 once they overflow, so all stay reachable. */}
-          <div className="ml-auto flex gap-1">
-            {slates?.map((s) => (
-              <Link
-                key={s.id}
-                href={`/p/${slug}/grid/${s.week}${sortQuery}`}
-                aria-current={s.id === slate.id ? "page" : undefined}
-                className={chipClass(s.id === slate.id, "", "xs")}
-              >
-                {s.label ?? `Week ${s.week}`}
-              </Link>
-            ))}
-          </div>
+        {/* The week: a dropdown rather than a long row of buttons. */}
+        <div className="ml-auto min-w-0 py-1">
+          <LinkSelect
+            ariaLabel="Choose a week"
+            value={`/p/${slug}/grid/${slate.week}${sortQuery}`}
+            options={(slates ?? []).map((s) => ({ href: `/p/${slug}/grid/${s.week}${sortQuery}`, label: s.label ?? `Week ${s.week}` }))}
+          />
         </div>
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
@@ -213,10 +207,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               "--grid-min": `${gridMinRem}rem`,
               "--colw": `max(${GAME_MIN_REM}rem, calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)}))`,
               "--cell-font": "clamp(11px, calc(var(--colw) * 0.24), 13px)",
-              // Picks are logos only on desktop: 20–24px.
-              "--logo": "clamp(20px, calc(var(--colw) - 24px), 24px)",
-              // Header logos: always shown, 18–22px.
-              "--head-logo": "clamp(18px, calc(var(--colw) * 0.34), 22px)",
+              // Picks are logos only on desktop: 18–22px, with little room around them.
+              "--logo": "clamp(18px, calc(var(--colw) - 20px), 22px)",
+              // Header logos: always shown, 16–20px.
+              "--head-logo": "clamp(16px, calc(var(--colw) * 0.34), 20px)",
             } as CSSProperties
           }
         >
@@ -262,7 +256,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <th
                     key={g.id}
-                    className={`sticky top-0 z-20 min-w-12 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:min-w-0 lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "line-through opacity-50" : ""}`}
+                    className={`sticky top-0 z-20 min-w-10 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:min-w-0 lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "line-through opacity-50" : ""}`}
                   >
                     <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
                       {g.voided ? (
@@ -340,7 +334,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       <td
                         key={t.id}
                         title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined}
-                        className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone} ${
+                        className={`h-8 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone} ${
                           // A green fill once it scored, red once it didn't, as on the game picks.
                           scored ? (p!.points! > 0 ? "bg-[var(--win-fill)]" : "bg-[var(--loss-fill)]") : ""
                         }`}
@@ -348,7 +342,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                         {team && (
                           <div className="leading-tight">
                             {/* The champion pick's logo alone, like the game picks. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-6" />
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-5" />
                             <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>
                               <span className="sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
                             </div>
@@ -376,11 +370,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     // loss reads "−5"; a zero-points loss keeps its value, struck through.
                     const base = p?.result != null && p.points != null ? Number(p.points) - bonus : null;
                     return (
-                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-11 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
+                      <td key={g.id} className={`h-8 min-w-10 border-b border-line px-0.5 text-center lg:h-8 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
                         {team && (
                           <div className="leading-tight">
                             {/* The team's logo alone; the cell's green or red fill gives the result. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-6 lg:size-[var(--logo)]" />
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-5 lg:size-[var(--logo)]" />
                             <div className="text-[11px] font-medium leading-none">
                               {/* The abbreviation stays for screen readers. */}
                               <span className="sr-only">{team.abbreviation}</span>
