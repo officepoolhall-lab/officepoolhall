@@ -11,6 +11,9 @@ export function useScrollLock(active = true) {
   useEffect(() => {
     if (!active) return;
     const { documentElement: html, body } = document;
+    // A pop-up opened over another (a player inside the box score) finds the page already
+    // locked: leave the outer lock as it is, and leave undoing it to the outer pop-up.
+    if (body.style.position === "fixed") return;
     const y = window.scrollY;
     const saved = { htmlOverflow: html.style.overflow, position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
     html.style.overflow = "hidden";

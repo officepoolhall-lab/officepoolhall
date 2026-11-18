@@ -37,7 +37,8 @@ function Shell({ label, onClose, header, children, size = "normal" }: { label: s
   return (
     <dialog
       ref={dialog}
-      onClose={onClose}
+      // Only this dialog's own close: React passes a nested pop-up's close up to its parents.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
       className={`m-auto ${WIDTHS[size]} rounded-xl border-2 border-accent bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50`}
       aria-label={label}

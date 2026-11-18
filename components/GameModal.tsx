@@ -20,7 +20,8 @@ export function GameModal({ children }: { children: ReactNode }) {
   return (
     <dialog
       ref={dialog}
-      onClose={() => router.back()}
+      // Only this dialog's own close: closing a player pop-up inside it must not close the game.
+      onClose={(e) => e.target === e.currentTarget && router.back()}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
       aria-label="Game"
       className="m-auto w-[min(64rem,calc(100vw-1rem))] rounded-xl border-2 border-accent bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
