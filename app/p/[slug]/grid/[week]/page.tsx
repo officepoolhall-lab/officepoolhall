@@ -192,7 +192,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             {
               "--colw": `calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)})`,
               "--cell-font": "clamp(9px, calc(var(--colw) * 0.3), 13px)",
-              "--logo": "clamp(0px, calc((var(--colw) - 34px) * 100), 20px)",
+              "--logo": "clamp(0px, calc((var(--colw) - 30px) * 100), 14px)",
               "--head-logo": "clamp(0px, calc((var(--colw) - 34px) * 100), 24px)",
             } as CSSProperties
           }
@@ -342,11 +342,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     // loss reads "−5"; a zero-points loss keeps its value, struck through.
                     const base = p?.result != null && p.points != null ? Number(p.points) - bonus : null;
                     return (
-                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-12 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
+                      <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-11 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
                         {team && (
                           <div className="leading-tight">
                             {/* Desktop has room for the team's logo over its abbreviation. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`mx-auto mb-0.5 hidden size-5 lg:block lg:size-[var(--logo)] ${p?.result === "loss" ? "opacity-60" : ""}`} />
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`mx-auto mb-px hidden size-3.5 lg:block lg:size-[var(--logo)] ${p?.result === "loss" ? "opacity-60" : ""}`} />
                             <div className={`text-[11px] font-medium lg:text-[length:var(--cell-font)] ${p?.result === "loss" ? "line-through" : ""}`}>
                               {team.abbreviation}
                               {/* Color isn't the only signal for the result. */}
