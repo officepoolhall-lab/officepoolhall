@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { GridPanel } from "@/components/GridPanel";
+import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -140,6 +141,20 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // at that width, and is tall enough for the panel to fit without scrolling.
   const panelFromPx = Math.ceil((gridMinRem + 18 + 1.25 + 1.5 + 2 + 1) * 16);
 
+  // The side panel's content: beside the Grid on wide screens, in the Pool Summary pop-out otherwise.
+  const panelProps = {
+    games,
+    picks: picks ?? [],
+    revealed: (id: string) => {
+      const g = games.find((x) => x.id === id);
+      return Boolean(g && isRevealed(g));
+    },
+    me: ctx.isGuest ? null : ctx.entryUserId,
+    ats,
+    confidence: Boolean(ctx.settings.confidence),
+    names: ctx.pool.sport !== "ncaaf",
+  };
+
   return (
     // Fills the viewport under the sticky header (and the phone tab row) so the grid's own
     // scrollbars sit on screen; the layout drops its tracker padding for this page.
@@ -164,6 +179,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             </Link>
           ))}
         </div>
+        {/* Where the side panel doesn't fit: a button that opens it from the right (desktop) or
+            bottom (phones). Hidden by the media rule below wherever the panel shows. */}
+        <GridPanelDrawer>
+          <GridPanel {...panelProps} layout="drawer" />
+        </GridPanelDrawer>
         <div className="flex min-w-0 flex-1 overflow-x-auto py-1">
           {/* ml-auto pushes the weeks right; it collapses to 0 once they overflow, so all stay reachable. */}
           <div className="ml-auto flex gap-1">
@@ -442,19 +462,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
         </table>
       </AxisLockScroll>
       {/* The panel takes 18rem plus its gap and border from the grid's width (--panel). */}
-      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } #grid-wrap { --panel: 20.75rem; } }`}</style>
-      <GridPanel
-        games={games}
-        picks={picks ?? []}
-        revealed={(id) => {
-          const g = games.find((x) => x.id === id);
-          return Boolean(g && isRevealed(g));
-        }}
-        me={ctx.isGuest ? null : ctx.entryUserId}
-        ats={ats}
-        confidence={Boolean(ctx.settings.confidence)}
-        names={ctx.pool.sport !== "ncaaf"}
-      />
+      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } #grid-panel-button { display: none; } #grid-wrap { --panel: 20.75rem; } }`}</style>
+      <GridPanel {...panelProps} />
       </div>
     </div>
   );
