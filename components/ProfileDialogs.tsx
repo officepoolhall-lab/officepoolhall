@@ -108,7 +108,8 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t.name}</h3>
             {/* Wide stat lines scroll inside the pop-up; the game column stays put. */}
             <div className="overflow-x-auto">
-              <table className="w-full border-separate border-spacing-0 text-xs tabular-nums">
+              {/* One line per game: nothing wraps; the table is as wide as its columns need. */}
+              <table className="w-full min-w-max border-separate border-spacing-0 whitespace-nowrap text-xs tabular-nums">
                 <thead>
                   <tr className="text-muted">
                     <th className="sticky left-0 bg-bg py-1.5 pr-3 text-left font-medium">Game</th>
@@ -118,9 +119,17 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
                   </tr>
                 </thead>
                 <tbody>
-                  {t.totals && (
+                  {t.averages && (
                     <tr className="font-semibold">
-                      <td className="sticky left-0 border-y border-line bg-bg py-1.5 pr-3">Season</td>
+                      <td className="sticky left-0 border-t border-line bg-bg py-1.5 pr-3">Per game</td>
+                      {t.averages.map((v, i) => (
+                        <td key={i} className="border-t border-line px-1.5 py-1.5 text-right">{v}</td>
+                      ))}
+                    </tr>
+                  )}
+                  {t.totals && (
+                    <tr className={t.averages ? "text-muted" : "font-semibold"}>
+                      <td className="sticky left-0 border-y border-line bg-bg py-1.5 pr-3">{t.averages ? "Totals" : "Season"}</td>
                       {t.totals.map((v, i) => (
                         <td key={i} className="border-y border-line px-1.5 py-1.5 text-right">{v}</td>
                       ))}

@@ -37,7 +37,7 @@ export type PlayerGame = {
   score: string | null;
   stats: string[];
 };
-export type PlayerTable = { name: string; labels: string[]; games: PlayerGame[]; totals: string[] | null };
+export type PlayerTable = { name: string; labels: string[]; games: PlayerGame[]; totals: string[] | null; averages: string[] | null };
 export type PlayerProfile = {
   name: string;
   position: string | null;
@@ -89,7 +89,11 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
   // Newest game first.
   games.sort((x, y) => (y.date ?? "").localeCompare(x.date ?? ""));
   if (!totals && Array.isArray(seasonType?.summary?.stats?.[0]?.stats)) totals = seasonType.summary.stats[0].stats.map(String);
-  if (labels.length && games.length) tables.push({ name: str(seasonType?.displayName) ?? "This season", labels, games, totals });
+  if (labels.length && games.length) {
+    // Basketball: per-game averages over the games in the log.
+    const averages = sport === "ncaab" ? perGame(labels, games.map((g) => g.stats), totals) : null;
+    tables.push({ name: str(seasonType?.displayName) ?? "This season", labels, games, totals, averages });
+  }
 
   return {
     name: name ?? "Player",
@@ -101,6 +105,34 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
     tables,
     season: str(seasonType?.displayName),
   };
+}
+
+/**
+ * Each column's per-game average, one decimal: plain counts ("12" → "14.3"), made–attempted
+ * pairs ("5-11" → "4.7-10.2"), and percentages from the season's totals when ESPN gives them
+ * (an average of game percentages would weigh a 1-for-1 night like a 10-for-20 one).
+ */
+function perGame(labels: string[], rows: string[][], totals: string[] | null): string[] | null {
+  if (!rows.length) return null;
+  const one = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
+  return labels.map((label, i) => {
+    const vals = rows.map((r) => r[i]).filter((v): v is string => v !== undefined && v !== "" && v !== "--");
+    if (!vals.length) return "";
+    if (/%/.test(label)) {
+      if (totals?.[i]) return totals[i];
+      const n = vals.map(Number).filter((x) => !Number.isNaN(x));
+      return n.length ? one(n.reduce((a, b) => a + b, 0) / n.length) : "";
+    }
+    const pairs = vals.map((v) => v.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/));
+    if (pairs.every(Boolean)) {
+      const made = pairs.reduce((t, m) => t + Number(m![1]), 0) / vals.length;
+      const att = pairs.reduce((t, m) => t + Number(m![2]), 0) / vals.length;
+      return `${one(made)}-${one(att)}`;
+    }
+    const n = vals.map(Number);
+    if (n.some((x) => Number.isNaN(x))) return "";
+    return one(n.reduce((a, b) => a + b, 0) / vals.length);
+  });
 }
 
 // ---------------------------------------------------------------------------------------------
