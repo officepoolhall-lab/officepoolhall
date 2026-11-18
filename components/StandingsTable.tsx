@@ -17,6 +17,7 @@ export function StandingsTable({
   rows,
   me,
   limit,
+  limitLg,
   weekly = false,
   flat = false,
   total = false,
@@ -27,6 +28,8 @@ export function StandingsTable({
   rows: StandingRow[];
   me: string;
   limit?: number;
+  /** A longer limit from 1024px (Home's desktop column, to end level with the rankings beside it). */
+  limitLg?: number;
   weekly?: boolean;
   flat?: boolean;
   /** Add a "Pool total" row under the last player: everyone's combined record and win %. */
@@ -41,18 +44,25 @@ export function StandingsTable({
   /** Where a player's name links (their week-by-week history). */
   playerHref?: (userId: string) => string;
 }) {
-  const shown = limit ? rows.slice(0, limit) : rows;
+  const lg = limit && limitLg && limitLg > limit ? limitLg : limit;
+  const shown = lg ? rows.slice(0, lg) : rows;
   const mine = rows.find((r) => r.userId === me);
-  const pinned = limit && mine && !shown.includes(mine) ? mine : null;
+  const mineAt = mine ? rows.indexOf(mine) : -1;
+  // The viewer's own row pinned under the list when it's past the cut: on every screen when
+  // it's past the desktop cut too, else on phones only.
+  const pinned = limit && mine && mineAt >= limit ? mine : null;
+  const pinnedClass = pinned && lg && mineAt < lg ? "lg:hidden" : "";
 
   return (
     <ul className="divide-y divide-line border-b border-line">
       {extras?.length ? <HeaderRow extras={extras} flat={flat} /> : null}
-      {shown.map((r) => <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} />)}
+      {shown.map((r, i) => (
+        <Row key={r.userId} r={r} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} className={limit && i >= limit ? "max-lg:hidden" : ""} />
+      ))}
       {pinned && (
         <>
-          <li className="py-1 text-center text-xs leading-none text-faint" aria-hidden>···</li>
-          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} />
+          <li className={`py-1 text-center text-xs leading-none text-faint ${pinnedClass}`} aria-hidden>···</li>
+          <Row r={pinned} me={me} weekly={weekly} flat={flat} compact={compact} extras={extras} playerHref={playerHref} className={pinnedClass} />
         </>
       )}
       {total && rows.length > 0 && <TotalRow rows={rows} extras={extras} flat={flat} />}
@@ -114,6 +124,7 @@ function Row({
   compact,
   extras,
   playerHref,
+  className = "",
 }: {
   r: StandingRow;
   me: string;
@@ -122,12 +133,13 @@ function Row({
   compact: boolean;
   extras?: Extra[];
   playerHref?: (userId: string) => string;
+  className?: string;
 }) {
   const columns = Boolean(extras?.length);
   const mine = r.userId === me;
   const record = `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
   return (
-    <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"}`}>
+    <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"} ${className}`}>
       <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
       <span className="min-w-0 flex-1 truncate font-medium">
         {playerHref ? (
