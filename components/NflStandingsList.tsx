@@ -36,16 +36,17 @@ export function NflStandingsList({ standings }: { standings: NflStandings | null
 
 function Division({ group }: { group: NflGroup }) {
   return (
-    <div>
-      <div className="flex items-end gap-2.5 border-b border-line pb-1 text-[11px] font-medium text-muted">
+    // Each division in its own thin blue box, so the four don't run together.
+    <div className="overflow-hidden rounded-lg border border-accent">
+      <div className="flex items-end gap-2.5 border-b border-line bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-2.5 pb-1 pt-1.5 text-[11px] font-medium text-muted">
         <span className="min-w-0 flex-1 font-semibold uppercase tracking-wide">{group.name}</span>
         <span className="w-14 text-right">W–L</span>
         <span className="w-10 text-right">Pct</span>
         <span className="w-8 text-right">Strk</span>
       </div>
-      <ol className="divide-y divide-line border-b border-line">
+      <ol className="divide-y divide-line">
         {group.teams.map((t) => (
-          <li key={t.abbreviation || t.name} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
+          <li key={t.abbreviation || t.name} className="flex min-h-9 items-center gap-2.5 px-2.5 py-1.5 text-sm">
             <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5" />
             <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
             <span className="w-14 text-right text-xs font-semibold tabular-nums">
