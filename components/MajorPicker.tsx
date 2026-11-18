@@ -140,11 +140,50 @@ export function MajorPicker({
             </span>
           )}
         </div>
-        {lineup.length === 0 ? (
-          <p className="text-sm text-muted">{readOnly ? "No lineup." : contest === "tiers" ? "Pick from each tier below." : "Add golfers below."}</p>
+        {contest === "tiers" ? (
+          // A slot for every pick, Tier 1 to the last tier in order; empty slots wait to be filled.
+          <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8">
+            {picks.flatMap((n, i) => {
+              const t = i + 1;
+              const inT = lineup.filter((g) => g.tier === t);
+              return Array.from({ length: n }, (_, k) => {
+                const g = inT[k];
+                return (
+                  <li key={`${t}-${k}`} className="min-w-0">
+                    {g ? (
+                      <button
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => toggle(g)}
+                        className="flex h-11 w-full min-w-0 flex-col justify-center rounded-lg bg-bg px-2.5 text-left ring-1 ring-line enabled:hover:ring-accent"
+                        title={readOnly ? undefined : `Remove ${g.golfer_name}`}
+                      >
+                        <span className="flex items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                          Tier {t}
+                          {!readOnly && <span aria-hidden>×</span>}
+                        </span>
+                        <span className="truncate text-xs font-semibold">{g.golfer_name}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setTier(t)}
+                        className="flex h-11 w-full flex-col justify-center rounded-lg border border-dashed border-line px-2.5 text-left lg:cursor-default"
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Tier {t}</span>
+                        <span className="text-xs text-faint">Pick a golfer</span>
+                      </button>
+                    )}
+                  </li>
+                );
+              });
+            })}
+          </ol>
+        ) : lineup.length === 0 ? (
+          <p className="text-sm text-muted">{readOnly ? "No lineup." : "Add golfers below."}</p>
         ) : (
           <ul className="flex flex-wrap gap-1.5">
-            {lineup.map((g) => (
+            {[...lineup].sort((a, b) => (b.salary ?? 0) - (a.salary ?? 0)).map((g) => (
               <li key={g.espn_golfer_id}>
                 <button
                   type="button"
@@ -153,7 +192,7 @@ export function MajorPicker({
                   className="inline-flex h-7 items-center gap-1 rounded-full bg-bg px-2.5 text-xs font-medium ring-1 ring-line enabled:hover:ring-accent"
                   title={readOnly ? undefined : `Remove ${g.golfer_name}`}
                 >
-                  {contest === "tiers" ? <span className="tabular-nums text-muted">T{g.tier}</span> : <span className="tabular-nums text-muted">{dollars(g.salary!)}</span>}
+                  <span className="tabular-nums text-muted">{dollars(g.salary!)}</span>
                   {g.golfer_name}
                   {!readOnly && <span aria-hidden className="text-muted">×</span>}
                 </button>
