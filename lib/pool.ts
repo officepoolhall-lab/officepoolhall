@@ -182,6 +182,23 @@ export const getCurrentSlate = cache(async (ctx: PoolBase) => {
 });
 
 /**
+ * The week the Grid opens on: the current week once its first game has started; until then the
+ * week before it (last week's results stay up through the days before the next kickoff).
+ */
+export const getGridWeek = cache(async (ctx: PoolBase): Promise<number | null> => {
+  const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
+  if (!current) return null;
+  const previous = slates.find((s) => s.week < current.week); // newest first
+  if (!previous) return current.week;
+  const { data } = await ctx.supabase
+    .from("slate_games")
+    .select("game:games!inner ( start_at )")
+    .eq("slate_id", current.id);
+  const first = (data ?? []).map((r) => Date.parse(r.game.start_at)).sort((a, b) => a - b)[0];
+  return first !== undefined && first <= Date.now() ? current.week : previous.week;
+});
+
+/**
  * A later week that's already published and open for picks while the current one runs (e.g.
  * it's Saturday and next Monday's slate is up): the soonest such week, else null.
  */

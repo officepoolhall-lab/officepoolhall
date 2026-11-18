@@ -22,6 +22,7 @@ export function GridPanel({
   me,
   ats,
   confidence,
+  upsetTiers = null,
   names = true,
   layout = "side",
 }: {
@@ -32,6 +33,9 @@ export function GridPanel({
   me: string | null;
   ats: boolean;
   confidence: boolean;
+  /** The pool's upset bonus tiers (a correct pick on the side holding less than 1 − min_share of
+      the points earns +bonus), or null: marks the games where a bonus is on offer. */
+  upsetTiers?: { min_share: number; bonus: number }[] | null;
   /** Team abbreviations beside the logos in the pool-by-game list (college football leaves them out: too many games). */
   names?: boolean;
   /** "side": the column beside the Grid on wide screens, sized to never scroll. "drawer": the
@@ -65,6 +69,28 @@ export function GridPanel({
   const most = [...sides.values()].sort((a, b) => b.n - a.n).slice(0, 6);
   const verdict = (r: string | null) =>
     r === "win" ? <span className="text-win">{ats ? "Covered" : "Won"}</span> : r === "loss" ? <span className="text-loss">Lost</span> : r === "push" ? <span className="text-muted">Push</span> : <span className="text-faint">—</span>;
+
+  // ---------- Confidence pools: points wagered on each side ----------
+  const tiers = [...(upsetTiers ?? [])].sort((a, b) => a.min_share - b.min_share);
+  const wagered = shown
+    .map((g) => {
+      const ps = visible.filter((p) => p.game_id === g.id);
+      const awayPts = ps.filter((p) => p.picked_side !== "home").reduce((t, p) => t + Number(p.confidence ?? 0), 0);
+      const homePts = ps.filter((p) => p.picked_side === "home").reduce((t, p) => t + Number(p.confidence ?? 0), 0);
+      const total = awayPts + homePts;
+      if (!total) return null;
+      const majority = Math.max(awayPts, homePts) / total;
+      // The richest tier the majority's share passes (strictly more than min_share).
+      const tier = [...tiers].reverse().find((t) => majority > t.min_share);
+      return {
+        g,
+        away: Math.round((awayPts / total) * 100),
+        home: Math.round((homePts / total) * 100),
+        bonus: tier ? tier.bonus : null,
+        minority: (awayPts < homePts ? "away" : "home") as "away" | "home",
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
 
   // ---------- The pool by game ----------
   const perGame = shown
@@ -162,7 +188,36 @@ export function GridPanel({
         ))}
       </Section>
 
-      {me && mine.length > 0 && (
+      {/* Confidence pools: each game's share of the points on either side, which is what the
+          upset bonus goes by, instead of the viewer's picks. */}
+      {confidence && wagered.length > 0 && (
+        <Section
+          drawer={drawer}
+          title="Points wagered"
+          rows={wagered.length > 16 ? Math.ceil(wagered.length / 2) : wagered.length}
+          cols={wagered.length > 16 ? 2 : 1}
+          foot={upsetTiers?.length ? <>Blue + is the upset bonus for a correct pick on that side.</> : null}
+        >
+          {wagered.map(({ g, away, home, bonus, minority }) => (
+            <Row key={g.id}>
+              <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="size-4" />
+              <span className="tabular-nums">
+                {away}%{bonus && minority === "away" && <sup className="ml-px font-semibold text-accent">+{bonus}</sup>}
+              </span>
+              <span className="min-w-0 flex-1" />
+              <span className="tabular-nums">
+                {home}%{bonus && minority === "home" && <sup className="ml-px font-semibold text-accent">+{bonus}</sup>}
+              </span>
+              <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="size-4" />
+              <span className="sr-only">
+                {g.away.abbreviation} {away}%, {g.home.abbreviation} {home}% of the points{bonus ? `, upset bonus ${bonus} on ${minority === "home" ? g.home.abbreviation : g.away.abbreviation}` : ""}
+              </span>
+            </Row>
+          ))}
+        </Section>
+      )}
+
+      {!confidence && me && mine.length > 0 && (
         <Section drawer={drawer} title="Your picks vs the pool" rows={chips ? Math.ceil(mine.length / 5) : mine.length} cols={chips ? 5 : 1}>
           {mine.map((p) => {
             const team = teamOf(p);

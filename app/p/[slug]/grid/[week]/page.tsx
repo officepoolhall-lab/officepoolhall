@@ -122,16 +122,29 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
 
   // Picks per side, for the footer. Only meaningful once a game locks: before that RLS
   // returns just the viewer's own pick.
-  const sides = new Map<string, { away: number; home: number }>();
+  const sides = new Map<string, { away: number; home: number; awayPts: number; homePts: number }>();
   for (const p of picks ?? []) {
-    const c = sides.get(p.game_id) ?? { away: 0, home: 0 };
-    c[p.picked_side === "home" ? "home" : "away"]++;
+    if (p.result === "void") continue;
+    const c = sides.get(p.game_id) ?? { away: 0, home: 0, awayPts: 0, homePts: 0 };
+    const side = p.picked_side === "home" ? "home" : "away";
+    c[side]++;
+    // Confidence pools: the points wagered on each side (what the upset bonus is measured by).
+    c[side === "home" ? "homePts" : "awayPts"] += Number(p.confidence ?? 0);
     sides.set(p.game_id, c);
   }
+  const confidencePool = Boolean(ctx.settings.confidence);
+  /** "62%": a side's share of the points (confidence pools) on a game. */
+  const pointShare = (c: { awayPts: number; homePts: number }, side: "away" | "home") => {
+    const total = c.awayPts + c.homePts;
+    return total ? `${Math.round(((side === "home" ? c.homePts : c.awayPts) / total) * 100)}%` : "–";
+  };
 
   // Desktop widths, in rem: the player column (narrower on long weeks), then each column's
   // minimum. The grid fills the screen and only scrolls sideways below this.
-  const playerRem = games.length > 30 ? 11 : games.length > 16 ? 14 : 18;
+  // Wide enough for the longest name in full (about half a rem a character at 14px) plus the
+  // points beside it; never narrower than the usual widths.
+  const longestName = Math.max(0, ...standings.map((r) => r.name.length));
+  const playerRem = Math.max(games.length > 30 ? 11 : games.length > 16 ? 14 : 18, Math.ceil(2 + longestName * 0.52 + 0.75 + 4.5));
   // Desktop: the games share whatever width is left after the player and tournament columns
   // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
   // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
@@ -153,6 +166,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     me: ctx.isGuest ? null : ctx.entryUserId,
     ats,
     confidence: Boolean(ctx.settings.confidence),
+    upsetTiers: ctx.settings.upset_bonus?.tiers ?? null,
     names: ctx.pool.sport !== "ncaaf",
   };
 
@@ -214,7 +228,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           <thead>
             <tr>
               {/* Player and Pts share one pinned cell so the points never scroll away. */}
-              <th className={`sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted ${playerRem === 11 ? "lg:w-[11rem]" : playerRem === 14 ? "lg:w-[14rem]" : "lg:w-[18rem]"}`}>
+              <th className={`sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted lg:w-[var(--player-w)]`} style={{ "--player-w": `${playerRem}rem` } as CSSProperties}>
                 <div className="flex items-end justify-between gap-3">
                   <span className="min-w-20">Player</span>
                   <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
@@ -304,8 +318,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-0.5 text-left text-[13px] font-medium lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className={`min-w-20 max-w-28 sm:max-w-36 lg:min-w-0 lg:max-w-none lg:flex-1 ${mine ? "text-accent" : ""}`}>
-                        <span className="block truncate">{r.name}</span>
+                      {/* Names in full, never cut off: the column is as wide as the longest. */}
+                      <span className={`min-w-20 whitespace-nowrap lg:flex-1 ${mine ? "text-accent" : ""}`}>
+                        <span className="block">{r.name}</span>
                         {/* Nothing in for this week yet (a missed week is scored per settings.missed_week). */}
                         {noPicks(r) && <span className="block truncate text-[10px] font-normal leading-tight text-muted">No picks submitted</span>}
                       </span>
@@ -417,6 +432,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             <tr>
               <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">
                 {standings.length} {standings.length === 1 ? "player" : "players"}
+                {/* What the numbers to the right are. */}
+                <span className="block text-[10px] font-normal">{confidencePool ? "% of points wagered" : "Picks on each team"}</span>
               </th>
               {tournaments.map((t) => {
                 const top = tLocked(t) ? topPick(t) : null;
@@ -433,7 +450,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 );
               })}
               {games.map((g) => {
-                const c = sides.get(g.id) ?? { away: 0, home: 0 };
+                const c = sides.get(g.id) ?? { away: 0, home: 0, awayPts: 0, homePts: 0 };
                 return (
                   <td
                     key={g.id}
@@ -443,9 +460,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     {/* Counted from kickoff, when every player's pick is visible. */}
                     {isRevealed(g) ? (
                       <>
-                        {/* Narrow desktop columns drop the team names (same order as the header). */}
-                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.away.abbreviation} </span><span className="font-semibold tabular-nums">{c.away}</span></div>
-                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.home.abbreviation} </span><span className="font-semibold tabular-nums">{c.home}</span></div>
+                        {/* Each side: picks on it, or in confidence pools its share of the points
+                            wagered (what the upset bonus goes by). Narrow desktop columns drop the
+                            team names (same order as the header). */}
+                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.away.abbreviation} </span><span className="font-semibold tabular-nums">{confidencePool ? pointShare(c, "away") : c.away}</span></div>
+                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.home.abbreviation} </span><span className="font-semibold tabular-nums">{confidencePool ? pointShare(c, "home") : c.home}</span></div>
                       </>
                     ) : (
                       <LockIcon className="mx-auto size-3 text-muted" />
