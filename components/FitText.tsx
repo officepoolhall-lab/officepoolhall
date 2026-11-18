@@ -23,6 +23,8 @@ export function FitText({ children, className = "", min = 10 }: { children: Reac
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el.parentElement ?? el);
+    // Its own width too: a sibling that grows or shrinks (a ticking countdown) changes the room left.
+    if (el.parentElement) ro.observe(el);
     return () => ro.disconnect();
   }, [children, min]);
   return (

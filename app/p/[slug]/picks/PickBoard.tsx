@@ -613,28 +613,32 @@ function GameRow({
           on phones: the line (tip time · TV · conference or NC · neutral-site city) takes the full
           width and wraps rather than cutting anything off. */}
       <div
-        className={`flex min-w-0 items-center gap-x-1.5 gap-y-0.5 text-xs font-semibold text-muted lg:col-span-full lg:text-[11px] ${
-          confidence ? "col-span-full flex-wrap" : "col-span-2"
+        // One line in every pool: the time, TV and conference/venue shrink to fit beside the
+        // countdown or Box Score link rather than wrapping or being cut off.
+        className={`flex min-w-0 items-center gap-x-1.5 text-xs font-semibold text-muted lg:col-span-full lg:text-[11px] ${
+          confidence ? "col-span-full" : "col-span-2"
         }`}
       >
-        {g.voided ? (
-          <span className="text-loss">Void</span>
-        ) : final ? (
-          <span>Final</span>
-        ) : live ? (
-          <>
-            <LiveDot>Live</LiveDot>
-            {g.clock && <span className="shrink-0 tabular-nums text-ink">{g.clock}</span>}
-          </>
-        ) : g.status === "postponed" || g.status === "cancelled" ? (
-          <span>{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>
-        ) : (
-          <span className={`tabular-nums ${g.timeTbd ? "text-ink" : ""}`}>{g.timeTbd ? "TBD" : timeOnly(g.startAt, settings.timezone)}</span>
-        )}
-        {/* Where to watch stays visible through the whole game; then conference or venue. */}
-        {g.tv && <span className="shrink-0 font-normal">· {g.tv}</span>}
-        {meta && <span className={`font-normal ${confidence ? "" : "truncate"}`}>· {meta}</span>}
-        {locked && <LockIcon className="size-3 shrink-0 text-muted" />}
+        <FitText min={8} className="flex-1 leading-normal">
+          {g.voided ? (
+            <span className="text-loss">Void</span>
+          ) : final ? (
+            <span>Final</span>
+          ) : live ? (
+            <>
+              <LiveDot>Live</LiveDot>
+              {g.clock && <span className="ml-1.5 tabular-nums text-ink">{g.clock}</span>}
+            </>
+          ) : g.status === "postponed" || g.status === "cancelled" ? (
+            <span>{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>
+          ) : (
+            <span className={`tabular-nums ${g.timeTbd ? "text-ink" : ""}`}>{g.timeTbd ? "TBD" : timeOnly(g.startAt, settings.timezone)}</span>
+          )}
+          {/* Where to watch stays visible through the whole game; then conference or venue. */}
+          {g.tv && <span className="font-normal"> · {g.tv}</span>}
+          {meta && <span className="font-normal"> · {meta}</span>}
+          {locked && <LockIcon className="ml-1.5 inline size-3 align-[-2px] text-muted" />}
+        </FitText>
         {/* Live or final: play-by-play and box score. The link covers the whole card (its ::after),
             so a tap anywhere on the game opens it; picks are locked by then. */}
         {(live || (final && !g.voided)) && (
