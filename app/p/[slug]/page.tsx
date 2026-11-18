@@ -134,8 +134,11 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   </div>
                   <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                     {summary.picked === 0 ? (
-                      // Nothing in yet: the number becomes the way to the picks screen.
-                      <Link href={`/p/${slug}/picks`} className="mt-1 inline-flex items-center rounded-xl border-2 border-accent bg-accent px-5 py-2 text-2xl font-bold tracking-normal text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95">Make Picks</Link>
+                      // Nothing in yet: a plain 0 of N, with the button to the picks screen below the row.
+                      <span className="text-muted">
+                        0/{ctx.settings.picks_per_slate}
+                        <span className="sr-only"> picks made</span>
+                      </span>
                     ) : !summary.decided && ctx.pool.sport !== "ncaab" ? (
                       "Submitted"
                     ) : (
@@ -157,6 +160,14 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   </div>
                 )}
               </div>
+              {summary.picked === 0 && !ctx.isGuest && (
+                <Link
+                  href={`/p/${slug}/picks`}
+                  className="mt-3 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95"
+                >
+                  Make {slate.label ?? `Week ${slate.week}`} Picks <span aria-hidden>→</span>
+                </Link>
+              )}
               {upcoming && !ctx.isGuest && (
                 <UpcomingWeekNote
                   href={`/p/${slug}/picks?week=${upcoming.week}`}
