@@ -52,14 +52,18 @@ export function splitRecords(picks: SplitPick[], split: Split): Map<string, Spli
   return out;
 }
 
-/** Best win % first, then more wins; players with nothing decided go last. Ties share a rank. */
-export function rankBySplit<T extends { name: string } & SplitRecord>(rows: T[]): (T & { rank: number })[] {
+/**
+ * Best win % first, then more wins; players with nothing decided go last. A pool ranked by
+ * points (`byPoints`) puts the most points first instead, then more wins. Ties share a rank.
+ */
+export function rankBySplit<T extends { name: string } & SplitRecord>(rows: T[], byPoints = false): (T & { rank: number })[] {
   const pct = (r: SplitRecord) => (r.wins + r.losses ? r.wins / (r.wins + r.losses) : -1);
-  const sorted = [...rows].sort((a, b) => pct(b) - pct(a) || b.wins - a.wins || a.name.localeCompare(b.name));
+  const key = (r: SplitRecord) => (byPoints ? r.points : pct(r));
+  const sorted = [...rows].sort((a, b) => key(b) - key(a) || b.wins - a.wins || a.name.localeCompare(b.name));
   const ranked: (T & { rank: number })[] = [];
   sorted.forEach((r, i) => {
     const prev = ranked[i - 1];
-    const tied = prev && pct(prev) === pct(r) && prev.wins === r.wins;
+    const tied = prev && key(prev) === key(r) && prev.wins === r.wins;
     ranked.push({ ...r, rank: tied ? prev.rank : i + 1 });
   });
   return ranked;

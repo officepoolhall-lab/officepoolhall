@@ -1,5 +1,6 @@
 import "server-only";
 import { getPublishedSlates, type PoolContext } from "./pool";
+import type { PoolSettings } from "./poolSettings";
 
 export type StandingRow = {
   userId: string;
@@ -33,15 +34,39 @@ export async function getStandings(ctx: PoolContext, scope?: StandingsScope): Pr
       : (slates ?? [])
           .filter((s) => !scope || (s.week >= scope.fromWeek && (scope.toWeek === null || s.week <= scope.toWeek)))
           .map((s) => s.id);
-  const { data: scores } = slateIds.length
-    ? await ctx.supabase.from("slate_scores").select("*").in("slate_id", slateIds)
-    : { data: [] };
+  return tally((members ?? []) as MemberRow[], await getSlateScores(ctx, slateIds));
+}
 
-  return tally(members ?? [], scores ?? []);
+/**
+ * Every member's score row for these weeks. PostgREST returns at most 1000 rows per request
+ * and a season passes that quickly (134 entries × 8 weeks), so this pages through; a single
+ * request would quietly drop some entries' weeks from their totals.
+ */
+export async function getSlateScores(ctx: PoolContext, slateIds: string[]): Promise<ScoreRow[]> {
+  const scores: ScoreRow[] = [];
+  for (let from = 0; slateIds.length; from += 1000) {
+    const { data, error } = await ctx.supabase
+      .from("slate_scores")
+      .select("slate_id, user_id, points, bonus, wins, losses, pushes, missed")
+      .in("slate_id", slateIds)
+      .order("slate_id")
+      .order("user_id")
+      .range(from, from + 999);
+    if (error) throw error;
+    scores.push(...((data ?? []) as ScoreRow[]));
+    if (!data || data.length < 1000) break;
+  }
+  return scores;
+}
+
+/** Standings lead with points (a Pts column) rather than the W–L record: confidence pools and
+ *  pools set to rank by points. */
+export function standingsByPoints(settings: PoolSettings): boolean {
+  return Boolean(settings.confidence) || settings.standings_by === "points";
 }
 
 type MemberRow = { user_id: string; profile: { display_name: string } };
-type ScoreRow = { slate_id: string; user_id: string; points: number; bonus: number; wins: number; losses: number; pushes: number; missed: boolean };
+export type ScoreRow = { slate_id: string; user_id: string; points: number; bonus: number; wins: number; losses: number; pushes: number; missed: boolean };
 
 /** Every member's totals over the given score rows, ranked: points, then wins, then name; equal points share a rank. */
 export function tally(members: MemberRow[], scores: ScoreRow[]): StandingRow[] {
@@ -77,14 +102,7 @@ export async function getStandingsBook(ctx: PoolContext) {
     getPublishedSlates(ctx),
   ]);
   const ids = (slates ?? []).map((s: { id: string }) => s.id);
-  // Members × weeks can pass PostgREST's 1000-row cap late in a big pool's season: page through.
-  const scores: ScoreRow[] = [];
-  for (let from = 0; ids.length; from += 1000) {
-    const { data, error } = await ctx.supabase.from("slate_scores").select("*").in("slate_id", ids).order("slate_id").order("user_id").range(from, from + 999);
-    if (error) throw error;
-    scores.push(...((data ?? []) as ScoreRow[]));
-    if (!data || data.length < 1000) break;
-  }
+  const scores = await getSlateScores(ctx, ids);
   const weekOf = new Map<string, number>((slates ?? []).map((s: { id: string; week: number }) => [s.id, s.week]));
   const m = (members ?? []) as MemberRow[];
 

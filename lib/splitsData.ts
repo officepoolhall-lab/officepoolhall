@@ -1,6 +1,7 @@
 import "server-only";
 import { getPublishedSlates, type PoolContext } from "./pool";
 import { rankBySplit, splitRecords, type Split, type SplitPick } from "./splits";
+import { standingsByPoints } from "./standings";
 
 export type FilteredSplit = Exclude<Split, "all">;
 import type { StandingRow } from "./standings";
@@ -71,6 +72,7 @@ export async function getAllSplitStandings(ctx: PoolContext): Promise<Record<Fil
         const r = records.get(m.user_id) ?? { wins: 0, losses: 0, pushes: 0, points: 0 };
         return { userId: m.user_id, name: m.profile.display_name, bonus: 0, missed: 0, ...r };
       }),
+      standingsByPoints(ctx.settings),
     );
   };
   return { fav: table("fav"), dog: table("dog"), home: table("home"), away: table("away") };

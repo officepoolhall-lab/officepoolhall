@@ -18,7 +18,7 @@ import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getTournamentPicks, getTournaments, tournamentUpside } from "@/lib/tournaments";
-import { getStandingsBook } from "@/lib/standings";
+import { getStandingsBook, standingsByPoints } from "@/lib/standings";
 import { NEWS_TITLE, teamSport, type TeamSport } from "@/lib/sports";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
@@ -54,7 +54,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const bracketEntry = bracket && !bracket.results["6-0"] ? (await getBracketEntries(ctx, bracket.id, ctx.entryUserId))[0] : undefined;
   const season = book.season();
   const weekly = slate ? book.week(slate.id) : null;
-  const flat = !ctx.settings.confidence;
+  // Record pools lead with W–L; points pools (the setting, or confidence) with points.
+  const flat = !standingsByPoints(ctx.settings);
   const tz = ctx.settings.timezone;
   // Server render time is fine here; the countdown itself ticks client-side.
   // eslint-disable-next-line react-hooks/purity

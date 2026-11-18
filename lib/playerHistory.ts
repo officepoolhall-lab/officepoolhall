@@ -1,5 +1,6 @@
 import "server-only";
 import { getPublishedSlates, type PoolContext } from "./pool";
+import { getSlateScores } from "./standings";
 
 export type HistoryWeek = {
   slateId: string;
@@ -26,9 +27,8 @@ export async function getPlayerHistory(ctx: PoolContext, userId: string) {
   const ids = slates.map((s) => s.id);
   const [{ data: members }, { data: scores }] = await Promise.all([
     ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
-    ids.length
-      ? ctx.supabase.from("slate_scores").select("slate_id, user_id, points, wins, losses, pushes, missed").in("slate_id", ids)
-      : Promise.resolve({ data: [] as { slate_id: string; user_id: string; points: number; wins: number; losses: number; pushes: number; missed: boolean }[] }),
+    // Paged: a big pool's season passes PostgREST's 1000-row cap.
+    getSlateScores(ctx, ids).then((data) => ({ data })),
   ]);
   const member = members?.find((m) => m.user_id === userId);
   if (!member) return null;

@@ -15,7 +15,7 @@ import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames } fr
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { segmentForWeek, segmentRanges, segmentWeeksLabel } from "@/lib/poolSettings";
 import { SPLITS, type Split } from "@/lib/splits";
-import { getStandingsBook } from "@/lib/standings";
+import { getStandingsBook, standingsByPoints } from "@/lib/standings";
 import { getTournamentPicks, getTournaments } from "@/lib/tournaments";
 
 export const metadata: Metadata = { title: "Standings" };
@@ -57,6 +57,8 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const startTab = askedWeek ? "weekly" : askedSegment ? "segment" : typeof tourneyParam === "string" ? "tournaments" : "season";
 
   const flat = !ctx.settings.confidence;
+  // Points pools (the setting, or confidence) lead with a Pts column; record pools with W–L.
+  const pointsLead = flat && standingsByPoints(ctx.settings);
   const [book, games, picks] = await Promise.all([
     getStandingsBook(ctx),
     current ? getSlateGames(ctx, current.id) : [],
@@ -151,7 +153,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const me = ctx.entryUserId;
   const playerHref = (userId: string) => `/p/${slug}/standings/${userId}`;
   const weekLabel = (s: { week: number; label: string | null }) => s.label ?? `Week ${s.week}`;
-  const plainHeader = <SeasonHeaderRow flat={flat} week={null} bonus={null} />;
+  const plainHeader = <SeasonHeaderRow pointsLead={pointsLead} flat={flat} week={null} bonus={null} />;
   const each = <T,>(ids: string[], make: (id: string) => T) => Object.fromEntries(ids.map((id) => [id, make(id)])) as Record<string, T>;
 
   // ---------- Season: All is ready now; the other pick types load on first tap ----------
@@ -159,12 +161,12 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const splitIds = splits.map((x) => x.id as string);
   const seasonViews = each(splitIds, (id) =>
     id === "all" ? (
-      <SeasonStandings rows={seasonRows} me={me} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} compact header={false} />
+      <SeasonStandings pointsLead={pointsLead} rows={seasonRows} me={me} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} compact header={false} />
     ) : (
-      <LazySplitTable slug={slug} split={id as Exclude<Split, "all">} me={me} flat={flat} />
+      <LazySplitTable slug={slug} split={id as Exclude<Split, "all">} me={me} flat={flat} pointsLead={pointsLead} />
     ),
   );
-  const seasonHeaders = each(splitIds, (id) => (id === "all" ? <SeasonHeaderRow flat={flat} week={weekColumn} bonus={bonusColumn} /> : plainHeader));
+  const seasonHeaders = each(splitIds, (id) => (id === "all" ? <SeasonHeaderRow pointsLead={pointsLead} flat={flat} week={weekColumn} bonus={bonusColumn} /> : plainHeader));
   const seasonTitles = each(splitIds, (id) => (
     <>
       Season
@@ -177,7 +179,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const weekIds = weekOptions.map((o) => o.id);
   const slateByWeek = new Map<string, { id: string; week: number; label: string | null }>(slates.map((s) => [String(s.week), s]));
   const weekViews = each(weekIds, (id) => (
-    <SeasonStandings rows={book.week(slateByWeek.get(id)!.id)} me={me} flat={flat} week={null} bonus={null} playerHref={playerHref} compact weekly header={false} />
+    <SeasonStandings pointsLead={pointsLead} rows={book.week(slateByWeek.get(id)!.id)} me={me} flat={flat} week={null} bonus={null} playerHref={playerHref} compact weekly header={false} />
   ));
 
   // ---------- Bonus segments: one view per segment that has begun ----------
@@ -193,7 +195,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const segmentIds = segmentOptions.map((o) => o.id);
   const segmentViews = each(segmentIds, (id) => {
     const r = segments[Number(id) - 1];
-    return <SeasonStandings rows={book.range(r.first_week, r.last_week)} me={me} flat={flat} week={null} bonus={null} playerHref={playerHref} compact header={false} />;
+    return <SeasonStandings pointsLead={pointsLead} rows={book.range(r.first_week, r.last_week)} me={me} flat={flat} week={null} bonus={null} playerHref={playerHref} compact header={false} />;
   });
 
   return (
