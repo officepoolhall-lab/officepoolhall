@@ -13,6 +13,9 @@
   --live: #c2410c;
   --win: #15803d;
   --loss: #c8262c;
+  /* Win/loss cell fills (the Grid's picks): light on white, stronger on black so they read. */
+  --win-fill: color-mix(in srgb, var(--win) 10%, transparent);
+  --loss-fill: color-mix(in srgb, var(--loss) 8%, transparent);
   color-scheme: light;
 }
 
@@ -29,6 +32,8 @@
     --live: #ff7a1a;
     --win: #3dd68c;
     --loss: #ff6369;
+    --win-fill: color-mix(in srgb, var(--win) 24%, transparent);
+    --loss-fill: color-mix(in srgb, var(--loss) 24%, transparent);
     color-scheme: dark;
   }
 }
