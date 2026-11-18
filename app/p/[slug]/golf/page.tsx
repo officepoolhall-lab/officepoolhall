@@ -294,6 +294,8 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
   const rows = standingsEvents.length ? board.standingsFor(standingsEvents.map((e) => e.id)) : [];
   const names = new Map(members.map((m) => [m.user_id, m.display_name]));
   const fmt = (v: number | null) => (v === null ? "–" : s.contest === "salary" ? (Math.round(v * 10) / 10).toString() : s.tiers.scoring === "earnings" ? money(v) : formatToPar(v));
+  const myScore = next ? board.scores.get(`${ctx.entryUserId}|${next.id}`) : undefined;
+  const myResults = new Map((next ? (board.results.get(next.id) ?? []) : []).map((r) => [r.espn_golfer_id, r]));
   const shown = rows.slice(0, 10);
   const meRow = rows.find((r) => r.user_id === ctx.entryUserId);
   if (meRow && !shown.includes(meRow)) shown.push(meRow);
@@ -320,7 +322,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                   <span>
                     <span className="block text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s Lineup` : "My Lineup"}</span>
                     <span className="font-semibold">
-                      {mine.length ? `${mine.length} golfers picked` : open ? "Not picked yet" : next.status === "scheduled" ? "Picks not open yet" : "No lineup"}
+                      {mine.length ? (open ? "Edit Lineup" : "View Lineup") : open ? "Not picked yet" : next.status === "scheduled" ? "Picks not open yet" : "No lineup"}
                     </span>
                   </span>
                   {open && next.start_at ? (
@@ -334,6 +336,33 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                     <ChevronIcon className="size-4 text-muted" />
                   )}
                 </Link>
+                {/* The lineup itself: tier (or salary) and, once under way, place and score;
+                    the golfers that count are in bold. */}
+                {mine.length > 0 && (
+                  <ul className="mt-1 divide-y divide-line">
+                    {[...mine]
+                      .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0) || a.golfer_name.localeCompare(b.golfer_name))
+                      .map((l) => {
+                        const r = myResults.get(l.espn_golfer_id);
+                        const g = myScore?.golfers.find((x) => x.espn_golfer_id === l.espn_golfer_id);
+                        const started = next.status !== "scheduled";
+                        return (
+                          <li key={l.espn_golfer_id} className={`flex min-h-8 items-center gap-2 py-1 text-sm ${started && g && !g.counts ? "text-muted" : ""}`}>
+                            <span className="w-10 shrink-0 text-[11px] tabular-nums text-muted">
+                              {s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}
+                            </span>
+                            <span className={`min-w-0 flex-1 truncate ${started && g?.counts ? "font-semibold" : "font-medium"}`}>{l.golfer_name}</span>
+                            {started && (
+                              <>
+                                <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
+                                <span className="w-14 shrink-0 text-right tabular-nums">{g ? fmt(g.value) : "–"}</span>
+                              </>
+                            )}
+                          </li>
+                        );
+                      })}
+                  </ul>
+                )}
               </>
             ) : (
               <p className="text-sm text-muted">No majors are set up yet.</p>
