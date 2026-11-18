@@ -6,6 +6,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
 import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { NewsList } from "@/components/NewsList";
+import { FillColumn } from "@/components/FillColumn";
 import { ChevronIcon, SectionLabel } from "@/components/ui";
 import {
   getGolfContext,
@@ -59,8 +60,10 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
       <AutoRefresh active={week.mode === "live"} seconds={120} />
 
       {/* Desktop: this week + standings | news | world rankings. Phones: week, standings, rankings, news. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
-        <div>
+      {/* Desktop: the world rankings set the row's height; the left column and the news fill
+          exactly that much (FillColumn), so all three end level. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        <FillColumn className="lg:pr-6">
           <section className="mb-4 border-b border-line pb-3">
             {current ? (
               <>
@@ -127,7 +130,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
 
           <section>
             <div className="flex items-center justify-between">
-              <SectionLabel>Season standings</SectionLabel>
+              <SectionLabel className="!text-sm">Season standings</SectionLabel>
               <Link href={`/p/${slug}/golf/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
                 All <ChevronIcon className="size-4" />
               </Link>
@@ -135,17 +138,19 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
             <StandingsPreview rows={standings} me={ctx.entryUserId} limit={10} />
           </section>
 
-        </div>
+        </FillColumn>
 
-        <div className="order-last lg:order-none">
+        <FillColumn className="order-last lg:order-none lg:px-6">
           <Suspense fallback={<Placeholder title="Golf news" rows={6} />}>
             <News now={now} />
           </Suspense>
-        </div>
+        </FillColumn>
 
-        <Suspense fallback={<Placeholder title="World golf rankings" rows={10} />}>
-          <Rankings timezone={ctx.displayTz} />
-        </Suspense>
+        <div className="lg:pl-6">
+          <Suspense fallback={<Placeholder title="World golf rankings" rows={10} />}>
+            <Rankings timezone={ctx.displayTz} />
+          </Suspense>
+        </div>
       </div>
     </div>
   );
@@ -189,15 +194,19 @@ function StandingsPreview({ rows, me, limit }: { rows: GolfStanding[]; me: strin
     return places[j]!;
   };
   const meIndex = rows.findIndex((r) => r.user_id === me);
-  const shown = rows.slice(0, limit).map((r, i) => ({ r, i }));
-  if (meIndex >= limit) shown.push({ r: rows[meIndex], i: meIndex });
+  // Up to 40 rows: phones show `limit`, desktop as many as fit (FillColumn). The viewer's row is
+  // pinned under the list when it's past the cut (phones: past `limit`; desktop: once trimmed).
+  const shown = rows.slice(0, 40).map((r, i) => ({ r, i, pin: false }));
+  if (meIndex >= 3) shown.push({ r: rows[meIndex], i: meIndex, pin: true });
   return (
-    <ol className="divide-y divide-line border-y border-line">
-      {shown.map(({ r, i }, k) => (
+    <ol className="divide-y divide-line border-y border-line" data-fill-list="">
+      {shown.map(({ r, i, pin }) => (
         <li
-          key={r.user_id}
+          key={`${r.user_id}${pin ? "-pin" : ""}`}
+          data-fill-me={!pin && r.user_id === me ? "" : undefined}
+          data-fill-pin={pin ? "flex" : undefined}
           className={`flex min-h-9 items-center gap-2.5 py-1.5 text-sm ${r.user_id === me ? "bg-surface font-semibold" : ""} ${
-            k === limit ? "border-t-2 border-line" : ""
+            pin ? `border-t-2 border-line lg:hidden ${meIndex >= limit ? "" : "max-lg:hidden"}` : i >= limit ? "max-lg:hidden" : ""
           }`}
         >
           <span className="w-7 text-right tabular-nums text-muted">{placeOf(i)}</span>
@@ -220,7 +229,7 @@ async function Rankings({ timezone }: { timezone: string }) {
   return (
     <section aria-labelledby="owgr">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel>
+        <SectionLabel className="!text-sm">
           <span id="owgr">World golf rankings</span>
         </SectionLabel>
         {owgr?.asOf && <span className="text-xs text-muted">Week of {formatInTimeZone(owgr.asOf, timezone, "MMM d")}</span>}
@@ -266,7 +275,7 @@ async function Rankings({ timezone }: { timezone: string }) {
 function Placeholder({ title, rows }: { title: string; rows: number }) {
   return (
     <section aria-busy="true" aria-label={title}>
-      <SectionLabel>{title}</SectionLabel>
+      <SectionLabel className="!text-sm">{title}</SectionLabel>
       <ul className="mt-2 space-y-3">
         {Array.from({ length: rows }, (_, i) => (
           <li key={i} className="h-4 animate-pulse rounded bg-surface" style={{ width: `${70 + ((i * 13) % 30)}%` }} />
@@ -301,7 +310,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
   const myScore = next ? board.scores.get(`${ctx.entryUserId}|${next.id}`) : undefined;
   const myResultList = next ? (board.results.get(next.id) ?? []) : [];
   const myResults = new Map(myResultList.map((r) => [r.espn_golfer_id, r]));
-  const shown = rows.slice(0, 10);
+  const shown = rows.slice(0, 40);
   const meRow = rows.find((r) => r.user_id === ctx.entryUserId);
   if (meRow && !shown.includes(meRow)) shown.push(meRow);
 
@@ -311,8 +320,10 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
         <GolfLiveTicker ctx={ctx} />
       </Suspense>
       <AutoRefresh active={!!live} seconds={120} />
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
-        <div>
+      {/* Desktop: the world rankings set the row's height; the left column and the news fill
+          exactly that much (FillColumn), so all three end level. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        <FillColumn className="lg:pr-6">
           <section className="mb-4 border-b border-line pb-3">
             {next ? (
               <>
@@ -392,7 +403,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
           </section>
           <section>
             <div className="flex items-center justify-between">
-              <SectionLabel>{s.standings === "each" && standingsEvents[0] ? `${standingsEvents[0].name} standings` : "Standings"}</SectionLabel>
+              <SectionLabel className="!text-sm">{s.standings === "each" && standingsEvents[0] ? `${standingsEvents[0].name} standings` : "Standings"}</SectionLabel>
               <Link href={`/p/${slug}/golf/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
                 All <ChevronIcon className="size-4" />
               </Link>
@@ -400,9 +411,13 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
             {shown.length === 0 ? (
               <p className="border-y border-line py-3 text-sm text-muted">Standings start once the first major tees off.</p>
             ) : (
-              <ol className="divide-y divide-line border-y border-line">
-                {shown.map((r) => (
-                  <li key={r.user_id} className={`flex min-h-9 items-center gap-2.5 py-1.5 text-sm ${r.user_id === ctx.entryUserId ? "bg-surface font-semibold" : ""}`}>
+              <ol className="divide-y divide-line border-y border-line" data-fill-list="">
+                {shown.map((r, i) => (
+                  <li
+                    key={r.user_id}
+                    // Phones: the top 10. Desktop: as many as fit beside the rankings (FillColumn).
+                    className={`flex min-h-9 items-center gap-2.5 py-1.5 text-sm ${r.user_id === ctx.entryUserId ? "bg-surface font-semibold" : ""} ${i >= 10 ? "max-lg:hidden" : ""}`}
+                  >
                     <span className="w-7 text-right tabular-nums text-muted">{r.total === null ? "" : r.rank}</span>
                     <span className="min-w-0 flex-1 truncate">{names.get(r.user_id) ?? "Player"}</span>
                     <span className="tabular-nums">{fmt(r.total)}</span>
@@ -411,15 +426,17 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
               </ol>
             )}
           </section>
-        </div>
-        <div className="order-last lg:order-none">
+        </FillColumn>
+        <FillColumn className="order-last lg:order-none lg:px-6">
           <Suspense fallback={<Placeholder title="Golf news" rows={6} />}>
             <News now={now} />
           </Suspense>
+        </FillColumn>
+        <div className="lg:pl-6">
+          <Suspense fallback={<Placeholder title="World golf rankings" rows={10} />}>
+            <Rankings timezone={ctx.displayTz} />
+          </Suspense>
         </div>
-        <Suspense fallback={<Placeholder title="World golf rankings" rows={10} />}>
-          <Rankings timezone={ctx.displayTz} />
-        </Suspense>
       </div>
     </div>
   );

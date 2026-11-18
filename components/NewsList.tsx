@@ -15,7 +15,7 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
   return (
     <section aria-labelledby="news">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel>
+        <SectionLabel className="!text-sm">
           <span id="news">{title}</span>
         </SectionLabel>
 
@@ -23,7 +23,8 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
       {!stories.length ? (
         <p className="border-y border-line py-3 text-sm text-muted">Stories aren&apos;t available right now. Check back soon.</p>
       ) : (
-        <ul className="divide-y divide-line border-y border-line">
+        {/* data-fill-list: Home's desktop column shows as many stories as fit (FillColumn). */}
+        <ul className="divide-y divide-line border-y border-line" data-fill-list="">
           {stories.map((s) => (
             <li key={s.id}>
               <a href={s.url} target="_blank" rel="noopener noreferrer" className="group flex gap-3 py-2.5">
