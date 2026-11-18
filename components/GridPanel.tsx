@@ -275,7 +275,7 @@ function Section({
       className="flex min-h-0 flex-col"
       style={drawer ? undefined : { flexGrow: rows, flexShrink: 1, flexBasis: 0, maxHeight: `${rows * 1.75 + (foot ? 3.75 : 2.5)}rem` }}
     >
-      <h3 className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      <h3 className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-accent">{title}</h3>
       <ul
         className={`grid min-h-0 gap-x-3 ${drawer ? "divide-y divide-line" : "flex-1"} ${
           divided && cols === 2
