@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -192,10 +192,6 @@ function phoneName(team: GameSummary["home"]) {
   return team.name.length > 14 && team.abbreviation ? team.abbreviation : team.name;
 }
 
-/** Basketball columns phones leave out so the box score fits without scrolling. */
-const PHONE_HIDDEN = new Set(["OREB", "DREB", "PF", "+/-"]);
-const phoneHidden = (sport: string, label: string | undefined) => (sport === "ncaab" && label && PHONE_HIDDEN.has(label) ? "max-sm:hidden" : "");
-
 /** Box score, one part at a time: Team Stats, then each team's player stats (home, away). */
 function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "ncaab" | "nfl" }) {
   const { away, home } = summary;
@@ -228,21 +224,22 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
     return (
         <div className="space-y-4">
           {t.groups.map((g) => (
-            // Fits the screen, never scrolls: the name column takes a share of the width, the stat
-            // columns split the rest (fixed layout) and their type scales with the screen. Phones
-            // leave out basketball's least-read columns (OREB, DREB, PF, +/-) so the rest stay legible.
-            <div key={g.name} className="-mx-4">
-              <table className="w-full table-fixed text-[length:clamp(9px,2.6vw,13px)] tabular-nums tracking-tight [&_tr>*:last-child]:pr-4">
+            // Phones: every column and full names; the table scrolls sideways with the name column
+            // pinned at the left edge (nothing shows to the left of or behind it). Tablet and up:
+            // fits the screen, never scrolls: the name column a fixed width, the stat columns
+            // splitting the rest (fixed layout), their type scaling with the screen.
+            <div key={g.name} className="-mx-4 overflow-x-auto sm:overflow-visible">
+              <table className="w-full min-w-max text-xs tabular-nums sm:min-w-0 sm:table-fixed sm:text-[length:clamp(9px,2.6vw,13px)] sm:tracking-tight [&_tr>*:last-child]:pr-4">
                 <thead>
                   <tr className="border-b border-line text-muted">
-                    <th className="w-[26%] truncate bg-bg py-1.5 pl-4 pr-2 text-left font-semibold capitalize text-ink sm:w-48">{g.name}</th>
+                    <th className="sticky left-0 z-10 whitespace-nowrap bg-bg py-1.5 pl-4 pr-3 text-left font-semibold capitalize text-ink sm:static sm:w-48 sm:truncate sm:pr-2">{g.name}</th>
                     {g.labels.map((l, i) => (
                       <th
                         key={l}
-                        // Made–attempted columns ("10-17") get room for five characters at the stat
-                        // size; the rest share what's left.
-                        style={g.rows.some((r) => /^\d+[-/]\d+$/.test(r.stats[i] ?? "")) ? { width: "calc(3.5 * clamp(9px, 2.6vw, 13px))" } : undefined}
-                        className={`truncate px-px py-1.5 text-right text-[9px] font-medium tracking-tighter sm:px-0.5 sm:text-[11px] sm:tracking-normal ${phoneHidden(sport, l)}`}
+                        // Fitted (tablet and up): made–attempted columns ("10-17") get room for five
+                        // characters at the stat size; the rest share what's left.
+                        style={g.rows.some((r) => /^\d+[-/]\d+$/.test(r.stats[i] ?? "")) ? ({ "--pair-w": "calc(3.5 * clamp(9px, 2.6vw, 13px))" } as CSSProperties) : undefined}
+                        className="whitespace-nowrap px-1.5 py-1.5 text-right text-[11px] font-medium sm:w-[var(--pair-w,auto)] sm:truncate sm:px-0.5"
                       >
                         {l}
                       </th>
@@ -259,26 +256,27 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
                     {sport === "ncaab" && rows.some((x) => x.starter) && (i === 0 || (!r.starter && rows[i - 1].starter)) && (
                       <tr>
                         <td colSpan={g.labels.length + 1} className="bg-surface py-1 pl-4 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                          {r.starter ? "Starters" : "Bench"}
+                          {/* Stays in view while the row scrolls sideways on phones. */}
+                          <span className="sticky left-4">{r.starter ? "Starters" : "Bench"}</span>
                         </td>
                       </tr>
                     )}
                     <tr>
                       {/* Tap a name for the player's game log and season totals. */}
-                      <td className="py-1 pl-4 pr-2 text-[length:clamp(12px,3.4vw,14px)]">
-                        <PlayerName sport={sport} id={r.id} name={r.name} className="block w-full truncate" />
+                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm sm:static sm:pr-2 sm:text-[length:clamp(12px,3.4vw,14px)]">
+                        <PlayerName sport={sport} id={r.id} name={r.name} className="block whitespace-nowrap sm:w-full sm:truncate" />
                       </td>
                       {r.stats.map((v, i) => (
-                        <td key={i} className={`whitespace-nowrap px-0.5 py-1 text-right ${phoneHidden(sport, g.labels[i])}`}>{v}</td>
+                        <td key={i} className="whitespace-nowrap px-1.5 py-1 text-right sm:px-0.5">{v}</td>
                       ))}
                     </tr>
                     </Fragment>
                   ))}
                   {g.totals && (
                     <tr className="font-semibold">
-                      <td className="py-1 pl-4 pr-2">Team</td>
+                      <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 sm:static sm:pr-2">Team</td>
                       {g.totals.map((v, i) => (
-                        <td key={i} className={`whitespace-nowrap px-0.5 py-1 text-right ${phoneHidden(sport, g.labels[i])}`}>{v}</td>
+                        <td key={i} className="whitespace-nowrap px-1.5 py-1 text-right sm:px-0.5">{v}</td>
                       ))}
                     </tr>
                   )}
