@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, type CSSProperties } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { FieldHistory } from "@/lib/golfFieldHistory";
 import type { ActionState } from "./ActionForm";
 import { GolferHistoryDialog, type SeasonHistory } from "./GolferHistoryDialog";
@@ -50,8 +50,6 @@ export function MajorPicker({
   const [historyFor, setHistoryFor] = useState<PickerFieldGolfer | null>(null);
   // Phones and tablets show one tier at a time.
   const [tier, setTier] = useState(1);
-  // Desktop: every tier is as tall as the biggest of the others (at least 5 rows).
-  const tierRows = Math.max(5, ...picks.slice(0, -1).map((_, i) => golfers.filter((g) => g.tier === i + 1).length));
   const [pending, start] = useTransition();
   const byId = useMemo(() => new Map(golfers.map((g) => [g.espn_golfer_id, g])), [golfers]);
   const need = contest === "salary" ? roster : picks.reduce((a, b) => a + b, 0);
@@ -196,14 +194,13 @@ export function MajorPicker({
         // scrolls within that height.
         <div
           className="grid gap-4 lg:grid-cols-3 2xl:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]"
-          style={{ "--tier-rows": tierRows } as CSSProperties}
         >
           {picks.map((n, i) => {
             const t = i + 1;
             const rows = sorted(golfers.filter((g) => g.tier === t));
             const done = inTier(t) === n;
             return (
-              <section key={t} aria-label={`Tier ${t}`} className={`min-w-0 lg:block ${tier === t || (query.trim() && rows.length) ? "block" : "hidden"}`}>
+              <section key={t} aria-label={`Tier ${t}`} className={`min-w-0 lg:flex lg:flex-col ${tier === t || (query.trim() && rows.length) ? "block" : "hidden"}`}>
                 <h3 className="flex items-center justify-between gap-2 border-b-2 border-ink/25 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
                   <span className="flex items-center gap-1">
                     {done && <CheckIcon className="size-3 text-win" />}
@@ -213,7 +210,13 @@ export function MajorPicker({
                     {inTier(t)}/{n}
                   </span>
                 </h3>
-                <ul className="divide-y divide-line lg:max-h-[calc(var(--tier-rows)*2.5rem+var(--tier-rows)*1px)] lg:overflow-y-auto lg:overscroll-contain">
+                {/* Tiers 1–5 show in full. The last tier takes the height of the others in its row
+                    (contain: size keeps its long list from stretching the row) and scrolls inside it. */}
+                <ul
+                  className={`divide-y divide-line ${
+                    t === picks.length ? "lg:min-h-[12rem] lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[contain:size]" : ""
+                  }`}
+                >
                   {rows.map((g) => row(g))}
                   {rows.length === 0 && <li className="py-2 text-sm text-muted">{query ? "No golfers match." : "No golfers."}</li>}
                 </ul>
