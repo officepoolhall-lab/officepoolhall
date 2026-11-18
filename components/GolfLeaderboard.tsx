@@ -19,6 +19,8 @@ export type LeaderRow = {
   /** Score to par for the round being played, for a golfer part-way through it ("-2"); else null. */
   today: string | null;
   earnings: number;
+  /** While under way: prize money projected from the golfer's current place and the purse. */
+  projected?: number | null;
   /** How many entries picked this golfer (only counted once picks are visible). */
   pickedBy: number;
   mine: boolean;
@@ -50,6 +52,7 @@ export function GolfLeaderboard({
   const [open, setOpen] = useState<LeaderRow | null>(null);
   const started = state !== "scheduled";
   const cutAt = rows.findIndex((r) => /^(MC|CUT)$/.test(r.pos));
+  const hasProjection = rows.some((r) => (r.projected ?? 0) > 0);
   // Each header cell is pinned itself (not the <thead>, which mobile Safari doesn't pin
   // reliably), with a solid page-colored band above it so no row ever shows over or through
   // it at the top of the box, and its bottom rule drawn as a shadow so it stays with it.
@@ -76,6 +79,11 @@ export function GolfLeaderboard({
                     </th>
                   ))}
                   {state === "final" && <th className={`${th} hidden w-28 pl-2 pr-4 text-right md:table-cell md:pr-0`}>Earnings</th>}
+                  {state === "live" && hasProjection && (
+                    <th className={`${th} hidden w-28 pl-2 pr-4 text-right md:table-cell md:pr-0`} title="Projected from current standings and the purse">
+                      Proj. Earnings
+                    </th>
+                  )}
                 </>
               ) : (
                 <th className={`${th} w-32 pl-2 pr-4 text-right sm:pr-0`}>Tee Time</th>
@@ -148,6 +156,9 @@ export function GolfLeaderboard({
                       {state === "final" && (
                         <td className={`hidden border-b border-line py-2 pl-2 pr-4 text-right tabular-nums md:table-cell md:pr-0 ${r.earnings > 0 ? "" : "text-muted"}`}>{r.earnings > 0 ? money(r.earnings) : "–"}</td>
                       )}
+                      {state === "live" && hasProjection && (
+                        <td className={`hidden border-b border-line py-2 pl-2 pr-4 text-right tabular-nums text-muted md:table-cell md:pr-0`}>{r.projected ? money(r.projected) : "–"}</td>
+                      )}
                     </>
                   ) : (
                     <td className="border-b border-line py-2 pl-2 pr-4 text-right text-xs tabular-nums text-muted sm:pr-0">{r.thru ?? "TBA"}</td>
@@ -158,7 +169,12 @@ export function GolfLeaderboard({
           </tbody>
         </table>
       </AxisLockScroll>
-      {started && <p className="mt-1.5 shrink-0 text-[11px] text-muted">Select a Golfer to See Their Scorecard</p>}
+      {started && (
+        <p className="mt-1.5 shrink-0 text-[11px] text-muted">
+          Select a Golfer to See Their Scorecard
+          {state === "live" && hasProjection && " · Projected earnings are based on current standings and the purse (ties split), until prize money is posted"}
+        </p>
+      )}
     </div>
     {open && tournamentId && <GolfScorecard key={open.id} tournamentId={tournamentId} eventName={eventName} golfer={open} live={state === "live"} onClose={() => setOpen(null)} />}
     </div>
