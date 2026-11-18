@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { TeamLogo } from "@/components/ui";
 import { formatSpread, points } from "@/lib/format";
 
-type Team = { id: string; abbreviation: string | null; logo_url: string | null };
+type Team = { id: string; abbreviation: string | null; logo_url: string | null; short_name?: string | null; name?: string | null };
 type Game = { id: string; home: Team; away: Team; spread: number | null; voided: boolean };
 type Pick = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; bonus?: number | null };
 
@@ -22,7 +22,6 @@ export function GridPanel({
   me,
   ats,
   confidence,
-  names = true,
   layout = "side",
 }: {
   games: Game[];
@@ -32,8 +31,6 @@ export function GridPanel({
   me: string | null;
   ats: boolean;
   confidence: boolean;
-  /** Team abbreviations beside the logos in the pool-by-game list (college football leaves them out: too many games). */
-  names?: boolean;
   /** "side": the column beside the Grid on wide screens, sized to never scroll. "drawer": the
       same content in the Pool Summary pop-out on smaller screens, at its natural height. */
   layout?: "side" | "drawer";
@@ -144,6 +141,7 @@ export function GridPanel({
         title={ats ? "Pool against the spread" : "Pool by game"}
         rows={twoCols ? Math.ceil(perGame.length / 2) : perGame.length}
         cols={twoCols ? 2 : 1}
+        divided
         foot={
           tw + tl + tp > 0 ? (
             <>
@@ -153,13 +151,16 @@ export function GridPanel({
         }
       >
         {perGame.map(({ g, total, w, l, pu, graded, winner }) => (
-          <Row key={g.id}>
+          // The row sizes its label to its own width (a container query): the team's name where
+          // it fits (one column), its abbreviation where that fits (two columns), else the logo alone.
+          <Row key={g.id} container>
             {/* Just the side that won; the pool's record on the game follows. */}
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold" title={`${winner ? `${winner.abbreviation} covered · ` : ""}${g.away.abbreviation} @ ${g.home.abbreviation}`}>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold" title={`${winner ? `${winner.short_name ?? winner.abbreviation} ${ats ? "covered" : "won"} · ` : ""}${g.away.abbreviation} @ ${g.home.abbreviation}`}>
               {winner ? (
                 <>
                   <TeamLogo src={winner.logo_url} abbr={winner.abbreviation} className="size-4" />
-                  {names ? <span className="truncate">{winner.abbreviation}</span> : <span className="sr-only">{winner.abbreviation}</span>}
+                  <span className="hidden min-w-0 truncate @min-[14rem]:inline">{winner.short_name ?? winner.name ?? winner.abbreviation}</span>
+                  <span className={`hidden min-w-0 truncate @min-[14rem]:!hidden ${ats ? "@min-[8.75rem]:inline" : "@min-[6.5rem]:inline"}`}>{winner.abbreviation}</span>
                   {/* The line the winner covered, from its side. */}
                   {ats && g.spread !== null && (
                     <span className="shrink-0 font-normal tabular-nums text-muted">{formatSpread(winner === g.home ? g.spread : -g.spread)}</span>
@@ -251,15 +252,36 @@ function Panel({ children, drawer }: { children: ReactNode; drawer: boolean }) {
  * A heading and its rows. Beside the Grid the rows grow with the room (flex-grow by row count)
  * up to 28px each; in the drawer they take their natural height.
  */
-function Section({ title, rows, cols = 1, foot, drawer, children }: { title: string; rows: number; cols?: number; foot?: ReactNode; drawer: boolean; children: ReactNode }) {
+function Section({
+  title,
+  rows,
+  cols = 1,
+  divided = false,
+  foot,
+  drawer,
+  children,
+}: {
+  title: string;
+  rows: number;
+  cols?: number;
+  /** Two columns: a thin blue line down the gap between them. */
+  divided?: boolean;
+  foot?: ReactNode;
+  drawer: boolean;
+  children: ReactNode;
+}) {
   return (
     <section
       className="flex min-h-0 flex-col"
       style={drawer ? undefined : { flexGrow: rows, flexShrink: 1, flexBasis: 0, maxHeight: `${rows * 1.75 + (foot ? 3.75 : 2.5)}rem` }}
     >
-      <h3 className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      <h3 className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-accent">{title}</h3>
       <ul
-        className={`grid min-h-0 gap-x-3 ${drawer ? "divide-y divide-line" : "flex-1"}`}
+        className={`grid min-h-0 gap-x-3 ${drawer ? "divide-y divide-line" : "flex-1"} ${
+          divided && cols === 2
+            ? "relative gap-x-5 before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:bg-[color-mix(in_srgb,var(--accent)_45%,transparent)] before:content-['']"
+            : ""
+        }`}
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, ${drawer ? "minmax(2.25rem, auto)" : "minmax(18px, 1.75rem)"})`, gridAutoFlow: "column" } as CSSProperties}
       >
         {children}
@@ -269,6 +291,6 @@ function Section({ title, rows, cols = 1, foot, drawer, children }: { title: str
   );
 }
 
-function Row({ children, center = false }: { children: ReactNode; center?: boolean }) {
-  return <li className={`flex min-w-0 items-center gap-2 overflow-hidden ${center ? "justify-center" : ""}`}>{children}</li>;
+function Row({ children, center = false, container = false }: { children: ReactNode; center?: boolean; container?: boolean }) {
+  return <li className={`flex min-w-0 items-center gap-2 overflow-hidden ${center ? "justify-center" : ""} ${container ? "@container" : ""}`}>{children}</li>;
 }
