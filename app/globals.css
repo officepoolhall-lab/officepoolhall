@@ -85,3 +85,25 @@ textarea {
   .ticker-track { animation: none; }
   .ticker-copy { display: none; }
 }
+
+/* The Grid's "View Pool Summary" tab (components/GridPanelDrawer.tsx): a short hop out from its
+   edge every 10 seconds to catch the eye (up on phones, left from 1024px). Off for reduced motion. */
+@keyframes summary-nudge-up {
+  0%, 90%, 100% { transform: translateY(0); }
+  93% { transform: translateY(-8px); }
+  96% { transform: translateY(0); }
+  98% { transform: translateY(-3px); }
+}
+@keyframes summary-nudge-left {
+  0%, 90%, 100% { transform: translateX(0); }
+  93% { transform: translateX(-8px); }
+  96% { transform: translateX(0); }
+  98% { transform: translateX(-3px); }
+}
+.summary-nudge { animation: summary-nudge-up 10s ease-in-out 3s infinite; }
+@media (min-width: 1024px) {
+  .summary-nudge { animation-name: summary-nudge-left; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .summary-nudge { animation: none; }
+}

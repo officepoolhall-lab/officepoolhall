@@ -22,7 +22,7 @@ export function GridPanelDrawer({ children }: { children: ReactNode }) {
           type="button"
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
-          className="fixed bottom-0 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-t-xl border-2 border-b-0 border-accent bg-bg px-4 pb-[calc(0.375rem+env(safe-area-inset-bottom))] pt-1.5 text-xs font-semibold text-accent shadow-lg transition hover:bg-hover lg:bottom-auto lg:left-auto lg:right-0 lg:top-1/2 lg:-translate-y-1/2 lg:translate-x-0 lg:rounded-none lg:rounded-l-xl lg:border-b-2 lg:border-r-0 lg:px-1.5 lg:py-4 lg:[writing-mode:vertical-rl]"
+          className="summary-nudge fixed bottom-0 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 rounded-t-xl border-2 border-b-0 border-accent bg-accent px-4 pb-[calc(0.375rem+env(safe-area-inset-bottom))] pt-1.5 text-xs font-semibold text-white shadow-lg transition hover:brightness-110 lg:bottom-auto lg:left-auto lg:right-0 lg:top-1/2 lg:-translate-y-1/2 lg:translate-x-0 lg:rounded-none lg:rounded-l-xl lg:border-b-2 lg:border-r-0 lg:px-1.5 lg:py-4 lg:[writing-mode:vertical-rl]"
         >
           <span aria-hidden className="lg:hidden">▲</span>
           <span aria-hidden className="hidden lg:inline">◀</span>

@@ -206,8 +206,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               "--cell-font": "clamp(11px, calc(var(--colw) * 0.24), 13px)",
               // Picks are logos only on desktop: 18–22px, with little room around them.
               "--logo": "clamp(18px, calc(var(--colw) - 20px), 22px)",
-              // Header logos: always shown, 16–20px.
-              "--head-logo": "clamp(16px, calc(var(--colw) * 0.34), 20px)",
+              // Header logos: always shown, 14–16px, beside the team's abbreviation or score.
+              "--head-logo": "clamp(14px, calc(var(--colw) * 0.3), 16px)",
             } as CSSProperties
           }
         >
@@ -253,8 +253,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 return (
                   <th
                     key={g.id}
+                    title={`${g.away.abbreviation ?? g.away.name} ${g.neutral ? "vs" : "@"} ${g.home.abbreviation ?? g.home.name}${g.tv ? ` · ${g.tv}` : ""}`}
                     className={`sticky top-0 z-20 min-w-10 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted lg:min-w-0 lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "line-through opacity-50" : ""}`}
                   >
+                    {/* Compact: status (time / Live / Final), then each team on one line (logo with
+                        its abbreviation, or its score once the game starts), then the line. The
+                        full matchup and network are in the column's tooltip. */}
                     <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
                       {g.voided ? (
                         <span className="font-semibold text-loss">Void</span>
@@ -263,26 +267,23 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       ) : live ? (
                         <LiveDot>Live</LiveDot>
                       ) : g.status === "postponed" || g.status === "cancelled" ? (
-                        <span className="font-semibold">{g.status === "postponed" ? "Postponed" : "Cancelled"}</span>
+                        <span className="font-semibold">{g.status === "postponed" ? "Ppd" : "Canc"}</span>
                       ) : (
                         shortGameTime(g.startAt, tz, g.timeTbd)
                       )}
-                      {/* Where to watch stays visible through the whole game, as on Picks. */}
-                      {g.tv && <div className="mx-auto max-w-14 truncate">{g.tv}</div>}
                     </div>
-                    <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="mx-auto mb-px size-4 lg:size-[var(--head-logo)]" />
-                    {/* Desktop stacks the score under the team so narrow columns keep both. */}
-                    <div className={`whitespace-nowrap lg:flex lg:flex-col lg:items-center ${winner !== null && winner < 0 ? "font-semibold text-ink" : ""}`}>
-                      {g.away.abbreviation}
-                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink lg:ml-0">{g.awayScore}</span>}
-                    </div>
-                    <div className="text-[10px] leading-none text-faint">{g.neutral ? "vs" : "@"}</div>
-                    <div className={`whitespace-nowrap lg:flex lg:flex-col-reverse lg:items-center ${winner !== null && winner > 0 ? "font-semibold text-ink" : ""}`}>
-                      {g.home.abbreviation}
-                      {showScore && <span className="ml-1 font-semibold tabular-nums text-ink lg:ml-0">{g.homeScore}</span>}
-                    </div>
-                    <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="mx-auto mt-px size-4 lg:size-[var(--head-logo)]" />
-                    {ats && <div className="mt-px tabular-nums">{formatSpread(g.spread)}</div>}
+                    {(["away", "home"] as const).map((side) => {
+                      const team = side === "home" ? g.home : g.away;
+                      const score = side === "home" ? g.homeScore : g.awayScore;
+                      const won = winner !== null && (side === "home" ? winner > 0 : winner < 0);
+                      return (
+                        <div key={side} className={`flex items-center justify-center gap-1 whitespace-nowrap leading-tight ${won ? "font-semibold text-ink" : ""}`}>
+                          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-3.5 shrink-0 lg:size-[var(--head-logo)]" />
+                          <span className={showScore ? "font-semibold tabular-nums text-ink" : ""}>{showScore ? score : team.abbreviation}</span>
+                        </div>
+                      );
+                    })}
+                    {ats && <div className="tabular-nums leading-tight">{formatSpread(g.spread)}</div>}
                     {/* Picks in this column are still hidden (until kickoff). */}
                     {!revealed && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
                   </th>
