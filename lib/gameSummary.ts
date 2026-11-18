@@ -18,7 +18,7 @@ export type Drive = {
   awayScore: number | null;
   homeScore: number | null;
 };
-export type StatGroup = { name: string; labels: string[]; rows: { id: string | null; name: string; stats: string[] }[]; totals: string[] | null };
+export type StatGroup = { name: string; labels: string[]; rows: { id: string | null; name: string; stats: string[]; starter: boolean }[]; totals: string[] | null };
 export type TeamStat = { label: string; away: string; home: string };
 
 export type GameSummary = {
@@ -132,6 +132,8 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
           .map((a: any) => ({
             // ESPN's player id: the box score's names open the player's game log.
             id: str(a?.athlete?.id),
+            // Basketball: ESPN marks the starting five.
+            starter: a?.starter === true,
             name: str(a?.athlete?.shortName) ?? str(a?.athlete?.displayName) ?? "",
             stats: (a?.stats ?? []).map((v: any) => String(v)),
           }))

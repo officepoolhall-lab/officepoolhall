@@ -41,39 +41,27 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   const allDays: string[] = [];
   for (let d = first; d <= last && allDays.length < 14; d = plusDays(d, 1)) allDays.push(d);
   const sport = teamSport(ctx.pool.sport);
-  // The NFL plays a few days a week (Thursday, Sunday, Monday): only those days get a button.
-  // College plays most days, so every day of the week shows.
-  let days = allDays;
-  if (sport === "nfl") {
-    const { data } = await ctx.supabase
-      .from("games")
-      .select("start_at")
-      .eq("sport", "nfl")
-      .gte("start_at", fromZonedTime(`${first}T00:00:00`, tz).toISOString())
-      .lt("start_at", fromZonedTime(`${plusDays(last, 1)}T00:00:00`, tz).toISOString());
-    const played = new Set((data ?? []).map((g) => formatInTimeZone(g.start_at, tz, "yyyy-MM-dd")));
-    if (played.size) days = allDays.filter((d) => played.has(d));
-  }
-  // Today if it has games; else the next game day; else the last one.
-  const day =
-    typeof dayParam === "string" && ISO_DATE.test(dayParam) && days.includes(dayParam)
-      ? dayParam
-      : days.includes(today)
-        ? today
-        : (days.find((d) => d > today) ?? days[days.length - 1]);
+  // College: one day at a time (buttons for each day of the week). The NFL: the whole week.
+  const days = allDays;
+  const day = typeof dayParam === "string" && ISO_DATE.test(dayParam) && days.includes(dayParam) ? dayParam : days.includes(today) ? today : days[0];
 
   // ESPN counts days in Eastern time, so a late tip here can sit on its next day: read both
   // and keep the games on this local day.
   const espn = (d: string) => d.replaceAll("-", "");
+  // The NFL shows the whole week at once: one request for the week's dates (plus the day after,
+  // for late games ESPN files under it).
+  const nfl = sport === "nfl";
+  const weekHasToday = allDays.includes(today);
   const [a, b, slateGames] = await Promise.all([
-    getEspnDay(sport, espn(day), day === today),
-    getEspnDay(sport, espn(plusDays(day, 1)), day === today),
+    nfl ? getEspnDay(sport, `${espn(first)}-${espn(plusDays(last, 1))}`, weekHasToday) : getEspnDay(sport, espn(day), day === today),
+    nfl ? Promise.resolve([]) : getEspnDay(sport, espn(plusDays(day, 1)), day === today),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const seen = new Set<string>();
   const dayGames = [...a, ...b].filter((g) => {
     // Same day rule the cards use (a TBD time counts in Eastern), so nothing from the next day slips in.
-    if (seen.has(g.id) || dayKey(g.startAt, gameDateZone(g.timeTbd, tz)) !== day) return false;
+    const key = dayKey(g.startAt, gameDateZone(g.timeTbd, tz));
+    if (seen.has(g.id) || (nfl ? !allDays.includes(key) : key !== day)) return false;
     seen.add(g.id);
     return true;
   });
@@ -104,7 +92,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
           ))}
         </div>
       )}
-      {/* The week's days; today is the default. */}
+      {/* The week's days; today is the default. The NFL lists the whole week instead. */}
+      {!nfl && (
       <div className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 py-1.5">
         {days.map((d) => (
           <Link
@@ -117,6 +106,7 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
           </Link>
         ))}
       </div>
+      )}
       {/* Finals and tip times come from the server each minute; plays poll faster in the client. */}
       <AutoRefresh active={anyLive} />
       {/* No key on the day: switching days keeps the chosen filter. */}
@@ -132,7 +122,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
         records={records}
         ats={ctx.settings.pick_type === "ats"}
         inPool={[...slateByEspn.keys()]}
-        showFilters={sport !== "nfl"}
+        showFilters={!nfl}
+        weekDays={nfl ? allDays : undefined}
       />
       <p className="mt-4 text-xs text-muted">
         {sport === "ncaab" ? "Every Division I men's game between D-I teams." : sport === "nfl" ? "Every NFL game." : "Every FBS game."} Scores and plays from ESPN.

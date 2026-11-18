@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -236,8 +237,20 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {g.rows.map((r) => (
-                    <tr key={r.id ?? r.name}>
+                  {/* Basketball: the starting five first, then the bench, each under a label. */}
+                  {(sport === "ncaab" && g.rows.some((r) => r.starter)
+                    ? [...g.rows.filter((r) => r.starter), ...g.rows.filter((r) => !r.starter)]
+                    : g.rows
+                  ).map((r, i, rows) => (
+                    <Fragment key={r.id ?? r.name}>
+                    {sport === "ncaab" && rows.some((x) => x.starter) && (i === 0 || (!r.starter && rows[i - 1].starter)) && (
+                      <tr>
+                        <td colSpan={g.labels.length + 1} className="sticky left-0 bg-surface py-1 pl-4 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                          {r.starter ? "Starters" : "Bench"}
+                        </td>
+                      </tr>
+                    )}
+                    <tr>
                       {/* Tap a name for the player's game log and season totals. */}
                       <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 text-sm">
                         <PlayerName sport={sport} id={r.id} name={r.name} />
@@ -246,6 +259,7 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
                         <td key={i} className="px-1.5 py-1 text-right">{v}</td>
                       ))}
                     </tr>
+                    </Fragment>
                   ))}
                   {g.totals && (
                     <tr className="font-semibold">
