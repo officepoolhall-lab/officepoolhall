@@ -69,6 +69,7 @@ export function GolfLeaderboard({
             <tr className="text-left">
               <th className={`${th} w-12 pl-4 pr-1 sm:pl-0`}>{started ? "Pos" : ""}</th>
               <th className={`${th} px-2`}>Golfer</th>
+              <th className={`${th} w-12 px-1 text-center leading-tight`}>Pool Picks</th>
               {started ? (
                 <>
                   <th className={`${th} w-14 px-1 text-right 2xl:w-20`}>To Par</th>
@@ -95,16 +96,16 @@ export function GolfLeaderboard({
               <Fragment key={r.id}>
                 {i === cutAt && (
                   <tr>
-                    <td colSpan={11} className="border-b border-line bg-surface px-4 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted sm:px-0">
+                    <td colSpan={12} className="border-b border-line bg-surface px-4 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted sm:px-0">
                       Missed the Cut
                     </td>
                   </tr>
                 )}
                 <tr
                   onClick={() => started && tournamentId && setOpen(r)}
-                  className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}`}
+                  className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "[&>td]:bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg))] hover:[&>td]:bg-[color-mix(in_srgb,var(--accent)_24%,var(--bg))]" : ""}`}
                 >
-                  <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-0 ${r.mine ? "shadow-[inset_2px_0_0_var(--accent)] sm:shadow-none" : ""}`}>{r.pos}</td>
+                  <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-0 ${r.mine ? "shadow-[inset_3px_0_0_var(--accent)]" : ""}`}>{r.pos}</td>
                   <td className="border-b border-line px-2 py-2">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">
                       {started && tournamentId ? (
@@ -125,15 +126,18 @@ export function GolfLeaderboard({
                           onError={(e) => (e.currentTarget.style.display = "none")}
                         />
                       )}
-                      {r.pickedBy > 0 && (
-                        <span
-                          className={`whitespace-nowrap rounded-full px-1.5 text-[10px] font-medium ${r.mine ? "bg-accent text-bg" : "bg-surface text-muted"}`}
-                          title={`${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"} in the pool picked ${r.name}${r.mine ? ", including you" : ""}`}
-                        >
-                          Pool Pick ×{r.pickedBy}
-                        </span>
-                      )}
                     </div>
+                  </td>
+                  {/* How many entries in the pool picked this golfer (yours highlighted). */}
+                  <td className="border-b border-line px-1 py-2 text-center">
+                    {r.pickedBy > 0 && (
+                      <span
+                        className={`inline-grid min-w-6 place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums ${r.mine ? "bg-accent text-bg" : "bg-surface text-ink"}`}
+                        title={`${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"} in the pool picked ${r.name}${r.mine ? ", including you" : ""}`}
+                      >
+                        {r.pickedBy}
+                      </span>
+                    )}
                   </td>
                   {started ? (
                     <>
