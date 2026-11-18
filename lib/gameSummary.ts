@@ -59,8 +59,10 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/summary?event=${encodeURIComponent(espnId)}`, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-      // Live games every 15 seconds; finished ones barely change.
-      next: { revalidate: live ? 15 : 600 },
+      // Not final yet: always fresh from ESPN. (A timed cache hands the first viewer after it
+      // expires the old copy, which could be from before kickoff, while it refetches.)
+      // Finished games barely change: cached 10 minutes.
+      ...(live ? { cache: "no-store" as const } : { next: { revalidate: 600 } }),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;

@@ -78,7 +78,9 @@ export async function GameView({
   return (
     <div data-wide className="lg:max-w-6xl">
       {back}
-      <AutoRefresh active={live} seconds={15} />
+      {/* Live: new plays and stats every 15 seconds. Before kickoff: a check every minute, so it
+          switches to live updates by itself once the game starts. */}
+      <AutoRefresh active={summary.status.state !== "post"} seconds={live ? 15 : 60} />
 
       {/* Score: teams, total, then the line score by period. */}
       <section className="mb-5 rounded-xl border border-line bg-surface/50 p-4">
