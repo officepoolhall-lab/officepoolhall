@@ -9,7 +9,7 @@ export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: 
   return (
     <section aria-labelledby="ap-poll">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel className="!text-sm">
+        <SectionLabel className="!text-sm lg:!text-base">
           <span id="ap-poll">{poll?.title ?? "AP Top 25"}</span>
           {poll && <span className="font-normal normal-case tracking-normal"> · {poll.label}</span>}
         </SectionLabel>

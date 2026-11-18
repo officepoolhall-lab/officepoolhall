@@ -135,7 +135,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                     {summary.picked === 0 ? (
                       // Nothing in yet: the number becomes the way to the picks screen.
-                      <Link href={`/p/${slug}/picks`} className="text-accent hover:underline">Make Picks</Link>
+                      <Link href={`/p/${slug}/picks`} className="mt-1 inline-flex items-center rounded-xl border-2 border-accent bg-accent px-5 py-2 text-2xl font-bold tracking-normal text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95">Make Picks</Link>
                     ) : !summary.decided && ctx.pool.sport !== "ncaab" ? (
                       "Submitted"
                     ) : (
@@ -260,7 +260,7 @@ async function NflStandingsBox() {
 function Placeholder({ title, rows }: { title: string; rows: number }) {
   return (
     <section aria-busy="true" aria-label={title}>
-      <SectionLabel className="!text-sm">{title}</SectionLabel>
+      <SectionLabel className="!text-sm lg:!text-base">{title}</SectionLabel>
       <ul className="mt-2 space-y-3">
         {Array.from({ length: rows }, (_, i) => (
           <li key={i} className="h-4 animate-pulse rounded bg-surface" style={{ width: `${70 + ((i * 13) % 30)}%` }} />

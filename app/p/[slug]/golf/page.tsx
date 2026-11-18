@@ -130,7 +130,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
 
           <section>
             <div className="flex items-center justify-between">
-              <SectionLabel className="!text-sm">Season standings</SectionLabel>
+              <SectionLabel className="!text-sm lg:!text-base">Season standings</SectionLabel>
               <Link href={`/p/${slug}/golf/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
                 All <ChevronIcon className="size-4" />
               </Link>
@@ -229,7 +229,7 @@ async function Rankings({ timezone }: { timezone: string }) {
   return (
     <section aria-labelledby="owgr">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel className="!text-sm">
+        <SectionLabel className="!text-sm lg:!text-base">
           <span id="owgr">World golf rankings</span>
         </SectionLabel>
         {owgr?.asOf && <span className="text-xs text-muted">Week of {formatInTimeZone(owgr.asOf, timezone, "MMM d")}</span>}
@@ -275,7 +275,7 @@ async function Rankings({ timezone }: { timezone: string }) {
 function Placeholder({ title, rows }: { title: string; rows: number }) {
   return (
     <section aria-busy="true" aria-label={title}>
-      <SectionLabel className="!text-sm">{title}</SectionLabel>
+      <SectionLabel className="!text-sm lg:!text-base">{title}</SectionLabel>
       <ul className="mt-2 space-y-3">
         {Array.from({ length: rows }, (_, i) => (
           <li key={i} className="h-4 animate-pulse rounded bg-surface" style={{ width: `${70 + ((i * 13) % 30)}%` }} />
@@ -403,7 +403,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
           </section>
           <section>
             <div className="flex items-center justify-between">
-              <SectionLabel className="!text-sm">{s.standings === "each" && standingsEvents[0] ? `${standingsEvents[0].name} standings` : "Standings"}</SectionLabel>
+              <SectionLabel className="!text-sm lg:!text-base">{s.standings === "each" && standingsEvents[0] ? `${standingsEvents[0].name} standings` : "Standings"}</SectionLabel>
               <Link href={`/p/${slug}/golf/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
                 All <ChevronIcon className="size-4" />
               </Link>
