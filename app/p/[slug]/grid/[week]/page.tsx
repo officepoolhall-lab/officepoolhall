@@ -373,10 +373,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     return (
                       <td key={g.id} className={`h-8 min-w-10 border-b border-line px-0.5 text-center lg:h-8 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
                         {team && (
-                          <div className="leading-tight">
-                            {/* The team's logo alone; the cell's green or red fill gives the result. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-5 lg:size-[var(--logo)]" />
-                            <div className="text-[11px] font-medium leading-none">
+                          // One line: the logo, then (confidence pools) the points value beside it. The
+                          // cell's green or red fill gives the result.
+                          <div className="flex items-center justify-center gap-1 leading-tight">
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-5 shrink-0 lg:size-[var(--logo)]" />
+                            <span className="text-[11px] font-medium leading-none">
                               {/* The abbreviation stays for screen readers. */}
                               <span className="sr-only">{team.abbreviation}</span>
                               {/* Color isn't the only signal for the result. */}
@@ -387,20 +388,20 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                                   <span className="sr-only">, changed by the commissioner</span>
                                 </span>
                               )}
-                            </div>
+                            </span>
                             {p?.confidence != null && (
-                              <div className="text-[13px] font-semibold tabular-nums">
+                              <span className="whitespace-nowrap text-[13px] font-semibold tabular-nums">
                                 {base !== null && base < 0 ? (
                                   signedPoints(base)
                                 ) : (
                                   <span className={p.result === "loss" ? "line-through" : ""}>{p.confidence}</span>
                                 )}
                                 {bonus > 0 && <sup className="ml-px text-[10px] font-semibold text-accent">+{points(bonus)}</sup>}
-                              </div>
+                              </span>
                             )}
-                            {/* Flat pools have no value line, so the bonus sits on its own. */}
+                            {/* Flat pools have no value, so the bonus sits beside the logo on its own. */}
                             {p?.confidence == null && bonus > 0 && (
-                              <div className="text-[10px] font-semibold tabular-nums text-accent">+{points(bonus)}</div>
+                              <span className="text-[10px] font-semibold tabular-nums text-accent">+{points(bonus)}</span>
                             )}
                             {bonus > 0 && <span className="sr-only">, upset bonus {points(bonus)}</span>}
                           </div>
