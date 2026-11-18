@@ -1,8 +1,11 @@
 "use client";
 
+
 import { useEffect, useRef, useState } from "react";
 import type { LeaderRow } from "./GolfLeaderboard";
 import { useScrollLock } from "@/lib/useScrollLock";
+
+const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 type Hole = { hole: number; par: number | null; strokes: number | null };
 type Round = { round: number; strokes: number | null; toPar: string | null; holes: Hole[] };
@@ -133,7 +136,7 @@ export function GolfScorecard({
       ref={dialog}
       onClose={onClose}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
-      className="m-auto w-[min(40rem,calc(100vw-1rem))] rounded-xl bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
+      className="m-auto w-[min(40rem,calc(100vw-1rem))] rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50"
       aria-label={`${golfer.name}: scorecard`}
     >
       <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-5">
@@ -142,6 +145,19 @@ export function GolfScorecard({
             <h2 className="text-lg font-bold leading-snug">{golfer.name}</h2>
             <p className="text-xs text-muted">
               {eventName}
+            </p>
+            {/* Place, score and prize money: projected from current standings while it's played. */}
+            <p className="mt-0.5 text-xs tabular-nums text-muted">
+              {golfer.pos && <span className="font-semibold text-ink">{golfer.pos}</span>}
+              {golfer.toPar && <span className={`ml-1.5 font-semibold ${golfer.toPar.startsWith("-") ? "text-loss" : "text-ink"}`}>{golfer.toPar.replace(/^-/, "−")}</span>}
+              {golfer.earnings > 0 ? (
+                <span className="ml-1.5">· Earnings <span className="font-semibold text-ink">{usd(golfer.earnings)}</span></span>
+              ) : (golfer.projected ?? 0) > 0 ? (
+                <span className="ml-1.5">
+                  · Proj. Earnings <span className="font-semibold text-ink">{usd(golfer.projected!)}</span>
+                  <span className="block text-[11px] text-faint">Projected from current standings and the purse</span>
+                </span>
+              ) : null}
             </p>
           </div>
           <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">

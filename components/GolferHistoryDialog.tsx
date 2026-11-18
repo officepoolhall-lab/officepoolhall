@@ -47,7 +47,7 @@ export function GolferHistoryDialog({
       onClose={onClose}
       // A click on the dimmed area around the panel closes it.
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
-      className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
+      className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50"
       aria-label={`${golfer.name}: results`}
     >
       <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-5">
