@@ -6,6 +6,7 @@ import { CheckIcon, chipClass, inputClass } from "./ui";
 
 export type PickerFieldGolfer = { espn_golfer_id: string; golfer_name: string; world_rank: number | null; odds: number | null; tier: number | null; salary: number | null };
 
+const SORTS: ("salary" | "rank" | "odds")[] = ["salary", "rank", "odds"];
 const dollars = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US")}`;
 const oddsLabel = (n: number | null) => (n === null ? "" : n > 0 ? `+${n.toLocaleString("en-US")}` : n.toLocaleString("en-US"));
 
@@ -140,7 +141,7 @@ export function MajorPicker({
       <div className="mb-1.5 flex shrink-0 flex-wrap items-center gap-2">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a golfer" className={`${inputClass} h-9 min-w-0 flex-1 basis-40`} />
         <div className="flex gap-1 text-xs" role="group" aria-label="Sort">
-          {(contest === "salary" ? (["salary", "rank", "odds"] as const) : (["rank", "odds"] as const)).map((k) => (
+          {(contest === "salary" ? SORTS : SORTS.slice(1)).map((k) => (
             <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} className={`h-8 rounded-full px-2.5 font-medium ${sort === k ? "bg-ink text-bg" : "text-muted hover:bg-surface"}`}>
               {k === "salary" ? "Salary" : k === "rank" ? "World Rank" : "Odds"}
             </button>
@@ -178,8 +179,8 @@ export function MajorPicker({
 
       {!readOnly && (
         <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-3">
-          <p className={`text-sm ${state.error ? "font-semibold text-loss" : state.ok ? "font-semibold text-win" : "text-muted"}`}>
-            {state.error ?? state.ok ?? (complete ? (saved ? "Lineup saved." : "Ready to save.") : contest === "salary" && left < 0 ? "Over the budget." : `${need - chosen.length > 0 ? need - chosen.length : 0} to go.`)}
+          <p className={`text-sm ${state?.error ? "font-semibold text-loss" : state?.ok ? "font-semibold text-win" : "text-muted"}`}>
+            {state?.error ?? state?.ok ?? (complete ? (saved ? "Lineup saved." : "Ready to save.") : contest === "salary" && left < 0 ? "Over the budget." : `${need - chosen.length > 0 ? need - chosen.length : 0} to go.`)}
           </p>
           <button
             type="button"

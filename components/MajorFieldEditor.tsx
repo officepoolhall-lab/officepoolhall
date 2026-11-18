@@ -90,8 +90,8 @@ export function MajorFieldEditor({
           </button>
         )}
       </div>
-      {state.error && <p className="mb-2 text-sm font-semibold text-loss">{state.error}</p>}
-      {state.ok && !dirty && <p className="mb-2 text-sm font-semibold text-win">{state.ok}</p>}
+      {state?.error && <p className="mb-2 text-sm font-semibold text-loss">{state?.error}</p>}
+      {state?.ok && !dirty && <p className="mb-2 text-sm font-semibold text-win">{state?.ok}</p>}
 
       <table className="w-full text-sm">
         <thead>
