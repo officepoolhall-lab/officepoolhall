@@ -79,6 +79,7 @@ export function SlateEditor({
   settings,
   defaultManualStart,
   records = {},
+  showFilters = true,
 }: {
   slug: string;
   slateId: string;
@@ -89,6 +90,9 @@ export function SlateEditor({
   defaultManualStart: string;
   /** ESPN team id → overall record, shown next to team names. */
   records?: Record<string, string>;
+  /** Search, day, conference, Ranked and National TV filters (college). NFL pools list every
+      game in the week with no filters, plus Select all. */
+  showFilters?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [conference, setConference] = useState("");
@@ -233,6 +237,15 @@ export function SlateEditor({
 
       <section className={selected.size > 0 ? (addResult?.error ? "pb-32" : "pb-20") : ""}>
         <SectionLabel className="mb-3">Add games</SectionLabel>
+        {!showFilters ? (
+          candidates.length > 0 && (
+            <div className="mb-3">
+              <button type="button" className={chipClass(false, "min-h-11")} onClick={() => setSelected(new Set(candidates.map((c) => c.id)))}>
+                Select all {candidates.length}
+              </button>
+            </div>
+          )
+        ) : (
         <div className="mb-3 flex flex-wrap gap-2">
           <input
             type="search"
@@ -257,6 +270,7 @@ export function SlateEditor({
             National TV
           </button>
         </div>
+        )}
         <div className="flex items-end justify-between gap-3 border-b border-line pb-2 text-xs text-muted">
           <p className="tabular-nums">
             {filtered.length} of {candidates.length} upcoming games in this window
