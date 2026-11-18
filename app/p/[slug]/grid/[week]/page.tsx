@@ -320,7 +320,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                         title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined}
                         className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone} ${
                           // A green fill once it scored, red once it didn't, as on the game picks.
-                          scored ? (p!.points! > 0 ? "bg-[color-mix(in_srgb,var(--win)_10%,transparent)]" : "bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]") : ""
+                          scored ? (p!.points! > 0 ? "bg-[var(--win-fill)]" : "bg-[var(--loss-fill)]") : ""
                         }`}
                       >
                         {team && (
@@ -345,9 +345,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     // A light win/loss fill: with logos only, it's what shows the result.
                     const fill =
                       p?.result === "win"
-                        ? "bg-[color-mix(in_srgb,var(--win)_10%,transparent)]"
+                        ? "bg-[var(--win-fill)]"
                         : p?.result === "loss"
-                          ? "bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]"
+                          ? "bg-[var(--loss-fill)]"
                           : "";
                     const bonus = Number(p?.bonus ?? 0);
                     // Graded cells show what the pick scored before the bonus: a minus-points
