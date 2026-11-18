@@ -5,7 +5,7 @@ import { teamSport } from "@/lib/sports";
 // Live game detail for My Picks' poll: GET /api/live?sport=ncaaf&dates=20261020,20261021
 // ESPN's public data (clock, score, situation, last play for games in progress); like every
 // page, signed-in players only (proxy.ts). ESPN is asked at most every few seconds per date
-// however many players are watching.
+// per viewer (always fresh: a timed cache could hand back a stale clock).
 
 export const dynamic = "force-dynamic";
 
