@@ -233,9 +233,10 @@ export async function getTeamHistory(
     lined.forEach((g, i) => {
       const homeSpread = espnLines[i] ?? stored.get(g.id)?.homeSpread ?? null;
       if (homeSpread === null) return;
-      g.spread = g.home ? homeSpread : -homeSpread;
+      const spread = g.home ? homeSpread : -homeSpread;
+      g.spread = spread;
       if (g.pointsFor !== null && g.pointsAgainst !== null) {
-        const m = g.pointsFor - g.pointsAgainst + g.spread;
+        const m = g.pointsFor - g.pointsAgainst + spread;
         g.ats = m > 0 ? "W" : m < 0 ? "L" : "P";
       }
     });
