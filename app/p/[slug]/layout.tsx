@@ -1,3 +1,4 @@
+import { poolKind, poolTypeLabel } from "@/lib/poolType";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { PasswordNudge } from "@/components/PasswordNudge";
@@ -34,7 +35,7 @@ export default async function PoolLayout({ children, modal, params }: LayoutProp
           <PoolSwitcher current={{ name: ctx.pool.name, slug: ctx.pool.slug }} pools={pools} />
         </div>
       </AppHeader>
-      <PoolTitle slug={slug} name={ctx.pool.name} />
+      <PoolTitle slug={slug} name={ctx.pool.name} kind={poolKind(ctx.pool.sport)} type={poolTypeLabel(ctx.pool)} />
       <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={gridWeek ?? undefined} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
