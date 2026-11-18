@@ -273,6 +273,30 @@ export function MajorPicker({
       {!readOnly && (
         // Pinned to the bottom of the screen while picking, so Save is always in reach.
         <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bg px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:mx-0 sm:px-0">
+          {/* What each tier still needs; a tier turns green with a check once it's filled. */}
+          {contest === "tiers" && (
+            <ul className="flex w-full flex-wrap gap-1.5" aria-label="Picks by tier">
+              {picks.map((n, i) => {
+                const have = inTier(i + 1);
+                const done = have >= n;
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => setTier(i + 1)}
+                      className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium lg:cursor-default ${
+                        done ? "bg-[color-mix(in_srgb,var(--win)_16%,transparent)] text-win" : "bg-surface text-ink"
+                      }`}
+                    >
+                      {done && <CheckIcon className="size-3" />}
+                      Tier {i + 1}
+                      <span className={`font-normal ${done ? "" : "text-muted"}`}>{done ? "Complete" : `${n - have} needed`}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
           <p className={`text-sm ${state?.error ? "font-semibold text-loss" : state?.ok ? "font-semibold text-win" : "text-muted"}`}>
             {state?.error ?? state?.ok ?? (complete ? (saved ? "Lineup saved." : "Ready to save.") : contest === "salary" && left < 0 ? "Over the budget." : `${need - chosen.length > 0 ? need - chosen.length : 0} to go.`)}
           </p>
