@@ -139,7 +139,7 @@ export function GolfScorecard({
       className="m-auto w-[min(40rem,calc(100vw-1rem))] rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50"
       aria-label={`${golfer.name}: scorecard`}
     >
-      <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-4 sm:p-5">
+      <div className="max-h-[min(85vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-bold leading-snug">{golfer.name}</h2>
