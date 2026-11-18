@@ -5,7 +5,7 @@
 //
 // Runs hourly from pg_cron: invoke_edge_function('sync-ranks', '{"back": 8, "days": 3}').
 // Body: { back?: days before today (0–150), days?: days from today (1–30), sport? }.
-// A one-time season backfill: '{"back": 120}'.
+// A one-time season backfill: '{"back": 120}' (or '{"sport": "nfl", "back": 75, "days": 1}').
 //
 // Self-contained (copies of _shared/espn.ts and _shared/supabase.ts inlined) so it can be
 // pasted into the Supabase dashboard editor. Service role only.
@@ -13,15 +13,18 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 // ---- ESPN (copy of _shared/espn.ts) ----
 
-type Sport = "ncaab" | "ncaaf";
+type Sport = "ncaab" | "ncaaf" | "nfl";
 
 const BASE = "https://site.api.espn.com/apis/site/v2/sports";
 const PATH: Record<Sport, string> = {
   ncaab: "basketball/mens-college-basketball",
   ncaaf: "football/college-football",
+  nfl: "football/nfl",
 };
-// groups=50 → all D1 basketball; groups=80 → FBS football
-const GROUP: Record<Sport, string> = { ncaab: "50", ncaaf: "80" };
+// groups=50 → all D1 basketball; groups=80 → FBS football; the NFL needs none.
+const GROUP: Record<Sport, string> = { ncaab: "50", ncaaf: "80", nfl: "" };
+const SPORTS: Sport[] = ["ncaab", "ncaaf", "nfl"];
+const isSport = (s: unknown): s is Sport => SPORTS.includes(s as Sport);
 
 const SHORT_CONFERENCE: Record<string, string> = {
   "Atlantic Coast Conference": "ACC",
@@ -113,7 +116,8 @@ function rank(r: { current?: number } | undefined) {
 
 /** One day's scoreboard. `date` is yyyymmdd (ESPN uses US Eastern dates). */
 async function fetchScoreboard(sport: Sport, date: string, conferences?: Map<string, string>) {
-  const data = await getJson(`${BASE}/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`);
+  const groups = GROUP[sport] ? `&groups=${GROUP[sport]}` : "";
+  const data = await getJson(`${BASE}/${PATH[sport]}/scoreboard?dates=${date}${groups}&limit=500`);
   const teams = new Map<string, FeedTeam>();
   const games: FeedGame[] = [];
 
@@ -225,10 +229,11 @@ Deno.serve(handler(async (req) => {
   const db = adminClient();
 
   let sports: Sport[];
-  if (body.sport === "ncaab" || body.sport === "ncaaf") sports = [body.sport];
+  if (isSport(body.sport)) sports = [body.sport];
   else {
     const { data } = await db.from("pools").select("sport");
-    sports = [...new Set((data ?? []).map((p) => p.sport as string))].filter((s): s is Sport => s === "ncaab" || s === "ncaaf");
+    // Golf pools have their own import (poll-golf).
+    sports = [...new Set((data ?? []).map((p) => p.sport as string))].filter(isSport);
   }
 
   const dates: string[] = [];
