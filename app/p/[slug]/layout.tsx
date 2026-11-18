@@ -5,13 +5,14 @@ import { PoolNav } from "@/components/PoolNav";
 import { PoolPresence } from "@/components/PoolPresence";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { PoolTitle } from "@/components/PoolTitle";
-import { getCurrentSlate, getPoolBase } from "@/lib/pool";
+import { getGridWeek, getPoolBase } from "@/lib/pool";
 
 export default async function PoolLayout({ children, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolBase(slug);
-  const [current, { data: memberships }, { data: managed }, { data: guestOf }] = await Promise.all([
-    getCurrentSlate(ctx),
+  const [gridWeek, { data: memberships }, { data: managed }, { data: guestOf }] = await Promise.all([
+    // The Grid tab opens on last week until this week's first game starts.
+    getGridWeek(ctx),
     // The player's other pools, for the switcher in the header, plus entries they co-manage
     // and pools they view as a guest.
     ctx.supabase.from("pool_members").select("pool:pools!inner ( name, slug )").eq("user_id", ctx.user.id).order("joined_at", { ascending: false }),
@@ -33,7 +34,7 @@ export default async function PoolLayout({ children, params }: LayoutProps<"/p/[
         </div>
       </AppHeader>
       <PoolTitle slug={slug} name={ctx.pool.name} />
-      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={current?.week} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} />
+      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={gridWeek ?? undefined} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
           Pages that fill the viewport (the Grid) and wide pages (Picks) use the full screen width on desktop. */}
