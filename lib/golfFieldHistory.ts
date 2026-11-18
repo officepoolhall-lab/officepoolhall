@@ -32,17 +32,14 @@ export async function loadFieldHistory(
   opts: { allTourEvents?: boolean } = {},
 ): Promise<FieldHistory> {
   if (opts.allTourEvents) {
-    const [season, history] = await Promise.all([
-      getSeasonResults(ctx.pool.season).catch(() => ({ events: [], byGolfer: {} as Record<string, { i: number; pos: string | null; earnings: number }[]> })),
-      getTournamentHistory(event.name, ctx.pool.season).catch(() => []),
-    ]);
-    const ids = new Set(golferIds);
+    // This season comes separately (loadSeasonHistory), so this part never waits on it.
+    const history = await getTournamentHistory(event.name, ctx.pool.season).catch(() => []);
     return {
       eventName: event.name,
       years: history.map((y) => ({ year: y.year, formerName: y.renamed ? y.name : null })),
       at: atYears(golferIds, history),
-      played: season.events.map((e, i) => ({ week: i + 1, name: e.name, final: true })),
-      season: Object.fromEntries(Object.entries(season.byGolfer).filter(([id]) => ids.has(id))),
+      played: [],
+      season: {},
     };
   }
   const counted = events.filter((e) => e.status !== "canceled");
@@ -100,4 +97,19 @@ function atYears(golferIds: string[], history: Awaited<ReturnType<typeof getTour
     });
   }
   return at;
+}
+
+/**
+ * Every PGA Tour event played this season, for the field (Majors pools' History pop-up). Read
+ * from ESPN once and saved for a day (warmed each morning by /api/golf/warm), so it's usually
+ * instant; never rejects.
+ */
+export async function loadSeasonHistory(ctx: PoolBase, golferIds: string[]): Promise<Pick<FieldHistory, "played" | "season">> {
+  const r = await getSeasonResults(ctx.pool.season).catch(() => null);
+  if (!r) return { played: [], season: {} };
+  const ids = new Set(golferIds);
+  return {
+    played: r.events.map((e, i) => ({ week: i + 1, name: e.name, final: true })),
+    season: Object.fromEntries(Object.entries(r.byGolfer).filter(([id]) => ids.has(id))),
+  };
 }

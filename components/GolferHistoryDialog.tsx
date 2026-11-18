@@ -8,6 +8,8 @@ import { useScrollLock } from "@/lib/useScrollLock";
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const place = (pos: string | null) => parseInt((pos ?? "").replace(/^T/, ""), 10);
 
+export type SeasonHistory = Pick<FieldHistory, "played" | "season">;
+
 /**
  * A golfer's record: the last few years at the event being picked for, then this season so far
  * (each event played with finish and prize money, plus a short summary). Opens over the page; "Pick" chooses them from here when they're available.
@@ -18,7 +20,11 @@ export function GolferHistoryDialog({
   onClose,
   onPick,
   majors = false,
+  season,
 }: {
+  /** This season's events, when they load separately from the rest (Majors pools): the pop-up
+      shows the tournament's history at once and this season as soon as it arrives. */
+  season?: Promise<SeasonHistory>;
   /** A Majors pool: "this season" is every PGA Tour event, without the pool's week numbers. */
   majors?: boolean;
   golfer: { id: string; name: string; rank: number | null };
@@ -58,7 +64,7 @@ export function GolferHistoryDialog({
         </div>
 
         <Suspense fallback={<p className="mt-4 text-sm text-muted">Loading…</p>}>
-          <Results golferId={golfer.id} history={history} majors={majors} />
+          <Results golferId={golfer.id} history={history} majors={majors} season={season} />
         </Suspense>
 
         <div className="mt-4 flex justify-end">
@@ -81,19 +87,9 @@ export function GolferHistoryDialog({
 }
 
 /** The two sections, once the field's history has arrived. */
-function Results({ golferId, history, majors }: { golferId: string; history: Promise<FieldHistory>; majors: boolean }) {
-  const unit = "events";
+function Results({ golferId, history, majors, season }: { golferId: string; history: Promise<FieldHistory>; majors: boolean; season?: Promise<SeasonHistory> }) {
   const data = use(history);
   const atYears = data.years.map((y, i) => ({ ...y, result: data.at[golferId]?.[i] ?? null }));
-  const rows = (data.season[golferId] ?? []).map((r) => ({ ...data.played[r.i], pos: r.pos, earnings: r.earnings }));
-  const eventsPlayed = data.played.length;
-  const finished = rows.filter((r) => r.final);
-  const cuts = finished.filter((r) => Number.isFinite(place(r.pos))).length;
-  const best = finished.map((r) => place(r.pos)).filter(Number.isFinite).sort((a, b) => a - b)[0];
-  const bestLabel = best === undefined ? "–" : (finished.find((r) => place(r.pos) === best)?.pos ?? "–");
-  const top10 = finished.filter((r) => place(r.pos) <= 10).length;
-  const total = finished.reduce((sum, r) => sum + r.earnings, 0);
-
   return (
           <>
             {/* The last few years at the event being picked for. */}
@@ -140,6 +136,43 @@ function Results({ golferId, history, majors }: { golferId: string; history: Pro
               </section>
             )}
 
+            {season ? (
+              <Suspense fallback={<SeasonLoading />}>
+                <SeasonFrom golferId={golferId} season={season} majors={majors} />
+              </Suspense>
+            ) : (
+              <SeasonSection golferId={golferId} data={data} majors={majors} />
+            )}
+          </>
+  );
+}
+
+function SeasonLoading() {
+  return (
+    <section className="mt-5">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This Season</h3>
+      <p className="mt-2 border-y border-line py-3 text-sm text-muted">Loading this season…</p>
+    </section>
+  );
+}
+
+function SeasonFrom({ golferId, season, majors }: { golferId: string; season: Promise<SeasonHistory>; majors: boolean }) {
+  return <SeasonSection golferId={golferId} data={use(season)} majors={majors} />;
+}
+
+/** This season so far: a summary, then each event played with finish and prize money. */
+function SeasonSection({ golferId, data, majors }: { golferId: string; data: SeasonHistory; majors: boolean }) {
+  const unit = "events";
+  const rows = (data.season[golferId] ?? []).map((r) => ({ ...data.played[r.i], pos: r.pos, earnings: r.earnings }));
+  const eventsPlayed = data.played.length;
+  const finished = rows.filter((r) => r.final);
+  const cuts = finished.filter((r) => Number.isFinite(place(r.pos))).length;
+  const best = finished.map((r) => place(r.pos)).filter(Number.isFinite).sort((a, b) => a - b)[0];
+  const bestLabel = best === undefined ? "–" : (finished.find((r) => place(r.pos) === best)?.pos ?? "–");
+  const top10 = finished.filter((r) => place(r.pos) <= 10).length;
+  const total = finished.reduce((sum, r) => sum + r.earnings, 0);
+
+  return (
             <section className="mt-5">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">This Season</h3>
               {rows.length === 0 ? (
@@ -193,6 +226,5 @@ function Results({ golferId, history, majors }: { golferId: string; history: Pro
                 </>
               )}
             </section>
-          </>
   );
 }

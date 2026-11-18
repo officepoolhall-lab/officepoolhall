@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import type { FieldHistory } from "@/lib/golfFieldHistory";
 import type { ActionState } from "./ActionForm";
-import { GolferHistoryDialog } from "./GolferHistoryDialog";
+import { GolferHistoryDialog, type SeasonHistory } from "./GolferHistoryDialog";
 import { CheckIcon, inputClass } from "./ui";
 
 export type PickerFieldGolfer = { espn_golfer_id: string; golfer_name: string; world_rank: number | null; odds: number | null; tier: number | null; salary: number | null };
@@ -27,6 +27,7 @@ export function MajorPicker({
   initial,
   readOnly,
   history,
+  season,
   save,
 }: {
   contest: "tiers" | "salary";
@@ -38,6 +39,8 @@ export function MajorPicker({
   readOnly: boolean;
   /** Past results at this major and this season, for the whole field, loading with the page. */
   history: Promise<FieldHistory>;
+  /** This season's PGA Tour events for the field, loading separately. */
+  season: Promise<SeasonHistory>;
   save: (ids: string[]) => Promise<ActionState>;
 }) {
   const [chosen, setChosen] = useState<string[]>(initial);
@@ -222,6 +225,7 @@ export function MajorPicker({
           key={historyFor.espn_golfer_id}
           golfer={{ id: historyFor.espn_golfer_id, name: historyFor.golfer_name, rank: historyFor.world_rank }}
           history={history}
+          season={season}
           majors
           onClose={() => setHistoryFor(null)}
           onPick={readOnly || chosen.includes(historyFor.espn_golfer_id) ? undefined : () => toggle(historyFor)}
