@@ -95,7 +95,7 @@ export async function GameView({
                 {Array.from({ length: periods }, (_, i) => (
                   <th key={i} className="w-10 py-1 text-center font-medium">{summary.periodLabel(i + 1).replace(" Half", "")}</th>
                 ))}
-                <th className="w-12 py-1 text-right font-medium">T</th>
+                <th className="w-14 py-1 text-right font-medium">Total</th>
               </tr>
             </thead>
             <tbody>
