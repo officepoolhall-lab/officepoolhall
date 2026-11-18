@@ -319,16 +319,16 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                         key={t.id}
                         title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined}
                         className={`h-9 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone} ${
-                          // Desktop: a green fill once it scored, red once it didn't, as on the game picks.
-                          scored ? (p!.points! > 0 ? "lg:bg-[color-mix(in_srgb,var(--win)_10%,transparent)]" : "lg:bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]") : ""
+                          // A green fill once it scored, red once it didn't, as on the game picks.
+                          scored ? (p!.points! > 0 ? "bg-[color-mix(in_srgb,var(--win)_10%,transparent)]" : "bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]") : ""
                         }`}
                       >
                         {team && (
                           <div className="leading-tight">
-                            {/* Desktop: the champion pick's logo alone, like the game picks. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto hidden size-6 lg:block" />
+                            {/* The champion pick's logo alone, like the game picks. */}
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-6" />
                             <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>
-                              <span className="lg:sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
+                              <span className="sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
                             </div>
                             {scored && <div className="text-[13px] font-semibold tabular-nums">{points(p!.points!)}</div>}
                             {place && <span className="sr-only">, {place}</span>}
@@ -342,12 +342,12 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     const p = isRevealed(g) ? byCell.get(`${r.userId}:${g.id}`) : undefined;
                     const team = p ? (p.picked_side === "home" ? g.home : g.away) : null;
                     const tone = p?.result === "win" ? "text-win" : p?.result === "loss" ? "text-loss" : "text-ink";
-                    // Desktop: a light win/loss fill as well as the colored text.
+                    // A light win/loss fill: with logos only, it's what shows the result.
                     const fill =
                       p?.result === "win"
-                        ? "lg:bg-[color-mix(in_srgb,var(--win)_10%,transparent)]"
+                        ? "bg-[color-mix(in_srgb,var(--win)_10%,transparent)]"
                         : p?.result === "loss"
-                          ? "lg:bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]"
+                          ? "bg-[color-mix(in_srgb,var(--loss)_8%,transparent)]"
                           : "";
                     const bonus = Number(p?.bonus ?? 0);
                     // Graded cells show what the pick scored before the bonus: a minus-points
@@ -357,11 +357,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       <td key={g.id} className={`h-9 min-w-12 border-b border-line px-1 text-center lg:h-11 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
                         {team && (
                           <div className="leading-tight">
-                            {/* Desktop: the team's logo alone; the cell's green or red fill gives the result. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto hidden size-3.5 lg:block lg:size-[var(--logo)]" />
-                            <div className={`text-[11px] font-medium lg:leading-none ${p?.result === "loss" ? "line-through lg:no-underline" : ""}`}>
-                              {/* Phones show the abbreviation (struck through on a loss); desktop keeps it for screen readers. */}
-                              <span className="lg:sr-only">{team.abbreviation}</span>
+                            {/* The team's logo alone; the cell's green or red fill gives the result. */}
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-6 lg:size-[var(--logo)]" />
+                            <div className="text-[11px] font-medium leading-none">
+                              {/* The abbreviation stays for screen readers. */}
+                              <span className="sr-only">{team.abbreviation}</span>
                               {/* Color isn't the only signal for the result. */}
                               {p?.result === "win" && <span className="sr-only">, won</span>}
                               {p?.result === "loss" && <span className="sr-only">, lost</span>}
