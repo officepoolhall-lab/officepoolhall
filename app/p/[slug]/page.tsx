@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApPollList } from "@/components/ApPollList";
+import { NflStandingsList } from "@/components/NflStandingsList";
+import { getNflStandings } from "@/lib/nflStandings";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Countdown } from "@/components/Countdown";
 import { LiveTicker } from "@/components/LiveTicker";
@@ -208,8 +210,12 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
             <News sport={sport} now={now} />
           </Suspense>
         </div>
-        {/* The NFL has no poll. */}
-        {sport !== "nfl" && (
+        {/* The NFL has no poll: its division standings take that spot. */}
+        {sport === "nfl" ? (
+          <Suspense fallback={<Placeholder title="NFL Standings" rows={10} />}>
+            <NflStandingsBox />
+          </Suspense>
+        ) : (
           <Suspense fallback={<Placeholder title="Rankings" rows={10} />}>
             <Poll sport={sport} timezone={ctx.displayTz} />
           </Suspense>
@@ -228,6 +234,11 @@ async function News({ sport, now }: { sport: TeamSport; now: number }) {
 /** AP Top 25 (or CFP rankings) from ESPN; streams in after the rest of the page. */
 async function Poll({ sport, timezone }: { sport: TeamSport; timezone: string }) {
   return <ApPollList poll={await getApPoll(sport)} timezone={timezone} />;
+}
+
+/** NFL division standings from ESPN; streams in after the rest of the page. */
+async function NflStandingsBox() {
+  return <NflStandingsList standings={await getNflStandings()} />;
 }
 
 /** Grey lines where news or rankings will appear, so the layout doesn't jump. */
