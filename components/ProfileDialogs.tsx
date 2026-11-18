@@ -39,7 +39,7 @@ function Shell({ label, onClose, header, children, size = "normal" }: { label: s
       ref={dialog}
       onClose={onClose}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
-      className={`m-auto ${WIDTHS[size]} rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50`}
+      className={`m-auto ${WIDTHS[size]} rounded-xl border-2 border-accent bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50`}
       aria-label={label}
     >
       <div className="max-h-[min(85vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain p-5">

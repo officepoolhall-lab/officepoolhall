@@ -136,7 +136,7 @@ export function GolfScorecard({
       ref={dialog}
       onClose={onClose}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
-      className="m-auto w-[min(40rem,calc(100vw-1rem))] rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50"
+      className="m-auto w-[min(40rem,calc(100vw-1rem))] rounded-xl border-2 border-accent bg-bg p-0 text-ink shadow-xl backdrop:bg-black/50"
       aria-label={`${golfer.name}: scorecard`}
     >
       <div className="max-h-[min(85vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain p-4 sm:p-5">
