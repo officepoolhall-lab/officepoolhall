@@ -11,6 +11,7 @@ import { getTeamRecords } from "@/lib/teamRecords";
 import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines, updateOpenDeadlines } from "../actions";
 import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
 import { Matchup } from "@/components/Matchup";
+import { teamSport } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Slate editor" };
 
@@ -147,7 +148,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         line: lineByGame.get(g.id) ?? null,
       }));
     // Teams' current records (ESPN), for every game on the slate or available to add.
-    const records = await getTeamRecords(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf", [
+    const records = await getTeamRecords(teamSport(ctx.pool.sport), [
       ...onSlate.map((g) => g.startAt),
       ...candidates.map((c) => c.startAt),
     ]);

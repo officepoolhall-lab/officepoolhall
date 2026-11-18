@@ -9,6 +9,7 @@ import { isLive, withLiveClocks } from "@/lib/liveClock";
 import { gameDateZone } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, type SlateGame } from "@/lib/pool";
 import { Scoreboard } from "./Scoreboard";
+import { teamSport } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Scoreboard" };
 
@@ -43,7 +44,7 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
 
   // ESPN counts days in Eastern time, so a late tip here can sit on its next day: read both
   // and keep the games on this local day.
-  const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
+  const sport = teamSport(ctx.pool.sport);
   const espn = (d: string) => d.replaceAll("-", "");
   const [a, b, slateGames] = await Promise.all([
     getEspnDay(sport, espn(day), day === today),
@@ -114,7 +115,7 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
         inPool={[...slateByEspn.keys()]}
       />
       <p className="mt-4 text-xs text-muted">
-        {sport === "ncaab" ? "Every Division I men's game between D-I teams." : "Every FBS game."} Scores and plays from ESPN.
+        {sport === "ncaab" ? "Every Division I men's game between D-I teams." : sport === "nfl" ? "Every NFL game." : "Every FBS game."} Scores and plays from ESPN.
       </p>
     </div>
   );

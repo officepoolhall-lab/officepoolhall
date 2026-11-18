@@ -1,10 +1,10 @@
 import "server-only";
+import { ESPN_PATH, isFootball, type TeamSport } from "./sports";
 
 // One game's play-by-play and box score from ESPN's game summary
 // (site/v2/sports/{sport}/summary?event={id}). The shape is ESPN's, undocumented, so every
 // field is read defensively: anything missing just doesn't show.
 
-const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
 
 export type SummaryTeam = { id: string; abbreviation: string; name: string; logo: string | null; score: string | null; linescores: string[]; homeAway: "home" | "away" };
 export type Play = { id: string; text: string; clock: string | null; period: number | null; scoring: boolean; homeScore: number | null; awayScore: number | null; down: string | null; type: string | null; teamId: string | null };
@@ -54,10 +54,10 @@ function play(p: any): Play {
   };
 }
 
-export async function getGameSummary(sport: "ncaaf" | "ncaab", espnId: string, live: boolean): Promise<GameSummary | null> {
+export async function getGameSummary(sport: TeamSport, espnId: string, live: boolean): Promise<GameSummary | null> {
   let data: any;
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/summary?event=${encodeURIComponent(espnId)}`, {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/summary?event=${encodeURIComponent(espnId)}`, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
       // Live games every 15 seconds; finished ones barely change.
       next: { revalidate: live ? 15 : 600 },
@@ -136,7 +136,7 @@ export async function getGameSummary(sport: "ncaaf" | "ncaab", espnId: string, l
       .filter((g: StatGroup) => g.rows.length),
   }));
 
-  const football = sport === "ncaaf";
+  const football = isFootball(sport);
   return {
     status: { detail: str(comp?.status?.type?.shortDetail) ?? str(comp?.status?.type?.detail), state: state === "pre" || state === "in" || state === "post" ? state : null },
     away,

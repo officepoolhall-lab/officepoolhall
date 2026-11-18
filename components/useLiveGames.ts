@@ -15,7 +15,7 @@ const espnDay = (at: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Am
  * latest clock, score, down and distance and last play, and lays them over the games, so new
  * plays appear without reloading the page. Stops on its own when no game is live.
  */
-export function useLiveGames(games: SlateGame[], now: number, sport: "ncaaf" | "ncaab" | undefined): SlateGame[] {
+export function useLiveGames(games: SlateGame[], now: number, sport: "ncaaf" | "ncaab" | "nfl" | undefined): SlateGame[] {
   const [detail, setDetail] = useState<Record<string, LiveDetail>>({});
   const isLiveGame = (g: SlateGame) =>
     !g.voided && Boolean(g.espnId) && hasStarted(g, now) && g.status !== "final" && !g.overridden && g.status !== "postponed" && g.status !== "cancelled";

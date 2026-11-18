@@ -7,6 +7,7 @@ import { SubTabs } from "@/components/SubTabs";
 import { ViewTabs } from "@/components/ViewTabs";
 import { getGameSummary, type GameSummary, type Play } from "@/lib/gameSummary";
 import { getPoolContext } from "@/lib/pool";
+import { teamSport } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "Game" };
 
@@ -41,7 +42,7 @@ export default async function GamePage({ params, searchParams }: PageProps<"/p/[
     </Link>
   );
 
-  const sport = game.sport === "ncaab" ? "ncaab" : "ncaaf";
+  const sport = teamSport(game.sport);
   const summary = game.espn_id && !game.espn_id.startsWith("demo-") ? await getGameSummary(sport, game.espn_id, game.status !== "final") : null;
   if (!summary || !summary.away || !summary.home) {
     return (

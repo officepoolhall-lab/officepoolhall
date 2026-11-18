@@ -1,5 +1,6 @@
 import "server-only";
 import type { SlateGame } from "./pool";
+import { ESPN_PATH, groupsParam, type TeamSport } from "./sports";
 
 // A whole day of Division I games straight from ESPN's scoreboard (not just the pool's slate),
 // for the Scoreboard tab: basketball is every D-I vs D-I game (groups=50, both sides in a D-I
@@ -7,8 +8,6 @@ import type { SlateGame } from "./pool";
 // cards and live updates work. Cached briefly: 20 seconds today, longer for other days.
 
 const BASE = "https://site.api.espn.com/apis/site/v2/sports";
-const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
-const GROUP = { ncaaf: "80", ncaab: "50" } as const;
 const HEADERS = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" };
 
 // Same short names the schedule import uses (supabase/functions/_shared/espn.ts).
@@ -32,10 +31,12 @@ const SHORT_CONFERENCE: Record<string, string> = {
 /* eslint-disable @typescript-eslint/no-explicit-any -- ESPN's JSON is untyped */
 
 /** ESPN conference group id → short name (real conferences only, not division labels). Cached a day. */
-async function conferences(sport: "ncaaf" | "ncaab"): Promise<Map<string, string>> {
+async function conferences(sport: TeamSport): Promise<Map<string, string>> {
   const out = new Map<string, string>();
+  // NFL teams have no conferences to show.
+  if (sport === "nfl") return out;
   try {
-    const res = await fetch(`${BASE}/${PATH[sport]}/scoreboard/conferences`, { headers: HEADERS, next: { revalidate: 86400 }, signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${BASE}/${ESPN_PATH[sport]}/scoreboard/conferences`, { headers: HEADERS, next: { revalidate: 86400 }, signal: AbortSignal.timeout(3000) });
     if (!res.ok) return out;
     const data: any = await res.json();
     for (const c of data?.conferences ?? []) {
@@ -62,10 +63,10 @@ const rank = (r: any) => (r?.current && r.current >= 1 && r.current <= 25 ? Numb
 export type DayGame = SlateGame & { records: { home: string | null; away: string | null } };
 
 /** One day's games (date = yyyymmdd, US Eastern, as ESPN counts days), by start time. */
-export async function getEspnDay(sport: "ncaaf" | "ncaab", date: string, isToday: boolean): Promise<DayGame[]> {
+export async function getEspnDay(sport: TeamSport, date: string, isToday: boolean): Promise<DayGame[]> {
   const [confs, data] = await Promise.all([
     conferences(sport),
-    fetch(`${BASE}/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`, {
+    fetch(`${BASE}/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
       headers: HEADERS,
       next: { revalidate: isToday ? 20 : 900 },
       signal: AbortSignal.timeout(5000),

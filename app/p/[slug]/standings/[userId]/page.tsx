@@ -57,7 +57,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   // Every week in order, Week 1 first (history.weeks is oldest first).
   const weeks = history.weeks;
   // Football pools list every week's picks at once; basketball weeks (25 picks each) fold up.
-  const allOpen = ctx.pool.sport === "ncaaf";
+  const allOpen = ctx.pool.sport === "ncaaf" || ctx.pool.sport === "nfl";
   // The newest week with something to show starts open; the rest open on a tap.
   const openWeek = [...weeks].reverse().find((w) => w.wins + w.losses + w.pushes > 0 || weekPicks(w).length > 0)?.slateId;
 

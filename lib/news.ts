@@ -22,7 +22,7 @@ export type NewsStory = {
   source: string;
 };
 
-export type NewsSport = "ncaaf" | "ncaab" | "golf";
+export type NewsSport = "ncaaf" | "ncaab" | "nfl" | "golf";
 type Sport = NewsSport;
 
 /** Public RSS feeds per sport (checked Oct 2026). The Athletic: see docs/data-sources.md. */
@@ -33,6 +33,12 @@ const RSS_FEEDS: Record<Sport, Feed[]> = {
     { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/college-football/" },
     // Fox Sports' public college football feed (the key is the one foxsports.com itself uses).
     { source: "Fox Sports", url: "https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/cfb" },
+  ],
+  // NFL: the same sites as college football (CBS Sports, Fox Sports, plus ESPN below), and NBC Sports.
+  nfl: [
+    { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/nfl/" },
+    { source: "Fox Sports", url: "https://api.foxsports.com/v2/content/optimized-rss?partnerKey=MB0Wehpmuj2lUhuRhQaafhBjAJqaPU244mlTDK1i&size=30&tags=fs/nfl", only: /\/nfl\//i },
+    { source: "NBC Sports", url: "https://www.nbcsports.com/nfl.rss" },
   ],
   ncaab: [
     { source: "CBS Sports", url: "https://www.cbssports.com/rss/headlines/college-basketball/" },
@@ -52,7 +58,7 @@ const RSS_FEEDS: Record<Sport, Feed[]> = {
   ],
 };
 
-const ESPN_PATH: Record<Sport, string> = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball", golf: "golf/pga" };
+const ESPN_PATH: Record<Sport, string> = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball", nfl: "football/nfl", golf: "golf/pga" };
 
 type EspnArticle = {
   id?: number | string;

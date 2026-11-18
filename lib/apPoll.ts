@@ -1,11 +1,11 @@
 import "server-only";
+import { ESPN_PATH, type TeamSport } from "./sports";
 
 // The AP Top 25 from ESPN's undocumented site API (same source as the schedule and scores;
 // shape checked Oct 2026). Once the College Football Playoff committee publishes its
 // rankings (from early November), ESPN adds them to the same feed and they take over.
 // Cached for an hour, so a new poll or CFP release shows up within the hour, no job or table.
 
-const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
 const REVALIDATE_SECONDS = 3600;
 
 export type PollTeam = {
@@ -39,9 +39,11 @@ type EspnRank = {
 type EspnRanking = { type?: string; name?: string; shortName?: string; date?: string; occurrence?: { displayValue?: string }; ranks?: EspnRank[] };
 
 /** CFP rankings when out (football), else the latest AP poll; null if ESPN is unreachable or has none yet. */
-export async function getApPoll(sport: "ncaaf" | "ncaab"): Promise<ApPoll | null> {
+export async function getApPoll(sport: TeamSport): Promise<ApPoll | null> {
+  // The NFL has no poll.
+  if (sport === "nfl") return null;
   try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/rankings`, {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/rankings`, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
       next: { revalidate: REVALIDATE_SECONDS },
       // A slow ESPN answer shouldn't hold the page; the list just doesn't show this time.

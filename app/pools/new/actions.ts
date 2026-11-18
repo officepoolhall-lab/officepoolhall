@@ -17,7 +17,7 @@ export async function createPool(_: ActionState, form: FormData): Promise<Action
   if (!name) return { error: "Give the pool a name." };
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) return { error: "The URL name can only use lowercase letters, numbers, and dashes." };
   if (sport === "pga") return createMajorsPool({ name, slug, season, entryFee, form });
-  if (sport !== "ncaab" && sport !== "ncaaf") return { error: "Pick a sport." };
+  if (sport !== "ncaab" && sport !== "ncaaf" && sport !== "nfl") return { error: "Pick a sport." };
   if (!Number.isInteger(season) || season < 2020) return { error: "Enter the season's starting year." };
 
   let raw: unknown;

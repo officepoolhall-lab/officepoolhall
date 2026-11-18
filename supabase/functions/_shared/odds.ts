@@ -4,6 +4,7 @@ import type { Sport } from "./espn.ts";
 const SPORT_KEY: Record<Sport, string> = {
   ncaab: "basketball_ncaab",
   ncaaf: "americanfootball_ncaaf",
+  nfl: "americanfootball_nfl",
 };
 
 type Outcome = { name: string; price: number; point?: number };

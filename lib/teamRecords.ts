@@ -1,12 +1,11 @@
 import "server-only";
+import { ESPN_PATH, groupsParam, type TeamSport } from "./sports";
 
 // Teams' overall records ("6-0") from ESPN's scoreboard (the same feed as the schedule and
 // scores; shape checked Oct 2026: competitors[].records[] with type "total"). Fetched for the
 // dates a page's games fall on, cached an hour, so records update within an hour of finals.
 // No table or job; if ESPN is unreachable the pages simply show no records.
 
-const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
-const GROUP = { ncaaf: "80", ncaab: "50" } as const;
 const REVALIDATE_SECONDS = 3600;
 
 /** yyyymmdd in US Eastern (ESPN's scoreboard dates). */
@@ -17,13 +16,13 @@ function espnDate(at: string) {
 type Competitor = { team?: { id?: string | number }; records?: { type?: string; summary?: string }[] };
 
 /** ESPN team id → overall record, for every team playing on the given games' dates. */
-export async function getTeamRecords(sport: "ncaaf" | "ncaab", startTimes: string[]): Promise<Record<string, string>> {
+export async function getTeamRecords(sport: TeamSport, startTimes: string[]): Promise<Record<string, string>> {
   const dates = [...new Set(startTimes.map(espnDate))].slice(0, 14);
   const out: Record<string, string> = {};
   await Promise.all(
     dates.map(async (date) => {
       try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`, {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
           next: { revalidate: REVALIDATE_SECONDS },
           // Records are a nicety: a slow day's scoreboard is skipped rather than holding the page.
