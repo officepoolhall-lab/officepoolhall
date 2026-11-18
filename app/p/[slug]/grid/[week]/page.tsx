@@ -194,7 +194,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
               "--cell-font": "clamp(9px, calc(var(--colw) * 0.3), 13px)",
               // Picks are logos only on desktop: as big as the column allows, 14–24px.
               "--logo": "clamp(14px, calc(var(--colw) - 12px), 24px)",
-              "--head-logo": "clamp(0px, calc((var(--colw) - 34px) * 100), 24px)",
+              // Header logos: about a third of the column, 18px at most (smaller laptops have
+              // narrow columns), gone below ~30px.
+              "--head-logo": "clamp(0px, min(calc((var(--colw) - 30px) * 100), calc(var(--colw) * 0.32)), 18px)",
             } as CSSProperties
           }
         >
