@@ -68,7 +68,10 @@ export async function getEspnDay(sport: TeamSport, date: string, isToday: boolea
     conferences(sport),
     fetch(`${BASE}/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
       headers: HEADERS,
-      next: { revalidate: isToday ? 20 : 900 },
+      // Today: always fresh from ESPN. (A timed cache hands the first visitor after it expires
+      // the old copy while it refetches, e.g. "2:00 2nd half" for a game already in overtime.)
+      // Other days: cached 15 minutes.
+      ...(isToday ? { cache: "no-store" as const } : { next: { revalidate: 900 } }),
       signal: AbortSignal.timeout(5000),
     })
       .then((r) => (r.ok ? r.json() : null))

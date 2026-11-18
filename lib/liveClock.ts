@@ -44,17 +44,18 @@ export type LiveDetail = {
 
 /**
  * Live detail for in-progress games on the given ESPN dates (yyyymmdd), keyed by ESPN game id.
- * `maxAgeSeconds` is how stale a cached scoreboard may be: 30 for page renders, a few seconds
- * for the live poll on My Picks.
+ * Fetched fresh every time (`maxAgeSeconds` is no longer used; kept so callers don't change).
  */
-export async function fetchLiveDetails(sport: TeamSport, dates: string[], maxAgeSeconds = 30): Promise<Map<string, LiveDetail>> {
+export async function fetchLiveDetails(sport: TeamSport, dates: string[], _maxAgeSeconds = 30): Promise<Map<string, LiveDetail>> {
   const found = new Map<string, LiveDetail>();
   await Promise.all(
     [...new Set(dates)].slice(0, 4).map(async (date) => {
       try {
         const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-          next: { revalidate: maxAgeSeconds },
+          // Always fresh: these are games in progress (a timed cache could hand back a stale
+          // clock on the first request after a quiet spell).
+          cache: "no-store",
           signal: AbortSignal.timeout(3000),
         });
         if (!res.ok) return;
