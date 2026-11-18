@@ -65,7 +65,14 @@ export function GridPanel({
       const w = ps.filter((p) => p.result === "win").length;
       const l = ps.filter((p) => p.result === "loss").length;
       const pu = ps.filter((p) => p.result === "push").length;
-      return { g, total: ps.length, w, l, pu, graded: w + l + pu > 0 };
+      // The side that won (covered, against the spread): the one whose picks won, else the
+      // other side of the picks that lost. Null for a push or a game not graded yet.
+      const side = ps.find((p) => p.result === "win")?.picked_side ?? (() => {
+        const lost = ps.find((p) => p.result === "loss")?.picked_side;
+        return lost ? (lost === "home" ? "away" : "home") : null;
+      })();
+      const winner = side ? (side === "home" ? g.home : g.away) : null;
+      return { g, total: ps.length, w, l, pu, graded: w + l + pu > 0, winner };
     })
     .filter((x) => x.total > 0);
   const tw = perGame.reduce((t, x) => t + x.w, 0);
@@ -121,10 +128,18 @@ export function GridPanel({
           ) : null
         }
       >
-        {perGame.map(({ g, total, w, l, pu, graded }) => (
+        {perGame.map(({ g, total, w, l, pu, graded, winner }) => (
           <Row key={g.id}>
-            <span className={`${twoCols ? "w-16" : "w-24"} shrink-0 truncate text-muted`}>
-              {g.away.abbreviation} @ {g.home.abbreviation}
+            {/* Just the side that won; the pool's record on the game follows. */}
+            <span className="flex w-14 shrink-0 items-center gap-1.5 font-semibold" title={`${g.away.abbreviation} @ ${g.home.abbreviation}`}>
+              {winner ? (
+                <>
+                  <TeamLogo src={winner.logo_url} abbr={winner.abbreviation} className="size-4" />
+                  <span className="truncate">{winner.abbreviation}</span>
+                </>
+              ) : (
+                <span className="truncate font-normal text-muted">{graded ? "Push" : "Live"}</span>
+              )}
             </span>
             <span className="flex h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface">
               {graded ? (
