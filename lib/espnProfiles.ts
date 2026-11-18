@@ -148,15 +148,25 @@ export type TeamGame = {
   result: "W" | "L" | "T" | null;
   /** "31–17", the team's score first. */
   score: string | null;
+  /** Points for and against, for grading against the line. */
+  pointsFor: number | null;
+  pointsAgainst: number | null;
+  neutral: boolean;
+  /** The team's own closing spread (−6.5 = favored by 6.5); null when no line was found. */
+  spread: number | null;
+  /** Covered, lost or pushed against that spread. */
+  ats: "W" | "L" | "P" | null;
 };
 export type AtsSplit = { name: string; label: string; wins: number; losses: number; pushes: number };
 export type TeamHistory = {
   name: string;
+  abbreviation: string | null;
   logo: string | null;
   record: string | null;
   /** Finished games, newest first. */
   recent: TeamGame[];
-  /** Against the spread this season (ESPN's splits: overall, home, away, favorite, underdog …). */
+  /** Against the spread this season, worked out game by game from each game's line: overall,
+      home, away, as favorite, as underdog. Only for ATS pools. */
   ats: AtsSplit[];
 };
 
@@ -166,12 +176,25 @@ const scoreOf = (c: any): number | null => {
   return v === undefined || v === null || v === "" || Number.isNaN(n) ? null : n;
 };
 
-/** A team's recent results this season and, with `ats`, its record against the spread. */
-export async function getTeamHistory(sport: TeamSport, teamId: string, ats: boolean): Promise<TeamHistory | null> {
+/** At most this many finished games get a line looked up (a basketball season runs past 30). */
+const MAX_LINES = 40;
+
+/**
+ * A team's results this season and, with `ats`, each game's closing line from ESPN and the
+ * record against it. `storedLine` fills in a game ESPN has no line for (this site's own saved
+ * lines, by ESPN game id; the team's spread).
+ */
+export async function getTeamHistory(
+  sport: TeamSport,
+  teamId: string,
+  ats: boolean,
+  storedLine?: (espnGameIds: string[]) => Promise<Map<string, { homeSpread: number }>>,
+): Promise<TeamHistory | null> {
   const sched = await getJson(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/teams/${encodeURIComponent(teamId)}/schedule`, 900);
   if (!sched) return null;
   const team = sched.team ?? {};
-  const recent: TeamGame[] = [];
+  const abbreviation = str(team?.abbreviation);
+  const recent: (TeamGame & { home: boolean })[] = [];
   for (const e of Array.isArray(sched.events) ? sched.events : []) {
     const comp = e?.competitions?.[0];
     const done = comp?.status?.type?.completed ?? e?.status?.type?.completed;
@@ -186,54 +209,105 @@ export async function getTeamHistory(sport: TeamSport, teamId: string, ats: bool
       id: String(e.id),
       date: String(e.date ?? comp?.date ?? ""),
       atVs: us.homeAway === "away" ? "@" : "vs",
+      home: us.homeAway === "home",
+      neutral: comp?.neutralSite === true,
       opponent: str(them?.team?.abbreviation) ?? str(them?.team?.shortDisplayName) ?? "—",
       opponentLogo: logoOf(them?.team),
       result: us.winner === true ? "W" : them.winner === true ? "L" : a !== null && b !== null ? (a > b ? "W" : a < b ? "L" : "T") : null,
       score: a !== null && b !== null ? `${a}–${b}` : null,
+      pointsFor: a,
+      pointsAgainst: b,
+      spread: null,
+      ats: null,
     });
   }
   recent.sort((x, y) => y.date.localeCompare(x.date));
 
   let splits: AtsSplit[] = [];
-  if (ats) {
-    const year = sched.requestedSeason?.year ?? sched.season?.year;
-    if (year) {
-      const body = await getJson(
-        `https://sports.core.api.espn.com/v2/sports/${corePath(sport)}/seasons/${year}/types/2/teams/${encodeURIComponent(teamId)}/ats`,
-        3600,
-      );
-      splits = (Array.isArray(body?.items) ? body.items : [])
-        .map((x: any) => ({
-          name: str(x?.type?.name) ?? "",
-          label: atsLabel(str(x?.type?.name), str(x?.type?.description)),
-          wins: Number(x?.wins ?? 0) || 0,
-          losses: Number(x?.losses ?? 0) || 0,
-          pushes: Number(x?.pushes ?? 0) || 0,
-        }))
-        .filter((x: AtsSplit) => x.wins + x.losses + x.pushes > 0);
-      // Overall first.
-      splits.sort((x, y) => Number(y.name === "atsOverall") - Number(x.name === "atsOverall"));
-    }
+  if (ats && recent.length) {
+    const lined = recent.slice(0, MAX_LINES);
+    // ESPN's line for each game (cached a day: a finished game's line doesn't change).
+    const espnLines = await mapLimit(lined, 8, (g) => gameHomeSpread(sport, g.id));
+    const missing = lined.filter((_, i) => espnLines[i] === null).map((g) => g.id);
+    const stored = missing.length && storedLine ? await storedLine(missing).catch(() => new Map()) : new Map();
+    lined.forEach((g, i) => {
+      const homeSpread = espnLines[i] ?? stored.get(g.id)?.homeSpread ?? null;
+      if (homeSpread === null) return;
+      g.spread = g.home ? homeSpread : -homeSpread;
+      if (g.pointsFor !== null && g.pointsAgainst !== null) {
+        const m = g.pointsFor - g.pointsAgainst + g.spread;
+        g.ats = m > 0 ? "W" : m < 0 ? "L" : "P";
+      }
+    });
+    const tally = (name: string, label: string, keep: (g: TeamGame & { home: boolean }) => boolean): AtsSplit => {
+      const gs = lined.filter((g) => g.ats && keep(g));
+      return { name, label, wins: gs.filter((g) => g.ats === "W").length, losses: gs.filter((g) => g.ats === "L").length, pushes: gs.filter((g) => g.ats === "P").length };
+    };
+    splits = [
+      tally("atsOverall", "Overall", () => true),
+      tally("atsHome", "Home", (g) => g.home && !g.neutral),
+      tally("atsAway", "Away", (g) => !g.home && !g.neutral),
+      tally("atsNeutral", "Neutral site", (g) => g.neutral),
+      tally("atsFavorite", "As favorite", (g) => (g.spread ?? 0) < 0),
+      tally("atsUnderdog", "As underdog", (g) => (g.spread ?? 0) > 0),
+    ].filter((x) => x.wins + x.losses + x.pushes > 0);
   }
 
   const record = str(team?.recordSummary) ?? str(team?.record?.items?.[0]?.summary) ?? null;
-  return { name: str(team?.displayName) ?? str(team?.name) ?? "Team", logo: logoOf(team), record, recent, ats: splits };
+  return {
+    name: str(team?.displayName) ?? str(team?.name) ?? "Team",
+    abbreviation,
+    logo: logoOf(team),
+    record,
+    recent: recent.map(({ home: _home, ...g }) => g),
+    ats: splits,
+  };
 }
 
-function atsLabel(name: string | null, description: string | null): string {
-  const known: Record<string, string> = {
-    atsOverall: "Overall",
-    atsHome: "Home",
-    atsAway: "Away",
-    atsRoad: "Away",
-    atsFavorite: "As favorite",
-    atsUnderdog: "As underdog",
-    atsHomeFavorite: "Home favorite",
-    atsAwayFavorite: "Away favorite",
-    atsHomeUnderdog: "Home underdog",
-    atsAwayUnderdog: "Away underdog",
-    atsConference: "In conference",
-    atsDivision: "In division",
-  };
-  return (name && known[name]) ?? description?.replace(/^ATS\s*/i, "").replace(/\s*Record$/i, "") ?? name ?? "ATS";
+/**
+ * A finished game's closing spread from the home side (−6.5 = home favored), from ESPN's odds
+ * for the game; null when ESPN has none. The first provider with a spread wins (ESPN lists its
+ * own book first).
+ */
+async function gameHomeSpread(sport: TeamSport, eventId: string): Promise<number | null> {
+  const body = await getJson(
+    `https://sports.core.api.espn.com/v2/sports/${corePath(sport)}/events/${encodeURIComponent(eventId)}/competitions/${encodeURIComponent(eventId)}/odds`,
+    86400,
+  );
+  for (const o of Array.isArray(body?.items) ? body.items : []) {
+    const v = homeSpreadOf(o);
+    if (v !== null) return v;
+  }
+  return null;
+}
+
+/** One provider's line as the home team's spread. */
+function homeSpreadOf(o: any): number | null {
+  const details = str(o?.details);
+  if (details && /^(even|pk|pick)/i.test(details.trim())) return 0;
+  const raw = Number(o?.spread);
+  if (o?.spread === undefined || o?.spread === null || Number.isNaN(raw)) return null;
+  const size = Math.abs(raw);
+  if (size === 0) return 0;
+  // Which side is favored: the odds' own flags, else the sign ESPN gives the home spread.
+  const homeFav = o?.homeTeamOdds?.favorite;
+  const awayFav = o?.awayTeamOdds?.favorite;
+  if (homeFav === true || awayFav === false) return -size;
+  if (awayFav === true || homeFav === false) return size;
+  return raw;
+}
+
+/** `fn` over `items`, at most `limit` at a time, results in order. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
 }

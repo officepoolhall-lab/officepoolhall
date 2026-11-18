@@ -190,6 +190,7 @@ export function TeamHistoryDialog({
     <Shell
       label={`${name}: recent games`}
       onClose={onClose}
+      wide={ats}
       header={
         <div className="flex items-center gap-3">
           <TeamLogo src={t?.logo ?? logo} abbr={null} className="size-10" />
@@ -225,12 +226,12 @@ export function TeamHistoryDialog({
               </ul>
             </section>
           )}
-          {ats && !t.ats.length && <Note>No record against the spread from ESPN yet.</Note>}
+          {ats && !t.ats.length && <Note>No lines found for this team&apos;s games yet.</Note>}
           <section className="mt-4">
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent games</h3>
             {t.recent.length ? (
               <ul className="border-t border-line text-sm">
-                {t.recent.slice(0, 10).map((g) => (
+                {t.recent.slice(0, ats ? 15 : 10).map((g) => (
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
                     <span className="w-5 shrink-0 text-xs text-muted">{g.atVs}</span>
@@ -238,6 +239,17 @@ export function TeamHistoryDialog({
                     <span className="min-w-0 flex-1 truncate font-medium">{g.opponent}</span>
                     <span className={`w-4 shrink-0 font-semibold ${g.result === "W" ? "text-win" : g.result === "L" ? "text-loss" : "text-muted"}`}>{g.result ?? ""}</span>
                     <span className="w-14 shrink-0 text-right tabular-nums">{g.score ?? ""}</span>
+                    {/* ATS pools: the team's line that game and whether it covered. */}
+                    {ats && (
+                      <>
+                        <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{g.spread === null ? "—" : g.spread === 0 ? "PK" : g.spread > 0 ? `+${g.spread}` : g.spread}</span>
+                        <span
+                          className={`w-16 shrink-0 text-right text-xs font-semibold ${g.ats === "W" ? "text-win" : g.ats === "L" ? "text-loss" : "text-muted"}`}
+                        >
+                          {g.ats === "W" ? "Covered" : g.ats === "L" ? "Didn't" : g.ats === "P" ? "Push" : ""}
+                        </span>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
