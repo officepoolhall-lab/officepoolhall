@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import type { FieldHistory } from "@/lib/golfFieldHistory";
 import type { ActionState } from "./ActionForm";
 import { GolferHistoryDialog, type SeasonHistory } from "./GolferHistoryDialog";
-import { CheckIcon, inputClass } from "./ui";
+import { CheckIcon, chipClass, inputClass } from "./ui";
 
 export type PickerFieldGolfer = { espn_golfer_id: string; golfer_name: string; world_rank: number | null; odds: number | null; tier: number | null; salary: number | null };
 
@@ -48,6 +48,10 @@ export function MajorPicker({
   const [sort, setSort] = useState<"salary" | "rank" | "odds">(contest === "salary" ? "salary" : "rank");
   const [state, setState] = useState<ActionState>({});
   const [historyFor, setHistoryFor] = useState<PickerFieldGolfer | null>(null);
+  // Phones and tablets show one tier at a time.
+  const [tier, setTier] = useState(1);
+  // Desktop: every tier is as tall as the biggest of the others (at least 5 rows).
+  const tierRows = Math.max(5, ...picks.slice(0, -1).map((_, i) => golfers.filter((g) => g.tier === i + 1).length));
   const [pending, start] = useTransition();
   const byId = useMemo(() => new Map(golfers.map((g) => [g.espn_golfer_id, g])), [golfers]);
   const need = contest === "salary" ? roster : picks.reduce((a, b) => a + b, 0);
@@ -172,24 +176,44 @@ export function MajorPicker({
         </div>
       </div>
 
+      {contest === "tiers" && (
+        // Phones and tablets: one tier at a time, chosen here. Desktop shows every tier.
+        <div className="mb-3 flex flex-wrap gap-1.5 lg:hidden" role="group" aria-label="Tier">
+          {picks.map((n, i) => (
+            <button key={i} type="button" onClick={() => setTier(i + 1)} aria-pressed={tier === i + 1} className={chipClass(tier === i + 1, "", "sm")}>
+              {inTier(i + 1) === n && <CheckIcon className="mr-1 size-3" />}
+              Tier {i + 1}
+              <span className="ml-1 font-normal tabular-nums opacity-70">
+                {inTier(i + 1)}/{n}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {contest === "tiers" ? (
-        // Every tier at once, side by side as the screen allows; the page scrolls, no inner boxes.
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
+        // Desktop: every tier side by side, each the same height; the last (largest) tier
+        // scrolls within that height.
+        <div
+          className="grid gap-4 lg:grid-cols-3 2xl:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]"
+          style={{ "--tier-rows": tierRows } as CSSProperties}
+        >
           {picks.map((n, i) => {
             const t = i + 1;
             const rows = sorted(golfers.filter((g) => g.tier === t));
             const done = inTier(t) === n;
             return (
-              <section key={t} aria-label={`Tier ${t}`} className="min-w-0">
+              <section key={t} aria-label={`Tier ${t}`} className={`min-w-0 lg:block ${tier === t || (query.trim() && rows.length) ? "block" : "hidden"}`}>
                 <h3 className="flex items-center justify-between gap-2 border-b-2 border-ink/25 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
                   <span className="flex items-center gap-1">
-                    {done && <CheckIcon className="size-3 text-win" />}Tier {t}
+                    {done && <CheckIcon className="size-3 text-win" />}
+                    Tier {t} – Make {n} {n === 1 ? "Selection" : "Selections"}
                   </span>
                   <span className="font-normal normal-case tracking-normal tabular-nums">
-                    Pick {n} · {inTier(t)}/{n}
+                    {inTier(t)}/{n}
                   </span>
                 </h3>
-                <ul className="divide-y divide-line">
+                <ul className="divide-y divide-line lg:max-h-[calc(var(--tier-rows)*2.5rem+var(--tier-rows)*1px)] lg:overflow-y-auto lg:overscroll-contain">
                   {rows.map((g) => row(g))}
                   {rows.length === 0 && <li className="py-2 text-sm text-muted">{query ? "No golfers match." : "No golfers."}</li>}
                 </ul>

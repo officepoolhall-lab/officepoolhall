@@ -52,7 +52,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
             </>
           )}
         </p>
-        <p className="text-xs text-muted">{rulesLine(s)}</p>
+        {s.contest === "salary" && <p className="text-xs text-muted">{rulesLine(s)}</p>}
       </div>
       {events.length > 1 && <GolfEventSelect basePath={`/p/${slug}/golf/picks`} value={event.id} events={events.map((e) => ({ id: e.id, label: e.name }))} />}
     </div>
