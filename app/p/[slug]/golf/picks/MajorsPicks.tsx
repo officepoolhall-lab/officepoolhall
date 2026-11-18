@@ -6,6 +6,7 @@ import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
 import { fantasyPoints, formatToPar, toParScores } from "@/lib/golfMajors";
+import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
 
@@ -70,13 +71,14 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
       return formatToPar(tp.get(id) ?? null);
     };
     return (
-      <div data-wide className="mx-auto max-w-3xl">
+      <div data-wide>
         {head}
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{who}</h3>
         {mine.length === 0 ? (
           <Empty>No lineup for this major.</Empty>
         ) : (
-          <ul className="divide-y divide-line border-y border-line">
+          // Across the screen in columns on wider screens.
+          <ul className="grid border-t border-line sm:grid-cols-2 sm:gap-x-6 xl:grid-cols-4 [&>li]:border-b [&>li]:border-line">
             {[...mine]
               .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0))
               .map((l) => {
@@ -98,7 +100,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
 
   if (!field.length || !open) {
     return (
-      <div data-wide className="mx-auto max-w-3xl">
+      <div data-wide>
         {head}
         <Empty>
           {field.length ? "Picks for this major aren't open yet." : "The field for this major isn't set yet. It's posted the week before."}
@@ -109,11 +111,8 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
   }
 
   return (
-    // Sized to the screen like the season pool's My Picks: the field scrolls inside its box.
-    <div
-      data-fill-viewport
-      className="mx-auto flex h-[max(34rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] max-w-3xl flex-col sm:h-[max(34rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
-    >
+    // The full width of the screen; the page scrolls (no inner scroll boxes), Save pinned at the bottom.
+    <div data-wide>
       {head}
       <MajorPicker
         contest={s.contest}
@@ -123,6 +122,10 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
         roster={s.salary.roster}
         initial={mine.map((l) => l.espn_golfer_id)}
         readOnly={ctx.isGuest}
+        // Each golfer's past years at this major and every PGA Tour event this season (not awaited: the
+        // field shows straight away and History opens without another request).
+        history={loadFieldHistory(ctx, event, events, field.map((g) => g.espn_golfer_id), { allTourEvents: true })}
+        season={loadSeasonHistory(ctx, field.map((g) => g.espn_golfer_id))}
         save={saveGolfLineup.bind(null, slug, event.id, ctx.managing?.ownerId ?? null)}
       />
     </div>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { FieldHistory } from "@/lib/golfFieldHistory";
 import type { ActionState } from "./ActionForm";
-import { CheckIcon, chipClass, inputClass } from "./ui";
+import { GolferHistoryDialog, type SeasonHistory } from "./GolferHistoryDialog";
+import { CheckIcon, inputClass } from "./ui";
 
 export type PickerFieldGolfer = { espn_golfer_id: string; golfer_name: string; world_rank: number | null; odds: number | null; tier: number | null; salary: number | null };
 
@@ -24,6 +26,8 @@ export function MajorPicker({
   roster,
   initial,
   readOnly,
+  history,
+  season,
   save,
 }: {
   contest: "tiers" | "salary";
@@ -33,13 +37,17 @@ export function MajorPicker({
   roster: number;
   initial: string[];
   readOnly: boolean;
+  /** Past results at this major and this season, for the whole field, loading with the page. */
+  history: Promise<FieldHistory>;
+  /** This season's PGA Tour events for the field, loading separately. */
+  season: Promise<SeasonHistory>;
   save: (ids: string[]) => Promise<ActionState>;
 }) {
   const [chosen, setChosen] = useState<string[]>(initial);
-  const [tier, setTier] = useState(1);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"salary" | "rank" | "odds">(contest === "salary" ? "salary" : "rank");
   const [state, setState] = useState<ActionState>({});
+  const [historyFor, setHistoryFor] = useState<PickerFieldGolfer | null>(null);
   const [pending, start] = useTransition();
   const byId = useMemo(() => new Map(golfers.map((g) => [g.espn_golfer_id, g])), [golfers]);
   const need = contest === "salary" ? roster : picks.reduce((a, b) => a + b, 0);
@@ -65,28 +73,60 @@ export function MajorPicker({
     });
   };
 
-  const list = useMemo(() => {
+  // Search, then sort: salary (salary cap), world rank or odds.
+  const sorted = (l: PickerFieldGolfer[]) => {
     const q = query.trim().toLowerCase();
-    let l = golfers.filter((g) => (contest === "tiers" ? g.tier === tier : g.salary !== null));
-    if (q) l = l.filter((g) => g.golfer_name.toLowerCase().includes(q));
     const rank = (g: PickerFieldGolfer) => g.world_rank ?? 9999;
     const odds = (g: PickerFieldGolfer) => (g.odds === null ? Infinity : g.odds);
-    return [...l].sort((a, b) =>
+    return (q ? l.filter((g) => g.golfer_name.toLowerCase().includes(q)) : l).sort((a, b) =>
       contest === "salary" && sort === "salary"
         ? b.salary! - a.salary! || rank(a) - rank(b)
         : sort === "odds"
           ? odds(a) - odds(b) || rank(a) - rank(b)
           : rank(a) - rank(b) || a.golfer_name.localeCompare(b.golfer_name),
     );
-  }, [golfers, contest, tier, query, sort]);
+  };
+
+  const row = (g: PickerFieldGolfer) => {
+    const on = chosen.includes(g.espn_golfer_id);
+    const tooMuch = contest === "salary" && !on && (chosen.length >= roster || (g.salary ?? 0) > left);
+    return (
+      // The row picks the golfer; History at the end opens their past results (as in the season pool).
+      <li key={g.espn_golfer_id} className={`flex items-center gap-1.5 pr-1 ${on ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}`}>
+        <button
+          type="button"
+          disabled={readOnly}
+          onClick={() => toggle(g)}
+          aria-pressed={on}
+          className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 px-1.5 py-1 text-left text-sm ${on ? "" : "enabled:hover:bg-surface"} ${tooMuch ? "opacity-45" : ""}`}
+        >
+          <span className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-accent bg-accent text-bg" : "border-faint"}`}>
+            {on && <CheckIcon className="size-3" />}
+          </span>
+          <span className={`min-w-0 flex-1 truncate font-medium ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
+          <span className="shrink-0 text-right text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
+          {g.odds !== null && <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
+          {contest === "salary" && <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">{dollars(g.salary!)}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => setHistoryFor(g)}
+          aria-label={`${g.golfer_name}: history`}
+          className="relative h-7 shrink-0 rounded-full border border-line bg-bg px-2.5 text-xs font-medium text-ink after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] hover:bg-hover"
+        >
+          History
+        </button>
+      </li>
+    );
+  };
 
   const lineup = chosen.map((id) => byId.get(id)).filter((g): g is PickerFieldGolfer => !!g);
   const complete = contest === "tiers" ? picks.every((n, i) => inTier(i + 1) === n) : chosen.length === roster && left >= 0;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div>
       {/* The lineup so far. */}
-      <div className="mb-3 shrink-0 rounded-lg bg-surface p-3">
+      <div className="mb-3 rounded-lg bg-surface p-3">
         <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted">
           <span className="font-semibold uppercase tracking-wide">
             My Lineup · {chosen.length} of {need}
@@ -121,25 +161,8 @@ export function MajorPicker({
         )}
       </div>
 
-      {contest === "tiers" && (
-        <div className="mb-2 flex shrink-0 flex-wrap gap-1.5" role="group" aria-label="Tier">
-          {picks.map((n, i) => {
-            const done = inTier(i + 1) === n;
-            return (
-              <button key={i} type="button" onClick={() => setTier(i + 1)} aria-pressed={tier === i + 1} className={chipClass(tier === i + 1, "", "sm")}>
-                {done && <CheckIcon className="mr-1 size-3" />}
-                Tier {i + 1}
-                <span className="ml-1 font-normal opacity-70">
-                  {inTier(i + 1)}/{n}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="mb-1.5 flex shrink-0 flex-wrap items-center gap-2">
-        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a golfer" className={`${inputClass} h-9 min-w-0 flex-1 basis-40`} />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a golfer" className={`${inputClass} h-9 min-w-0 max-w-sm flex-1 basis-40`} />
         <div className="flex gap-1 text-xs" role="group" aria-label="Sort">
           {(contest === "salary" ? SORTS : SORTS.slice(1)).map((k) => (
             <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} className={`h-8 rounded-full px-2.5 font-medium ${sort === k ? "bg-ink text-bg" : "text-muted hover:bg-surface"}`}>
@@ -148,37 +171,42 @@ export function MajorPicker({
           ))}
         </div>
       </div>
-      {contest === "tiers" && <p className="mb-1.5 shrink-0 text-xs text-muted">Tier {tier}: pick {picks[tier - 1]}</p>}
 
-      <ul className="min-h-[10rem] flex-1 divide-y divide-line overflow-y-auto overscroll-contain rounded-lg border border-line" aria-label="Field">
-        {list.map((g) => {
-          const on = chosen.includes(g.espn_golfer_id);
-          const tooMuch = contest === "salary" && !on && (chosen.length >= roster || (g.salary ?? 0) > left);
-          return (
-            <li key={g.espn_golfer_id}>
-              <button
-                type="button"
-                disabled={readOnly}
-                onClick={() => toggle(g)}
-                aria-pressed={on}
-                className={`flex min-h-11 w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${on ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : "enabled:hover:bg-surface"} ${tooMuch ? "opacity-45" : ""}`}
-              >
-                <span className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-accent bg-accent text-bg" : "border-faint"}`}>
-                  {on && <CheckIcon className="size-3" />}
-                </span>
-                <span className={`min-w-0 flex-1 truncate font-medium ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
-                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
-                <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>
-                {contest === "salary" && <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">{dollars(g.salary!)}</span>}
-              </button>
-            </li>
-          );
-        })}
-        {list.length === 0 && <li className="px-3 py-3 text-sm text-muted">No golfers match.</li>}
-      </ul>
+      {contest === "tiers" ? (
+        // Every tier at once, side by side as the screen allows; the page scrolls, no inner boxes.
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
+          {picks.map((n, i) => {
+            const t = i + 1;
+            const rows = sorted(golfers.filter((g) => g.tier === t));
+            const done = inTier(t) === n;
+            return (
+              <section key={t} aria-label={`Tier ${t}`} className="min-w-0">
+                <h3 className="flex items-center justify-between gap-2 border-b-2 border-ink/25 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                  <span className="flex items-center gap-1">
+                    {done && <CheckIcon className="size-3 text-win" />}Tier {t}
+                  </span>
+                  <span className="font-normal normal-case tracking-normal tabular-nums">
+                    Pick {n} · {inTier(t)}/{n}
+                  </span>
+                </h3>
+                <ul className="divide-y divide-line">
+                  {rows.map((g) => row(g))}
+                  {rows.length === 0 && <li className="py-2 text-sm text-muted">{query ? "No golfers match." : "No golfers."}</li>}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        // The whole field in columns across the screen.
+        <ul className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3 [&>li]:border-b [&>li]:border-line">
+          {sorted(golfers.filter((g) => g.salary !== null)).map((g) => row(g))}
+        </ul>
+      )}
 
       {!readOnly && (
-        <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-3">
+        // Pinned to the bottom of the screen while picking, so Save is always in reach.
+        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bg px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:mx-0 sm:px-0">
           <p className={`text-sm ${state?.error ? "font-semibold text-loss" : state?.ok ? "font-semibold text-win" : "text-muted"}`}>
             {state?.error ?? state?.ok ?? (complete ? (saved ? "Lineup saved." : "Ready to save.") : contest === "salary" && left < 0 ? "Over the budget." : `${need - chosen.length > 0 ? need - chosen.length : 0} to go.`)}
           </p>
@@ -191,6 +219,17 @@ export function MajorPicker({
             {pending ? "Saving…" : initial.length ? "Save Changes" : "Save Lineup"}
           </button>
         </div>
+      )}
+      {historyFor && (
+        <GolferHistoryDialog
+          key={historyFor.espn_golfer_id}
+          golfer={{ id: historyFor.espn_golfer_id, name: historyFor.golfer_name, rank: historyFor.world_rank }}
+          history={history}
+          season={season}
+          majors
+          onClose={() => setHistoryFor(null)}
+          onPick={readOnly || chosen.includes(historyFor.espn_golfer_id) ? undefined : () => toggle(historyFor)}
+        />
       )}
     </div>
   );

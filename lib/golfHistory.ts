@@ -12,7 +12,7 @@ const CALENDAR_REVALIDATE = 7 * 86_400;
 const LEADERBOARD_REVALIDATE = 30 * 86_400;
 const FETCH_TIMEOUT_MS = 8000;
 
-type CalendarEntry = { id: string; label: string };
+type CalendarEntry = { id: string; label: string; endDate?: string };
 
 async function calendarFrom(url: string): Promise<CalendarEntry[]> {
   try {
@@ -22,10 +22,10 @@ async function calendarFrom(url: string): Promise<CalendarEntry[]> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return [];
-    const body = (await res.json()) as { leagues?: { calendar?: { id?: unknown; label?: unknown }[] }[] };
+    const body = (await res.json()) as { leagues?: { calendar?: { id?: unknown; label?: unknown; endDate?: unknown }[] }[] };
     return (body.leagues?.[0]?.calendar ?? [])
       .filter((c) => c.id !== undefined && typeof c.label === "string")
-      .map((c) => ({ id: String(c.id), label: c.label as string }));
+      .map((c) => ({ id: String(c.id), label: c.label as string, endDate: typeof c.endDate === "string" ? c.endDate : undefined }));
   } catch {
     return [];
   }
@@ -157,4 +157,42 @@ export async function getTournamentHistory(eventName: string, season: number): P
   let years = await cachedHistory(eventName, season);
   if (!years.length) years = await cachedEmpty(eventName, season);
   return years.map((y) => ({ year: y.year, name: y.name, renamed: y.renamed, golfers: new Map(y.golfers.map((g) => [g.id, g])) }));
+}
+
+export type SeasonResults = {
+  /** The season's finished PGA Tour events, in calendar order. */
+  events: { name: string }[];
+  /** Per golfer id: the events above they played (`i` indexes `events`). */
+  byGolfer: Record<string, { i: number; pos: string | null; earnings: number }[]>;
+};
+
+/** Every finished PGA Tour event of a season so far, read fresh from ESPN (a page per event). */
+async function readSeasonResults(season: number): Promise<SeasonResults> {
+  const now = Date.now();
+  const finished = (await seasonCalendar(season)).filter((c) => c.endDate && Date.parse(c.endDate) + 86_400_000 < now);
+  const boards: (LiveGolfer[] | null)[] = [];
+  // A few at a time: most come from the saved copies after the first look.
+  for (let k = 0; k < finished.length; k += 8) {
+    boards.push(...(await Promise.all(finished.slice(k, k + 8).map((c) => getLiveLeaderboard(c.id, LEADERBOARD_REVALIDATE, FETCH_TIMEOUT_MS).catch(() => null)))));
+  }
+  const events: SeasonResults["events"] = [];
+  const byGolfer: SeasonResults["byGolfer"] = {};
+  finished.forEach((c, j) => {
+    const golfers = boards[j];
+    // Team events and anything canceled have nobody finished: left out.
+    if (!golfers || !golfers.some((g) => g.status === "post")) return;
+    const i = events.push({ name: c.label }) - 1;
+    for (const g of golfers) (byGolfer[g.id] ??= []).push({ i, pos: g.pos !== "-" ? g.pos : g.out, earnings: g.earnings });
+  });
+  return { events, byGolfer };
+}
+
+// Saved for a day (a new event finishes each week); an empty result is retried after 10 minutes.
+const cachedSeason = unstable_cache(readSeasonResults, ["golf-season-results-v1"], { revalidate: 86_400 });
+const cachedSeasonRetry = unstable_cache(readSeasonResults, ["golf-season-results-v1-retry"], { revalidate: 600 });
+
+/** Every finished PGA Tour event this season, with each golfer's finish and prize money. */
+export async function getSeasonResults(season: number): Promise<SeasonResults> {
+  const r = await cachedSeason(season);
+  return r.events.length ? r : cachedSeasonRetry(season);
 }

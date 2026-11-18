@@ -38,7 +38,7 @@ export async function MajorsStandings({ slug, ctx, events, eventParam }: { slug:
   const me = ctx.entryUserId;
 
   return (
-    <div data-wide className="mx-auto max-w-5xl">
+    <div data-wide>
       <AutoRefresh active={live} seconds={60} />
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>

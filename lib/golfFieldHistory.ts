@@ -1,6 +1,6 @@
 import "server-only";
 import type { GolfEvent } from "./golf";
-import { getTournamentHistory } from "./golfHistory";
+import { getSeasonResults, getTournamentHistory } from "./golfHistory";
 import type { PoolBase } from "./pool";
 
 // Everything the History pop-up shows, for the whole field at once, loaded while the My Picks
@@ -23,7 +23,25 @@ export type FieldHistory = {
 const PAGE = 1000;
 
 /** Never rejects: whatever can't be loaded is left empty, and the pop-up says so. */
-export async function loadFieldHistory(ctx: PoolBase, event: GolfEvent, events: GolfEvent[], golferIds: string[]): Promise<FieldHistory> {
+export async function loadFieldHistory(
+  ctx: PoolBase,
+  event: GolfEvent,
+  events: GolfEvent[],
+  golferIds: string[],
+  /** Majors pools: "this season" is every PGA Tour event played, not just the pool's. */
+  opts: { allTourEvents?: boolean } = {},
+): Promise<FieldHistory> {
+  if (opts.allTourEvents) {
+    // This season comes separately (loadSeasonHistory), so this part never waits on it.
+    const history = await getTournamentHistory(event.name, ctx.pool.season).catch(() => []);
+    return {
+      eventName: event.name,
+      years: history.map((y) => ({ year: y.year, formerName: y.renamed ? y.name : null })),
+      at: atYears(golferIds, history),
+      played: [],
+      season: {},
+    };
+  }
   const counted = events.filter((e) => e.status !== "canceled");
   const playedEvents = counted.map((e, i) => ({ e, week: i + 1 })).filter(({ e }) => e.status === "final" || e.status === "in_progress");
   const index = new Map(playedEvents.map(({ e }, i) => [e.id, i]));
@@ -59,6 +77,17 @@ export async function loadFieldHistory(ctx: PoolBase, event: GolfEvent, events: 
   }
   for (const list of Object.values(season)) list.sort((a, b) => a.i - b.i);
 
+  return {
+    eventName: event.name,
+    years: history.map((y) => ({ year: y.year, formerName: y.renamed ? y.name : null })),
+    at: atYears(golferIds, history),
+    played: playedEvents.map(({ e, week }) => ({ week, name: e.name, final: e.status === "final" })),
+    season,
+  };
+}
+
+/** Each golfer's result in each earlier year of the tournament (null when they didn't play). */
+function atYears(golferIds: string[], history: Awaited<ReturnType<typeof getTournamentHistory>>): FieldHistory["at"] {
   const at: FieldHistory["at"] = {};
   for (const id of golferIds) {
     at[id] = history.map((y) => {
@@ -67,12 +96,20 @@ export async function loadFieldHistory(ctx: PoolBase, event: GolfEvent, events: 
       return g ? { pos: g.pos !== "-" ? g.pos : g.out, toPar: g.toPar, earnings: g.earnings } : null;
     });
   }
+  return at;
+}
 
+/**
+ * Every PGA Tour event played this season, for the field (Majors pools' History pop-up). Read
+ * from ESPN once and saved for a day (warmed each morning by /api/golf/warm), so it's usually
+ * instant; never rejects.
+ */
+export async function loadSeasonHistory(ctx: PoolBase, golferIds: string[]): Promise<Pick<FieldHistory, "played" | "season">> {
+  const r = await getSeasonResults(ctx.pool.season).catch(() => null);
+  if (!r) return { played: [], season: {} };
+  const ids = new Set(golferIds);
   return {
-    eventName: event.name,
-    years: history.map((y) => ({ year: y.year, formerName: y.renamed ? y.name : null })),
-    at,
-    played: playedEvents.map(({ e, week }) => ({ week, name: e.name, final: e.status === "final" })),
-    season,
+    played: r.events.map((e, i) => ({ week: i + 1, name: e.name, final: true })),
+    season: Object.fromEntries(Object.entries(r.byGolfer).filter(([id]) => ids.has(id))),
   };
 }
