@@ -56,7 +56,14 @@ export type PlayerProfile = {
 export async function getPlayerProfile(sport: TeamSport, athleteId: string): Promise<PlayerProfile | null> {
   const base = `https://site.web.api.espn.com/apis/common/v3/sports/${ESPN_PATH[sport]}/athletes/${encodeURIComponent(athleteId)}`;
   // Game logs change after each game: 10 minutes. The bio barely changes: a day.
-  const [bio, log] = await Promise.all([getJson(base, 86400), getJson(`${base}/gamelog`, 600)]);
+  const [bio, log, core] = await Promise.all([
+    getJson(base, 86400),
+    getJson(`${base}/gamelog`, 600),
+    // ESPN's detailed record: a college player's class (experience.years) when the bio lacks it.
+    sport === "nfl"
+      ? Promise.resolve(null)
+      : getJson(`https://sports.core.api.espn.com/v2/sports/${corePath(sport)}/athletes/${encodeURIComponent(athleteId)}`, 86400),
+  ]);
   const a = bio?.athlete ?? bio;
   const name = str(a?.displayName) ?? str(a?.fullName);
   if (!name && !log) return null;
@@ -102,7 +109,7 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
     position: str(a?.position?.abbreviation) ?? str(a?.position?.displayName),
     jersey: str(a?.jersey),
     // ESPN's experience for college players is their class; for the NFL it's seasons played.
-    year: sport === "nfl" ? null : (str(a?.experience?.displayValue) ?? str(a?.class?.displayValue) ?? null),
+    year: sport === "nfl" ? null : collegeYear(a?.experience ?? core?.experience, core?.experience),
     team: str(a?.team?.displayName) ?? str(a?.team?.name),
     teamLogo: logoOf(a?.team),
     headshot: str(a?.headshot?.href),
@@ -137,6 +144,24 @@ function perGame(labels: string[], rows: string[][], totals: string[] | null): s
     if (n.some((x) => Number.isNaN(x))) return "";
     return one(n.reduce((a, b) => a + b, 0) / vals.length);
   });
+}
+
+/**
+ * "Junior": a college player's class from ESPN's experience, which is a name, an abbreviation
+ * ("JR") or just years (1 = freshman). Year 5 and up (fifth-year, grad transfers) is Graduate.
+ */
+function collegeYear(...exps: any[]): string | null {
+  const names: Record<string, string> = { FR: "Freshman", SO: "Sophomore", JR: "Junior", SR: "Senior", GR: "Graduate", GS: "Graduate" };
+  for (const e of exps) {
+    if (!e) continue;
+    const display = str(e.displayValue);
+    if (display && /[a-z]/i.test(display) && !/^\d/.test(display)) return display;
+    const abbr = str(e.abbreviation)?.toUpperCase().replace(/\./g, "");
+    if (abbr && names[abbr]) return names[abbr];
+    const years = Number(e.years);
+    if (Number.isFinite(years) && years >= 1) return ["Freshman", "Sophomore", "Junior", "Senior"][years - 1] ?? "Graduate";
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------------------------
