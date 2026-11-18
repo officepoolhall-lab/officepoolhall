@@ -577,7 +577,9 @@ function GameRow({
   // Neutral site: the away team is listed first and the city stands in for "Home".
   const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
 
-  // A half-made pick doesn't count, so its warning shows alongside the countdown, not instead of it.
+  // The lock countdown (last three hours) sits on the status line above the pick buttons.
+  const countdown = !result && !locked && !disabled && msToLock < 3 * 3_600_000;
+  // A half-made pick doesn't count, so a confidence pool says what's missing under the game.
   let footerRight: ReactNode = null;
   if (result && confidence) {
     // Confidence pools put the result in the points box itself; only an upset bonus needs a note.
@@ -594,16 +596,7 @@ function GameRow({
   } else {
     const missing =
       disabled || !confidence || !draft ? null : draft.confidence != null && !draft.side ? "Pick a team" : draft.side && draft.confidence === null ? "Pick a value" : null;
-    const countdown = !locked && !disabled && msToLock < 3 * 3_600_000;
-    if (missing || countdown) {
-      footerRight = (
-        <span className="tabular-nums">
-          {missing && <span className="font-semibold text-accent">{missing}</span>}
-          {missing && countdown && " · "}
-          {countdown && <span className={msToLock < 15 * 60_000 ? "font-semibold text-live" : ""}>Locks in {formatDuration(msToLock)}</span>}
-        </span>
-      );
-    }
+    if (missing) footerRight = <span className="font-semibold text-accent">{missing}</span>;
   }
 
   return (
@@ -652,6 +645,11 @@ function GameRow({
           >
             Box Score ›
           </Link>
+        )}
+        {countdown && (
+          <span className={`ml-auto shrink-0 whitespace-nowrap tabular-nums ${msToLock < 15 * 60_000 ? "text-live" : "font-normal"}`}>
+            Locks in {formatDuration(msToLock)}
+          </span>
         )}
         {edited && (
           <span title="Changed by the commissioner" className="shrink-0 rounded-full bg-surface px-1.5 py-px text-[11px] font-medium text-muted">
@@ -777,7 +775,7 @@ function GameRow({
           {g.lastPlay && <span>{g.lastPlay}</span>}
         </div>
       )}
-      {/* Only when there's something to say: a result, a countdown or a missing value. */}
+      {/* Only when there's something to say: a result or a missing value. */}
       {footerRight && <div className="col-span-full flex justify-end text-xs text-muted lg:text-[11px]">{footerRight}</div>}
     </li>
   );
