@@ -4,8 +4,8 @@ import { GolfEventSelect } from "@/components/GolfEventSelect";
 import { MajorPicker } from "@/components/MajorPicker";
 import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
-import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
-import { fantasyPoints, formatToPar, toParScores } from "@/lib/golfMajors";
+import type { GolfContext, GolfEvent } from "@/lib/golf";
+import { formatShown, golferShown } from "@/lib/golfMajors";
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
@@ -60,15 +60,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
   if (started) {
     const results = (await getMajorResults(ctx, [event.id])).get(event.id) ?? [];
     const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
-    const tp = toParScores(results);
     const final = event.status === "final";
-    const value = (id: string) => {
-      const r = byId.get(id);
-      if (!r) return "–";
-      if (s.contest === "salary") return `${fantasyPoints(r, final).total.toFixed(1).replace(/\.0$/, "")} pts`;
-      if (s.tiers.scoring === "earnings") return r.earnings ? money(r.earnings) : "$0";
-      return formatToPar(tp.get(id) ?? null);
-    };
+    // Score to par while it's played; prize money once final in money pools; points for salary cap.
+    const value = (id: string) => (byId.has(id) ? formatShown(golferShown(id, results, s, final)) : "–");
     return (
       <div data-wide>
         {head}

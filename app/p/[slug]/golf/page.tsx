@@ -29,7 +29,7 @@ import {
 import { tzAbbrev } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
-import { formatToPar } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown } from "@/lib/golfMajors";
 import { getMajorsScoreboard, getVisibleLineups } from "@/lib/golfMajorsData";
 
 export const metadata: Metadata = { title: "Home" };
@@ -295,7 +295,8 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
   const names = new Map(members.map((m) => [m.user_id, m.display_name]));
   const fmt = (v: number | null) => (v === null ? "–" : s.contest === "salary" ? (Math.round(v * 10) / 10).toString() : s.tiers.scoring === "earnings" ? money(v) : formatToPar(v));
   const myScore = next ? board.scores.get(`${ctx.entryUserId}|${next.id}`) : undefined;
-  const myResults = new Map((next ? (board.results.get(next.id) ?? []) : []).map((r) => [r.espn_golfer_id, r]));
+  const myResultList = next ? (board.results.get(next.id) ?? []) : [];
+  const myResults = new Map(myResultList.map((r) => [r.espn_golfer_id, r]));
   const shown = rows.slice(0, 10);
   const meRow = rows.find((r) => r.user_id === ctx.entryUserId);
   if (meRow && !shown.includes(meRow)) shown.push(meRow);
@@ -355,7 +356,8 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                             {started && (
                               <>
                                 <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
-                                <span className="w-14 shrink-0 text-right tabular-nums">{g ? fmt(g.value) : "–"}</span>
+                                {/* Score to par while it's played (prize money once final, in money pools). */}
+                                <span className="w-16 shrink-0 text-right tabular-nums">{formatShown(golferShown(l.espn_golfer_id, myResultList, s, next.status === "final"))}</span>
                               </>
                             )}
                           </li>

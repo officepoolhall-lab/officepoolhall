@@ -33,10 +33,18 @@ function ranked<T>(rows: T[], value: (r: T) => number, name: (r: T) => string) {
  */
 export default async function GolfStandingsPage({ params, searchParams }: PageProps<"/p/[slug]/golf/standings">) {
   const { slug } = await params;
-  const { week: weekParam, event: eventParam } = await searchParams;
+  const { week: weekParam, event: eventParam, sort: sortParam } = await searchParams;
   const ctx = await getGolfContext(slug);
   if (golfFormat(ctx.pool) === "majors") {
-    return <MajorsStandings slug={slug} ctx={ctx} events={await getGolfEvents(ctx)} eventParam={typeof eventParam === "string" ? eventParam : undefined} />;
+    return (
+      <MajorsStandings
+        slug={slug}
+        ctx={ctx}
+        events={await getGolfEvents(ctx)}
+        eventParam={typeof eventParam === "string" ? eventParam : undefined}
+        sortParam={typeof sortParam === "string" ? sortParam : undefined}
+      />
+    );
   }
   // eslint-disable-next-line react-hooks/purity
   const data = await getGolfStandingsData(ctx, Date.now());

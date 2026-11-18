@@ -6,6 +6,7 @@ import {
   finishPoints,
   majorsSettings,
   majorStandings,
+  projectedEarnings,
   scoreLineup,
   toParScores,
   type FieldGolfer,
@@ -124,5 +125,15 @@ describe("majorStandings", () => {
       ["u1", -4],
       ["u2", -1],
     ]);
+  });
+});
+
+describe("projectedEarnings", () => {
+  it("pays places from the purse, splitting ties", () => {
+    const res = [result("a", -10, { pos: "1" }), result("b", -8, { pos: "T2" }), result("c", -8, { pos: "T2" }), result("d", 5, { out: true })];
+    const m = projectedEarnings(res, 1_000_000, false);
+    expect(m.get("a")).toBe(180000);
+    expect(m.get("b")).toBe(Math.round(((10.9 + 6.9) / 2 / 100) * 1_000_000));
+    expect(m.get("d")).toBe(0);
   });
 });
