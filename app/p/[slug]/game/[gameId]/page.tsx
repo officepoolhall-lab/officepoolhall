@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ReturnToPoolPage } from "@/components/OpenGameFromQuery";
 import { gameBackHref } from "./GameView";
 
 /**
@@ -10,6 +11,9 @@ import { gameBackHref } from "./GameView";
  */
 export default async function GamePage({ params, searchParams }: PageProps<"/p/[slug]/game/[gameId]">) {
   const { slug, gameId } = await params;
-  const back = gameBackHref(slug, await searchParams);
+  const q = await searchParams;
+  // No ?back= or ?from=: the browser knows the last page seen in this pool.
+  if (typeof q.back !== "string" && typeof q.from !== "string") return <ReturnToPoolPage slug={slug} gameId={gameId} />;
+  const back = gameBackHref(slug, q);
   redirect(`${back}${back.includes("?") ? "&" : "?"}game=${encodeURIComponent(gameId)}`);
 }
