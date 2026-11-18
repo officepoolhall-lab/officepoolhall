@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import type { FieldHistory } from "@/lib/golfFieldHistory";
 import type { ActionState } from "./ActionForm";
+import { GolferHistoryDialog } from "./GolferHistoryDialog";
 import { CheckIcon, inputClass } from "./ui";
 
 export type PickerFieldGolfer = { espn_golfer_id: string; golfer_name: string; world_rank: number | null; odds: number | null; tier: number | null; salary: number | null };
@@ -24,6 +26,7 @@ export function MajorPicker({
   roster,
   initial,
   readOnly,
+  history,
   save,
 }: {
   contest: "tiers" | "salary";
@@ -33,12 +36,15 @@ export function MajorPicker({
   roster: number;
   initial: string[];
   readOnly: boolean;
+  /** Past results at this major and this season, for the whole field, loading with the page. */
+  history: Promise<FieldHistory>;
   save: (ids: string[]) => Promise<ActionState>;
 }) {
   const [chosen, setChosen] = useState<string[]>(initial);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"salary" | "rank" | "odds">(contest === "salary" ? "salary" : "rank");
   const [state, setState] = useState<ActionState>({});
+  const [historyFor, setHistoryFor] = useState<PickerFieldGolfer | null>(null);
   const [pending, start] = useTransition();
   const byId = useMemo(() => new Map(golfers.map((g) => [g.espn_golfer_id, g])), [golfers]);
   const need = contest === "salary" ? roster : picks.reduce((a, b) => a + b, 0);
@@ -82,13 +88,14 @@ export function MajorPicker({
     const on = chosen.includes(g.espn_golfer_id);
     const tooMuch = contest === "salary" && !on && (chosen.length >= roster || (g.salary ?? 0) > left);
     return (
-      <li key={g.espn_golfer_id}>
+      // The row picks the golfer; History at the end opens their past results (as in the season pool).
+      <li key={g.espn_golfer_id} className={`flex items-center gap-1.5 pr-1 ${on ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : ""}`}>
         <button
           type="button"
           disabled={readOnly}
           onClick={() => toggle(g)}
           aria-pressed={on}
-          className={`flex min-h-10 w-full items-center gap-2 px-1.5 py-1 text-left text-sm ${on ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]" : "enabled:hover:bg-surface"} ${tooMuch ? "opacity-45" : ""}`}
+          className={`flex min-h-10 min-w-0 flex-1 items-center gap-2 px-1.5 py-1 text-left text-sm ${on ? "" : "enabled:hover:bg-surface"} ${tooMuch ? "opacity-45" : ""}`}
         >
           <span className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-accent bg-accent text-bg" : "border-faint"}`}>
             {on && <CheckIcon className="size-3" />}
@@ -97,6 +104,14 @@ export function MajorPicker({
           <span className="shrink-0 text-right text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
           {g.odds !== null && <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
           {contest === "salary" && <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">{dollars(g.salary!)}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => setHistoryFor(g)}
+          aria-label={`${g.golfer_name}: history`}
+          className="relative h-7 shrink-0 rounded-full border border-line bg-bg px-2.5 text-xs font-medium text-ink after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] hover:bg-hover"
+        >
+          History
         </button>
       </li>
     );
@@ -201,6 +216,16 @@ export function MajorPicker({
             {pending ? "Saving…" : initial.length ? "Save Changes" : "Save Lineup"}
           </button>
         </div>
+      )}
+      {historyFor && (
+        <GolferHistoryDialog
+          key={historyFor.espn_golfer_id}
+          golfer={{ id: historyFor.espn_golfer_id, name: historyFor.golfer_name, rank: historyFor.world_rank }}
+          history={history}
+          majors
+          onClose={() => setHistoryFor(null)}
+          onPick={readOnly || chosen.includes(historyFor.espn_golfer_id) ? undefined : () => toggle(historyFor)}
+        />
       )}
     </div>
   );

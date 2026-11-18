@@ -6,6 +6,7 @@ import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
 import { fantasyPoints, formatToPar, toParScores } from "@/lib/golfMajors";
+import { loadFieldHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
 
@@ -121,6 +122,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
         roster={s.salary.roster}
         initial={mine.map((l) => l.espn_golfer_id)}
         readOnly={ctx.isGuest}
+        // Each golfer's past years at this major and this season's majors (not awaited: the
+        // field shows straight away and History opens without another request).
+        history={loadFieldHistory(ctx, event, events, field.map((g) => g.espn_golfer_id))}
         save={saveGolfLineup.bind(null, slug, event.id, ctx.managing?.ownerId ?? null)}
       />
     </div>
