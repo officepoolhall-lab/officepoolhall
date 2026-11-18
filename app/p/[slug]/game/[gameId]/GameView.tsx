@@ -137,7 +137,8 @@ function PlayRow({ p, summary, showTeam = false }: { p: Play; summary: GameSumma
   const team = p.teamId === summary.away?.id ? summary.away : p.teamId === summary.home?.id ? summary.home : null;
   return (
     <li className={`flex gap-3 py-1.5 text-sm ${p.scoring ? "font-semibold" : ""}`}>
-      <span className="w-14 shrink-0 text-xs tabular-nums text-muted">
+      {/* The half/quarter and clock always on one line; the description wraps beside it. */}
+      <span className="w-16 shrink-0 whitespace-nowrap pt-px text-xs tabular-nums text-muted">
         {p.period ? summary.periodLabel(p.period).replace(" Half", "") : ""} {p.clock ?? ""}
       </span>
       {showTeam && (
