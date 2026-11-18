@@ -1,13 +1,15 @@
-import type { Metadata } from "next";
-import { GameView } from "./GameView";
-
-export const metadata: Metadata = { title: "Game" };
+import { redirect } from "next/navigation";
+import { gameBackHref } from "./GameView";
 
 /**
- * A game's own page: opened directly (a shared link, a refresh). Tapping a game inside the app
- * opens the same view as a pop-up instead (app/p/[slug]/@modal/(.)game/[gameId]).
+ * A game's address loaded on its own (a refresh while its pop-up was open, or a shared link):
+ * there's no separate game page. It goes back to the page the game was opened from (My Picks,
+ * or the Scoreboard on the same week) with ?game= added, and that page reopens the game's
+ * pop-up over itself (OpenGameFromQuery). Inside the app, games open as pop-ups directly
+ * (@modal/(.)game/[gameId]).
  */
 export default async function GamePage({ params, searchParams }: PageProps<"/p/[slug]/game/[gameId]">) {
   const { slug, gameId } = await params;
-  return <GameView slug={slug} gameId={gameId} searchParams={await searchParams} />;
+  const back = gameBackHref(slug, await searchParams);
+  redirect(`${back}${back.includes("?") ? "&" : "?"}game=${encodeURIComponent(gameId)}`);
 }

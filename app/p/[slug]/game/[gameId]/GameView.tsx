@@ -12,6 +12,19 @@ import { PlayerName } from "@/components/ProfileDialogs";
 import { BoxStatsToggle } from "@/components/BoxStatsToggle";
 
 
+/**
+ * Where a game was opened from (My Picks or the Scoreboard, on the same week): the Scoreboard
+ * sends its exact address (week, day and filter) as ?back=, followed only inside this pool.
+ */
+export function gameBackHref(slug: string, q: Record<string, string | string[] | undefined>): string {
+  const { week, from, back } = q;
+  const safeBack = typeof back === "string" && back.startsWith(`/p/${slug}/`) && !back.includes("//") ? back : null;
+  return (
+    safeBack ??
+    `/p/${slug}/${from === "scoreboard" ? "scoreboard" : "picks"}${typeof week === "string" && /^\d+$/.test(week) ? `?week=${week}` : ""}`
+  );
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -40,13 +53,8 @@ export async function GameView({
     : { id: gameId, espn_id: gameId, sport: ctx.pool.sport, status: "in_progress" };
   if (!game) notFound();
 
-  // Back to wherever it was opened from (My Picks or the Scoreboard), on the same week.
   const fromScoreboard = from === "scoreboard";
-  // The Scoreboard sends its exact address (week, day and filter) as ?back=; only an address in
-  // this pool is followed.
-  const safeBack = typeof backParam === "string" && backParam.startsWith(`/p/${slug}/`) && !backParam.includes("//") ? backParam : null;
-  const backHref =
-    safeBack ?? `/p/${slug}/${fromScoreboard ? "scoreboard" : "picks"}${typeof week === "string" && /^\d+$/.test(week) ? `?week=${week}` : ""}`;
+  const backHref = gameBackHref(slug, { week, from, back: backParam });
   const back = modal ? null : (
     <Link href={backHref} className="-ml-1 mb-3 inline-flex h-9 items-center gap-0.5 px-1 text-sm font-medium text-accent">
       <ChevronIcon className="size-4 rotate-180" /> {fromScoreboard ? "Scoreboard" : "My Picks"}
