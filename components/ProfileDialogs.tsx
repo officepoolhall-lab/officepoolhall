@@ -92,7 +92,7 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
             <img src={p.headshot} alt="" className="size-14 shrink-0 rounded-full bg-surface object-cover" />
           )}
           <div className="min-w-0">
-            {/* The team's logo beside the name; team, position, number and (college) year on one line. */}
+            {/* The team's logo beside the name. */}
             <div className="flex min-w-0 items-center gap-2">
               {p?.teamLogo && <TeamLogo src={p.teamLogo} abbr={null} className="size-6" />}
               {/* The whole name: a long one's text shrinks to fit rather than being cut off. */}
@@ -100,9 +100,12 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
                 <FitText min={12}>{p?.name ?? name}</FitText>
               </h2>
             </div>
-            <p className="truncate whitespace-nowrap text-xs text-muted">
-              {[p?.team, p?.position, p?.jersey ? `#${p.jersey}` : null, p?.year].filter(Boolean).join(" · ")}
-            </p>
+            {/* Team, position and number on one line that shrinks to fit; the year in school
+                (college) on its own line below. */}
+            <FitText min={9} className="text-xs text-muted">
+              {[p?.team, p?.position, p?.jersey ? `#${p.jersey}` : null].filter(Boolean).join(" · ")}
+            </FitText>
+            {p?.year && <p className="text-xs text-muted">{p.year}</p>}
           </div>
         </div>
       }
