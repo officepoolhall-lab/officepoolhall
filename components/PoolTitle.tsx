@@ -2,13 +2,15 @@
 
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
+import type { PoolKind } from "@/lib/poolType";
 
 /**
  * The pool's name above the tabs, on the pool's Home page only (golf's Home included) (the other tabs keep their
- * own titles and their measured, viewport-filling layouts). Always one line: it starts at
+ * own titles and their measured, viewport-filling layouts): a blue sport badge, then the name with
+ * the kind of pool under it ("NFL Supercontest"). The name is always one line: it starts at
  * 30px on phones and 36px from the sm breakpoint, and shrinks to fit a long name.
  */
-export function PoolTitle({ slug, name }: { slug: string; name: string }) {
+export function PoolTitle({ slug, name, kind, type }: { slug: string; name: string; kind: PoolKind; type: string }) {
   // Home is /p/[slug] for football and basketball, /p/[slug]/golf for golf pools.
   const pathname = usePathname();
   const show = pathname === `/p/${slug}` || pathname === `/p/${slug}/golf`;
@@ -20,8 +22,8 @@ export function PoolTitle({ slug, name }: { slug: string; name: string }) {
     const fit = () => {
       const max = window.matchMedia("(min-width: 640px)").matches ? 36 : 30;
       el.style.fontSize = `${max}px`;
-      const avail = el.clientWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight);
-      const need = el.scrollWidth - parseFloat(getComputedStyle(el).paddingLeft) - parseFloat(getComputedStyle(el).paddingRight);
+      const avail = el.clientWidth;
+      const need = el.scrollWidth;
       // A hair under, so rounding never tips it into an overflow.
       if (need > avail) el.style.fontSize = `${Math.max(14, Math.floor(max * (avail / need) * 10) / 10 - 0.2)}px`;
     };
@@ -35,13 +37,47 @@ export function PoolTitle({ slug, name }: { slug: string; name: string }) {
 
   if (!show) return null;
   return (
-    <h1
-      ref={ref}
-      // Before the measurement runs: an estimate from the name's length so it already fits.
-      style={{ fontSize: `min(var(--title-max), calc((100vw - 2rem) / ${Math.max(1, name.length * 0.6).toFixed(1)}))` }}
-      className="overflow-hidden whitespace-nowrap pb-1 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-4 font-extrabold leading-tight tracking-[-0.03em] [--title-max:30px] sm:[--title-max:36px]"
-    >
-      {name}
-    </h1>
+    <div className="flex items-center gap-3 pb-1 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-4 sm:gap-3.5">
+      <span aria-hidden className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-accent text-white shadow-sm sm:size-14 sm:rounded-2xl">
+        <SportIcon kind={kind} className="size-7 sm:size-8" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h1
+          ref={ref}
+          // Before the measurement runs: an estimate from the name's length so it already fits
+          // (the screen less its padding and the badge).
+          style={{ fontSize: `min(var(--title-max), calc((100vw - 5.5rem) / ${Math.max(1, name.length * 0.6).toFixed(1)}))` }}
+          className="overflow-hidden whitespace-nowrap font-extrabold leading-tight tracking-[-0.03em] [--title-max:30px] sm:[--title-max:36px]"
+        >
+          {name}
+        </h1>
+        <p className="truncate text-[13px] font-medium text-muted sm:text-sm">{type}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Simple line icons drawn in currentColor: a football, a basketball, a golf flag. */
+function SportIcon({ kind, className }: { kind: PoolKind; className?: string }) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, className };
+  if (kind === "basketball")
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3v18M5.6 5.6c2.6 2.6 2.6 10.2 0 12.8M18.4 5.6c-2.6 2.6-2.6 10.2 0 12.8" />
+      </svg>
+    );
+  if (kind === "golf")
+    return (
+      <svg {...common}>
+        <path d="M8 20V3.5l9 4-9 4" />
+        <ellipse cx="9" cy="20" rx="6" ry="1.6" />
+      </svg>
+    );
+  return (
+    <svg {...common}>
+      <ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-40 12 12)" />
+      <path d="M9.2 14.8l5.6-5.6M10.4 11.2l2.4 2.4M11.8 9.8l2.4 2.4M9 12.6l2.4 2.4" />
+    </svg>
   );
 }
