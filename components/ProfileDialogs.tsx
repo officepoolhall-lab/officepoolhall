@@ -25,7 +25,10 @@ function useJson<T>(url: string) {
 }
 
 /** The pop-up shell shared with the golf pop-ups: blue outline, page behind locked, tap outside to close. */
-function Shell({ label, onClose, header, children, wide = false }: { label: string; onClose: () => void; header: ReactNode; children: ReactNode; wide?: boolean }) {
+/** Pop-up widths: wide enough for a game log's stat columns on a laptop, never past the screen. */
+const WIDTHS = { normal: "w-[min(30rem,calc(100vw-2rem))]", wide: "w-[min(44rem,calc(100vw-2rem))]", log: "w-[min(64rem,calc(100vw-2rem))]" };
+
+function Shell({ label, onClose, header, children, size = "normal" }: { label: string; onClose: () => void; header: ReactNode; children: ReactNode; size?: keyof typeof WIDTHS }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useScrollLock();
   useEffect(() => {
@@ -36,10 +39,10 @@ function Shell({ label, onClose, header, children, wide = false }: { label: stri
       ref={dialog}
       onClose={onClose}
       onClick={(e) => e.target === dialog.current && dialog.current?.close()}
-      className={`m-auto ${wide ? "w-[min(44rem,calc(100vw-2rem))]" : "w-[min(30rem,calc(100vw-2rem))]"} rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50`}
+      className={`m-auto ${WIDTHS[size]} rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50`}
       aria-label={label}
     >
-      <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-5">
+      <div className="max-h-[min(85vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">{header}</div>
           <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 shrink-0 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">
@@ -64,7 +67,7 @@ export function PlayerName({ sport, id, name, className = "" }: { sport: Sport; 
   if (!id) return <span className={className}>{name}</span>;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={`text-left hover:text-accent hover:underline ${className}`}>
+      <button type="button" onClick={() => setOpen(true)} className={`-mx-1 rounded px-1 text-left transition hover:bg-hover ${className}`}>
         {name}
       </button>
       {open && <PlayerDialog sport={sport} id={id} name={name} onClose={() => setOpen(false)} />}
@@ -79,7 +82,7 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
     <Shell
       label={`${p?.name ?? name}: game log`}
       onClose={onClose}
-      wide
+      size="log"
       header={
         <div className="flex items-center gap-3">
           {p?.headshot && (
@@ -190,7 +193,7 @@ export function TeamHistoryDialog({
     <Shell
       label={`${name}: recent games`}
       onClose={onClose}
-      wide={ats}
+      size={ats ? "wide" : "normal"}
       header={
         <div className="flex items-center gap-3">
           <TeamLogo src={t?.logo ?? logo} abbr={null} className="size-10" />
@@ -231,6 +234,14 @@ export function TeamHistoryDialog({
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent Games</h3>
             {t.recent.length ? (
               <ul className="border-t border-line text-sm">
+                {/* Column labels for the line and the cover mark (ATS pools). */}
+                {ats && (
+                  <li className="flex items-end gap-2 border-b border-line pb-1 pt-1.5 text-[11px] font-medium text-muted" aria-hidden>
+                    <span className="min-w-0 flex-1" />
+                    <span className="w-12 shrink-0 text-right">Line</span>
+                    <span className="w-10 shrink-0 text-right">Cover</span>
+                  </li>
+                )}
                 {t.recent.slice(0, ats ? 15 : 10).map((g) => (
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>

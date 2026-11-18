@@ -50,7 +50,7 @@ export function GolferHistoryDialog({
       className="m-auto w-[min(34rem,calc(100vw-2rem))] rounded-xl bg-bg p-0 text-ink shadow-xl ring-2 ring-accent backdrop:bg-black/50"
       aria-label={`${golfer.name}: results`}
     >
-      <div className="max-h-[85vh] overflow-y-auto overscroll-contain p-5">
+      <div className="max-h-[min(85vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-bold">{golfer.name}</h2>

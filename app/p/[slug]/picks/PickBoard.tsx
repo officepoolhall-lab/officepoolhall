@@ -695,7 +695,7 @@ function GameRow({
               <button
                 type="button"
                 onClick={() => onHistory(side)}
-                className="flex min-h-9 min-w-0 items-center gap-2 rounded-[10px] text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent lg:min-h-6"
+                className="-mx-1 flex min-h-9 min-w-0 items-center gap-2 rounded-lg px-1 text-left outline-none transition hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent lg:min-h-6"
                 aria-label={`${team.short_name ?? team.name}: recent games${settings.pickType === "ats" ? " and record against the spread" : ""}`}
               >
                 {name}

@@ -60,7 +60,8 @@ export function PointsSheet({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+    // Phones: a sheet from the bottom. Desktop: a centered card. Never taller than the screen.
+    <div className="fixed inset-0 z-50 flex flex-col justify-end lg:items-center lg:justify-center lg:p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div
         ref={sheet}
@@ -68,7 +69,7 @@ export function PointsSheet({
         aria-modal="true"
         aria-labelledby="points-sheet-title"
         tabIndex={-1}
-        className="relative rounded-t-2xl border-t-2 border-x-2 border-accent bg-bg pb-[env(safe-area-inset-bottom)] outline-none"
+        className="relative max-h-[min(85vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain rounded-t-2xl border-x-2 border-t-2 border-accent bg-bg pb-[env(safe-area-inset-bottom)] outline-none lg:w-[min(48rem,calc(100vw-2rem))] lg:rounded-2xl lg:border-2 lg:pb-0"
       >
         <div className="mx-auto max-w-5xl px-4 pb-4 pt-3">
           <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-faint" aria-hidden />
