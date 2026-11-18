@@ -294,7 +294,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                         shortGameTime(g.startAt, tz, g.timeTbd)
                       )}
                       {/* Where to watch, through the whole game. */}
-                      {g.tv && <div className="truncate text-[9px] leading-tight">{g.tv}</div>}
+                      {/* Where to watch, until the game is final. */}
+                      {g.tv && !final && <div className="truncate text-[9px] leading-tight">{g.tv}</div>}
                     </div>
                     {(["away", "home"] as const).map((side) => {
                       const team = side === "home" ? g.home : g.away;
@@ -302,8 +303,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       const won = winner !== null && (side === "home" ? winner > 0 : winner < 0);
                       return (
                         <div key={side} className={`flex items-center justify-center gap-1 whitespace-nowrap leading-tight ${won ? "font-semibold text-ink" : ""}`}>
-                          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-3.5 shrink-0 lg:size-[var(--head-logo)]" />
-                          <span className={showScore ? "font-semibold tabular-nums text-ink" : ""}>{showScore ? score : team.abbreviation}</span>
+                          {/* Final: a bigger logo and score (the network's line is gone). */}
+                          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`shrink-0 ${final ? "size-5" : "size-3.5 lg:size-[var(--head-logo)]"}`} />
+                          <span className={showScore ? `font-semibold tabular-nums text-ink ${final ? "text-[13px]" : ""}` : ""}>{showScore ? score : team.abbreviation}</span>
                         </div>
                       );
                     })}
