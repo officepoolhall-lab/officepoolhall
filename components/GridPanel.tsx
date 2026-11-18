@@ -22,6 +22,7 @@ export function GridPanel({
   me,
   ats,
   confidence,
+  names = true,
 }: {
   games: Game[];
   picks: Pick[];
@@ -30,6 +31,8 @@ export function GridPanel({
   me: string | null;
   ats: boolean;
   confidence: boolean;
+  /** Team abbreviations beside the logos in the pool-by-game list (college football leaves them out: too many games). */
+  names?: boolean;
 }) {
   const shown = games.filter((g) => !g.voided && revealed(g.id));
   const byId = new Map(shown.map((g) => [g.id, g]));
@@ -132,11 +135,11 @@ export function GridPanel({
         {perGame.map(({ g, total, w, l, pu, graded, winner }) => (
           <Row key={g.id}>
             {/* Just the side that won; the pool's record on the game follows. */}
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold" title={`${g.away.abbreviation} @ ${g.home.abbreviation}`}>
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold" title={`${winner ? `${winner.abbreviation} covered · ` : ""}${g.away.abbreviation} @ ${g.home.abbreviation}`}>
               {winner ? (
                 <>
                   <TeamLogo src={winner.logo_url} abbr={winner.abbreviation} className="size-4" />
-                  <span className="truncate">{winner.abbreviation}</span>
+                  {names ? <span className="truncate">{winner.abbreviation}</span> : <span className="sr-only">{winner.abbreviation}</span>}
                   {/* The line the winner covered, from its side. */}
                   {ats && g.spread !== null && (
                     <span className="shrink-0 font-normal tabular-nums text-muted">{formatSpread(winner === g.home ? g.spread : -g.spread)}</span>
