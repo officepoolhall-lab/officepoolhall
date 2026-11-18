@@ -42,6 +42,8 @@ export type PlayerProfile = {
   name: string;
   position: string | null;
   jersey: string | null;
+  /** College players' year in school ("Junior", "Redshirt Sophomore"); null otherwise. */
+  year: string | null;
   team: string | null;
   teamLogo: string | null;
   headshot: string | null;
@@ -99,6 +101,8 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
     name: name ?? "Player",
     position: str(a?.position?.abbreviation) ?? str(a?.position?.displayName),
     jersey: str(a?.jersey),
+    // ESPN's experience for college players is their class; for the NFL it's seasons played.
+    year: sport === "nfl" ? null : (str(a?.experience?.displayValue) ?? str(a?.class?.displayValue) ?? null),
     team: str(a?.team?.displayName) ?? str(a?.team?.name),
     teamLogo: logoOf(a?.team),
     headshot: str(a?.headshot?.href),

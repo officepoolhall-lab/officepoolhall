@@ -91,10 +91,13 @@ function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; 
             <img src={p.headshot} alt="" className="size-14 shrink-0 rounded-full bg-surface object-cover" />
           )}
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-bold">{p?.name ?? name}</h2>
-            <p className="flex items-center gap-1.5 text-xs text-muted">
-              {p?.teamLogo && <TeamLogo src={p.teamLogo} abbr={null} className="size-4" />}
-              {[p?.team, p?.position, p?.jersey ? `#${p.jersey}` : null].filter(Boolean).join(" · ")}
+            {/* The team's logo beside the name; team, position, number and (college) year on one line. */}
+            <div className="flex min-w-0 items-center gap-2">
+              {p?.teamLogo && <TeamLogo src={p.teamLogo} abbr={null} className="size-6" />}
+              <h2 className="truncate text-lg font-bold">{p?.name ?? name}</h2>
+            </div>
+            <p className="truncate whitespace-nowrap text-xs text-muted">
+              {[p?.team, p?.position, p?.jersey ? `#${p.jersey}` : null, p?.year].filter(Boolean).join(" · ")}
             </p>
           </div>
         </div>
