@@ -201,6 +201,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           onSlate={onSlate.map((g) => ({ ...g, line: lineByGame.get(g.id) ?? null }))}
           candidates={candidates}
           records={records}
+          showFilters={ctx.pool.sport !== "nfl"}
           teams={teams ?? []}
           settings={{
             pickType: ctx.settings.pick_type,
