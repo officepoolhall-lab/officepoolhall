@@ -48,17 +48,20 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   // ESPN counts days in Eastern time, so a late tip here can sit on its next day: read both
   // and keep the games on this local day.
   const espn = (d: string) => d.replaceAll("-", "");
-  // The NFL shows the whole week at once: one request for the week's dates (plus the day after,
-  // for late games ESPN files under it).
+  // The NFL shows the whole week at once: each of its days (plus the day after, for late games
+  // ESPN files under it), one request a day like the college days. ESPN's date-range form
+  // returned nothing for the NFL.
   const nfl = sport === "nfl";
-  const weekHasToday = allDays.includes(today);
-  const [a, b, slateGames] = await Promise.all([
-    nfl ? getEspnDay(sport, `${espn(first)}-${espn(plusDays(last, 1))}`, weekHasToday) : getEspnDay(sport, espn(day), day === today),
-    nfl ? Promise.resolve([]) : getEspnDay(sport, espn(plusDays(day, 1)), day === today),
+  const [dayLists, slateGames] = await Promise.all([
+    Promise.all(
+      nfl
+        ? [...allDays, plusDays(last, 1)].map((d) => getEspnDay(sport, espn(d), d === today))
+        : [getEspnDay(sport, espn(day), day === today), getEspnDay(sport, espn(plusDays(day, 1)), day === today)],
+    ),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
   ]);
   const seen = new Set<string>();
-  const dayGames = [...a, ...b].filter((g) => {
+  const dayGames = dayLists.flat().filter((g) => {
     // Same day rule the cards use (a TBD time counts in Eastern), so nothing from the next day slips in.
     const key = dayKey(g.startAt, gameDateZone(g.timeTbd, tz));
     if (seen.has(g.id) || (nfl ? !allDays.includes(key) : key !== day)) return false;

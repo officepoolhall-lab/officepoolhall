@@ -647,7 +647,8 @@ function GameRow({
         {(live || (final && !g.voided)) && (
           <Link
             href={gameHref}
-            className="ml-auto shrink-0 font-semibold text-accent after:absolute after:inset-0 after:z-10 after:content-[''] hover:underline"
+            // The card's background lightens on hover, like the scoreboard's game cards.
+            className="ml-auto shrink-0 font-semibold text-accent after:absolute after:inset-0 after:z-10 after:rounded-lg after:transition after:content-[''] hover:after:bg-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
           >
             Box Score ›
           </Link>
