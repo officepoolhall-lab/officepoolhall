@@ -64,7 +64,7 @@ export function PlayerName({ sport, id, name, className = "" }: { sport: Sport; 
   if (!id) return <span className={className}>{name}</span>;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={`text-left hover:text-accent hover:underline ${className}`}>
+      <button type="button" onClick={() => setOpen(true)} className={`-mx-1 rounded px-1 text-left transition hover:bg-hover ${className}`}>
         {name}
       </button>
       {open && <PlayerDialog sport={sport} id={id} name={name} onClose={() => setOpen(false)} />}
@@ -231,6 +231,14 @@ export function TeamHistoryDialog({
             <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent Games</h3>
             {t.recent.length ? (
               <ul className="border-t border-line text-sm">
+                {/* Column labels for the line and the cover mark (ATS pools). */}
+                {ats && (
+                  <li className="flex items-end gap-2 border-b border-line pb-1 pt-1.5 text-[11px] font-medium text-muted" aria-hidden>
+                    <span className="min-w-0 flex-1" />
+                    <span className="w-12 shrink-0 text-right">Line</span>
+                    <span className="w-10 shrink-0 text-right">Cover</span>
+                  </li>
+                )}
                 {t.recent.slice(0, ats ? 15 : 10).map((g) => (
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
