@@ -4,7 +4,7 @@ import { formatSpread, points } from "@/lib/format";
 
 type Team = { id: string; abbreviation: string | null; logo_url: string | null };
 type Game = { id: string; home: Team; away: Team; spread: number | null; voided: boolean };
-type Pick = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null };
+type Pick = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; bonus?: number | null };
 
 /**
  * The Grid's side panel on wide screens: the week's most-picked teams, how the pool's picks
@@ -22,7 +22,6 @@ export function GridPanel({
   me,
   ats,
   confidence,
-  upsetTiers = null,
   names = true,
   layout = "side",
 }: {
@@ -33,9 +32,6 @@ export function GridPanel({
   me: string | null;
   ats: boolean;
   confidence: boolean;
-  /** The pool's upset bonus tiers (a correct pick on the side holding less than 1 − min_share of
-      the points earns +bonus), or null: marks the games where a bonus is on offer. */
-  upsetTiers?: { min_share: number; bonus: number }[] | null;
   /** Team abbreviations beside the logos in the pool-by-game list (college football leaves them out: too many games). */
   names?: boolean;
   /** "side": the column beside the Grid on wide screens, sized to never scroll. "drawer": the
@@ -67,30 +63,22 @@ export function GridPanel({
   }
   const entries = new Set(picks.map((p) => p.user_id)).size;
   const most = [...sides.values()].sort((a, b) => b.n - a.n).slice(0, 6);
+
+  // ---------- Confidence pools: upset bonuses earned (graded correct picks with a bonus) ----------
+  const earned = new Map<string, { game: Game; side: "home" | "away"; bonus: number; n: number }>();
+  for (const p of visible) {
+    const bonus = Number(p.bonus ?? 0);
+    if (p.result !== "win" || bonus <= 0) continue;
+    const side = p.picked_side === "home" ? "home" : "away";
+    const k = `${p.game_id}:${side}`;
+    const e = earned.get(k) ?? { game: byId.get(p.game_id)!, side, bonus, n: 0 };
+    e.n++;
+    e.bonus = Math.max(e.bonus, bonus);
+    earned.set(k, e);
+  }
+  const bonuses = [...earned.values()].sort((a, b) => b.bonus - a.bonus || b.n - a.n);
   const verdict = (r: string | null) =>
     r === "win" ? <span className="text-win">{ats ? "Covered" : "Won"}</span> : r === "loss" ? <span className="text-loss">Lost</span> : r === "push" ? <span className="text-muted">Push</span> : <span className="text-faint">—</span>;
-
-  // ---------- Confidence pools: points wagered on each side ----------
-  const tiers = [...(upsetTiers ?? [])].sort((a, b) => a.min_share - b.min_share);
-  const wagered = shown
-    .map((g) => {
-      const ps = visible.filter((p) => p.game_id === g.id);
-      const awayPts = ps.filter((p) => p.picked_side !== "home").reduce((t, p) => t + Number(p.confidence ?? 0), 0);
-      const homePts = ps.filter((p) => p.picked_side === "home").reduce((t, p) => t + Number(p.confidence ?? 0), 0);
-      const total = awayPts + homePts;
-      if (!total) return null;
-      const majority = Math.max(awayPts, homePts) / total;
-      // The richest tier the majority's share passes (strictly more than min_share).
-      const tier = [...tiers].reverse().find((t) => majority > t.min_share);
-      return {
-        g,
-        away: Math.round((awayPts / total) * 100),
-        home: Math.round((homePts / total) * 100),
-        bonus: tier ? tier.bonus : null,
-        minority: (awayPts < homePts ? "away" : "home") as "away" | "home",
-      };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
 
   // ---------- The pool by game ----------
   const perGame = shown
@@ -188,32 +176,28 @@ export function GridPanel({
         ))}
       </Section>
 
-      {/* Confidence pools: each game's share of the points on either side, which is what the
-          upset bonus goes by, instead of the viewer's picks. */}
-      {confidence && wagered.length > 0 && (
-        <Section
-          drawer={drawer}
-          title="Points wagered"
-          rows={wagered.length > 16 ? Math.ceil(wagered.length / 2) : wagered.length}
-          cols={wagered.length > 16 ? 2 : 1}
-          foot={upsetTiers?.length ? <>Blue + is the upset bonus for a correct pick on that side.</> : null}
-        >
-          {wagered.map(({ g, away, home, bonus, minority }) => (
-            <Row key={g.id}>
-              <TeamLogo src={g.away.logo_url} abbr={g.away.abbreviation} className="size-4" />
-              <span className="tabular-nums">
-                {away}%{bonus && minority === "away" && <sup className="ml-px font-semibold text-accent">+{bonus}</sup>}
-              </span>
-              <span className="min-w-0 flex-1" />
-              <span className="tabular-nums">
-                {home}%{bonus && minority === "home" && <sup className="ml-px font-semibold text-accent">+{bonus}</sup>}
-              </span>
-              <TeamLogo src={g.home.logo_url} abbr={g.home.abbreviation} className="size-4" />
-              <span className="sr-only">
-                {g.away.abbreviation} {away}%, {g.home.abbreviation} {home}% of the points{bonus ? `, upset bonus ${bonus} on ${minority === "home" ? g.home.abbreviation : g.away.abbreviation}` : ""}
-              </span>
+      {/* Confidence pools: the teams that paid an upset bonus this week, and to how many entries. */}
+      {confidence && (
+        <Section drawer={drawer} title="Upset bonuses earned" rows={Math.max(bonuses.length, 1)}>
+          {bonuses.length ? (
+            bonuses.map((b) => {
+              const team = b.side === "home" ? b.game.home : b.game.away;
+              return (
+                <Row key={`${b.game.id}:${b.side}`}>
+                  <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-4" />
+                  <span className="w-12 shrink-0 font-semibold">{team.abbreviation}</span>
+                  <span className="font-semibold tabular-nums text-accent">+{points(b.bonus)}</span>
+                  <span className="ml-auto shrink-0 tabular-nums text-muted">
+                    {b.n} {b.n === 1 ? "entry" : "entries"}
+                  </span>
+                </Row>
+              );
+            })
+          ) : (
+            <Row>
+              <span className="text-muted">None yet this week.</span>
             </Row>
-          ))}
+          )}
         </Section>
       )}
 

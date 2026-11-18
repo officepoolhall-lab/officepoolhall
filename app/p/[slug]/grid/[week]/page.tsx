@@ -134,6 +134,16 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     sides.set(p.game_id, c);
   }
   const confidencePool = Boolean(ctx.settings.confidence);
+  // The upset bonus a correct pick on this side would earn: it holds the smaller share of the
+  // points and the other side's share passes a tier's min_share (the richest tier passed).
+  const upsetTiers = [...(ctx.settings.upset_bonus?.tiers ?? [])].sort((a, b) => b.min_share - a.min_share);
+  const bonusFor = (c: { awayPts: number; homePts: number }, side: "away" | "home") => {
+    const total = c.awayPts + c.homePts;
+    const mine = side === "home" ? c.homePts : c.awayPts;
+    if (!total || mine * 2 >= total) return null;
+    const other = (total - mine) / total;
+    return upsetTiers.find((t) => other > t.min_share)?.bonus ?? null;
+  };
   /** "62%": a side's share of the points (confidence pools) on a game. */
   const pointShare = (c: { awayPts: number; homePts: number }, side: "away" | "home") => {
     const total = c.awayPts + c.homePts;
@@ -164,7 +174,6 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     me: ctx.isGuest ? null : ctx.entryUserId,
     ats,
     confidence: Boolean(ctx.settings.confidence),
-    upsetTiers: ctx.settings.upset_bonus?.tiers ?? null,
     names: ctx.pool.sport !== "ncaaf",
   };
 
@@ -459,11 +468,25 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     {/* Counted from kickoff, when every player's pick is visible. */}
                     {isRevealed(g) ? (
                       <>
-                        {/* Each side: picks on it, or in confidence pools its share of the points
-                            wagered (what the upset bonus goes by). Narrow desktop columns drop the
-                            team names (same order as the header). */}
-                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.away.abbreviation} </span><span className="font-semibold tabular-nums">{confidencePool ? pointShare(c, "away") : c.away}</span></div>
-                        <div className="whitespace-nowrap"><span className="text-muted lg:text-[length:clamp(0px,calc((var(--colw)_-_44px)_*_100),var(--cell-font))]">{g.home.abbreviation} </span><span className="font-semibold tabular-nums">{confidencePool ? pointShare(c, "home") : c.home}</span></div>
+                        {/* Each side: its logo and the picks on it, or in confidence pools its share
+                            of the points wagered (what the upset bonus goes by). A side that would
+                            earn an upset bonus is highlighted blue. Same order as the header. */}
+                        {(["away", "home"] as const).map((side) => {
+                          const team = side === "home" ? g.home : g.away;
+                          const bonus = confidencePool ? bonusFor(c, side) : null;
+                          return (
+                            <div
+                              key={side}
+                              title={bonus ? `${team.abbreviation}: +${bonus} upset bonus for a correct pick` : undefined}
+                              className={`flex items-center justify-center gap-1 whitespace-nowrap rounded ${bonus ? "bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent" : ""}`}
+                            >
+                              <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-3.5 shrink-0" />
+                              <span className="sr-only">{team.abbreviation}</span>
+                              <span className="font-semibold tabular-nums">{confidencePool ? pointShare(c, side) : side === "home" ? c.home : c.away}</span>
+                              {bonus && <span className="sr-only">, upset bonus {bonus}</span>}
+                            </div>
+                          );
+                        })}
                       </>
                     ) : (
                       <LockIcon className="mx-auto size-3 text-muted" />
