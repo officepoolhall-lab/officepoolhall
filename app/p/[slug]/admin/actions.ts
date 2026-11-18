@@ -546,3 +546,109 @@ export async function saveBracketResults(slug: string, id: string, _: ActionStat
   if (error) return { error: error.message };
   return done(slug, "Results saved; every bracket re-scored.");
 }
+
+// ---------- Imported entries: real names and emails ----------
+
+/** A placeholder address from an import (…@something.invalid): nobody can sign in with it. */
+const isPlaceholder = (email: string | null | undefined) => Boolean(email && /\.invalid$/i.test(email));
+
+/**
+ * Emails one sign-in code/link to the person, from a fresh client with no session, so it
+ * doesn't touch the commissioner's own sign-in. Never creates an account (it was just set).
+ */
+async function sendSignInEmail(email: string, slug: string): Promise<boolean> {
+  const { createClient } = await import("@supabase/supabase-js");
+  const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false, flowType: "implicit" },
+  });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const { error } = await anon.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false, emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(`/p/${slug}`)}` },
+  });
+  if (error) console.error("Roster: sign-in email not sent", email, error.message);
+  return !error;
+}
+
+/** Give one imported entry its owner's email (and name); see assign_entry_email. */
+export async function assignEntryEmail(slug: string, userId: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requirePoolCommissioner(slug);
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const first = String(form.get("first_name") ?? "").trim();
+  const last = String(form.get("last_name") ?? "").trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
+  const { data, error } = await ctx.supabase.rpc("assign_entry_email", {
+    p_pool_id: ctx.pool.id,
+    p_user_id: userId,
+    p_email: email,
+    p_first_name: first || undefined,
+    p_last_name: last || undefined,
+  });
+  if (error) return { error: error.message };
+  const sent = form.get("send") === "on" ? await sendSignInEmail(email, slug) : null;
+  const what = data === "merged" ? `Moved onto ${email}'s account` : `Added ${email}`;
+  return done(slug, `${what}.${sent === true ? " Sign-in email sent." : sent === false ? " The sign-in email didn't send; they can sign in on the site with that address." : ""}`);
+}
+
+/**
+ * Many at once, one per line: "name on the site, real name, email" (commas or tabs; the real
+ * name may be left out). The name on the site is how the entry shows now, e.g. "JP21" or
+ * "JP21 (Entry 2)". Lines that fail are listed; the rest go through.
+ */
+export async function assignEntryEmails(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requirePoolCommissioner(slug);
+  const send = form.get("send") === "on";
+  const lines = String(form.get("lines") ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (!lines.length) return { error: "Paste one entry per line: name on the site, real name, email." };
+
+  const [{ data: members }, { data: accounts }] = await Promise.all([
+    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    ctx.supabase.rpc("pool_member_emails", { p_pool_id: ctx.pool.id }),
+  ]);
+  const emailOf = new Map<string, string>(((accounts ?? []) as { user_id: string; email: string }[]).map((a) => [a.user_id, a.email]));
+  const key = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const byName = new Map<string, string>();
+  for (const m of (members ?? []) as { user_id: string; profile: { display_name: string } }[]) {
+    if (isPlaceholder(emailOf.get(m.user_id))) byName.set(key(m.profile.display_name), m.user_id);
+  }
+
+  const failed: string[] = [];
+  let added = 0;
+  let mailed = 0;
+  for (const line of lines) {
+    const parts = line.split(/\t|,/).map((p) => p.trim());
+    const email = parts.find((p) => /^\S+@\S+\.\S+$/.test(p))?.toLowerCase();
+    const site = parts[0];
+    const real = parts.length >= 3 ? parts[1] : "";
+    const userId = byName.get(key(site));
+    if (!email) {
+      failed.push(`${line}: no email`);
+      continue;
+    }
+    if (!userId) {
+      failed.push(`${site}: no unclaimed entry by that name`);
+      continue;
+    }
+    const [first, ...rest] = real.split(/\s+/).filter(Boolean);
+    const { error } = await ctx.supabase.rpc("assign_entry_email", {
+      p_pool_id: ctx.pool.id,
+      p_user_id: userId,
+      p_email: email,
+      p_first_name: first || undefined,
+      p_last_name: rest.join(" ") || undefined,
+    });
+    if (error) {
+      failed.push(`${site}: ${error.message}`);
+      continue;
+    }
+    byName.delete(key(site));
+    added++;
+    if (send && (await sendSignInEmail(email, slug))) mailed++;
+  }
+  revalidatePath(`/p/${slug}`, "layout");
+  const ok = `${added} of ${lines.length} added${send ? ` · ${mailed} sign-in email${mailed === 1 ? "" : "s"} sent` : ""}.`;
+  return failed.length ? { error: `${ok} Not added: ${failed.join("; ")}` } : { ok };
+}

@@ -721,6 +721,9 @@ isOneToOne: false
             "member_tournament_picks":
 { Args: { "p_pool_id": string,"p_user_id": string }; Returns: { "points": number | null,"team_id": string,"tournament_id": string,"user_id": string }[]
                            },
+"assign_entry_email":
+{ Args: { "p_email": string,"p_first_name"?: string,"p_last_name"?: string,"p_pool_id": string,"p_user_id": string }; Returns: string
+                           },
 "update_slate_deadlines":
 { Args: { "p_first_day_lock_at": string | null,"p_lock_at": string,"p_slate_id": string }; Returns: undefined
                            },
