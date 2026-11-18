@@ -48,6 +48,10 @@ export const poolSettingsSchema = z
       push: z.number().min(0),
       loss: z.number(),
     }),
+    // What the standings lead with and rank by: the W–L record (points kept in the background,
+    // as the NCAAF Supercontest has always done) or points (a Pts column first, e.g. a
+    // Supercontest scored 1 per win and ½ per push). Confidence pools always rank by points.
+    standings_by: z.enum(["record", "points"]).default("record"),
     lock: z.object({
       mode: z.enum(["per_game", "weekly"]),
       weekly: z
@@ -162,6 +166,7 @@ export const PRESETS = {
       confidence: { tiers: evenTiers(25), wrong_pick: "minus_points" },
       // Flat scoring is unused with confidence tiers but kept for the schema.
       scoring: { win: 1, push: 0, loss: 0 },
+      standings_by: "points",
       upset_bonus: { tiers: POOL_A_UPSET_TIERS },
       missed_week: "last_place",
       full_card: false,
@@ -187,6 +192,7 @@ export const PRESETS = {
       picks_mode: "exact",
       confidence: null,
       scoring: { win: 1, push: 0.5, loss: 0 },
+      standings_by: "record",
       upset_bonus: null,
       missed_week: "zero",
       full_card: true,
@@ -208,6 +214,7 @@ export const PRESETS = {
       picks_mode: "exact",
       confidence: null,
       scoring: { win: 1, push: 0.5, loss: 0 },
+      standings_by: "points",
       upset_bonus: null,
       missed_week: "zero",
       full_card: true,

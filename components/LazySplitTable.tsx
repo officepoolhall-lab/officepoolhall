@@ -24,7 +24,7 @@ function load(slug: string): Promise<Splits | null> {
 }
 
 /** The Season table for one pick type, loaded on first use. */
-export function LazySplitTable({ slug, split, me, flat }: { slug: string; split: keyof Splits; me: string; flat: boolean }) {
+export function LazySplitTable({ slug, split, me, flat, pointsLead = false }: { slug: string; split: keyof Splits; me: string; flat: boolean; pointsLead?: boolean }) {
   const [state, setState] = useState<{ rows: StandingRow[] } | "loading" | "failed">("loading");
   useEffect(() => {
     let live = true;
@@ -37,6 +37,6 @@ export function LazySplitTable({ slug, split, me, flat }: { slug: string; split:
   if (state === "loading") return <p className="border-b border-line py-3 text-sm text-muted">Loading…</p>;
   if (state === "failed") return <p className="border-b border-line py-3 text-sm text-muted">This breakdown couldn&apos;t load right now. Try again in a minute.</p>;
   return (
-    <SeasonStandings rows={state.rows} me={me} flat={flat} week={null} bonus={null} playerHref={(id) => `/p/${slug}/standings/${id}`} compact header={false} />
+    <SeasonStandings rows={state.rows} me={me} flat={flat} week={null} bonus={null} playerHref={(id) => `/p/${slug}/standings/${id}`} compact header={false} pointsLead={pointsLead} />
   );
 }

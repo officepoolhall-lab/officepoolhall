@@ -119,6 +119,18 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
             ))}
           </div>
         )}
+        {/* Confidence pools always rank by points. */}
+        {!s.confidence && (
+          <Field
+            label="Standings based on"
+            hint={s.standings_by === "points" ? "Ranked by points, with a Pts column first." : "Ranked by record (W–L); points aren't shown."}
+          >
+            <select className={field} value={s.standings_by} onChange={(e) => set({ standings_by: e.target.value as PoolSettings["standings_by"] })}>
+              <option value="record">Record</option>
+              <option value="points">Points</option>
+            </select>
+          </Field>
+        )}
       </div>
 
       <fieldset className="grid gap-4 disabled:opacity-60 sm:grid-cols-2" disabled={lockedCore}>

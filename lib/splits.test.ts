@@ -54,4 +54,15 @@ describe("splitRecords + rankBySplit", () => {
     const rows = ["a", "b", "c"].map((id) => ({ name: id, ...(fav.get(id) ?? { wins: 0, losses: 0, pushes: 0, points: 0 }) }));
     expect(rankBySplit(rows).map((r) => [r.name, r.rank])).toEqual([["b", 1], ["a", 2], ["c", 3]]);
   });
+
+  it("ranks by points in a points pool, then wins", () => {
+    const rows = [
+      { name: "a", wins: 3, losses: 0, pushes: 0, points: 3 },
+      { name: "b", wins: 3, losses: 3, pushes: 2, points: 4 },
+      { name: "c", wins: 4, losses: 4, pushes: 0, points: 4 },
+    ];
+    expect(rankBySplit(rows, true).map((r) => [r.name, r.rank])).toEqual([["c", 1], ["b", 2], ["a", 3]]);
+    // By record, the unbeaten one leads.
+    expect(rankBySplit(rows)[0].name).toBe("a");
+  });
 });

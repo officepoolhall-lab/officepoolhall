@@ -25,6 +25,7 @@ export function SeasonStandings({
   compact = false,
   weekly = false,
   header = true,
+  pointsLead = false,
 }: {
   rows: StandingRow[];
   me: string;
@@ -41,6 +42,8 @@ export function SeasonStandings({
   weekly?: boolean;
   /** Draw the Player · Record · Win % row. Off when the page puts it in a frozen header. */
   header?: boolean;
+  /** A pool ranked by points: a Pts column first, then the record and win %. */
+  pointsLead?: boolean;
 }) {
   const total = rows.reduce(
     (t, r) => ({ wins: t.wins + r.wins, losses: t.losses + r.losses, pushes: t.pushes + r.pushes }),
@@ -48,7 +51,7 @@ export function SeasonStandings({
   );
   return (
     <>
-      {header && <SeasonHeaderRow flat={flat} week={week} bonus={bonus} />}
+      {header && <SeasonHeaderRow flat={flat} week={week} bonus={bonus} pointsLead={pointsLead} />}
       <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => {
         const mine = r.userId === me;
@@ -67,11 +70,26 @@ export function SeasonStandings({
               {/* Their score comes from settings.missed_week (0 or the week's last place). */}
               {r.missed > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{weekly ? "No picks" : `${r.missed} missed`}</span>}
             </span>
-            <span className={`min-w-16 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
-              {recordText(r)}
-              <span className="sr-only"> season record</span>
-            </span>
-            {!flat && <span className="w-14 text-right font-semibold tabular-nums">{points(r.points)}</span>}
+            {pointsLead ? (
+              <>
+                <span className={`w-14 shrink-0 text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
+                  {points(r.points)}
+                  <span className="sr-only"> points</span>
+                </span>
+                <span className="min-w-16 shrink-0 whitespace-nowrap text-right text-sm tabular-nums">
+                  {recordText(r)}
+                  <span className="sr-only"> record</span>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className={`min-w-16 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums ${compact ? "text-[15px]" : "text-[17px]"}`}>
+                  {recordText(r)}
+                  <span className="sr-only"> season record</span>
+                </span>
+                {!flat && <span className="w-14 text-right font-semibold tabular-nums">{points(r.points)}</span>}
+              </>
+            )}
             <span className="w-14 text-right text-sm tabular-nums text-muted">
               {winPct(r.wins, r.losses)}
               <span className="sr-only"> win percentage</span>
@@ -103,8 +121,17 @@ export function SeasonStandings({
         <li className={`flex items-center gap-3 text-muted ${compact ? "min-h-9 py-1.5" : "min-h-12 py-2.5"}`}>
           <span className="w-6" aria-hidden />
           <span className="min-w-0 flex-1 truncate text-sm font-medium">Pool total</span>
-          <span className={`min-w-16 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-ink ${compact ? "text-[15px]" : "text-[17px]"}`}>{recordText(total)}</span>
-          {!flat && <span className="w-14" aria-hidden />}
+          {pointsLead ? (
+            <>
+              <span className="w-14 shrink-0" aria-hidden />
+              <span className="min-w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-ink">{recordText(total)}</span>
+            </>
+          ) : (
+            <>
+              <span className={`min-w-16 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-ink ${compact ? "text-[15px]" : "text-[17px]"}`}>{recordText(total)}</span>
+              {!flat && <span className="w-14" aria-hidden />}
+            </>
+          )}
           <span className="w-14 text-right text-sm tabular-nums">{winPct(total.wins, total.losses)}</span>
           {week && <span className="hidden w-20 sm:block lg:hidden" aria-hidden />}
           {bonus && <span className="hidden w-20 sm:block lg:hidden" aria-hidden />}
@@ -125,18 +152,29 @@ export function SeasonHeaderRow({
   flat,
   week,
   bonus,
+  pointsLead = false,
 }: {
   flat: boolean;
   week: { label: string } | null;
   bonus: { label: string } | null;
+  pointsLead?: boolean;
 }) {
   const head = "text-[11px] font-medium text-muted";
   return (
 <div className="flex items-end gap-3 border-b border-line pb-1.5 pt-2" aria-hidden>
     <span className="w-6" />
     <span className={`min-w-0 flex-1 ${head}`}>Player</span>
-    <span className={`min-w-16 shrink-0 text-right ${head}`}>Record</span>
-    {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
+    {pointsLead ? (
+      <>
+        <span className={`w-14 shrink-0 text-right ${head}`}>Pts</span>
+        <span className={`min-w-16 shrink-0 text-right ${head}`}>Record</span>
+      </>
+    ) : (
+      <>
+        <span className={`min-w-16 shrink-0 text-right ${head}`}>Record</span>
+        {!flat && <span className={`w-14 text-right ${head}`}>Pts</span>}
+      </>
+    )}
     <span className={`w-14 text-right ${head}`}>Win %</span>
     {week && <span className={`hidden w-20 text-right sm:block lg:hidden ${head}`}>{week.label}</span>}
     {bonus && <span className={`hidden w-20 text-right sm:block lg:hidden ${head}`}>{bonus.label}</span>}

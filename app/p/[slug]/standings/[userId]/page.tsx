@@ -9,7 +9,7 @@ import { isGameLocked } from "@/lib/locks";
 import { type HistoryWeek, getPlayerHistory } from "@/lib/playerHistory";
 import { getPoolContext, getSlateGames, type SlateGame } from "@/lib/pool";
 import { winPct } from "@/lib/record";
-import { getStandings } from "@/lib/standings";
+import { getStandings, standingsByPoints } from "@/lib/standings";
 import { getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
 
 export const metadata: Metadata = { title: "Pick History" };
@@ -50,6 +50,8 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
   const me = userId === ctx.entryUserId;
   const row = season.find((r) => r.userId === userId);
   const flat = !ctx.settings.confidence;
+  // Each week's points beside its record: confidence pools and pools ranked by points.
+  const showPoints = standingsByPoints(ctx.settings);
   const pickType = ctx.settings.pick_type;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live or locked
   const now = Date.now();
@@ -116,7 +118,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
             <span className="ml-auto whitespace-nowrap text-sm tabular-nums">
               <span className="font-semibold text-ink">{recordText(w)}</span>
               <span className="text-muted"> · {winPct(w.wins, w.losses)}</span>
-              {!flat && <span className="text-muted"> · {points(w.points)} pts</span>}
+              {showPoints && <span className="text-muted"> · {points(w.points)} pts</span>}
             </span>
           </>
         );
