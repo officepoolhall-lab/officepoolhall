@@ -194,7 +194,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
             <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} playerHref={(id) => `/p/${slug}/standings/${id}`} />
           </section>
           {slate && weekly && (
-            <section className="mt-6">
+            // Phones skip the week's standings (the season's are enough there); wider screens keep them.
+            <section className="mt-6 hidden sm:block">
               <div className="flex items-center justify-between">
                 <SectionLabel>{slate.label ?? `Week ${slate.week}`} standings</SectionLabel>
                 <Link href={`/p/${slug}/standings?week=${slate.week}`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
