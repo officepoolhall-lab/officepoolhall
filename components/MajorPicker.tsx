@@ -271,37 +271,63 @@ export function MajorPicker({
       )}
 
       {!readOnly && (
-        // Pinned to the bottom of the screen while picking, so Save is always in reach.
-        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center gap-2 border-t border-line bg-bg px-4 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] sm:mx-0 sm:px-0">
+        // Fixed to the bottom of the screen the whole time (the page leaves room for it), one
+        // slim row: the tier checklist and the button.
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-bg py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
           {/* What each tier still needs; a tier turns green with a check once it's filled. */}
           {contest === "tiers" ? (
-            <ul className="flex min-w-0 flex-1 flex-wrap gap-1" aria-label="Picks by tier">
-              {picks.map((n, i) => {
-                const have = inTier(i + 1);
-                const done = have >= n;
-                return (
-                  <li key={i}>
-                    <button
-                      type="button"
-                      onClick={() => setTier(i + 1)}
-                      className={`inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium lg:cursor-default ${
-                        done ? "bg-[color-mix(in_srgb,var(--win)_16%,transparent)] text-win" : "bg-surface text-ink"
-                      }`}
-                    >
-                      {done && <CheckIcon className="size-2.5" />}
-                      Tier {i + 1}
-                      <span className={`font-normal ${done ? "" : "text-muted"}`}>{done ? "Complete" : `${n - have} needed`}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <>
+              {/* Phones: a numbered dot per tier (tap to go to it). */}
+              <ol className="flex min-w-0 flex-1 items-center gap-1 sm:hidden" aria-label="Picks by tier">
+                {picks.map((n, i) => {
+                  const done = inTier(i + 1) >= n;
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() => setTier(i + 1)}
+                        aria-label={`Tier ${i + 1}: ${done ? "complete" : `${n - inTier(i + 1)} needed`}`}
+                        className={`grid size-7 place-items-center rounded-full text-[11px] font-semibold tabular-nums ${
+                          done ? "bg-[color-mix(in_srgb,var(--win)_18%,transparent)] text-win" : tier === i + 1 ? "bg-ink text-bg" : "bg-surface text-ink"
+                        }`}
+                      >
+                        {done ? <CheckIcon className="size-3" /> : i + 1}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+              {/* Larger screens: each tier and what it still needs. */}
+              <ul className="hidden min-w-0 flex-1 flex-wrap gap-1 sm:flex" aria-label="Picks by tier">
+                {picks.map((n, i) => {
+                  const have = inTier(i + 1);
+                  const done = have >= n;
+                  return (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() => setTier(i + 1)}
+                        className={`inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium lg:cursor-default ${
+                          done ? "bg-[color-mix(in_srgb,var(--win)_16%,transparent)] text-win" : "bg-surface text-ink"
+                        }`}
+                      >
+                        {done && <CheckIcon className="size-2.5" />}
+                        Tier {i + 1}
+                        <span className={`font-normal ${done ? "" : "text-muted"}`}>{done ? "Complete" : `${n - have} needed`}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           ) : (
-            <span className="min-w-0 flex-1" />
+            <span className="min-w-0 flex-1 text-xs tabular-nums text-muted">
+              {chosen.length}/{roster} · Left <span className={left < 0 ? "font-semibold text-loss" : "font-semibold text-ink"}>{dollars(left)}</span>
+            </span>
           )}
           {/* Only problems get a message; the button itself says when the lineup is saved. */}
           {(state?.error || (contest === "salary" && left < 0)) && (
-            <p className="shrink-0 text-xs font-semibold text-loss">{state?.error ?? "Over the budget."}</p>
+            <p className="min-w-0 max-w-[40%] shrink truncate text-xs font-semibold text-loss" title={state?.error ?? undefined}>{state?.error ?? "Over the budget."}</p>
           )}
           <button
             type="button"
