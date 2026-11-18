@@ -125,10 +125,11 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
       .filter((g) => {
         if (onSlateIds.has(g.id)) return false;
         if (!isDemoPool && g.espn_id?.startsWith("demo-")) return false;
-        // Division I against Division I only. ESPN's D-I scoreboard also lists D-I teams'
-        // games against non-D-I schools (e.g. Mount Marty at South Dakota); those opponents
-        // have no D-I conference, so a game needs a conference on both sides.
-        if (!g.home?.conference || !g.away?.conference) return false;
+        // College: Division I against Division I only. ESPN's D-I scoreboard also lists D-I
+        // teams' games against non-D-I schools (e.g. Mount Marty at South Dakota); those
+        // opponents have no D-I conference, so a game needs a conference on both sides. NFL
+        // teams have no conference in our data, so this never applies to the NFL.
+        if (ctx.pool.sport !== "nfl" && (!g.home?.conference || !g.away?.conference)) return false;
         const date = dayKey(g.start_at, gameDateZone(g.time_tbd, tz));
         if (date < firstDate || date > lastDate) return false;
         const lock = g.time_tbd ? (s.lock_at ?? g.start_at) : g.start_at;
