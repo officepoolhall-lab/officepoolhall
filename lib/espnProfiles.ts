@@ -109,7 +109,7 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
     position: str(a?.position?.abbreviation) ?? str(a?.position?.displayName),
     jersey: str(a?.jersey),
     // ESPN's experience for college players is their class; for the NFL it's seasons played.
-    year: sport === "nfl" ? null : collegeYear(a?.experience ?? core?.experience, core?.experience),
+    year: sport === "nfl" ? null : (collegeYear(a?.experience, core?.experience) ?? (await rosterYear(sport, a?.team?.id ?? core?.team?.id, athleteId))),
     team: str(a?.team?.displayName) ?? str(a?.team?.name),
     teamLogo: logoOf(a?.team),
     headshot: str(a?.headshot?.href),
@@ -144,6 +144,21 @@ function perGame(labels: string[], rows: string[][], totals: string[] | null): s
     if (n.some((x) => Number.isNaN(x))) return "";
     return one(n.reduce((a, b) => a + b, 0) / vals.length);
   });
+}
+
+/**
+ * A college player's class from their team's roster (what ESPN's roster pages show in the Class
+ * column), for when the player records don't say. Cached a day.
+ */
+async function rosterYear(sport: TeamSport, teamId: unknown, athleteId: string): Promise<string | null> {
+  const team = str(teamId) ?? (typeof teamId === "string" ? teamId : null);
+  if (!team) return null;
+  const body = await getJson(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/teams/${encodeURIComponent(team)}/roster`, 86400);
+  // Football rosters come in groups (offense, defense, special teams); basketball's is one list.
+  const groups: any[] = Array.isArray(body?.athletes) ? body.athletes : [];
+  const athletes = groups.flatMap((g) => (Array.isArray(g?.items) ? g.items : [g]));
+  const me = athletes.find((x) => String(x?.id) === String(athleteId));
+  return me ? collegeYear(me.experience, me.class ? { displayValue: me.class } : null) : null;
 }
 
 /**
