@@ -2,7 +2,8 @@ import { CopyButton } from "@/components/CopyButton";
 import { OnlineDot } from "@/components/PoolPresence";
 import { Button, CheckIcon, Panel, SectionLabel } from "@/components/ui";
 import type { PoolBase } from "@/lib/pool";
-import { disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setPaid } from "@/app/p/[slug]/admin/actions";
+import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setPaid } from "@/app/p/[slug]/admin/actions";
 
 /**
  * The commissioner's roster, the same for every sport: the invite link, every entry with its
@@ -53,10 +54,14 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
   const setUpCount = (members ?? []).filter((m) => setUp(m.user_id)).length;
   const signedIn = (iso: string | null) =>
     iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: timezone })}` : "Never signed in";
+  // Imported entries (Splash) start with a placeholder address nobody can sign in with,
+  // until the commissioner adds the owner's real email.
+  const unclaimed = (id: string) => /\.invalid$/i.test(emailOf.get(id) ?? "");
+  const unclaimedCount = (members ?? []).filter((m) => unclaimed(m.user_id)).length;
   // Everyone's address in one line, for pasting into an email's To: field.
   const allEmails = (members ?? [])
     .map((m) => emailOf.get(m.user_id))
-    .filter((e): e is string => Boolean(e))
+    .filter((e): e is string => Boolean(e) && !/\.invalid$/i.test(e!))
     .join(", ");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const link = invite ? `${appUrl}/join/${invite.token}` : null;
@@ -102,6 +107,33 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
             </span>
           )}
         </div>
+        {/* Imported entries waiting for their owners: add many emails at once. */}
+        {unclaimedCount > 0 && (
+          <details className="border-b border-line py-2">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-accent">
+              Add emails for imported entries
+              <span className="font-normal text-muted">· {unclaimedCount} without an email</span>
+            </summary>
+            <ActionForm action={assignEntryEmails.bind(null, slug)} className="space-y-2 pb-2">
+              <p className="text-sm text-muted">
+                One entry per line: the name it shows here, the person&apos;s real name, and their email, separated by commas (or paste
+                three columns from a spreadsheet). For example: <span className="font-mono text-xs text-ink">JP21, John Paulson, john@example.com</span>.
+                A second entry is <span className="font-mono text-xs text-ink">JP21 (Entry 2)</span>. The real name can be left out.
+              </p>
+              <textarea
+                name="lines"
+                rows={8}
+                className="w-full rounded-[10px] bg-bg p-3 font-mono text-xs outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
+                placeholder={"JP21, John Paulson, john@example.com\nHaydenH, Hayden Hill, hayden@example.com"}
+              />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="send" defaultChecked className="size-4 accent-[var(--accent)]" />
+                Email each person a sign-in link now
+              </label>
+              <SubmitButton pending="Adding…">Add emails</SubmitButton>
+            </ActionForm>
+          </details>
+        )}
         {/* Most likely the pool_member_emails migration hasn't reached the database yet. */}
         {emailFailed && (
           <p className="border-b border-line py-2 text-sm text-muted">Members&apos; emails can&apos;t be shown right now (the database needs its latest update).</p>
@@ -116,13 +148,31 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
                   <OnlineDot userId={m.user_id} className="ml-1.5 align-middle" />
                   {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
                 </span>
-                {emailOf.get(m.user_id) && (
+                {unclaimed(m.user_id) ? (
+                  // Imported, no real email yet: add one here; they then sign in with it.
+                  <details className="mt-0.5">
+                    <summary className="inline-flex cursor-pointer items-center gap-2 text-xs">
+                      <span className="font-semibold text-muted">Imported · no email yet</span>
+                      <span className="font-semibold text-accent">Add email</span>
+                    </summary>
+                    <ActionForm action={assignEntryEmail.bind(null, slug, m.user_id)} className="mt-2 grid gap-2 pb-1 sm:grid-cols-[1fr_1fr_1.5fr_auto]">
+                      <input name="first_name" placeholder="First name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <input name="last_name" placeholder="Last name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <input name="email" type="email" required placeholder="Email" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <SubmitButton pending="Adding…" className="!h-10">Add</SubmitButton>
+                      <label className="flex items-center gap-2 text-xs text-muted sm:col-span-4">
+                        <input type="checkbox" name="send" defaultChecked className="size-4 accent-[var(--accent)]" />
+                        Email them a sign-in link now
+                      </label>
+                    </ActionForm>
+                  </details>
+                ) : emailOf.get(m.user_id) && (
                   <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink hover:underline">
                     {emailOf.get(m.user_id)}
                   </a>
                 )}
                 {/* Account status: password chosen and name confirmed = set up. */}
-                {accountOf.get(m.user_id) && (
+                {accountOf.get(m.user_id) && !unclaimed(m.user_id) && (
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                     {setUp(m.user_id) ? (
                       <span className="inline-flex items-center gap-0.5 font-semibold text-win">
