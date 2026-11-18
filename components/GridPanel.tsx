@@ -23,6 +23,7 @@ export function GridPanel({
   ats,
   confidence,
   names = true,
+  layout = "side",
 }: {
   games: Game[];
   picks: Pick[];
@@ -33,13 +34,17 @@ export function GridPanel({
   confidence: boolean;
   /** Team abbreviations beside the logos in the pool-by-game list (college football leaves them out: too many games). */
   names?: boolean;
+  /** "side": the column beside the Grid on wide screens, sized to never scroll. "drawer": the
+      same content in the Pool Summary pop-out on smaller screens, at its natural height. */
+  layout?: "side" | "drawer";
 }) {
+  const drawer = layout === "drawer";
   const shown = games.filter((g) => !g.voided && revealed(g.id));
   const byId = new Map(shown.map((g) => [g.id, g]));
   const visible = picks.filter((p) => byId.has(p.game_id) && p.result !== "void");
   if (!visible.length) {
     return (
-      <Panel>
+      <Panel drawer={drawer}>
         <p className="text-sm text-muted">The pool&apos;s picks show here once games kick off.</p>
       </Panel>
     );
@@ -102,8 +107,8 @@ export function GridPanel({
   const chips = mine.length > 8;
 
   return (
-    <Panel>
-      <Section title="Most picked" rows={most.length}>
+    <Panel drawer={drawer}>
+      <Section drawer={drawer} title="Most picked" rows={most.length}>
         {most.map((s) => {
           const team = s.side === "home" ? s.game.home : s.game.away;
           return (
@@ -121,6 +126,7 @@ export function GridPanel({
       </Section>
 
       <Section
+        drawer={drawer}
         title={ats ? "Pool against the spread" : "Pool by game"}
         rows={twoCols ? Math.ceil(perGame.length / 2) : perGame.length}
         cols={twoCols ? 2 : 1}
@@ -157,7 +163,7 @@ export function GridPanel({
       </Section>
 
       {me && mine.length > 0 && (
-        <Section title="Your picks vs the pool" rows={chips ? Math.ceil(mine.length / 5) : mine.length} cols={chips ? 5 : 1}>
+        <Section drawer={drawer} title="Your picks vs the pool" rows={chips ? Math.ceil(mine.length / 5) : mine.length} cols={chips ? 5 : 1}>
           {mine.map((p) => {
             const team = teamOf(p);
             const tone = p.result === "win" ? "text-win" : p.result === "loss" ? "text-loss" : "text-ink";
@@ -192,7 +198,8 @@ export function GridPanel({
   );
 }
 
-function Panel({ children }: { children: ReactNode }) {
+function Panel({ children, drawer }: { children: ReactNode; drawer: boolean }) {
+  if (drawer) return <div className="flex flex-col gap-5 text-sm">{children}</div>;
   // Hidden until the page's media rule shows it (only when it leaves the Grid enough room).
   return (
     <aside id="grid-panel" aria-label="This week in the pool" className="hidden w-72 shrink-0 flex-col gap-3 overflow-hidden border-l border-line pl-5 text-xs">
@@ -201,14 +208,20 @@ function Panel({ children }: { children: ReactNode }) {
   );
 }
 
-/** A heading and its rows; the rows grow with the room (flex-grow by row count) up to 28px each. */
-function Section({ title, rows, cols = 1, foot, children }: { title: string; rows: number; cols?: number; foot?: ReactNode; children: ReactNode }) {
+/**
+ * A heading and its rows. Beside the Grid the rows grow with the room (flex-grow by row count)
+ * up to 28px each; in the drawer they take their natural height.
+ */
+function Section({ title, rows, cols = 1, foot, drawer, children }: { title: string; rows: number; cols?: number; foot?: ReactNode; drawer: boolean; children: ReactNode }) {
   return (
-    <section className="flex min-h-0 flex-col" style={{ flexGrow: rows, flexShrink: 1, flexBasis: 0, maxHeight: `${rows * 1.75 + (foot ? 3.75 : 2.5)}rem` }}>
+    <section
+      className="flex min-h-0 flex-col"
+      style={drawer ? undefined : { flexGrow: rows, flexShrink: 1, flexBasis: 0, maxHeight: `${rows * 1.75 + (foot ? 3.75 : 2.5)}rem` }}
+    >
       <h3 className="mb-1 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
       <ul
-        className="grid min-h-0 flex-1 gap-x-3"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, minmax(18px, 1.75rem))`, gridAutoFlow: "column" } as CSSProperties}
+        className={`grid min-h-0 gap-x-3 ${drawer ? "divide-y divide-line" : "flex-1"}`}
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${rows}, ${drawer ? "minmax(2.25rem, auto)" : "minmax(18px, 1.75rem)"})`, gridAutoFlow: "column" } as CSSProperties}
       >
         {children}
       </ul>
