@@ -186,6 +186,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
   const segmentOptions: SwitchOption[] = segments.map((r, i) => ({
     id: String(i + 1),
     label: r.name,
+    selectLabel: `${r.name} · ${segmentWeeksLabel(r)}`,
     chip: (
       <>
         {r.name} <span className="opacity-70">· {segmentWeeksLabel(r)}</span>
@@ -242,6 +243,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                 titles={each(weekIds, () => <>Weekly Standings</>)}
                 lead={<MobileTabs />}
                 ariaLabel="Choose a week"
+                asSelect
               />
             </TabPanel>
             {segments.length > 0 && (
@@ -257,6 +259,7 @@ export default async function StandingsPage({ params, searchParams }: PageProps<
                   titles={each(segmentIds, () => <>Bonus Segments</>)}
                   lead={<MobileTabs />}
                   ariaLabel="Choose a bonus segment"
+                  asSelect
                 />
               </TabPanel>
             )}
