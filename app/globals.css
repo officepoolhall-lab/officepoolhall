@@ -87,7 +87,8 @@ textarea {
 }
 
 /* The Grid's "View Pool Summary" tab (components/GridPanelDrawer.tsx): a short hop out from its
-   edge every 10 seconds to catch the eye (up on phones, left from 1024px). Off for reduced motion. */
+   edge every 10 seconds to catch the eye (up on phones and tablets, left from 1024px). Every
+   current browser runs it: Safari and Chrome on iPhone, iPad and Android, and desktop browsers. */
 @keyframes summary-nudge-up {
   0%, 90%, 100% { transform: translateY(0); }
   93% { transform: translateY(-8px); }
@@ -104,6 +105,12 @@ textarea {
 @media (min-width: 1024px) {
   .summary-nudge { animation-name: summary-nudge-left; }
 }
+/* Devices set to reduce motion get a glow that pulses on the same beat instead of a hop, so the
+   tab still catches the eye without moving. */
+@keyframes summary-nudge-glow {
+  0%, 88%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+  94% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 45%, transparent); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .summary-nudge { animation: none; }
+  .summary-nudge { animation-name: summary-nudge-glow; }
 }
