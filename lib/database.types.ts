@@ -607,27 +607,66 @@ isOneToOne: false
                 }
             "golf_events": {
                   Row: {
-                    "espn_id": string,"id": string,"name": string,"picks_open_at": string | null,"pool_id": string,"sort_order": number,"start_at": string | null,"status": string
+                    "espn_id": string,"id": string,"major": string | null,"name": string,"picks_open_at": string | null,"pool_id": string,"sort_order": number,"start_at": string | null,"status": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "espn_id": string,"id"?: string,"name": string,"picks_open_at"?: string | null,"pool_id": string,"sort_order": number,"start_at"?: string | null,"status"?: string
+                    "espn_id": string,"id"?: string,"major"?: string | null,"name": string,"picks_open_at"?: string | null,"pool_id": string,"sort_order": number,"start_at"?: string | null,"status"?: string
                   }
                   Update: {
-                    "espn_id"?: string,"id"?: string,"name"?: string,"picks_open_at"?: string | null,"pool_id"?: string,"sort_order"?: number,"start_at"?: string | null,"status"?: string
+                    "espn_id"?: string,"id"?: string,"major"?: string | null,"name"?: string,"picks_open_at"?: string | null,"pool_id"?: string,"sort_order"?: number,"start_at"?: string | null,"status"?: string
                   }
                   Relationships: []
                 }
             "golf_results": {
                   Row: {
-                    "earnings": number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos": string | null,"tee_at": string | null
+                    "earnings": number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"out": boolean,"rounds": number[] | null,"scorecard": Json | null,"thru": number | null,"to_par": number | null,"pos": string | null,"tee_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "earnings"?: number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"pos"?: string | null,"tee_at"?: string | null
+                    "earnings"?: number,"espn_golfer_id": string,"event_id": string,"golfer_name": string,"out"?: boolean,"rounds"?: number[] | null,"scorecard"?: Json | null,"thru"?: number | null,"to_par"?: number | null,"pos"?: string | null,"tee_at"?: string | null
                   }
                   Update: {
-                    "earnings"?: number,"espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"pos"?: string | null,"tee_at"?: string | null
+                    "earnings"?: number,"espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"out"?: boolean,"rounds"?: number[] | null,"scorecard"?: Json | null,"thru"?: number | null,"to_par"?: number | null,"pos"?: string | null,"tee_at"?: string | null
+                  }
+                  Relationships: []
+                }
+            "golf_field": {
+                  Row: {
+                    "espn_golfer_id": string,"event_id": string,"golfer_name": string,"odds": number | null,"salary": number | null,"tier": number | null,"world_rank": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"odds"?: number | null,"salary"?: number | null,"tier"?: number | null,"world_rank"?: number | null
+                  }
+                  Update: {
+                    "espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"odds"?: number | null,"salary"?: number | null,"tier"?: number | null,"world_rank"?: number | null
+                  }
+                  Relationships: []
+                }
+            "golf_lineups": {
+                  Row: {
+                    "espn_golfer_id": string,"event_id": string,"golfer_name": string,"picked_at": string,"pool_id": string,"salary": number | null,"tier": number | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"picked_at"?: string,"pool_id"?: string,"salary"?: number | null,"tier"?: number | null,"user_id"?: string
+                  }
+                  Update: {
+                    "espn_golfer_id"?: string,"event_id"?: string,"golfer_name"?: string,"picked_at"?: string,"pool_id"?: string,"salary"?: number | null,"tier"?: number | null,"user_id"?: string
+                  }
+                  Relationships: []
+                }
+            "golf_odds": {
+                  Row: {
+                    "bookmaker": string,"golfer_name": string,"odds_key": string,"price": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bookmaker"?: string,"golfer_name"?: string,"odds_key"?: string,"price"?: number,"updated_at"?: string
+                  }
+                  Update: {
+                    "bookmaker"?: string,"golfer_name"?: string,"odds_key"?: string,"price"?: number,"updated_at"?: string
                   }
                   Relationships: []
                 }
@@ -646,6 +685,21 @@ isOneToOne: false
                 }
           }
           Functions: {
+"golf_admin_add_major":
+{ Args: { "p_espn_id": string,"p_major": string,"p_name": string,"p_pool_id": string }; Returns: string
+                           },
+"golf_admin_remove_major":
+{ Args: { "p_event_id": string }; Returns: undefined
+                           },
+"submit_golf_lineup":
+{ Args: { "p_event_id": string,"p_golfer_ids": string[],"p_user_id"?: string | null }; Returns: undefined
+                           },
+"golf_admin_save_field":
+{ Args: { "p_event_id": string,"p_rows": Json }; Returns: undefined
+                           },
+"golf_admin_open_picks":
+{ Args: { "p_event_id": string,"p_open": boolean }; Returns: undefined
+                           },
 "submit_golf_pick":
 { Args: { "p_event_id": string,"p_golfer_id": string,"p_golfer_name": string,"p_user_id"?: string | null }; Returns: undefined
                            },

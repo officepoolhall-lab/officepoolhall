@@ -11,7 +11,7 @@ type Tab = { href: string; label: string; short?: string; phone: "main" | "more"
  * Tabs under the header. Phones: a sticky row of the four main tabs plus "More" (Scoreboard,
  * Message Board, Admin) so each tab gets room and readable text. Wider screens: every tab as a pill.
  */
-export function PoolNav({ slug, sport, isCommissioner, week }: { slug: string; sport: string; isCommissioner: boolean; week?: number }) {
+export function PoolNav({ slug, sport, isCommissioner, week, majors = false }: { slug: string; sport: string; isCommissioner: boolean; week?: number; majors?: boolean }) {
   const pathname = usePathname();
   const base = `/p/${slug}`;
   // Golf pools have their own pages under /golf; the message board is shared.
@@ -22,7 +22,8 @@ export function PoolNav({ slug, sport, isCommissioner, week }: { slug: string; s
         { href: `${g}/picks`, label: "My Picks", short: "Picks", phone: "main", match: (p) => p.startsWith(`${g}/picks`) },
         { href: `${g}/standings`, label: "Standings", phone: "main", match: (p) => p.startsWith(`${g}/standings`) },
         { href: `${g}/leaderboard`, label: "Leaderboard", phone: "main", match: (p) => p.startsWith(`${g}/leaderboard`) || p.startsWith(`${g}/scoreboard`) },
-        { href: `${g}/grid`, label: "League Grid", short: "Grid", phone: "more", match: (p) => p.startsWith(`${g}/grid`) },
+        // Majors pools show each entry's golfers on Standings instead of a grid.
+        ...(majors ? [] : [{ href: `${g}/grid`, label: "League Grid", short: "Grid", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/grid`) }]),
         { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
         ...(isCommissioner ? [{ href: `${g}/admin`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/admin`) }] : []),
       ]

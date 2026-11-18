@@ -5,7 +5,8 @@ import { GolfEventSelect } from "@/components/GolfEventSelect";
 import { GolfLeaderboard, type LeaderRow } from "@/components/GolfLeaderboard";
 import { Empty, PageTitle } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
-import { getGolfContext, getGolfEvents, getGolfMyPicks, getGolfResults, getGolfVisiblePicks, golfWeek } from "@/lib/golf";
+import { getGolfContext, getGolfEvents, getGolfMyPicks, getGolfResults, getGolfVisiblePicks, golfFormat, golfWeek } from "@/lib/golf";
+import { getVisibleLineups } from "@/lib/golfMajorsData";
 import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
 import { getCoursePar } from "@/lib/golfScorecard";
 
@@ -64,9 +65,12 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
     return fmt(total - before.reduce((t: number, r) => t + (r! - coursePar), 0));
   };
 
+  // Majors pools: each entry's lineup counts every golfer in it; the viewer's lineup is "mine".
+  const majors = golfFormat(ctx.pool) === "majors";
+  const lineups = majors ? (await getVisibleLineups(ctx)).filter((l) => l.event_id === event.id) : [];
   const pickedBy = new Map<string, number>();
-  for (const p of picks) if (p.event_id === event.id) pickedBy.set(p.espn_golfer_id, (pickedBy.get(p.espn_golfer_id) ?? 0) + 1);
-  const mine = myPicks.find((p) => p.event_id === event.id)?.espn_golfer_id ?? null;
+  for (const p of majors ? lineups : picks.filter((p) => p.event_id === event.id)) pickedBy.set(p.espn_golfer_id, (pickedBy.get(p.espn_golfer_id) ?? 0) + 1);
+  const mineSet = new Set(majors ? lineups.filter((l) => l.user_id === ctx.entryUserId).map((l) => l.espn_golfer_id) : (myPicks.filter((p) => p.event_id === event.id).map((p) => p.espn_golfer_id)));
   const tee = (iso: string | null) => (iso ? `${formatInTimeZone(iso, ctx.displayTz, "EEE h:mm a")}` : null);
 
   let rows: LeaderRow[] = live
@@ -85,7 +89,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           today: today(g),
           earnings: g.earnings,
           pickedBy: pickedBy.get(g.id) ?? 0,
-          mine: g.id === mine,
+          mine: mineSet.has(g.id),
           _order: g.order ?? 9999,
           _tee: g.tee ?? "~",
           _last: g.lastName,
@@ -103,7 +107,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
         today: null,
         earnings: Number(r.earnings),
         pickedBy: pickedBy.get(r.espn_golfer_id) ?? 0,
-        mine: r.espn_golfer_id === mine,
+        mine: mineSet.has(r.espn_golfer_id),
         _order: 9999,
         _tee: r.tee_at ?? "~",
         _last: r.golfer_name.split(" ").slice(-1)[0],
@@ -141,7 +145,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
       <div className="mb-2 flex shrink-0 flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-line pb-2">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-            Leaderboard · Week {weekNo}
+            {majors ? "Leaderboard" : `Leaderboard · Week ${weekNo}`}
           </div>
           <h2 className="text-lg font-bold leading-tight">{event.name}</h2>
           <p className={`text-xs ${state === "live" ? "text-live" : "text-muted"}`}>{status}</p>
@@ -150,7 +154,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           basePath={`/p/${slug}/golf/leaderboard`}
           value={event.id}
           // Week 1 at the top, through the season.
-          events={counted.map((e, i) => ({ id: e.id, label: `Week ${i + 1} · ${e.name}` }))}
+          events={counted.map((e, i) => ({ id: e.id, label: majors ? e.name : `Week ${i + 1} · ${e.name}` }))}
         />
       </div>
       {rows.length === 0 ? (

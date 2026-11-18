@@ -3,7 +3,8 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfGrid, type GridRow, type GridWeek } from "@/components/GolfGrid";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
-import { getGolfContext, shortEventName } from "@/lib/golf";
+import { redirect } from "next/navigation";
+import { getGolfContext, golfFormat, shortEventName } from "@/lib/golf";
 import { getGolfStandingsData } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "League Grid" };
@@ -23,6 +24,7 @@ export default async function GolfGridPage({ params, searchParams }: PageProps<"
   const { sort: sortParam } = await searchParams;
   const sort = sortParam === "name" ? "name" : "season";
   const ctx = await getGolfContext(slug);
+  if (golfFormat(ctx.pool) === "majors") redirect(`/p/${slug}/golf/standings`);
   // eslint-disable-next-line react-hooks/purity
   const data = await getGolfStandingsData(ctx, Date.now());
 

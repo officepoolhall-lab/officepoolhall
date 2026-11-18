@@ -10,6 +10,8 @@ import { ChevronIcon, SectionLabel } from "@/components/ui";
 import {
   getGolfContext,
   getGolfEvents,
+  getGolfMembers,
+  golfFormat,
   getGolfMyPicks,
   getGolfResults,
   getGolfStandings,
@@ -27,12 +29,15 @@ import {
 import { tzAbbrev } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
+import { formatToPar } from "@/lib/golfMajors";
+import { getMajorsScoreboard, getVisibleLineups } from "@/lib/golfMajorsData";
 
 export const metadata: Metadata = { title: "Home" };
 
 export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getGolfContext(slug);
+  if (golfFormat(ctx.pool) === "majors") return <MajorsHome slug={slug} ctx={ctx} />;
   const [events, myPicks, standings] = await Promise.all([getGolfEvents(ctx), getGolfMyPicks(ctx), getGolfStandings(ctx)]);
   // Server render time is fine here; the countdown itself ticks client-side.
   // eslint-disable-next-line react-hooks/purity
@@ -268,5 +273,103 @@ function Placeholder({ title, rows }: { title: string; rows: number }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Home for a Majors pool: the live scroll, the next (or current) major with the entry's lineup
+ * status and lock countdown, the standings so far, news and world rankings.
+ */
+async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
+  const [events, members, lineups] = await Promise.all([getGolfEvents(ctx), getGolfMembers(ctx), getVisibleLineups(ctx)]);
+  // eslint-disable-next-line react-hooks/purity -- server render
+  const now = Date.now();
+  const board = await getMajorsScoreboard(ctx, events, members);
+  const live = events.find((e) => e.status === "in_progress");
+  const next = live ?? events.find((e) => e.status === "scheduled") ?? events[events.length - 1];
+  const open = next && next.status === "scheduled" && !!next.start_at && now < Date.parse(next.start_at) && !!next.picks_open_at && Date.parse(next.picks_open_at) <= now;
+  const mine = next ? lineups.filter((l) => l.event_id === next.id && l.user_id === ctx.entryUserId) : [];
+  const s = board.settings;
+  const standingsEvents = s.standings === "each" ? (live ? [live] : board.started.slice(-1)) : board.started;
+  const rows = standingsEvents.length ? board.standingsFor(standingsEvents.map((e) => e.id)) : [];
+  const names = new Map(members.map((m) => [m.user_id, m.display_name]));
+  const fmt = (v: number | null) => (v === null ? "–" : s.contest === "salary" ? (Math.round(v * 10) / 10).toString() : s.tiers.scoring === "earnings" ? money(v) : formatToPar(v));
+  const shown = rows.slice(0, 10);
+  const meRow = rows.find((r) => r.user_id === ctx.entryUserId);
+  if (meRow && !shown.includes(meRow)) shown.push(meRow);
+
+  return (
+    <div data-wide className="space-y-6">
+      <Suspense fallback={<div className="h-7" />}>
+        <GolfLiveTicker ctx={ctx} />
+      </Suspense>
+      <AutoRefresh active={!!live} seconds={120} />
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,22rem)]">
+        <div>
+          <section className="mb-4 border-b border-line pb-3">
+            {next ? (
+              <>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{live ? "Under Way" : next.status === "final" ? "Final" : "Next Major"}</div>
+                <h2 className="text-lg font-bold leading-snug">{next.name}</h2>
+                {next.start_at && next.status === "scheduled" && (
+                  <p className="text-xs text-muted">
+                    Locks {formatInTimeZone(next.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} {tzAbbrev(next.start_at, ctx.displayTz)}
+                  </p>
+                )}
+                <Link href={`/p/${slug}/golf/picks?event=${next.id}`} className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm">
+                  <span>
+                    <span className="block text-xs text-muted">{ctx.managing ? `${ctx.managing.ownerName}'s Lineup` : "My Lineup"}</span>
+                    <span className="font-semibold">
+                      {mine.length ? `${mine.length} golfers picked` : open ? "Not picked yet" : next.status === "scheduled" ? "Picks not open yet" : "No lineup"}
+                    </span>
+                  </span>
+                  {open && next.start_at ? (
+                    <span className="text-right text-xs text-muted">
+                      Locks in
+                      <span className="block font-semibold tabular-nums text-ink">
+                        <Countdown to={next.start_at} />
+                      </span>
+                    </span>
+                  ) : (
+                    <ChevronIcon className="size-4 text-muted" />
+                  )}
+                </Link>
+              </>
+            ) : (
+              <p className="text-sm text-muted">No majors are set up yet.</p>
+            )}
+          </section>
+          <section>
+            <div className="flex items-center justify-between">
+              <SectionLabel>{s.standings === "each" && standingsEvents[0] ? `${standingsEvents[0].name} standings` : "Standings"}</SectionLabel>
+              <Link href={`/p/${slug}/golf/standings`} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
+                All <ChevronIcon className="size-4" />
+              </Link>
+            </div>
+            {shown.length === 0 ? (
+              <p className="border-y border-line py-3 text-sm text-muted">Standings start once the first major tees off.</p>
+            ) : (
+              <ol className="divide-y divide-line border-y border-line">
+                {shown.map((r) => (
+                  <li key={r.user_id} className={`flex min-h-9 items-center gap-2.5 py-1.5 text-sm ${r.user_id === ctx.entryUserId ? "bg-surface font-semibold" : ""}`}>
+                    <span className="w-7 text-right tabular-nums text-muted">{r.total === null ? "" : r.rank}</span>
+                    <span className="min-w-0 flex-1 truncate">{names.get(r.user_id) ?? "Player"}</span>
+                    <span className="tabular-nums">{fmt(r.total)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        </div>
+        <div className="order-last lg:order-none">
+          <Suspense fallback={<Placeholder title="Golf news" rows={6} />}>
+            <News now={now} />
+          </Suspense>
+        </div>
+        <Suspense fallback={<Placeholder title="World golf rankings" rows={10} />}>
+          <Rankings timezone={ctx.displayTz} />
+        </Suspense>
+      </div>
+    </div>
   );
 }

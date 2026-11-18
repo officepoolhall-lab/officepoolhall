@@ -34,3 +34,17 @@ export async function saveGolfPick(slug: string, eventId: string, _: ActionState
   revalidatePath(`/p/${slug}/golf`, "layout");
   return { ok: `Saved: ${golfer.golfer_name}.` };
 }
+
+/** Save an entry's lineup for one major (Majors pools); the database checks the rules. */
+export async function saveGolfLineup(slug: string, eventId: string, forUserId: string | null, golferIds: string[]): Promise<ActionState> {
+  if (!golferIds.length) return { error: "Pick your golfers." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_golf_lineup", {
+    p_event_id: eventId,
+    p_golfer_ids: golferIds,
+    ...(forUserId ? { p_user_id: forUserId } : {}),
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/p/${slug}/golf`, "layout");
+  return { ok: "Lineup saved." };
+}

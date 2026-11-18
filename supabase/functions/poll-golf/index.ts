@@ -11,10 +11,27 @@
 //
 // ESPN fields relied on (checked Nov 2026 on final and pre-event pages; see the project doc
 // claude/golf-espn-data.md): id, name, pos, status ("pre"/"post"), tee (ISO, or "CUT"),
-// thru (0 before starting), r4, "$$" (prize money).
+// thru (0 before starting), r1–r4, toPar, cut, "$$" (prize money).
+//
+// Majors pools (settings.golf_format = "majors") also get each golfer's score to par, whether
+// they're out (missed cut / WD / DQ), holes played and strokes per round; salary cap pools
+// also get hole-by-hole scorecards for every rostered golfer (ESPN core API linescores), for
+// the fantasy points.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-type Golfer = { id: string; name: string; pos: string; earnings: number; status: string; tee: string | null; thru: number; playedR4: boolean };
+type Golfer = {
+  id: string;
+  name: string;
+  pos: string;
+  earnings: number;
+  status: string;
+  tee: string | null;
+  thru: number;
+  playedR4: boolean;
+  toPar: number | null;
+  out: boolean;
+  rounds: (number | null)[];
+};
 type State = { status: "scheduled" | "in_progress" | "final"; firstTee: string | null };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -38,6 +55,31 @@ async function fetchLeaderboard(espnId: string): Promise<string> {
   return await res.text();
 }
 
+/**
+ * One golfer's hole-by-hole scores: { rounds: [{ round, holes: [{ hole, par, strokes }] }] }
+ * (the shape lib/golfMajors.ts scores). Rounds not started are left out.
+ */
+async function fetchScorecard(eventId: string, golferId: string) {
+  const res = await fetch(
+    `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${eventId}/competitions/${eventId}/competitors/${golferId}/linescores`,
+    { signal: AbortSignal.timeout(10000) },
+  );
+  if (!res.ok) return null;
+  const body = await res.json();
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : null);
+  const items: any[] = Array.isArray(body?.items) ? body.items : [];
+  const rounds = items
+    .map((r, i) => ({
+      round: num(r?.period) ?? i + 1,
+      holes: (Array.isArray(r?.linescores) ? r.linescores : []).map((h: any, j: number) => {
+        const strokes = num(h?.value);
+        return { hole: num(h?.period) ?? j + 1, par: num(h?.par), strokes: strokes && strokes > 0 ? strokes : null };
+      }),
+    }))
+    .filter((r) => r.holes.some((h: { strokes: number | null }) => h.strokes !== null));
+  return { rounds };
+}
+
 /** Every golfer object the page embeds ({"guid":...}), one per ESPN id. */
 function parseGolfers(html: string): Golfer[] {
   const byId = new Map<string, Golfer>();
@@ -50,15 +92,21 @@ function parseGolfers(html: string): Golfer[] {
     }
     if (o["$$"] === undefined || typeof o.name !== "string" || o.id === undefined) continue;
     const tee = typeof o.tee === "string" && !Number.isNaN(Date.parse(o.tee)) ? new Date(o.tee).toISOString() : null;
+    const tp = typeof o.toPar === "string" ? o.toPar.trim() : typeof o.toPar === "number" ? String(o.toPar) : "";
+    const pos = o.pos === undefined || o.pos === null || o.pos === "" ? "-" : String(o.pos);
+    const round = (v: unknown) => (typeof v === "number" && v > 0 ? v : typeof v === "string" && /^\d+$/.test(v) && Number(v) > 0 ? Number(v) : null);
     byId.set(String(o.id), {
       id: String(o.id),
       name: o.name,
-      pos: o.pos === undefined || o.pos === null || o.pos === "" ? "-" : String(o.pos),
+      pos,
       earnings: Number(o["$$"]) || 0,
       status: typeof o.status === "string" ? o.status : "",
       tee,
       thru: Number(o.thru) || 0,
       playedR4: typeof o.r4 === "number" && o.r4 > 0,
+      toPar: tp === "E" ? 0 : /^[+-]?\d+$/.test(tp) ? Number(tp) : null,
+      out: o.cut === true || o.tee === "CUT" || /^(MC|CUT|WD|DQ|MDF)$/i.test(pos),
+      rounds: [o.r1, o.r2, o.r3, o.r4].map(round),
     });
   }
   return [...byId.values()];
@@ -93,6 +141,15 @@ Deno.serve(async (req) => {
       .order("pool_id")
       .order("sort_order");
     if (error) return json({ error: error.message }, 500);
+
+    // Salary cap Majors pools, whose rostered golfers need hole-by-hole scores.
+    const poolIds = [...new Set((all ?? []).map((e) => e.pool_id))];
+    const { data: pools } = poolIds.length ? await db.from("pools").select("id, settings").in("id", poolIds) : { data: [] };
+    const salaryPools = new Set(
+      (pools ?? [])
+        .filter((p) => (p.settings as any)?.golf_format === "majors" && (p.settings as any)?.majors?.contest === "salary")
+        .map((p) => p.id as string),
+    );
 
     const horizon = Date.now() + 8 * 86_400_000;
     const untimedSeen = new Map<string, number>();
@@ -129,15 +186,41 @@ Deno.serve(async (req) => {
         if (lockError) return json({ error: lockError.message, event: ev.espn_id }, 500);
       }
 
+      // Salary cap majors: hole-by-hole for every rostered golfer, while it's being played (and
+      // one last time as it goes final: stored before the results, which freeze a final event).
+      let cards = 0;
+      if (state.status !== "scheduled" && salaryPools.has(ev.pool_id)) {
+        const { data: rostered } = await db.from("golf_lineups").select("espn_golfer_id").eq("event_id", ev.id);
+        const ids = [...new Set((rostered ?? []).map((r) => r.espn_golfer_id))];
+        const out: { espn_golfer_id: string; scorecard: unknown }[] = [];
+        for (let i = 0; i < ids.length; i += 8) {
+          const batch = await Promise.all(ids.slice(i, i + 8).map((id) => fetchScorecard(ev.espn_id, id).catch(() => null)));
+          batch.forEach((card, k) => card && out.push({ espn_golfer_id: ids[i + k], scorecard: card }));
+        }
+        if (out.length) {
+          const { error: cardError } = await db.rpc("ingest_golf_scorecards", { p_event_id: ev.id, p_cards: out });
+          if (cardError) report.push({ event: ev.espn_id, scorecards: cardError.message });
+          cards = out.length;
+        }
+      }
       if (golfers.length > 0) {
         const { error: resultsError } = await db.rpc("ingest_golf_results", {
           p_event_id: ev.id,
           p_status: state.status,
-          p_results: golfers.map((g) => ({ espn_golfer_id: g.id, golfer_name: g.name, pos: g.pos, earnings: g.earnings })),
+          p_results: golfers.map((g) => ({
+            espn_golfer_id: g.id,
+            golfer_name: g.name,
+            pos: g.pos,
+            earnings: g.earnings,
+            to_par: g.toPar,
+            out: g.out,
+            thru: g.thru,
+            rounds: g.rounds,
+          })),
         });
         if (resultsError) return json({ error: resultsError.message, event: ev.espn_id }, 500);
       }
-      report.push({ event: ev.espn_id, name: ev.name, status: state.status, firstTee: state.firstTee, golfers: golfers.length });
+      report.push({ event: ev.espn_id, name: ev.name, status: state.status, firstTee: state.firstTee, golfers: golfers.length, scorecards: cards });
     }
     return json({ ok: true, polled: events.length, report });
   } catch (e) {

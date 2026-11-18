@@ -25,7 +25,14 @@ export type GolfEvent = {
   status: "scheduled" | "in_progress" | "final" | "canceled";
   /** When picks open, if set by hand; otherwise 7 a.m. Central on the Monday of its week. */
   picks_open_at: string | null;
+  /** Which major championship, in a Majors pool ("masters", "pga", "us_open", "open"). */
+  major: string | null;
 };
+
+/** A golf pool's format: the season-long one-and-done (default) or the major championships. */
+export function golfFormat(pool: { settings: unknown }): "season" | "majors" {
+  return (pool.settings as Record<string, unknown> | null)?.golf_format === "majors" ? "majors" : "season";
+}
 
 export type GolfResult = {
   espn_golfer_id: string;
@@ -101,7 +108,7 @@ async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data
 export const getGolfEvents = cache(async (ctx: PoolBase): Promise<GolfEvent[]> => {
   const { data } = await ctx.supabase
     .from("golf_events")
-    .select("id, espn_id, name, sort_order, start_at, status, picks_open_at")
+    .select("id, espn_id, name, sort_order, start_at, status, picks_open_at, major")
     .eq("pool_id", ctx.pool.id)
     .order("sort_order");
   return (data ?? []) as GolfEvent[];
@@ -216,6 +223,7 @@ export const getGolfStandings = cache(async (ctx: PoolBase): Promise<GolfStandin
 });
 
 /** Every entry in the pool (all pages), for Standings and the Grid. */
+export { allRows };
 export const getGolfMembers = cache(async (ctx: PoolBase): Promise<{ user_id: string; display_name: string }[]> => {
   const rows = await allRows<{ user_id: string; profile: unknown }>((from, to) =>
     ctx.supabase
