@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
+import { GridPanel } from "@/components/GridPanel";
 import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
 import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
 import { hasStarted, isGameLocked } from "@/lib/locks";
@@ -126,6 +127,14 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     sides.set(p.game_id, c);
   }
 
+  // Desktop widths, in rem: the player column (narrower on long weeks), then each column's
+  // minimum. The grid fills the screen and only scrolls sideways below this.
+  const playerRem = games.length > 16 ? 14 : 18;
+  const gridMinRem = playerRem + tournaments.length * 3 + games.length * 2.75;
+  // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
+  // at that width, and is tall enough for the panel to fit without scrolling.
+  const panelFromPx = Math.ceil((gridMinRem + 18 + 1.25 + 1.5 + 2 + 1) * 16);
+
   return (
     // Fills the viewport under the sticky header (and the phone tab row) so the grid's own
     // scrollbars sit on screen; the layout drops its tracker padding for this page.
@@ -168,17 +177,18 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
       {/* On touch screens each swipe scrolls one way only (up/down or left/right). */}
-      <AxisLockScroll className="relative -mx-4 min-h-0 flex-1 overflow-auto isolate sm:mx-0">
+      <div className="flex min-h-0 flex-1 gap-6">
+      <AxisLockScroll className="relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0">
         {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
             but never narrower than a readable column each; past that it scrolls as on phones. */}
         <table
           className="border-separate border-spacing-0 text-sm lg:w-full lg:min-w-[var(--grid-min)] lg:table-fixed"
-          style={{ "--grid-min": `${18 + tournaments.length * 3 + games.length * 4.5}rem` } as CSSProperties}
+          style={{ "--grid-min": `${gridMinRem}rem` } as CSSProperties}
         >
           <thead>
             <tr>
               {/* Player and Pts share one pinned cell so the points never scroll away. */}
-              <th className="sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted lg:w-[18rem]">
+              <th className={`sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted ${playerRem === 14 ? "lg:w-[14rem]" : "lg:w-[18rem]"}`}>
                 <div className="flex items-end justify-between gap-3">
                   <span className="min-w-20">Player</span>
                   <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
@@ -403,6 +413,19 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           </tfoot>
         </table>
       </AxisLockScroll>
+      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } }`}</style>
+      <GridPanel
+        games={games}
+        picks={picks ?? []}
+        revealed={(id) => {
+          const g = games.find((x) => x.id === id);
+          return Boolean(g && isRevealed(g));
+        }}
+        me={ctx.isGuest ? null : ctx.entryUserId}
+        ats={ats}
+        confidence={Boolean(ctx.settings.confidence)}
+      />
+      </div>
     </div>
   );
 }
