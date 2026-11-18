@@ -231,17 +231,18 @@ export function TeamHistoryDialog({
           )}
           {ats && !t.ats.length && <Note>No lines found for this team&apos;s games yet.</Note>}
           <section className="mt-4">
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Recent Games</h3>
+            {/* The heading, with the Line and Cover column labels on its line in ATS pools. */}
+            <div className="mb-1 flex items-end gap-2 text-muted">
+              <h3 className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide">Recent Games</h3>
+              {ats && t.recent.length > 0 && (
+                <>
+                  <span className="w-12 shrink-0 text-right text-[11px] font-medium" aria-hidden>Line</span>
+                  <span className="w-10 shrink-0 text-right text-[11px] font-medium" aria-hidden>Cover</span>
+                </>
+              )}
+            </div>
             {t.recent.length ? (
               <ul className="border-t border-line text-sm">
-                {/* Column labels for the line and the cover mark (ATS pools). */}
-                {ats && (
-                  <li className="flex items-end gap-2 border-b border-line pb-1 pt-1.5 text-[11px] font-medium text-muted" aria-hidden>
-                    <span className="min-w-0 flex-1" />
-                    <span className="w-12 shrink-0 text-right">Line</span>
-                    <span className="w-10 shrink-0 text-right">Cover</span>
-                  </li>
-                )}
                 {t.recent.slice(0, ats ? 15 : 10).map((g) => (
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
