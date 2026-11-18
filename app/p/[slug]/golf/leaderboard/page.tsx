@@ -7,6 +7,8 @@ import { Empty, PageTitle } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { getGolfContext, getGolfEvents, getGolfMyPicks, getGolfResults, getGolfVisiblePicks, golfFormat, golfWeek } from "@/lib/golf";
 import { getVisibleLineups } from "@/lib/golfMajorsData";
+import { getEventInfo } from "@/lib/golfEventInfo";
+import { projectedEarnings } from "@/lib/golfMajors";
 import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
 import { getCoursePar } from "@/lib/golfScorecard";
 
@@ -120,6 +122,18 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           Number(/^(MC|CUT|WD|DQ)$/.test(a.pos)) - Number(/^(MC|CUT|WD|DQ)$/.test(b.pos)) || a._order - b._order || posRank(a.pos) - posRank(b.pos) || a._last.localeCompare(b._last),
     )
     .map(({ _order, _tee, _last, ...r }) => r);
+
+  // While it's played: each golfer's prize money projected from their current place and the
+  // purse (ties split), shown until the real amounts are posted.
+  if (state === "live") {
+    const purse = (await getEventInfo([event], ctx.pool.slug)).get(event.id)?.purse ?? null;
+    const proj = projectedEarnings(
+      rows.map((r) => ({ espn_golfer_id: r.id, pos: r.pos, out: /^(MC|CUT|WD|DQ)$/.test(r.pos), to_par: null, thru: null, earnings: 0, rounds: null, scorecard: null })),
+      purse,
+      false,
+    );
+    rows = rows.map((r) => ({ ...r, projected: proj.get(r.id) ?? null }));
+  }
 
   const status =
     state === "final"

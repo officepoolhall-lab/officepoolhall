@@ -7,6 +7,9 @@ import { formatShown, formatToPar, golferShown, type MajorsSettings } from "@/li
 import { getMajorsScoreboard } from "@/lib/golfMajorsData";
 
 type Sort = "score" | "name" | "toPar" | "money";
+/** $1.2M, $85K, $900 (compact, for the lineup cards). */
+const shortMoney = (n: number) =>
+  n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, "")}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : n > 0 ? `$${n}` : "$0";
 const pts = (n: number) => (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, "");
 
 /**
@@ -150,7 +153,7 @@ export async function MajorsStandings({
           ? "Lowest total wins. A golfer who misses the cut takes the worst score of anyone who made it. "
           : "Highest total wins. "}
         {s.contest === "tiers" && s.tiers.counting < s.tiers.picks.reduce((a, b) => a + b, 0) ? `The best ${s.tiers.counting} golfers count (in bold). ` : ""}
-        {anyLive ? "Earnings are projected from where each golfer stands now and the purse, until the prize money is posted." : ""}
+        {anyLive ? "Earnings (Proj. $) are projected from current standings and the purse (ties split), until the prize money is posted." : ""}
       </p>
     </div>
   );
@@ -201,6 +204,8 @@ function Lineup({
   const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
   const counts = new Map(score?.golfers.map((g) => [g.espn_golfer_id, g]) ?? []);
   const final = event.status === "final";
+  // The score column is always score to par (points for salary cap); money has its own column.
+  const asScore: MajorsSettings = s.contest === "salary" ? s : { ...s, tiers: { ...s.tiers, scoring: "to_par" } };
   return (
     <div className="mt-1.5">
       {showName && <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{event.name}</div>}
@@ -208,6 +213,13 @@ function Lineup({
         <p className="text-sm text-muted">No lineup.</p>
       ) : (
         <ul className="text-sm">
+          <li className="flex items-center gap-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint" aria-hidden>
+            <span className="w-9 shrink-0">{s.contest === "salary" ? "Salary" : "Tier"}</span>
+            <span className="min-w-0 flex-1">Golfer</span>
+            <span className="w-9 shrink-0 text-right">Place</span>
+            <span className="w-11 shrink-0 text-right">{s.contest === "salary" ? "Pts" : "Score"}</span>
+            <span className="w-14 shrink-0 text-right">{final ? "Earnings" : "Proj. $"}</span>
+          </li>
           {[...rows]
             .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0) || a.golfer_name.localeCompare(b.golfer_name))
             .map((l) => {
@@ -218,8 +230,9 @@ function Lineup({
                   <span className="w-9 shrink-0 text-[11px] tabular-nums text-muted">{s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}</span>
                   <span className={`min-w-0 flex-1 truncate ${counted ? "font-medium" : ""}`}>{l.golfer_name}</span>
                   <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
-                  {/* Score to par while it's played; prize money once final in money pools. */}
-                  <span className={`w-16 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, s, final))}</span>
+                  <span className={`w-11 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, asScore, final))}</span>
+                  {/* Prize money: projected from current standings until it's posted. */}
+                  <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{r ? shortMoney(r.earnings) : "–"}</span>
                 </li>
               );
             })}
