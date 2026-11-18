@@ -41,7 +41,7 @@ export function Scoreboard({
   week: number;
   games: SlateGame[];
   timezone: string;
-  sport: "ncaaf" | "ncaab";
+  sport: "ncaaf" | "ncaab" | "nfl";
   /** ESPN team id → overall record ("6-0"). */
   records: Record<string, string>;
   /** Against-the-spread pool: show each game's line. */

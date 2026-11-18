@@ -15,6 +15,7 @@ import { SCORING_LABEL, getMemberTournamentPicks, getTournamentPicks, getTournam
 import { getTeamRecords } from "@/lib/teamRecords";
 import { withLiveClocks } from "@/lib/liveClock";
 import { PickBoard } from "./PickBoard";
+import { teamSport } from "@/lib/sports";
 
 export const metadata: Metadata = { title: "My Picks" };
 
@@ -116,7 +117,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
   const now = Date.now();
-  const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
+  const sport = teamSport(ctx.pool.sport);
   // Teams' current records (ESPN), shown next to each team name; and for games in progress,
   // the game clock and period with the latest score (ESPN), refreshed each minute while live.
   const [records, games] = await Promise.all([

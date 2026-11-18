@@ -198,7 +198,28 @@ export const PRESETS = {
       visibility: { show_picks_after: "game_start" },
     },
   },
-} as const satisfies Record<string, { label: string; sport: "ncaab" | "ncaaf"; settings: PoolSettings }>;
+  // NFL Supercontest: the same rules as the NCAAF one, for the NFL
+  nfl_ats: {
+    label: "NFL Supercontest (ATS)",
+    sport: "nfl",
+    settings: {
+      pick_type: "ats",
+      picks_per_slate: 5,
+      picks_mode: "exact",
+      confidence: null,
+      scoring: { win: 1, push: 0.5, loss: 0 },
+      upset_bonus: null,
+      missed_week: "zero",
+      full_card: true,
+      segments: null,
+      lock: { mode: "per_game" },
+      timezone: "America/Chicago",
+      window: { start_weekday: 1, length_days: 7 },
+      lines: { bookmaker: "draftkings", freeze_at: "publish", force_half_point: false },
+      visibility: { show_picks_after: "game_start" },
+    },
+  },
+} as const satisfies Record<string, { label: string; sport: "ncaab" | "ncaaf" | "nfl"; settings: PoolSettings }>;
 
 export type PresetKey = keyof typeof PRESETS;
 

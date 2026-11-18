@@ -19,12 +19,13 @@ import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getTournamentPicks, getTournaments, tournamentUpside } from "@/lib/tournaments";
 import { getStandingsBook } from "@/lib/standings";
+import { NEWS_TITLE, teamSport, type TeamSport } from "@/lib/sports";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   const [slate, upcoming] = await Promise.all([getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
-  const sport = ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf";
+  const sport = teamSport(ctx.pool.sport);
   // Everything the pool's own data needs, in one round: the standings (one load of the
   // scores for both tables), the week's games, the entry's picks and score, and how many
   // picks it has for next week if that's open early. News and rankings come from other
@@ -202,26 +203,29 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
           )}
         </div>
         <div className="order-last lg:order-none">
-          <Suspense fallback={<Placeholder title={sport === "ncaaf" ? "College football news" : "College basketball news"} rows={6} />}>
+          <Suspense fallback={<Placeholder title={NEWS_TITLE[sport]} rows={6} />}>
             <News sport={sport} now={now} />
           </Suspense>
         </div>
-        <Suspense fallback={<Placeholder title="Rankings" rows={10} />}>
-          <Poll sport={sport} timezone={ctx.displayTz} />
-        </Suspense>
+        {/* The NFL has no poll. */}
+        {sport !== "nfl" && (
+          <Suspense fallback={<Placeholder title="Rankings" rows={10} />}>
+            <Poll sport={sport} timezone={ctx.displayTz} />
+          </Suspense>
+        )}
       </div>
     </div>
   );
 }
 
 /** Top stories from the news sites; streams in after the rest of the page. */
-async function News({ sport, now }: { sport: "ncaaf" | "ncaab"; now: number }) {
+async function News({ sport, now }: { sport: TeamSport; now: number }) {
   const news = await getNews(sport, 10);
-  return <NewsList stories={news} now={now} title={sport === "ncaaf" ? "College football news" : "College basketball news"} />;
+  return <NewsList stories={news} now={now} title={NEWS_TITLE[sport]} />;
 }
 
 /** AP Top 25 (or CFP rankings) from ESPN; streams in after the rest of the page. */
-async function Poll({ sport, timezone }: { sport: "ncaaf" | "ncaab"; timezone: string }) {
+async function Poll({ sport, timezone }: { sport: TeamSport; timezone: string }) {
   return <ApPollList poll={await getApPoll(sport)} timezone={timezone} />;
 }
 

@@ -83,7 +83,7 @@ export function PickBoard({
   /** Shown above the games, e.g. the week's tournament champion picks. */
   top?: ReactNode;
   /** For the live poll (ESPN's scoreboard differs by sport). */
-  sport?: "ncaaf" | "ncaab";
+  sport?: "ncaaf" | "ncaab" | "nfl";
 }) {
   const [picks, setPicks] = useState<Record<string, Draft>>(() => toDrafts(initialPicks));
   const [save, setSave] = useState<{ state: "idle" | "saving" | "saved" | "error"; message?: string }>({ state: "idle" });

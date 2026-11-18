@@ -7,6 +7,7 @@ import { effectiveLockAt } from "./locks";
 import { getApPoll } from "./apPoll";
 import { poolSettingsSchema } from "./poolSettings";
 import { getViewerTimeZone } from "./viewerTime";
+import { teamSport } from "./sports";
 
 export { effectiveLockAt } from "./locks";
 
@@ -104,7 +105,7 @@ const GAME_SELECT = `
 export async function getSlateGames(ctx: PoolContext, slateId: string) {
   const [{ data, error }, poll] = await Promise.all([
     ctx.supabase.from("slate_games").select(GAME_SELECT).eq("slate_id", slateId),
-    getApPoll(ctx.pool.sport === "ncaab" ? "ncaab" : "ncaaf"),
+    getApPoll(teamSport(ctx.pool.sport)),
   ]);
   if (error) throw error;
   // Ranks come from the same poll as Home (AP; CFP for football once out) for every game

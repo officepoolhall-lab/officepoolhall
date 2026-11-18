@@ -1,14 +1,18 @@
 // ESPN's undocumented site API. Shapes verified against live responses Oct 2026.
 
-export type Sport = "ncaab" | "ncaaf";
+export type Sport = "ncaab" | "ncaaf" | "nfl";
+/** The sports these imports handle (golf has its own). */
+export const SPORTS: Sport[] = ["ncaab", "ncaaf", "nfl"];
+export const isSport = (s: unknown): s is Sport => SPORTS.includes(s as Sport);
 
 const BASE = "https://site.api.espn.com/apis/site/v2/sports";
 const PATH: Record<Sport, string> = {
   ncaab: "basketball/mens-college-basketball",
   ncaaf: "football/college-football",
+  nfl: "football/nfl",
 };
-// groups=50 → all D1 basketball; groups=80 → FBS football
-const GROUP: Record<Sport, string> = { ncaab: "50", ncaaf: "80" };
+// groups=50 → all D1 basketball; groups=80 → FBS football; the NFL needs none.
+const GROUP: Record<Sport, string> = { ncaab: "50", ncaaf: "80", nfl: "" };
 
 const SHORT_CONFERENCE: Record<string, string> = {
   "Atlantic Coast Conference": "ACC",
@@ -69,6 +73,8 @@ async function getJson(url: string) {
  * so ingest never overwrites a stored conference with a division label.
  */
 export async function fetchConferences(sport: Sport): Promise<Map<string, string>> {
+  // NFL teams have no conferences to show (and every game counts the same).
+  if (sport === "nfl") return new Map();
   const data = await getJson(`${BASE}/${PATH[sport]}/scoreboard/conferences`);
   const out = new Map<string, string>();
   for (const c of data.conferences ?? []) {
@@ -100,7 +106,8 @@ function rank(r: { current?: number } | undefined) {
 
 /** One day's scoreboard. `date` is yyyymmdd (ESPN uses US Eastern dates). */
 export async function fetchScoreboard(sport: Sport, date: string, conferences?: Map<string, string>) {
-  const data = await getJson(`${BASE}/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`);
+  const groups = GROUP[sport] ? `&groups=${GROUP[sport]}` : "";
+  const data = await getJson(`${BASE}/${PATH[sport]}/scoreboard?dates=${date}${groups}&limit=500`);
   const teams = new Map<string, FeedTeam>();
   const games: FeedGame[] = [];
 

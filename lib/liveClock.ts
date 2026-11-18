@@ -1,14 +1,13 @@
 import "server-only";
 import { hasStarted } from "./locks";
 import type { SlateGame } from "./pool";
+import { ESPN_PATH, groupsParam, type TeamSport } from "./sports";
 
 // Live game clocks from ESPN's scoreboard, for games in progress: the clock and period
 // ("8:44 2nd Half", "Halftime", "5:12 3rd") plus the score at that moment, which is fresher than
 // the stored score (the poller saves scores every couple of minutes). Fetched only for the
 // dates that have a live game, cached 30 seconds; if ESPN doesn't answer, games just show "Live".
 
-const PATH = { ncaaf: "football/college-football", ncaab: "basketball/mens-college-basketball" } as const;
-const GROUP = { ncaaf: "80", ncaab: "50" } as const;
 
 export function espnDate(at: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(at)).replaceAll("-", "");
@@ -48,12 +47,12 @@ export type LiveDetail = {
  * `maxAgeSeconds` is how stale a cached scoreboard may be: 30 for page renders, a few seconds
  * for the live poll on My Picks.
  */
-export async function fetchLiveDetails(sport: "ncaaf" | "ncaab", dates: string[], maxAgeSeconds = 30): Promise<Map<string, LiveDetail>> {
+export async function fetchLiveDetails(sport: TeamSport, dates: string[], maxAgeSeconds = 30): Promise<Map<string, LiveDetail>> {
   const found = new Map<string, LiveDetail>();
   await Promise.all(
     [...new Set(dates)].slice(0, 4).map(async (date) => {
       try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATH[sport]}/scoreboard?dates=${date}&groups=${GROUP[sport]}&limit=500`, {
+        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
           headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
           next: { revalidate: maxAgeSeconds },
           signal: AbortSignal.timeout(3000),
@@ -92,7 +91,7 @@ export async function fetchLiveDetails(sport: "ncaaf" | "ncaab", dates: string[]
 }
 
 /** The games with each live one's clock, score, situation and last play filled in from ESPN. */
-export async function withLiveClocks(sport: "ncaaf" | "ncaab", games: SlateGame[], now: number): Promise<SlateGame[]> {
+export async function withLiveClocks(sport: TeamSport, games: SlateGame[], now: number): Promise<SlateGame[]> {
   const live = games.filter((g) => isLive(g, now) && g.espnId && !g.espnId.startsWith("demo-"));
   if (!live.length) return games;
   const found = await fetchLiveDetails(sport, live.map((g) => espnDate(g.startAt)));

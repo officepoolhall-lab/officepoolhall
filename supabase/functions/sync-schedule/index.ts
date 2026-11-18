@@ -1,7 +1,7 @@
 // Upsert the next N days of games (and their teams) from ESPN.
 // Schedule: daily ~6:00 CT via pg_cron. Body (optional): { sport?: "ncaab"|"ncaaf", days?: number }
 import { adminClient, handler, json, readBody, requireServiceRole } from "../_shared/supabase.ts";
-import { espnDate, fetchConferences, fetchScoreboard, type Sport } from "../_shared/espn.ts";
+import { espnDate, fetchConferences, fetchScoreboard, type Sport, isSport } from "../_shared/espn.ts";
 
 Deno.serve(handler(async (req) => {
   const denied = requireServiceRole(req);
@@ -16,7 +16,8 @@ Deno.serve(handler(async (req) => {
     sports = [body.sport];
   } else {
     const { data } = await db.from("pools").select("sport");
-    sports = [...new Set((data ?? []).map((p) => p.sport as Sport))];
+    // Golf pools have their own import (poll-golf).
+    sports = [...new Set((data ?? []).map((p) => p.sport as string))].filter(isSport);
   }
 
   const summary: Record<string, { games: number; teams: number }> = {};
