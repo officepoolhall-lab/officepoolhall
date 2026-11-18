@@ -9,6 +9,7 @@ import { getGameSummary, type GameSummary, type Play } from "@/lib/gameSummary";
 import { getPoolContext } from "@/lib/pool";
 import { teamSport } from "@/lib/sports";
 import { PlayerName } from "@/components/ProfileDialogs";
+import { BoxStatsToggle } from "@/components/BoxStatsToggle";
 
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -203,6 +204,12 @@ function phoneName(team: GameSummary["home"]) {
   return team.name.length > 14 && team.abbreviation ? team.abbreviation : team.name;
 }
 
+/** Basketball's basic counting stats: the columns a box score shows until Full stats is on. */
+const BASIC = new Set(["MIN", "PTS", "REB", "AST", "STL", "BLK", "TO"]);
+/** The other basketball columns: hidden below 1280px until Full stats is on (BoxStatsToggle). */
+const extra = (sport: string, label: string | undefined) =>
+  sport === "ncaab" && label && !BASIC.has(label) ? "hidden group-data-[full=true]/box:table-cell xl:table-cell" : "";
+
 /** Box score, one part at a time: Team Stats, then each team's player stats (home, away). */
 function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "ncaab" | "nfl" }) {
   const { away, home } = summary;
@@ -233,6 +240,8 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
     const t = summary.players.find((p) => p.teamId === team?.id) ?? summary.players.find((p) => p.abbreviation === team?.abbreviation);
     if (!t) return <p className="border-y border-line py-3 text-sm text-muted">No player stats yet.</p>;
     return (
+        // Basketball: the basic counting stats until "Full stats" is on (wide screens show all).
+        <BoxStatsToggle enabled={sport === "ncaab"}>
         <div className="space-y-4">
           {t.groups.map((g) => (
             // Phones: every column and full names; the table scrolls sideways with the name column
@@ -250,7 +259,7 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
                         // Fitted (tablet and up): made–attempted columns ("10-17") get room for five
                         // characters at the stat size; the rest share what's left.
                         style={g.rows.some((r) => /^\d+[-/]\d+$/.test(r.stats[i] ?? "")) ? ({ "--pair-w": "calc(3.5 * clamp(9px, 2.6vw, 13px))" } as CSSProperties) : undefined}
-                        className="whitespace-nowrap px-1.5 py-1.5 text-right text-[11px] font-medium sm:w-[var(--pair-w,auto)] sm:truncate sm:px-0.5"
+                        className={`whitespace-nowrap px-1.5 py-1.5 text-right text-[11px] font-medium sm:w-[var(--pair-w,auto)] sm:truncate sm:px-0.5 ${extra(sport, l)}`}
                       >
                         {l}
                       </th>
@@ -278,7 +287,7 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
                         <PlayerName sport={sport} id={r.id} name={r.name} className="block whitespace-nowrap sm:w-full sm:truncate" />
                       </td>
                       {r.stats.map((v, i) => (
-                        <td key={i} className="whitespace-nowrap px-1.5 py-1 text-right sm:px-0.5">{v}</td>
+                        <td key={i} className={`whitespace-nowrap px-1.5 py-1 text-right sm:px-0.5 ${extra(sport, g.labels[i])}`}>{v}</td>
                       ))}
                     </tr>
                     </Fragment>
@@ -287,7 +296,7 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
                     <tr className="font-semibold">
                       <td className="sticky left-0 z-10 bg-bg py-1 pl-4 pr-3 sm:static sm:pr-2">Team</td>
                       {g.totals.map((v, i) => (
-                        <td key={i} className="whitespace-nowrap px-1.5 py-1 text-right sm:px-0.5">{v}</td>
+                        <td key={i} className={`whitespace-nowrap px-1.5 py-1 text-right sm:px-0.5 ${extra(sport, g.labels[i])}`}>{v}</td>
                       ))}
                     </tr>
                   )}
@@ -296,6 +305,7 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
             </div>
           ))}
         </div>
+        </BoxStatsToggle>
     );
   };
   return (
