@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { PasswordNudge } from "@/components/PasswordNudge";
+import { OpenGameFromQuery } from "@/components/OpenGameFromQuery";
 import { PoolNav } from "@/components/PoolNav";
 import { PoolPresence } from "@/components/PoolPresence";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
@@ -52,6 +53,8 @@ export default async function PoolLayout({ children, modal, params }: LayoutProp
       {/* A game opened from inside the app shows here as a pop-up (@modal/(.)game). Outside
           <main>, so its wide layout doesn't change the width of the page underneath. */}
       {modal}
+      {/* After a refresh with a game open: reopen its pop-up over this page. */}
+      <OpenGameFromQuery slug={slug} />
     </PoolPresence>
   );
 }
