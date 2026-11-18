@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
+import { FitText } from "@/components/FitText";
 import { TeamLogo } from "@/components/ui";
 import { formatSpread, points } from "@/lib/format";
 
@@ -125,7 +126,7 @@ export function GridPanel({
           return (
             <Row key={`${s.game.id}:${s.side}`}>
               <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-4" />
-              <span className="w-12 shrink-0 font-semibold">{team.abbreviation}</span>
+              <FitText min={8} className="w-12 shrink-0 font-semibold">{team.abbreviation}</FitText>
               <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface">
                 <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.round((s.n / Math.max(entries, 1)) * 100)}%` }} />
               </span>
@@ -160,7 +161,7 @@ export function GridPanel({
                 <>
                   <TeamLogo src={winner.logo_url} abbr={winner.abbreviation} className="size-4" />
                   <span className="hidden min-w-0 truncate @min-[14rem]:inline">{winner.short_name ?? winner.name ?? winner.abbreviation}</span>
-                  <span className={`hidden min-w-0 truncate @min-[14rem]:!hidden ${ats ? "@min-[8.75rem]:inline" : "@min-[6.5rem]:inline"}`}>{winner.abbreviation}</span>
+                  <FitText min={8} className={`hidden @min-[14rem]:!hidden ${ats ? "@min-[8.75rem]:block" : "@min-[6.5rem]:block"}`}>{winner.abbreviation}</FitText>
                   {/* The line the winner covered, from its side. */}
                   {ats && g.spread !== null && (
                     <span className="shrink-0 font-normal tabular-nums text-muted">{formatSpread(winner === g.home ? g.spread : -g.spread)}</span>
@@ -186,7 +187,7 @@ export function GridPanel({
               return (
                 <Row key={`${b.game.id}:${b.side}`}>
                   <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-4" />
-                  <span className="w-12 shrink-0 font-semibold">{team.abbreviation}</span>
+                  <FitText min={8} className="w-12 shrink-0 font-semibold">{team.abbreviation}</FitText>
                   <span className="font-semibold tabular-nums text-accent">+{points(b.bonus)}</span>
                   <span className="ml-auto shrink-0 tabular-nums text-muted">
                     {b.n} {b.n === 1 ? "entry" : "entries"}
@@ -210,9 +211,11 @@ export function GridPanel({
             if (chips) {
               return (
                 <Row key={p.game_id} center>
-                  <span className={`truncate font-semibold ${tone}`} title={`${team.abbreviation}: ${share(p)}% of the picks on this game`}>
-                    {team.abbreviation}
-                    {confidence && p.confidence !== null && <span className="ml-0.5 text-muted">{p.confidence}</span>}
+                  <span className="min-w-0" title={`${team.abbreviation}: ${share(p)}% of the picks on this game`}>
+                    <FitText min={8} className={`font-semibold ${tone}`}>
+                      {team.abbreviation}
+                      {confidence && p.confidence !== null && <span className="ml-0.5 text-muted">{p.confidence}</span>}
+                    </FitText>
                   </span>
                 </Row>
               );
@@ -220,11 +223,11 @@ export function GridPanel({
             return (
               <Row key={p.game_id}>
                 <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-4" />
-                <span className={`min-w-0 flex-1 truncate font-semibold ${tone}`}>
+                <FitText min={8} className={`flex-1 font-semibold ${tone}`}>
                   {team.abbreviation}
                   {lineOf(p)}
                   {confidence && p.confidence !== null && <span className="ml-1 font-normal text-muted">· {points(p.confidence)}</span>}
-                </span>
+                </FitText>
                 <span className="shrink-0 tabular-nums text-muted">{share(p)}% of picks</span>
                 <span className={`w-4 shrink-0 text-right text-[11px] font-semibold ${tone}`}>
                   {p.result === "win" ? "W" : p.result === "loss" ? "L" : p.result === "push" ? "P" : ""}
