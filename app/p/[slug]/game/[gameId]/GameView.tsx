@@ -111,7 +111,8 @@ export async function GameView({
         param="view"
         ariaLabel="Show"
         views={[
-          { id: "plays", label: "Play-by-Play", content: <PlayByPlay summary={summary} /> },
+          // Desktop: the play-by-play ends where the box score beside it ends and scrolls inside.
+          { id: "plays", label: "Play-by-Play", content: <PlayByPlay summary={summary} />, scroll: true },
           { id: "box", label: "Box Score", content: <BoxScore summary={summary} sport={sport} /> },
         ]}
       />
