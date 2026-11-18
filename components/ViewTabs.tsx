@@ -55,7 +55,9 @@ export function ViewTabs({
             className={`${v.id === active ? "" : "hidden lg:block"} ${v.scroll ? "lg:!flex lg:h-0 lg:min-h-[max(100%,24rem)] lg:flex-col" : ""}`}
           >
             <h2 className="mb-2 hidden shrink-0 text-lg font-extrabold tracking-[-0.03em] lg:block">{v.label}</h2>
-            {v.scroll ? <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">{v.content}</div> : v.content}
+            {/* No overscroll containment: at the top or bottom of the list, scrolling carries on
+                into the page or pop-up around it. */}
+            {v.scroll ? <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">{v.content}</div> : v.content}
           </section>
         ))}
       </div>
