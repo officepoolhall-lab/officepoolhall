@@ -272,10 +272,10 @@ export function MajorPicker({
 
       {!readOnly && (
         // Pinned to the bottom of the screen while picking, so Save is always in reach.
-        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bg px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:mx-0 sm:px-0">
+        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center gap-2 border-t border-line bg-bg px-4 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] sm:mx-0 sm:px-0">
           {/* What each tier still needs; a tier turns green with a check once it's filled. */}
-          {contest === "tiers" && (
-            <ul className="flex w-full flex-wrap gap-1.5" aria-label="Picks by tier">
+          {contest === "tiers" ? (
+            <ul className="flex min-w-0 flex-1 flex-wrap gap-1" aria-label="Picks by tier">
               {picks.map((n, i) => {
                 const have = inTier(i + 1);
                 const done = have >= n;
@@ -284,11 +284,11 @@ export function MajorPicker({
                     <button
                       type="button"
                       onClick={() => setTier(i + 1)}
-                      className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium lg:cursor-default ${
+                      className={`inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-medium lg:cursor-default ${
                         done ? "bg-[color-mix(in_srgb,var(--win)_16%,transparent)] text-win" : "bg-surface text-ink"
                       }`}
                     >
-                      {done && <CheckIcon className="size-3" />}
+                      {done && <CheckIcon className="size-2.5" />}
                       Tier {i + 1}
                       <span className={`font-normal ${done ? "" : "text-muted"}`}>{done ? "Complete" : `${n - have} needed`}</span>
                     </button>
@@ -296,17 +296,33 @@ export function MajorPicker({
                 );
               })}
             </ul>
+          ) : (
+            <span className="min-w-0 flex-1" />
           )}
-          <p className={`text-sm ${state?.error ? "font-semibold text-loss" : state?.ok ? "font-semibold text-win" : "text-muted"}`}>
-            {state?.error ?? state?.ok ?? (complete ? (saved ? "Lineup saved." : "Ready to save.") : contest === "salary" && left < 0 ? "Over the budget." : "")}
-          </p>
+          {/* Only problems get a message; the button itself says when the lineup is saved. */}
+          {(state?.error || (contest === "salary" && left < 0)) && (
+            <p className="shrink-0 text-xs font-semibold text-loss">{state?.error ?? "Over the budget."}</p>
+          )}
           <button
             type="button"
             disabled={!complete || saved || pending}
             onClick={() => start(async () => setState(await save(chosen)))}
-            className="inline-flex min-h-11 items-center rounded-full bg-accent px-5 text-sm font-semibold text-bg disabled:opacity-40"
+            className={`inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-4 text-sm font-semibold disabled:cursor-default ${
+              saved && complete ? "bg-[color-mix(in_srgb,var(--win)_16%,transparent)] text-win" : "bg-accent text-bg disabled:opacity-40"
+            }`}
           >
-            {pending ? "Saving…" : initial.length ? "Save Changes" : "Save Lineup"}
+            {pending ? (
+              "Saving…"
+            ) : saved && complete ? (
+              <>
+                <CheckIcon className="size-3.5" />
+                Lineup Saved
+              </>
+            ) : initial.length ? (
+              "Save Changes"
+            ) : (
+              "Save Lineup"
+            )}
           </button>
         </div>
       )}
