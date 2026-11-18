@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
+import { FitText } from "@/components/FitText";
 import { GridPanel } from "@/components/GridPanel";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { LinkSelect } from "@/components/LinkSelect";
@@ -141,10 +142,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
 
   // Desktop widths, in rem: the player column (narrower on long weeks), then each column's
   // minimum. The grid fills the screen and only scrolls sideways below this.
-  // Wide enough for the longest name in full (about half a rem a character at 14px) plus the
-  // points beside it; never narrower than the usual widths.
-  const longestName = Math.max(0, ...standings.map((r) => r.name.length));
-  const playerRem = Math.max(games.length > 30 ? 11 : games.length > 16 ? 14 : 18, Math.ceil(2 + longestName * 0.52 + 0.75 + 4.5));
+  const playerRem = games.length > 30 ? 11 : games.length > 16 ? 14 : 18;
   // Desktop: the games share whatever width is left after the player and tournament columns
   // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
   // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
@@ -318,9 +316,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                     className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-0.5 text-left text-[13px] font-medium lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      {/* Names in full, never cut off: the column is as wide as the longest. */}
-                      <span className={`min-w-20 whitespace-nowrap lg:flex-1 ${mine ? "text-accent" : ""}`}>
-                        <span className="block">{r.name}</span>
+                      {/* Names in full, never cut off: a long name's text shrinks to fit the column
+                          (down to 9px) rather than widening it. */}
+                      <span className={`w-28 min-w-0 sm:w-36 lg:w-auto lg:flex-1 ${mine ? "text-accent" : ""}`}>
+                        <FitText min={9}>{r.name}</FitText>
                         {/* Nothing in for this week yet (a missed week is scored per settings.missed_week). */}
                         {noPicks(r) && <span className="block truncate text-[10px] font-normal leading-tight text-muted">No picks submitted</span>}
                       </span>
