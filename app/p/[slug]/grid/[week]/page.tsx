@@ -136,7 +136,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
   // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
   const GAME_MIN_REM = 2.5;
-  const fixedRem = playerRem + tournaments.length * 3 + 2 + 1; // + page padding, scrollbar
+  const fixedRem = playerRem + tournaments.length * 3 + 2 + 1 + 1.75; // + page padding, scrollbar, the summary tab
   const gridMinRem = playerRem + tournaments.length * 3 + games.length * GAME_MIN_REM;
   // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
   // at that width, and is tall enough for the panel to fit without scrolling.
@@ -180,11 +180,6 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
             </Link>
           ))}
         </div>
-        {/* Where the side panel doesn't fit: a button that opens it from the right (desktop) or
-            bottom (phones). Hidden by the media rule below wherever the panel shows. */}
-        <GridPanelDrawer>
-          <GridPanel {...panelProps} layout="drawer" />
-        </GridPanelDrawer>
         {/* The week: a dropdown rather than a long row of buttons. */}
         <div className="ml-auto min-w-0 py-1">
           <LinkSelect
@@ -196,7 +191,9 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
       </div>
       {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
       {/* On touch screens each swipe scrolls one way only (up/down or left/right). */}
-      <div id="grid-wrap" className="flex min-h-0 flex-1 gap-6">
+      {/* Room for the Pool Summary tab: above it on phones, beside it on wider screens (the
+          media rule drops this where the panel shows instead). */}
+      <div id="grid-wrap" className="flex min-h-0 flex-1 gap-6 pb-9 lg:pb-0 lg:pr-7">
       <AxisLockScroll className="relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0">
         {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
             but never narrower than a readable column each; past that it scrolls as on phones. */}
@@ -456,8 +453,13 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
         </table>
       </AxisLockScroll>
       {/* The panel takes 18rem plus its gap and border from the grid's width (--panel). */}
-      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } #grid-panel-button { display: none; } #grid-wrap { --panel: 20.75rem; } }`}</style>
+      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } #grid-panel-button { display: none; } #grid-wrap { --panel: 20.75rem; padding-right: 0; } }`}</style>
       <GridPanel {...panelProps} />
+      {/* Where the side panel doesn't fit: the "View Pool Summary" tab on the screen's edge
+          (fixed; hidden by the media rule above wherever the panel shows). */}
+      <GridPanelDrawer>
+        <GridPanel {...panelProps} layout="drawer" />
+      </GridPanelDrawer>
       </div>
     </div>
   );
