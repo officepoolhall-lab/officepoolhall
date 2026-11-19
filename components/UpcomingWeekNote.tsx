@@ -1,6 +1,5 @@
 import { FitText } from "./FitText";
 import Link from "next/link";
-import { windowLabel } from "@/lib/format";
 import { ChevronIcon } from "./ui";
 
 /**
@@ -44,7 +43,6 @@ export function UpcomingWeekNote({
       {/* One line: the text steps down to fit a narrow column. */}
       <FitText min={10} className="flex-1">
         <span className="font-semibold">{label} Picks Are Open</span>
-        <span className="text-white/80"> · {windowLabel(slate.window_start, slate.window_end, timezone)}</span>
       </FitText>
       <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold tabular-nums">
         {picked === 0 ? `Make ${label} Picks` : `${picked}/${picksPerSlate} Picked`}
