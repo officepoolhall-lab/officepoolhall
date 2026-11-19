@@ -17,6 +17,16 @@ export const MAJOR_ESPN_IDS: Record<number, Record<Major, string>> = {
   2027: { masters: "401916383", pga: "401916390", us_open: "401916394", open: "401916399" },
 };
 
+/**
+ * The golf_odds key for a pool's tournament: the major's Odds API market, or for a regular tour
+ * event (major = 'event') "event_<ESPN id>", which the commissioner loads by hand (the Odds API
+ * only carries the majors).
+ */
+export function oddsKeyFor(ev: { major: string | null; espn_id: string }): string | null {
+  if (ev.major === "event") return `event_${ev.espn_id}`;
+  return MAJORS.find((m) => m.id === ev.major)?.oddsKey ?? null;
+}
+
 export type TierSource = "rank" | "odds" | "blend" | "custom";
 
 export type MajorsSettings = {
