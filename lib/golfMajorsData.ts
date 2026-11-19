@@ -93,9 +93,10 @@ export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], me
   ]);
   const results = new Map<string, MajorResult[]>();
   // The purse: the commissioner's, else ESPN's. Projected prize money is worked out from it.
+  const purses = new Map<string, { purse: number | null }>();
   for (const e of started) {
-    const purse = purseOverride(ctx.pool.settings, e.id) ?? info.get(e.id)?.purse ?? null;
-    if (purse) info.set(e.id, { ...(info.get(e.id) ?? { signature: false, startDate: null }), purse });
+    const purse: number | null = purseOverride(ctx.pool.settings, e.id) ?? (info.get(e.id) as { purse?: number | null } | undefined)?.purse ?? null;
+    purses.set(e.id, { purse });
     results.set(e.id, withProjectedEarnings(raw.get(e.id) ?? [], purse, e.status === "final"));
   }
 
@@ -137,5 +138,5 @@ export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], me
     const vals = eventIds.map((e) => m.get(`${userId}|${e}`)).filter((v): v is number => typeof v === "number");
     return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
   };
-  return { settings: s, lineups: byEntry, scores, results, standingsFor, totalFor, started, purses: info };
+  return { settings: s, lineups: byEntry, scores, results, standingsFor, totalFor, started, purses };
 }
