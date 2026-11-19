@@ -175,6 +175,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
               )}
               {upcoming && !ctx.isGuest && (
                 <UpcomingWeekNote
+                  simple
                   href={`/p/${slug}/picks?week=${upcoming.week}`}
                   slate={upcoming}
                   picked={upcomingPicked}

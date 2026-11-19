@@ -14,6 +14,7 @@ export function UpcomingWeekNote({
   picksPerSlate,
   timezone,
   className = "",
+  simple = false,
 }: {
   href: string;
   slate: { week: number; label: string | null; window_start: string; window_end: string };
@@ -22,8 +23,20 @@ export function UpcomingWeekNote({
   picksPerSlate: number;
   timezone: string;
   className?: string;
+  /** Home: just "Make Week 3 Picks" (no dates or count). */
+  simple?: boolean;
 }) {
   const label = slate.label ?? `Week ${slate.week}`;
+  if (simple)
+    return (
+      <Link
+        href={href}
+        className={`flex items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-accent/10 px-3 py-2 text-sm font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/15 ${className}`}
+      >
+        Make {label} Picks
+        <ChevronIcon className="size-4" />
+      </Link>
+    );
   return (
     <Link
       href={href}
