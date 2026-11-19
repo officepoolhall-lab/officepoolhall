@@ -50,9 +50,11 @@ type Sort = (typeof SORTS)[number]["id"];
 export default async function GridPage({ params, searchParams }: PageProps<"/p/[slug]/grid/[week]">) {
   const { slug, week } = await params;
   const { sort: sortParam } = await searchParams;
-  const sort: Sort = SORTS.find((s) => s.id === sortParam)?.id ?? "week";
-  const sortQuery = sort === "week" ? "" : `?sort=${sort}`;
   const ctx = await getPoolContext(slug);
+  // Default sort: season score for football pools, the week's score for basketball.
+  const defaultSort: Sort = ctx.pool.sport === "ncaab" ? "week" : "season";
+  const sort: Sort = SORTS.find((s) => s.id === sortParam)?.id ?? defaultSort;
+  const sortQuery = sort === defaultSort ? "" : `?sort=${sort}`;
   const { data: slates } = await ctx.supabase
     .from("slates").select("id, week, label, status").eq("pool_id", ctx.pool.id).neq("status", "draft").order("week");
   const slate = slates?.find((s) => s.week === Number(week));
@@ -191,7 +193,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
           {SORTS.map((s) => (
             <Link
               key={s.id}
-              href={`/p/${slug}/grid/${slate.week}${s.id === "week" ? "" : `?sort=${s.id}`}`}
+              href={`/p/${slug}/grid/${slate.week}${s.id === defaultSort ? "" : `?sort=${s.id}`}`}
               aria-current={s.id === sort ? "true" : undefined}
               aria-label={s.id === "week" ? "Sort by week score" : s.id === "season" ? "Sort by season score" : "Sort by name"}
               className={chipClass(s.id === sort, "", "xs")}
