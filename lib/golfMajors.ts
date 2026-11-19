@@ -43,6 +43,8 @@ export type MajorsSettings = {
     counting: number;
     scoring: "to_par" | "earnings";
     source: TierSource;
+    /** Blended tiers: share from world rank (the rest from DraftKings odds), 0–1. Default 30%. */
+    rankWeight: number;
   };
   salary: {
     budget: number;
@@ -83,6 +85,7 @@ export function majorsSettings(settings: unknown): MajorsSettings {
       counting,
       scoring: t.scoring === "earnings" ? "earnings" : "to_par",
       source: (["rank", "odds", "blend", "custom"] as const).includes(t.source) ? t.source : "rank",
+      rankWeight: typeof t.rankWeight === "number" && t.rankWeight >= 0 && t.rankWeight <= 1 ? t.rankWeight : 0.3,
     },
     salary: {
       budget: Number.isInteger(s.budget) && s.budget > 0 ? s.budget : 50000,
