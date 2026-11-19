@@ -76,7 +76,7 @@ export function TournamentForm({
         <Field label="Scoring">
           <select name="scoring" value={scoring} onChange={(e) => setScoring(e.target.value as Scoring)} className={panelInput}>
             <option value="third_place">Champion 5 · Runner-up 3 · 3rd-place game 2/1</option>
-            <option value="semifinals">Champion 5 · Runner-up 3 · Semifinal losers 1.5</option>
+            <option value="semifinals">Champion 7 · Runner-up 5 · Semifinal losers 2</option>
             <option value="champion_only">Champion 5 (conference tournaments)</option>
           </select>
         </Field>
