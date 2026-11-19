@@ -1,3 +1,4 @@
+import { FitText } from "@/components/FitText";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfEventSelect } from "@/components/GolfEventSelect";
@@ -94,6 +95,13 @@ export async function MajorsStandings({
   const me = ctx.entryUserId;
   const href = (by: Sort) => `/p/${slug}/golf/standings?${new URLSearchParams({ ...(focus ? { event: focus.id } : {}), ...(by === ownSort ? {} : { sort: by }) })}`;
 
+  // The narrowest card that shows everything: the fixed columns (tier, place, score, money, gaps
+  // and padding: about 14.5rem) plus the longest golfer name at 14px (~0.5rem a letter), or the
+  // entry's name and total along the top (16px semibold, ~0.6rem a letter, plus about 6.5rem).
+  const longestGolfer = Math.max(0, ...[...board.lineups.entries()].filter(([k]) => ids.some((id) => k.endsWith(`|${id}`))).flatMap(([, ls]) => ls.map((l) => l.golfer_name.length)));
+  const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
+  const cardRem = Math.max(17, Math.ceil(Math.max(14.5 + longestGolfer * 0.5, 6.5 + longestEntry * 0.6)));
+
   return (
     <div data-wide>
       <AutoRefresh active={live} seconds={60} />
@@ -116,13 +124,15 @@ export async function MajorsStandings({
         ))}
       </div>
 
-      {/* Desktop: every entry's lineup as a card, as many across as fit, rows stacked. */}
-      <ol className="hidden gap-3 lg:grid lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]">
+      {/* Desktop: every entry's lineup as a card, as many across as fit with nothing cut off: each
+          card is at least as wide as its longest golfer or entry name needs, so a wide screen shows
+          more cards per row and a narrower one fewer. */}
+      <ol className="hidden gap-3 lg:grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardRem}rem), 1fr))` }}>
         {rows.map((r) => (
           <li key={r.user_id} className={`rounded-lg border p-3 ${r.user_id === me ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : "border-line"}`}>
             <div className="flex items-baseline gap-2 border-b border-line pb-1.5">
               <span className="w-6 shrink-0 tabular-nums text-muted">{r.v === null && sort !== "name" ? "" : place.get(r.user_id)}</span>
-              <span className={`min-w-0 flex-1 truncate font-semibold ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</span>
+              <FitText min={11} className={`flex-1 font-semibold ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</FitText>
               <span className="shrink-0 font-bold tabular-nums">{fmt(shownSort, r.v)}</span>
             </div>
             <Totals userId={r.user_id} ids={ids} board={board} s={s} fmt={fmt} />
@@ -232,7 +242,8 @@ function Lineup({
               return (
                 <li key={l.espn_golfer_id} className={`flex items-center gap-2 py-0.5 ${counted ? "" : "text-muted"}`}>
                   <span className="w-9 shrink-0 text-[11px] tabular-nums text-muted">{s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}</span>
-                  <span className={`min-w-0 flex-1 truncate ${counted ? "font-medium" : ""}`}>{l.golfer_name}</span>
+                  {/* The card is sized to fit the longest name; the font steps down if one still doesn't. */}
+                  <FitText min={10} className={`flex-1 ${counted ? "font-medium" : ""}`}>{l.golfer_name}</FitText>
                   <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
                   <span className={`w-11 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, asScore, final))}</span>
                   {/* Prize money: projected from current standings until it's posted. */}
