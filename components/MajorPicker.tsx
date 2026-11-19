@@ -89,6 +89,21 @@ export function MajorPicker({
     );
   };
 
+  const hasOdds = golfers.some((g) => g.odds !== null);
+  // Column titles over a list of golfers, lined up with the rows below (same widths and gaps;
+  // an invisible History button holds its place).
+  const header = (extra = "") => (
+    <li aria-hidden className={`flex items-center gap-1.5 pr-1 text-[10px] font-semibold uppercase tracking-wide text-muted ${extra}`}>
+      <span className="flex min-w-0 flex-1 items-center gap-2 px-1.5 pb-0.5 pt-1.5">
+        <span className="size-5 shrink-0" />
+        <span className="min-w-0 flex-1">Golfer</span>
+        <span className="w-10 shrink-0 text-right">WGR</span>
+        {hasOdds && <span className="w-14 shrink-0 text-right">Odds</span>}
+        {contest === "salary" && <span className="w-16 shrink-0 text-right">Salary</span>}
+      </span>
+      <span className="invisible h-0 shrink-0 overflow-hidden border border-transparent px-2.5 text-xs font-medium">History</span>
+    </li>
+  );
   const row = (g: PickerFieldGolfer) => {
     const on = chosen.includes(g.espn_golfer_id);
     const tooMuch = contest === "salary" && !on && (chosen.length >= roster || (g.salary ?? 0) > left);
@@ -106,8 +121,8 @@ export function MajorPicker({
             {on && <CheckIcon className="size-3" />}
           </span>
           <span className={`min-w-0 flex-1 truncate font-medium ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
-          <span className="shrink-0 text-right text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
-          {g.odds !== null && <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
+          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
+          {hasOdds && <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
           {contest === "salary" && <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">{dollars(g.salary!)}</span>}
         </button>
         <button
@@ -256,6 +271,8 @@ export function MajorPicker({
                     t === picks.length ? "lg:min-h-[12rem] lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[contain:size]" : ""
                   }`}
                 >
+                  {/* Stays in view while the last tier's long list scrolls. */}
+                  {rows.length > 0 && header("sticky top-0 z-10 bg-bg")}
                   {rows.map((g) => row(g))}
                   {rows.length === 0 && <li className="py-2 text-sm text-muted">{query ? "No golfers match." : "No golfers."}</li>}
                 </ul>
@@ -265,9 +282,17 @@ export function MajorPicker({
         </div>
       ) : (
         // The whole field in columns across the screen.
+        <>
+        {/* Column titles, one per column of golfers across the screen. */}
+        <ul className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3 border-b-2 border-ink/25">
+          {header()}
+          {header("max-sm:hidden")}
+          {header("max-xl:hidden")}
+        </ul>
         <ul className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3 [&>li]:border-b [&>li]:border-line">
           {sorted(golfers.filter((g) => g.salary !== null)).map((g) => row(g))}
         </ul>
+        </>
       )}
 
       {!readOnly && (
