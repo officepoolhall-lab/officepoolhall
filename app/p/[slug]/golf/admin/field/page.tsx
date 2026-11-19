@@ -39,7 +39,7 @@ export default async function MajorFieldPage({ params, searchParams }: PageProps
   const sourceLabel =
     s.contest === "salary"
       ? `salaries from the formula (${Math.round(s.salary.rankWeight * 100)}% world rank, ${100 - Math.round(s.salary.rankWeight * 100)}% DraftKings odds)`
-      : `tiers from ${s.tiers.source === "odds" ? "DraftKings odds" : s.tiers.source === "blend" ? "world rank and DraftKings odds" : "world rank"}`;
+      : `tiers from ${s.tiers.source === "odds" ? "DraftKings odds" : s.tiers.source === "blend" ? `${100 - Math.round(s.tiers.rankWeight * 100)}% DraftKings odds, ${Math.round(s.tiers.rankWeight * 100)}% world rank` : "world rank"}`;
 
   return (
     <div className="space-y-4">

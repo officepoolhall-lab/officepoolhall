@@ -67,6 +67,7 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
   const budget = Math.floor(Number(form.get("budget")) || 50000);
   const roster = Math.floor(Number(form.get("roster")) || 8);
   const rankWeight = Math.min(100, Math.max(0, Number(form.get("rank_weight") ?? 50))) / 100;
+  const tierRankWeight = Math.min(100, Math.max(0, Number(form.get("tier_rank_weight") ?? 20))) / 100;
   if (budget < 1000 || budget > 1_000_000) return { error: "Set a budget between $1,000 and $1,000,000." };
   if (roster < 1 || roster > 12) return { error: "A roster can have 1 to 12 golfers." };
 
@@ -80,6 +81,7 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
       counting,
       scoring: form.get("tier_scoring") === "earnings" ? "earnings" : "to_par",
       source: ["rank", "odds", "blend", "custom"].includes(String(form.get("tier_source"))) ? String(form.get("tier_source")) : "rank",
+      rankWeight: tierRankWeight,
     },
     salary: {
       ...current.salary,
@@ -158,7 +160,7 @@ export async function buildMajorField(slug: string, eventId: string, _?: ActionS
     // Custom tiers start from world rank; the admin then moves golfers.
     const source = s.tiers.source === "custom" ? "rank" : s.tiers.source;
     if (source !== "rank" && !oddsByKey.size) return { error: "No DraftKings odds are stored for this major yet. Use world rank, or check the odds import." };
-    field = buildTiers(field, s.tiers.sizes, source, 0.5);
+    field = buildTiers(field, s.tiers.sizes, source, s.tiers.rankWeight);
   }
   const { error } = await ctx.supabase.rpc("golf_admin_save_field", { p_event_id: eventId, p_rows: field });
   if (error) return { error: error.message };
