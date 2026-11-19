@@ -101,7 +101,8 @@ export function MajorPicker({
         {hasOdds && <span className="w-14 shrink-0 text-right">Odds</span>}
         {contest === "salary" && <span className="w-16 shrink-0 text-right">Salary</span>}
       </span>
-      <span className="invisible h-0 shrink-0 overflow-hidden border border-transparent px-2.5 text-xs font-medium">History</span>
+      {/* Same text as the real button (not the title row's capitals and spacing), so the columns line up. */}
+      <span className="invisible h-0 shrink-0 overflow-hidden border border-transparent px-2.5 text-xs font-medium normal-case tracking-normal">History</span>
     </li>
   );
   const row = (g: PickerFieldGolfer) => {
