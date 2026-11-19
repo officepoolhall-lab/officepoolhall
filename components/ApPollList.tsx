@@ -1,3 +1,4 @@
+import { FitText } from "./FitText";
 import { formatInTimeZone } from "date-fns-tz";
 import type { ApPoll } from "@/lib/apPoll";
 import { SectionLabel, TeamLogo } from "./ui";
@@ -26,11 +27,12 @@ export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: 
               <li key={`${t.rank}-${t.abbreviation}`} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
                 <span className="w-6 text-right tabular-nums text-muted">{t.rank}</span>
                 <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5" />
-                <span className="min-w-0 flex-1 truncate font-medium">
+                {/* The full name on one line: it steps down to fit a narrow column, never cut off. */}
+                <FitText min={10} className="flex-1 font-medium">
                   {t.name}
                   {t.firstPlaceVotes > 0 && <span className="ml-1.5 text-xs font-normal tabular-nums text-muted">({t.firstPlaceVotes})</span>}
-                </span>
-                {t.record && <span className="text-xs tabular-nums text-muted">{t.record}</span>}
+                </FitText>
+                {t.record && <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted">{t.record}</span>}
                 {/* Movement since last week: up in win green, down in loss red, NEW when unranked before. */}
                 {showMove && (
                 <span
