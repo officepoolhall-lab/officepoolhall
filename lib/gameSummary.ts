@@ -1,5 +1,6 @@
 import "server-only";
 import { ESPN_PATH, isFootball, type TeamSport } from "./sports";
+import { basketballOrder, reorder } from "./statOrder";
 
 // One game's play-by-play and box score from ESPN's game summary
 // (site/v2/sports/{sport}/summary?event={id}). The shape is ESPN's, undocumented, so every
@@ -142,7 +143,18 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
           .filter((r: { name: string; stats: string[] }) => r.name && r.stats.length),
         totals: Array.isArray(g?.totals) && g.totals.length ? g.totals.map((v: any) => String(v)) : null,
       }))
-      .filter((g: StatGroup) => g.rows.length),
+      .filter((g: StatGroup) => g.rows.length)
+      // Basketball: minutes, points, rebounds, assists, turnovers, steals, blocks, shooting, fouls.
+      .map((g: StatGroup): StatGroup => {
+        if (sport !== "ncaab") return g;
+        const order = basketballOrder(g.labels);
+        return {
+          ...g,
+          labels: reorder(g.labels, order)!,
+          rows: g.rows.map((r) => ({ ...r, stats: reorder(r.stats, order)! })),
+          totals: reorder(g.totals, order),
+        };
+      }),
   }));
 
   const football = isFootball(sport);
