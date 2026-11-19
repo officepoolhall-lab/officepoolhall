@@ -147,18 +147,21 @@ export function GolfScorecard({
             <p className="text-xs text-muted">
               {eventName}
             </p>
-            {/* Place, score and prize money: projected from current standings while it's played. */}
+            {/* Place · score · prize money (projected while it's played), a dot between each. */}
             <p className="mt-0.5 text-xs tabular-nums text-muted">
-              {golfer.pos && <span className="font-semibold text-ink">{golfer.pos}</span>}
-              {golfer.toPar && <span className={`ml-1.5 font-semibold ${golfer.toPar.startsWith("-") ? "text-loss" : "text-ink"}`}>{golfer.toPar.replace(/^-/, "−")}</span>}
-              {golfer.earnings > 0 ? (
-                <span className="ml-1.5">· Earnings <span className="font-semibold text-ink">{usd(golfer.earnings)}</span></span>
-              ) : (golfer.projected ?? 0) > 0 ? (
-                <span className="ml-1.5">
-                  · Proj. Earnings <span className="font-semibold text-ink">{usd(golfer.projected!)}</span>
-                  <span className="block text-[11px] text-faint">Projected from current standings and the purse</span>
-                </span>
-              ) : null}
+              {[
+                golfer.pos ? <span key="pos" className="font-semibold text-ink">{golfer.pos}</span> : null,
+                golfer.toPar ? (
+                  <span key="par" className={`font-semibold ${golfer.toPar.startsWith("-") ? "text-loss" : "text-ink"}`}>{golfer.toPar.replace(/^-/, "−")}</span>
+                ) : null,
+                golfer.earnings > 0 ? (
+                  <span key="cash">Earnings <span className="font-semibold text-ink">{usd(golfer.earnings)}</span></span>
+                ) : (golfer.projected ?? 0) > 0 ? (
+                  <span key="cash">Proj. Earnings <span className="font-semibold text-ink">{usd(golfer.projected!)}</span></span>
+                ) : null,
+              ]
+                .filter(Boolean)
+                .flatMap((node, i) => (i ? [<span key={`dot${i}`} aria-hidden className="mx-1.5">·</span>, node] : [node]))}
             </p>
           </div>
           <button type="button" onClick={() => dialog.current?.close()} className="-mr-1.5 -mt-1 grid size-9 place-items-center rounded-full text-xl text-muted hover:bg-surface" aria-label="Close">
