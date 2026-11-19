@@ -73,7 +73,9 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   const pickedBy = new Map<string, number>();
   for (const p of majors ? lineups : picks.filter((p) => p.event_id === event.id)) pickedBy.set(p.espn_golfer_id, (pickedBy.get(p.espn_golfer_id) ?? 0) + 1);
   const mineSet = new Set(majors ? lineups.filter((l) => l.user_id === ctx.entryUserId).map((l) => l.espn_golfer_id) : (myPicks.filter((p) => p.event_id === event.id).map((p) => p.espn_golfer_id)));
-  const tee = (iso: string | null) => (iso ? `${formatInTimeZone(iso, ctx.displayTz, "EEE h:mm a")}` : null);
+  // Tee times: with the day before the tournament starts; once it's under way, just the time
+  // (today's round), so it stays on one line.
+  const tee = (iso: string | null) => (iso ? formatInTimeZone(iso, ctx.displayTz, state === "scheduled" ? "EEE h:mm a" : "h:mm a") : null);
 
   let rows: LeaderRow[] = live
     ? live.map((g) => {
