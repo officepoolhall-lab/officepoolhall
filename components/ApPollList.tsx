@@ -9,11 +9,11 @@ export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: 
   return (
     <section aria-labelledby="ap-poll">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel className="!text-sm lg:!text-base">
+        <SectionLabel fit className="!text-sm lg:!text-base">
           <span id="ap-poll">{poll?.title ?? "AP Top 25"}</span>
           {poll && <span className="font-normal normal-case tracking-normal"> · {poll.label}</span>}
         </SectionLabel>
-        {poll?.date && <span className="text-xs text-muted">Released {formatInTimeZone(poll.date, timezone, "MMM d")}</span>}
+        {poll?.date && <span className="shrink-0 whitespace-nowrap text-xs text-muted">Released {formatInTimeZone(poll.date, timezone, "MMM d")}</span>}
       </div>
       {!poll ? (
         <p className="border-y border-line py-3 text-sm text-muted">The poll isn&apos;t available right now. Check back soon.</p>

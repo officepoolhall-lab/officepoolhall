@@ -1,3 +1,4 @@
+import { FitText } from "./FitText";
 import Link from "next/link";
 import { LogoMark, LogoWordmark } from "./Logo";
 import type { ComponentProps, ReactNode } from "react";
@@ -116,8 +117,16 @@ export function PageTitle({ children, sub }: { children: ReactNode; sub?: ReactN
   );
 }
 
-export function SectionLabel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <h2 className={`text-xs font-semibold uppercase tracking-wide text-accent ${className}`}>{children}</h2>;
+/**
+ * A section's title. `fit`: always one line in a header row; the text steps down to fit a
+ * narrow column instead of wrapping (and takes the row's spare width).
+ */
+export function SectionLabel({ children, className = "", fit = false }: { children: ReactNode; className?: string; fit?: boolean }) {
+  return (
+    <h2 className={`text-xs font-semibold uppercase tracking-wide text-accent ${fit ? "min-w-0 flex-1" : ""} ${className}`}>
+      {fit ? <FitText min={11}>{children}</FitText> : children}
+    </h2>
+  );
 }
 
 /** Filled panel — for forms and small summaries only. Lists stay on the page background. */

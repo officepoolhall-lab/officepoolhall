@@ -1,3 +1,4 @@
+import { FitText } from "@/components/FitText";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApPollList } from "@/components/ApPollList";
@@ -110,21 +111,22 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       {/* Desktop: the rankings (or NFL standings) on the right set the row's height; the left
           column and the news fill exactly that much (FillColumn), so all three end level. Thin
           blue lines split the three columns. */}
-      {/* Desktop: standings | news | poll or NFL standings. On smaller desktops the right column
-          narrows (17rem, 20rem from xl, 23.5rem from 2xl) so the news in the middle keeps its room. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      {/* Desktop: standings | news | poll or NFL standings. On smaller desktops the side columns
+          narrow (left 20rem / right 17rem; 22 / 20 from xl; 23.5 / 23.5 from 2xl) so the news in the
+          middle keeps its room. Their one-line text and titles shrink to fit rather than wrap. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         <FillColumn className="lg:flex lg:flex-col lg:pr-6">
           {slate && summary ? (
             <section className="mb-6 border-b border-line pb-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-bold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
-                <span className="truncate text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</span>
+              <div className="flex items-baseline gap-2 whitespace-nowrap">
+                <span className="shrink-0 text-lg font-bold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
+                <FitText min={9} className="flex-1 text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</FitText>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-4">
+              <div className="mt-2 grid grid-cols-2 gap-4 [&>*]:min-w-0">
                 {/* Guests have no picks of their own: just the countdown. */}
                 {!ctx.isGuest && (
-                <div>
-                  <div className="text-xs text-muted">
+                <div className="min-w-0">
+                  <FitText min={9} className="text-xs text-muted">
                     {/* Basketball: "My Week 2 Score" (co-managers too), the entry's points so far over the most
                         it can still reach. The week is the current one: the published week whose
                         window holds today (getCurrentSlate), so it moves on by itself each week. */}
@@ -133,8 +135,9 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                       : ctx.managing
                         ? `${ctx.managing.ownerName}'s picks (you co-manage)`
                         : "My Picks"}
-                  </div>
-                  <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
+                  </FitText>
+                  {/* One line always: the big number steps down to fit a narrow column. */}
+                  <FitText min={18} className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                     {summary.picked === 0 ? (
                       // Nothing in yet: a plain 0 of N, with the button to the picks screen below the row.
                       <span className="text-muted">
@@ -150,15 +153,15 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                         <span className="sr-only"> points of {points(summary.possible)} possible</span>
                       </>
                     )}
-                  </div>
+                  </FitText>
                 </div>
                 )}
                 {summary.nextLock && (
-                  <div>
-                    <div className="text-xs text-muted">{summary.weekly ? "Week Locks" : "Next Game Locks"}</div>
-                    <div className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
+                  <div className="min-w-0">
+                    <FitText min={9} className="text-xs text-muted">{summary.weekly ? "Week Locks" : "Next Game Locks"}</FitText>
+                    <FitText min={18} className="mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">
                       <Countdown to={summary.nextLock} done="locked" />
-                    </div>
+                    </FitText>
                   </div>
                 )}
               </div>
@@ -167,7 +170,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   href={`/p/${slug}/picks`}
                   className="mt-3 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95"
                 >
-                  Make {slate.label ?? `Week ${slate.week}`} Picks <span aria-hidden>→</span>
+                  <span className="whitespace-nowrap">Make {slate.label ?? `Week ${slate.week}`} Picks <span aria-hidden>→</span></span>
                 </Link>
               )}
               {upcoming && !ctx.isGuest && (
@@ -192,7 +195,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                   className="mt-3"
                 />
               )}
-              <div className="mt-3 flex gap-1.5">
+              <div className="mt-3 flex gap-1.5 whitespace-nowrap">
                 {!ctx.isGuest && <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>}
                 <Link href={`/p/${slug}/grid/${slate.week}`} className={chipClass(ctx.isGuest, "", "sm")}>Everyone&apos;s picks</Link>
               </div>

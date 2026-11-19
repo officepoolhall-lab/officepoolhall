@@ -9,7 +9,7 @@ export function NflStandingsList({ standings }: { standings: NflStandings | null
   return (
     <section aria-labelledby="nfl-standings">
       <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel className="!text-sm lg:!text-base">
+        <SectionLabel fit className="!text-sm lg:!text-base">
           <span id="nfl-standings">NFL Standings</span>
         </SectionLabel>
       </div>
