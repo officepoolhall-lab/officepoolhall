@@ -7,7 +7,7 @@ import { MajorFieldEditor } from "@/components/MajorFieldEditor";
 import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { getGolfContext, getGolfEvents, golfFormat } from "@/lib/golf";
-import { MAJORS } from "@/lib/golfMajors";
+import { oddsKeyFor } from "@/lib/golfMajors";
 import { getMajorField, getMajorsSettings, getStoredOdds } from "@/lib/golfMajorsData";
 import { buildMajorField, saveMajorField } from "../actions";
 
@@ -29,10 +29,10 @@ export default async function MajorFieldPage({ params, searchParams }: PageProps
   const now = Date.now();
   const event = events.find((e) => e.id === eventParam) ?? events.find((e) => e.status === "scheduled") ?? events[0];
   const s = getMajorsSettings(ctx);
-  const major = MAJORS.find((m) => m.id === event.major);
+  const oddsKey = oddsKeyFor(event);
   const [golfers, odds, { count: espnCount }] = await Promise.all([
     getMajorField(ctx, event.id),
-    major ? getStoredOdds(ctx, major.oddsKey) : Promise.resolve({ odds: new Map(), updatedAt: null }),
+    oddsKey ? getStoredOdds(ctx, oddsKey) : Promise.resolve({ odds: new Map(), updatedAt: null }),
     ctx.supabase.from("golf_results").select("*", { count: "exact", head: true }).eq("event_id", event.id),
   ]);
   const locked = event.status !== "scheduled" || (!!event.start_at && Date.parse(event.start_at) <= now);

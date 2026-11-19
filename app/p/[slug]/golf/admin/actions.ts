@@ -132,17 +132,17 @@ export async function removeMajor(slug: string, eventId: string, _?: ActionState
  */
 export async function buildMajorField(slug: string, eventId: string, _?: ActionState, __?: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
-  const { MAJORS, buildSalaries, buildTiers, majorsSettings } = await import("@/lib/golfMajors");
+  const { buildSalaries, buildTiers, majorsSettings, oddsKeyFor } = await import("@/lib/golfMajors");
   const { getWorldRankMap, golferKey } = await import("@/lib/worldRankings");
   const { getStoredOdds } = await import("@/lib/golfMajorsData");
   const s = majorsSettings(ctx.pool.settings);
-  const { data: ev } = await ctx.supabase.from("golf_events").select("id, major, status").eq("id", eventId).eq("pool_id", ctx.pool.id).maybeSingle();
+  const { data: ev } = await ctx.supabase.from("golf_events").select("id, espn_id, major, status").eq("id", eventId).eq("pool_id", ctx.pool.id).maybeSingle();
   if (!ev) return { error: "Tournament not found." };
   const { data: espnField } = await ctx.supabase.from("golf_results").select("espn_golfer_id, golfer_name").eq("event_id", eventId);
   if (!espnField?.length) return { error: "ESPN hasn't posted this field yet. It's read every 10 minutes from the week before." };
 
-  const major = MAJORS.find((m) => m.id === ev.major);
-  const [ranks, stored] = await Promise.all([getWorldRankMap(), major ? getStoredOdds(ctx, major.oddsKey) : Promise.resolve({ odds: new Map<string, number>(), updatedAt: null })]);
+  const oddsKey = oddsKeyFor(ev);
+  const [ranks, stored] = await Promise.all([getWorldRankMap(), oddsKey ? getStoredOdds(ctx, oddsKey) : Promise.resolve({ odds: new Map<string, number>(), updatedAt: null })]);
   const oddsByKey = new Map([...stored.odds].map(([name, price]) => [golferKey(name), price]));
   let field = espnField.map((g) => ({
     espn_golfer_id: g.espn_golfer_id,
