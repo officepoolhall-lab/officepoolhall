@@ -131,7 +131,7 @@ function MajorsSettingsForm({ slug, pool }: { slug: string; pool: { name: string
             <Choice name="tier_source" value="blend" checked={s.tiers.source === "blend"}>Both, blended</Choice>
             <Choice name="tier_source" value="custom" checked={s.tiers.source === "custom"}>Set by hand (starts from world rank)</Choice>
             <div className="mt-2 max-w-60">
-              <Field label="World rank share of the blend" hint="Blended tiers only. The rest comes from DraftKings odds. 30 = mostly odds.">
+              <Field label="World rank share of the blend" hint="Blended tiers only. The rest comes from DraftKings odds. 20 = 80% odds, 20% world rank.">
                 <input name="tier_rank_weight" type="number" min={0} max={100} step={5} defaultValue={Math.round(s.tiers.rankWeight * 100)} className={`${field} tabular-nums`} />
               </Field>
             </div>

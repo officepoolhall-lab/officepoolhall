@@ -67,7 +67,7 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
   const budget = Math.floor(Number(form.get("budget")) || 50000);
   const roster = Math.floor(Number(form.get("roster")) || 8);
   const rankWeight = Math.min(100, Math.max(0, Number(form.get("rank_weight") ?? 50))) / 100;
-  const tierRankWeight = Math.min(100, Math.max(0, Number(form.get("tier_rank_weight") ?? 30))) / 100;
+  const tierRankWeight = Math.min(100, Math.max(0, Number(form.get("tier_rank_weight") ?? 20))) / 100;
   if (budget < 1000 || budget > 1_000_000) return { error: "Set a budget between $1,000 and $1,000,000." };
   if (roster < 1 || roster > 12) return { error: "A roster can have 1 to 12 golfers." };
 
