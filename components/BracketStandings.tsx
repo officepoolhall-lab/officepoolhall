@@ -20,7 +20,7 @@ export function BracketStandings({ rows, me, locked, bracketHref }: { rows: Brac
             <span className="w-6 text-right tabular-nums text-muted">{rank}</span>
             <span className="min-w-0 flex-1 truncate font-medium">
               {locked || mine ? (
-                <Link href={bracketHref(r.userId)} className={`hover:underline ${mine ? "text-accent" : ""}`}>{r.name}</Link>
+                <Link href={bracketHref(r.userId)} className={`-mx-1 rounded px-1 transition hover:bg-hover ${mine ? "text-accent" : ""}`}>{r.name}</Link>
               ) : (
                 <span className={mine ? "text-accent" : ""}>{r.name}</span>
               )}
