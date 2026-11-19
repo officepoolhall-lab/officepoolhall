@@ -17,7 +17,7 @@ import { pickCount } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { Empty, SectionLabel, chipClass } from "@/components/ui";
 import { getApPoll } from "@/lib/apPoll";
-import { points, windowLabel } from "@/lib/format";
+import { points } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from "@/lib/pool";
@@ -118,10 +118,8 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
         <FillColumn className="lg:flex lg:flex-col lg:pr-6">
           {slate && summary ? (
             <section className="mb-6 border-b border-line pb-4">
-              <div className="flex items-baseline gap-2 whitespace-nowrap">
-                <span className="shrink-0 text-lg font-bold text-ink">{slate.label ?? `Week ${slate.week}`}</span>
-                <FitText min={9} className="flex-1 text-xs text-muted">{windowLabel(slate.window_start, slate.window_end, tz)}</FitText>
-              </div>
+              {/* Just the week; its dates go without saying. */}
+              <div className="whitespace-nowrap text-lg font-bold text-ink">{slate.label ?? `Week ${slate.week}`}</div>
               <div className="mt-2 grid grid-cols-2 gap-4 [&>*]:min-w-0">
                 {/* Guests have no picks of their own: just the countdown. */}
                 {!ctx.isGuest && (

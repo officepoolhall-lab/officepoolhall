@@ -4,7 +4,6 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { hasStarted } from "@/lib/locks";
-import { windowLabel } from "@/lib/format";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, getUpcomingSlate } from "@/lib/pool";
 import { UpcomingWeekNote } from "@/components/UpcomingWeekNote";
 import { TournamentPicks } from "@/components/TournamentPicks";
@@ -135,7 +134,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
         {/* Week and dates on the left; live scores fill the space to their right. */}
         <div className="sm:flex sm:items-start sm:gap-6">
           <div className="shrink-0">
-            <PageTitle sub={windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone)}>
+            <PageTitle>
               {slate.label ?? `Week ${slate.week}`}
               {forName && <span className="text-accent"> for {forName}</span>}
           {!forName && ctx.managing && <span className="text-accent"> · {ctx.managing.ownerName}&apos;s entry</span>}
