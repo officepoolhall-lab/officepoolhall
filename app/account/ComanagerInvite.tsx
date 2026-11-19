@@ -17,7 +17,7 @@ export function ComanagerInvite({ poolId }: { poolId: string }) {
         </div>
       ) : null}
       <form action={create}>
-        <button disabled={pending} className="inline-flex min-h-11 items-center text-sm font-medium text-accent hover:underline disabled:opacity-50">
+        <button disabled={pending} className="inline-flex min-h-11 items-center text-sm font-medium text-accent -mx-1 rounded px-1 transition hover:bg-hover disabled:opacity-50">
           {pending ? "Creating…" : link ? "Make a new link (the last one stops working)" : "Create invite link"}
         </button>
       </form>

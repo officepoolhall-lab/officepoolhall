@@ -85,7 +85,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                         {myPick ? (
                           myPick.golfer_name
                         ) : isOpenForPicks(current, now) ? (
-                          <Link href={`/p/${slug}/golf/picks`} className="text-accent hover:underline">Make Pick</Link>
+                          <Link href={`/p/${slug}/golf/picks`} className="text-accent -mx-1 rounded px-1 transition hover:bg-hover">Make Pick</Link>
                         ) : (
                           <span className="text-muted">None</span>
                         )}

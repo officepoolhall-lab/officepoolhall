@@ -25,7 +25,7 @@ export function ScorecardLink({
   if (!tournamentId) return <span className={className}>{golfer.name}</span>;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={`text-left hover:underline ${className}`} title={`${golfer.name}: scorecard`}>
+      <button type="button" onClick={() => setOpen(true)} className={`text-left -mx-1 rounded px-1 transition hover:bg-hover ${className}`} title={`${golfer.name}: scorecard`}>
         {golfer.name}
       </button>
       {open && <GolfScorecard tournamentId={tournamentId} eventName={eventName} golfer={golfer} live={live} onClose={() => setOpen(false)} />}

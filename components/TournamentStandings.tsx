@@ -34,7 +34,7 @@ export function TournamentStandings({
           <li key={r.userId} className="flex min-h-9 items-center gap-2 py-1.5 text-sm">
             <span className="w-6 text-right tabular-nums text-muted">{r.rank}</span>
             <span className="min-w-0 flex-1 truncate font-medium">
-              <Link href={playerHref(r.userId)} className={`hover:underline ${mine ? "text-accent" : ""}`}>{r.name}</Link>
+              <Link href={playerHref(r.userId)} className={`-mx-1 rounded px-1 transition hover:bg-hover ${mine ? "text-accent" : ""}`}>{r.name}</Link>
               {mine && <span className="ml-1.5 text-xs font-normal text-muted">You</span>}
             </span>
             {/* Each player's picks are on their Pick History (the name links there). */}

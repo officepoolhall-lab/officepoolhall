@@ -54,7 +54,7 @@ export default async function BoardPage({ params }: PageProps<"/p/[slug]/board">
                         {p.pinned && (
                           <span className="shrink-0 rounded-full bg-accent/15 px-2 py-px text-[11px] font-semibold text-accent">Pinned</span>
                         )}
-                        <span className="truncate text-[15px] font-semibold text-ink group-hover:underline">{p.title}</span>
+                        <span className="truncate text-[15px] font-semibold text-ink -mx-1 rounded px-1 transition group-hover:bg-hover">{p.title}</span>
                       </span>
                       <span className="mt-0.5 line-clamp-1 text-sm text-muted">{p.body}</span>
                       <span className="mt-0.5 block text-xs text-faint">
