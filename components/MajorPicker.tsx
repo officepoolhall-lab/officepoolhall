@@ -256,7 +256,7 @@ export function MajorPicker({
             const done = inTier(t) === n;
             return (
               <section key={t} aria-label={`Tier ${t}`} className={`min-w-0 lg:flex lg:flex-col ${tier === t || (query.trim() && rows.length) ? "block" : "hidden"}`}>
-                <h3 className="flex items-center justify-between gap-2 border-b-2 border-ink/25 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                <h3 className="flex items-center justify-between gap-2 border-b-2 border-accent pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
                   <span className="flex items-center gap-1">
                     {done && <CheckIcon className="size-3 text-win" />}
                     Tier {t} – Make {n} {n === 1 ? "Selection" : "Selections"}
@@ -285,7 +285,7 @@ export function MajorPicker({
         // The whole field in columns across the screen.
         <>
         {/* Column titles, one per column of golfers across the screen. */}
-        <ul className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3 border-b-2 border-ink/25">
+        <ul className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3 border-b-2 border-accent">
           {header()}
           {header("max-sm:hidden")}
           {header("max-xl:hidden")}
