@@ -14,22 +14,23 @@ export function HomeStandings({ views }: { views: { id: string; label: string; t
   const view = views.find((v) => v.id === active) ?? views[0];
   return (
     <section>
-      <div className="flex min-h-11 items-center justify-between gap-2">
-        <SectionLabel fit className="!text-sm lg:!text-base">{view.title}</SectionLabel>
-        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-          {views.length > 1 && (
-            <div className="hidden gap-1 sm:flex" role="group" aria-label="Season or this week">
-              {views.map((v) => (
-                <button key={v.id} type="button" onClick={() => setActive(v.id)} aria-pressed={v.id === active} className={chipClass(v.id === active, "", "xs")}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
-          )}
-          <Link href={view.href} className="-mr-1 inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
-            All <ChevronIcon className="size-4" />
-          </Link>
-        </div>
+      {/* The title on its own line, a size up; under it the Season / Week buttons and All. */}
+      <SectionLabel fit className="!text-base lg:!text-lg">{view.title}</SectionLabel>
+      <div className="flex min-h-11 items-center justify-between gap-2 whitespace-nowrap">
+        {views.length > 1 ? (
+          <div className="hidden gap-1 sm:flex" role="group" aria-label="Season or this week">
+            {views.map((v) => (
+              <button key={v.id} type="button" onClick={() => setActive(v.id)} aria-pressed={v.id === active} className={chipClass(v.id === active, "", "xs")}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span />
+        )}
+        <Link href={view.href} className="-mr-1 ml-auto inline-flex h-11 items-center gap-0.5 px-1 text-sm font-medium text-accent">
+          All <ChevronIcon className="size-4" />
+        </Link>
       </div>
       {view.content}
     </section>
