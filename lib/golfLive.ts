@@ -93,8 +93,9 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
 }
 
 /**
- * The live leaderboard for one ESPN event, cached `revalidate` seconds. Null when the page
- * can't be read (ESPN down, a demo event, or the page's shape changed).
+ * The live leaderboard for one ESPN event, cached `revalidate` seconds (0: never cached, read
+ * fresh on every request). Null when the page can't be read (ESPN down, a demo event, or the
+ * page's shape changed).
  */
 export async function getLiveLeaderboard(espnId: string, revalidate = 120, timeoutMs = FETCH_TIMEOUT_MS): Promise<LiveGolfer[] | null> {
   // The demo pool's Masters, frozen mid-round 3 (lib/golfDemo.ts).
@@ -103,7 +104,7 @@ export async function getLiveLeaderboard(espnId: string, revalidate = 120, timeo
   try {
     const res = await fetch(`https://www.espn.com/golf/leaderboard/_/tournamentId/${espnId}`, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-      next: { revalidate },
+      ...(revalidate === 0 ? { cache: "no-store" as const } : { next: { revalidate } }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return null;
@@ -136,7 +137,8 @@ export async function currentRound(tournamentId: string, golfers: LiveGolfer[] |
     try {
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?event=${tournamentId}`, {
         headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-        next: { revalidate: 120 },
+        // Fresh each time: it's only read while a round is being played.
+        cache: "no-store",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
       if (res.ok) {
