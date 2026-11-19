@@ -1,21 +1,19 @@
 import { FitText } from "./FitText";
-import { formatInTimeZone } from "date-fns-tz";
 import type { ApPoll } from "@/lib/apPoll";
 import { SectionLabel, TeamLogo } from "./ui";
 
 /** The AP Top 25 (or the CFP rankings once out) as compact rows: rank, logo, team, record and the move since last week. */
-export function ApPollList({ poll, timezone }: { poll: ApPoll | null; timezone: string }) {
+export function ApPollList({ poll }: { poll: ApPoll | null; timezone?: string }) {
   // The first CFP release (and a preseason poll) has nothing to compare against.
   const showMove = Boolean(poll?.teams.some((t) => t.previous !== null));
   return (
     <section aria-labelledby="ap-poll">
-      {/* The title, then the release date under it. */}
-      <div className="flex min-h-11 flex-col justify-center">
-        <SectionLabel fit className="!flex-none !text-sm lg:!text-base">
+      {/* The title and the poll's week ("AP Top 25 · Week 13"); no release date. */}
+      <div className="flex min-h-11 items-center">
+        <SectionLabel fit className="!text-sm lg:!text-base">
           <span id="ap-poll">{poll?.title ?? "AP Top 25"}</span>
           {poll && <span className="font-normal normal-case tracking-normal"> · {poll.label}</span>}
         </SectionLabel>
-        {poll?.date && <span className="whitespace-nowrap text-xs text-muted">Released {formatInTimeZone(poll.date, timezone, "MMM d")}</span>}
       </div>
       {!poll ? (
         <p className="border-y border-line py-3 text-sm text-muted">The poll isn&apos;t available right now. Check back soon.</p>
