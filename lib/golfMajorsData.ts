@@ -3,7 +3,7 @@ import { cache } from "react";
 import { allRows, type GolfEvent } from "./golf";
 import type { PoolBase } from "./pool";
 import { getEventInfo } from "./golfEventInfo";
-import { majorsSettings, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
+import { majorsSettings, purseOverride, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
 
 export type LineupRow = { user_id: string; event_id: string; espn_golfer_id: string; golfer_name: string; tier: number | null; salary: number | null };
 
@@ -92,7 +92,13 @@ export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], me
     started.length ? getEventInfo(started, ctx.pool.slug) : Promise.resolve(new Map()),
   ]);
   const results = new Map<string, MajorResult[]>();
-  for (const e of started) results.set(e.id, withProjectedEarnings(raw.get(e.id) ?? [], info.get(e.id)?.purse ?? null, e.status === "final"));
+  // The purse: the commissioner's, else ESPN's. Projected prize money is worked out from it.
+  const purses = new Map<string, { purse: number | null }>();
+  for (const e of started) {
+    const purse: number | null = purseOverride(ctx.pool.settings, e.id) ?? (info.get(e.id) as { purse?: number | null } | undefined)?.purse ?? null;
+    purses.set(e.id, { purse });
+    results.set(e.id, withProjectedEarnings(raw.get(e.id) ?? [], purse, e.status === "final"));
+  }
 
   const byEntry = new Map<string, LineupRow[]>();
   for (const l of lineups) {
@@ -132,5 +138,5 @@ export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], me
     const vals = eventIds.map((e) => m.get(`${userId}|${e}`)).filter((v): v is number => typeof v === "number");
     return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
   };
-  return { settings: s, lineups: byEntry, scores, results, standingsFor, totalFor, started, purses: info };
+  return { settings: s, lineups: byEntry, scores, results, standingsFor, totalFor, started, purses };
 }

@@ -7,8 +7,9 @@ import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { Field, Panel, SectionLabel, inputClass } from "@/components/ui";
 import { getGolfContext, getGolfEvents, golfFormat, type GolfEvent } from "@/lib/golf";
-import { MAJORS, majorsSettings } from "@/lib/golfMajors";
-import { addMajor, removeMajor, setMajorPicksOpen, updateGolfEvent } from "../actions";
+import { MAJORS, majorsSettings, purseOverride } from "@/lib/golfMajors";
+import { addMajor, removeMajor, setEventPurse, setMajorPicksOpen, updateGolfEvent } from "../actions";
+import { getEventInfo } from "@/lib/golfEventInfo";
 
 export const metadata: Metadata = { title: "Tournaments" };
 
@@ -59,6 +60,8 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
   const { data: fieldRows } = ids.length
     ? await ctx.supabase.from("golf_field").select("event_id").in("event_id", ids)
     : { data: [] as { event_id: string }[] };
+  // ESPN's purse for each tournament (the commissioner can set their own below).
+  const info = events.length ? await getEventInfo(events, ctx.pool.slug) : new Map();
   const fieldCount = new Map<string, number>();
   for (const r of fieldRows ?? []) fieldCount.set(r.event_id, (fieldCount.get(r.event_id) ?? 0) + 1);
   // A single-major pool (made for one major) doesn't add others.
@@ -93,6 +96,29 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
                     {n ? `Field of ${n}` : "Field not built"}
                     {!started && (isOpen(ev) ? " · Picks open" : " · Picks not open")}
                   </div>
+                  {/* The purse used for projected earnings: the commissioner's, else ESPN's. */}
+                  <ActionForm action={setEventPurse.bind(null, slug, ev.id)} className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                    <label className="flex items-center gap-1.5 text-muted">
+                      Purse $
+                      <input
+                        name="purse"
+                        inputMode="numeric"
+                        defaultValue={purseOverride(ctx.pool.settings, ev.id) ?? ""}
+                        placeholder={info.get(ev.id)?.purse ? String(info.get(ev.id)!.purse) : "7400000"}
+                        className={`${field.replace("bg-surface", "bg-bg")} !h-8 w-32 tabular-nums`}
+                      />
+                    </label>
+                    <SubmitButton kind="secondary" pending="Saving…" className="!min-h-8 !px-3 !text-xs">
+                      Save
+                    </SubmitButton>
+                    <span className="text-muted">
+                      {purseOverride(ctx.pool.settings, ev.id)
+                        ? "Set by you"
+                        : info.get(ev.id)?.purse
+                          ? `ESPN: $${Number(info.get(ev.id)!.purse).toLocaleString("en-US")}`
+                          : "ESPN hasn't posted one: set it here"}
+                    </span>
+                  </ActionForm>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link href={`/p/${slug}/golf/admin/field?event=${ev.id}`} className={buttonLink}>
