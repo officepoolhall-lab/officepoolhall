@@ -48,7 +48,9 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   // From the first tee time on, read ESPN every minute even if the pool's own status (set by the
   // 10-minute import) hasn't caught up yet.
   const teedOff = dbState === "scheduled" && !!event.start_at && Date.parse(event.start_at) <= now;
-  const live = readEspn ? await getLiveLeaderboard(tournamentId!, dbState === "live" || teedOff ? 60 : dbState === "final" ? 3600 : 600) : null;
+  // While under way: read fresh every time the page loads (no cache), so moving to the page shows
+  // the latest scores, not a copy up to a minute old.
+  const live = readEspn ? await getLiveLeaderboard(tournamentId!, dbState === "live" || teedOff ? 0 : dbState === "final" ? 3600 : 600) : null;
   // ESPN's own word wins for a real event: anyone started or finished means it's under way;
   // final needs round 4 and prize money too (between rounds everyone can show finished).
   const espnState = live && /^\d+$/.test(event.espn_id) ? (live.every((g) => g.status === "post") && live.some((g) => g.rounds[3] !== null) && live.some((g) => g.earnings > 0) ? "final" : live.some((g) => g.status === "in" || g.status === "post" || (g.thru !== null && g.thru !== "0")) ? "live" : null) : null;
