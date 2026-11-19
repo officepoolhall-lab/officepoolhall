@@ -5,6 +5,7 @@ import { ESPN_PATH, type TeamSport } from "./sports";
 // shape checked Oct 2026). Once the College Football Playoff committee publishes its
 // rankings (from early November), ESPN adds them to the same feed and they take over.
 // Cached for an hour, so a new poll or CFP release shows up within the hour, no job or table.
+// Each team's record is its current one (ESPN's team page, 15 minutes), not the record at release.
 
 const REVALIDATE_SECONDS = 3600;
 
@@ -74,6 +75,12 @@ export async function getApPoll(sport: TeamSport): Promise<ApPoll | null> {
       }))
       .sort((a, b) => a.rank - b.rank);
 
+    // Records as of now, not as of the poll's release: each team's current overall record.
+    const current = await Promise.all(teams.map((t) => (t.espnId ? currentRecord(sport, t.espnId) : Promise.resolve(null))));
+    teams.forEach((t, i) => {
+      if (current[i]) t.record = current[i];
+    });
+
     return {
       title: cfp ? "CFP Rankings" : "AP Top 25",
       cfp: Boolean(cfp),
@@ -81,6 +88,23 @@ export async function getApPoll(sport: TeamSport): Promise<ApPoll | null> {
       date: ap.date ?? null,
       teams,
     };
+  } catch {
+    return null;
+  }
+}
+
+/** A team's overall record right now ("10-1"), from ESPN's team page (cached 15 minutes); null if unavailable. */
+async function currentRecord(sport: TeamSport, espnId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/teams/${encodeURIComponent(espnId)}`, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
+      next: { revalidate: 900 },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { team?: { record?: { items?: { type?: string; summary?: string }[] } } };
+    const items = body.team?.record?.items ?? [];
+    return (items.find((x) => x.type === "total") ?? items[0])?.summary ?? null;
   } catch {
     return null;
   }
