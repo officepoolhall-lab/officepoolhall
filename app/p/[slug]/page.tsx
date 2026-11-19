@@ -217,7 +217,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
               {
                 id: "season",
                 label: "Season",
-                title: "Season standings",
+                title: "Standings",
                 href: `/p/${slug}/standings`,
                 content: <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} limitLg={homeRowsLg} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
               },
@@ -226,7 +226,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                     {
                       id: "week",
                       label: slate.label ?? `Week ${slate.week}`,
-                      title: `${slate.label ?? `Week ${slate.week}`} standings`,
+                      title: "Standings",
                       href: `/p/${slug}/standings?week=${slate.week}`,
                       content: <StandingsTable rows={weekly} me={ctx.entryUserId} flat={flat} compact weekly limit={8} limitLg={homeRowsLg} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
                     },
