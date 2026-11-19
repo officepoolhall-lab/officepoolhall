@@ -31,23 +31,22 @@ export function UpcomingWeekNote({
     return (
       <Link
         href={href}
-        className={`flex items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-accent/10 px-3 py-2 text-sm font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/15 ${className}`}
+        className={`flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-4 text-[15px] font-semibold bg-accent text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95 ${className}`}
       >
-        Make {label} Picks
-        <ChevronIcon className="size-4" />
+        Make {label} Picks <span aria-hidden>→</span>
       </Link>
     );
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2 rounded-lg bg-accent/10 px-3 py-2 text-sm ring-1 ring-accent/30 transition hover:bg-accent/15 ${className}`}
+      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-accent text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95 ${className}`}
     >
       {/* One line: the text steps down to fit a narrow column. */}
       <FitText min={10} className="flex-1">
-        <span className="font-semibold text-accent">{label} Picks Are Open</span>
-        <span className="text-muted"> · {windowLabel(slate.window_start, slate.window_end, timezone)}</span>
+        <span className="font-semibold">{label} Picks Are Open</span>
+        <span className="text-white/80"> · {windowLabel(slate.window_start, slate.window_end, timezone)}</span>
       </FitText>
-      <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-accent tabular-nums">
+      <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-semibold tabular-nums">
         {picked === 0 ? `Make ${label} Picks` : `${picked}/${picksPerSlate} Picked`}
         <ChevronIcon className="size-4" />
       </span>
