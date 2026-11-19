@@ -1,8 +1,8 @@
 // The order basketball stats show in, everywhere (box score, player game log, per-game and season
-// lines): minutes, points, rebounds, assists, turnovers, steals, blocks, then shooting (FG, FG%,
-// 3P, 3P%, FT, FT%), anything else ESPN adds (offensive/defensive rebounds…), and fouls last.
+// lines): minutes, points, rebounds (then offensive and defensive rebounds), assists, turnovers,
+// steals, blocks, then shooting (FG, FG%, 3P, 3P%, FT, FT%), anything else ESPN adds, fouls last.
 
-const ORDER = ["MIN", "PTS", "REB", "AST", "TO", "STL", "BLK", "FG", "FG%", "3PT", "3P%", "FT", "FT%"];
+const ORDER = ["MIN", "PTS", "REB", "OREB", "DREB", "AST", "TO", "STL", "BLK", "FG", "FG%", "3PT", "3P%", "FT", "FT%"];
 const ALIASES: Record<string, string> = { "3P": "3PT", "3PM-A": "3PT", "FGM-A": "FG", "FTM-A": "FT", "3PT%": "3P%" };
 
 /** The indexes of `labels` in display order (stable for labels not in the list; PF at the end). */
