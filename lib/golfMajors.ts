@@ -27,6 +27,12 @@ export function oddsKeyFor(ev: { major: string | null; espn_id: string }): strin
   return MAJORS.find((m) => m.id === ev.major)?.oddsKey ?? null;
 }
 
+/** A pool made for one major or one tour event (not a set of majors): "the tournament" in its text. */
+export function isSingleTournament(settings: unknown): boolean {
+  const scope = ((settings as Record<string, any> | null)?.majors ?? {}).scope;
+  return typeof scope === "string" && scope !== "all";
+}
+
 export type TierSource = "rank" | "odds" | "blend" | "custom";
 
 export type MajorsSettings = {

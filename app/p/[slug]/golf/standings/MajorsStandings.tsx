@@ -3,7 +3,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfEventSelect } from "@/components/GolfEventSelect";
 import { Empty, PageTitle, chipClass } from "@/components/ui";
 import { type GolfContext, type GolfEvent, getGolfMembers, money } from "@/lib/golf";
-import { formatShown, formatToPar, golferShown, type MajorsSettings } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, isSingleTournament, type MajorsSettings } from "@/lib/golfMajors";
 import { getMajorsScoreboard } from "@/lib/golfMajorsData";
 
 type Sort = "score" | "name" | "toPar" | "money";
@@ -41,7 +41,11 @@ export async function MajorsStandings({
     return (
       <>
         <PageTitle>Standings</PageTitle>
-        <Empty>Standings start once the first major tees off. Lineups show then too.</Empty>
+        <Empty>
+          {isSingleTournament(ctx.pool.settings)
+            ? "Standings are available once the tournament begins. Lineups will show then too."
+            : "Standings start once the first major tees off. Lineups show then too."}
+        </Empty>
       </>
     );
   }
