@@ -86,14 +86,18 @@ async function coursePars(tournamentId: string): Promise<Map<number, number>> {
   }
 }
 
-/** Cached `revalidate` seconds (a minute while live; final rounds don't change). */
+/** Cached `revalidate` seconds (0: read fresh every time, for the card while it's open). */
 export async function getScorecard(tournamentId: string, golferId: string, revalidate: number): Promise<Scorecard | null> {
   if (tournamentId === DEMO_LIVE_ID) return getDemoScorecard(golferId);
   if (!/^\d+$/.test(tournamentId) || !/^\d+$/.test(golferId)) return null;
   try {
     const res = await fetch(
       `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${tournamentId}/competitions/${tournamentId}/competitors/${golferId}/linescores?lang=en&region=us`,
-      { headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" }, next: { revalidate }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
+      {
+        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
+        ...(revalidate === 0 ? { cache: "no-store" as const } : { next: { revalidate } }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      },
     );
     if (!res.ok) return null;
     const card = parseScorecard(await res.json());

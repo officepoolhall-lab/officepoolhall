@@ -3,6 +3,7 @@ import { cache } from "react";
 import { allRows, type GolfEvent } from "./golf";
 import type { PoolBase } from "./pool";
 import { getEventInfo } from "./golfEventInfo";
+import { espnTournamentId, getLiveLeaderboard } from "./golfLive";
 import { hasStarted, majorsSettings, purseOverride, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
 
 export type LineupRow = { user_id: string; event_id: string; espn_golfer_id: string; golfer_name: string; tier: number | null; salary: number | null };
@@ -83,15 +84,52 @@ export type SortKey = "score" | "name" | "toPar" | "money";
  * the same lineup's total score to par and prize money, for sorting. Only majors that have
  * started count. `results` carries projected prize money while a major is being played.
  */
+/**
+ * Results with ESPN's live leaderboard laid over them for tournaments being played: place, score
+ * to par, holes played and rounds straight from ESPN (read fresh, no cache), since the stored
+ * results only update every ten minutes. Prize money and hole-by-hole stay as stored.
+ */
+export async function withLiveScores(ctx: PoolBase, events: GolfEvent[], raw: Map<string, MajorResult[]>): Promise<Map<string, MajorResult[]>> {
+  const live = events.filter((e) => e.status !== "final" && hasStarted(e));
+  if (!live.length) return raw;
+  const boards = await Promise.all(live.map((e) => getLiveLeaderboard(espnTournamentId(e.espn_id, ctx.pool.slug, e.status) ?? e.espn_id, 0).catch(() => null)));
+  const out = new Map(raw);
+  live.forEach((e, i) => {
+    const board = boards[i];
+    if (!board?.length) return;
+    const stored = new Map((raw.get(e.id) ?? []).map((r) => [r.espn_golfer_id, r]));
+    const toPar = (v: string | null) => (v === null ? null : v === "E" ? 0 : Number.isFinite(Number(v.replace("−", "-"))) ? Number(v.replace("−", "-")) : null);
+    const rows: MajorResult[] = board.map((g) => {
+      const r = stored.get(g.id);
+      return {
+        espn_golfer_id: g.id,
+        pos: g.pos && g.pos !== "-" ? g.pos : (r?.pos ?? null),
+        to_par: toPar(g.toPar) ?? r?.to_par ?? null,
+        out: g.out ? true : (r?.out ?? false),
+        thru: g.thru === "F" ? 18 : g.thru && /^\d+$/.test(g.thru) ? Number(g.thru) : (r?.thru ?? null),
+        earnings: r?.earnings ?? 0,
+        rounds: g.rounds?.some((x) => x !== null) ? g.rounds : (r?.rounds ?? null),
+        scorecard: r?.scorecard ?? null,
+      };
+    });
+    // Anyone stored but missing from ESPN's page keeps their stored row.
+    for (const r of stored.values()) if (!board.some((g) => g.id === r.espn_golfer_id)) rows.push(r);
+    out.set(e.id, rows);
+  });
+  return out;
+}
+
 export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], members: { user_id: string }[]) {
   const s = getMajorsSettings(ctx);
   // Under way: ESPN says so, or picks have locked at the first tee time.
   const started = events.filter((e) => hasStarted(e));
-  const [lineups, raw, info] = await Promise.all([
+  const [lineups, stored, info] = await Promise.all([
     getVisibleLineups(ctx),
     getMajorResults(ctx, started.map((e) => e.id)),
     started.length ? getEventInfo(started, ctx.pool.slug) : Promise.resolve(new Map()),
   ]);
+  // Live place and score straight from ESPN for a tournament being played.
+  const raw = await withLiveScores(ctx, started, stored);
   const results = new Map<string, MajorResult[]>();
   // The purse: the commissioner's, else ESPN's. Projected prize money is worked out from it.
   const purses = new Map<string, { purse: number | null }>();

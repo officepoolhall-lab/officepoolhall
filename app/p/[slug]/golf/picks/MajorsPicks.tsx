@@ -8,7 +8,7 @@ import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
 import { getEventInfo } from "@/lib/golfEventInfo";
 import { formatShown, formatToPar, golferShown, oddsKeyFor, purseOverride, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
-import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
+import { getMajorField, getMajorResults, withLiveScores, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
 import { ScorecardLink } from "@/components/ScorecardLink";
 import { espnTournamentId } from "@/lib/golfLive";
@@ -67,7 +67,8 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
 
   if (started) {
     const final = event.status === "final";
-    const raw = await getMajorResults(ctx, [event.id]);
+    // Live place and score straight from ESPN while it's being played (fresh on every visit).
+    const raw = await withLiveScores(ctx, [event], await getMajorResults(ctx, [event.id]));
     // Prize money projected from each golfer's place now and the purse, until it's posted.
     const results = withProjectedEarnings(raw.get(event.id) ?? [], purse, final);
     const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
