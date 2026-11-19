@@ -100,8 +100,12 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
 export async function addMajor(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
   const { MAJORS } = await import("@/lib/golfMajors");
-  const major = MAJORS.find((m) => m.id === form.get("major"));
+  // "event": a regular PGA Tour event, named by the admin (single-event pools).
+  const event = form.get("major") === "event";
+  const eventName = String(form.get("event_name") ?? "").trim();
+  const major = event ? { id: "event", name: eventName } : MAJORS.find((m) => m.id === form.get("major"));
   if (!major) return { error: "Choose a major." };
+  if (event && !eventName) return { error: "Enter the tournament's name." };
   const espnId = String(form.get("espn_id") ?? "").trim().match(/(\d{6,})/)?.[1] ?? "";
   const { error } = await ctx.supabase.rpc("golf_admin_add_major", {
     p_pool_id: ctx.pool.id,

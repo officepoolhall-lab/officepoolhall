@@ -10,7 +10,13 @@ export function poolKind(sport: string | null | undefined): PoolKind {
 /** "NFL Supercontest", "NCAA Confidence Pool", "PGA One-and-Done", "PGA Majors Pool". */
 export function poolTypeLabel(pool: { sport: string | null; settings: unknown }): string {
   const s = (pool.settings ?? {}) as Record<string, unknown>;
-  if (poolKind(pool.sport) === "golf") return s.golf_format === "majors" ? "PGA Majors Pool" : "PGA One-and-Done";
+  if (poolKind(pool.sport) === "golf") {
+    if (s.golf_format !== "majors") return "PGA One-and-Done";
+    const contest = (s.majors as { scope?: string; contest?: string } | undefined) ?? {};
+    // A Majors-format pool on one regular tour event.
+    if (contest.scope === "event") return contest.contest === "salary" ? "PGA Salary Cap Pool" : "PGA Tiers Pool";
+    return "PGA Majors Pool";
+  }
   const league = pool.sport === "nfl" ? "NFL" : "NCAA";
   if (s.confidence) return `${league} Confidence Pool`;
   return s.pick_type === "straight_up" ? `${league} Pick'em` : `${league} Supercontest`;
