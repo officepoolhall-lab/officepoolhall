@@ -159,8 +159,8 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
   // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
   const GAME_MIN_REM = 4;
-  const fixedRem = playerRem + tournaments.length * 3 + 2 + 1 + 1.75; // + page padding, scrollbar, the summary tab
-  const gridMinRem = playerRem + tournaments.length * 3 + games.length * GAME_MIN_REM;
+  const fixedRem = playerRem + tournaments.length * 3.5 + 2 + 1 + 1.75; // + page padding, scrollbar, the summary tab
+  const gridMinRem = playerRem + tournaments.length * 3.5 + games.length * GAME_MIN_REM;
   // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
   // at that width, and is tall enough for the panel to fit without scrolling.
   const panelFromPx = Math.ceil((gridMinRem + 18 + 1.25 + 1.5 + 2 + 1) * 16);
@@ -249,7 +249,7 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                   key={t.id}
                  
                   title={`${t.name}: champion pick`}
-                  className="sticky top-0 z-20 w-12 min-w-12 max-w-12 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
+                  className="sticky top-0 z-20 w-14 min-w-14 max-w-14 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
                 >
                   {/* The name in full ("Tournament" dropped), a trophy under it. */}
                   {/* Sideways, reading bottom to top, on one line: never cut off or split. Centered in the column. */}
@@ -361,19 +361,19 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                       <td
                         key={t.id}
                         title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined}
-                        className={`h-8 w-12 min-w-12 max-w-12 border-b border-r border-line px-1 text-center ${tone} ${
+                        className={`h-8 w-14 min-w-14 max-w-14 border-b border-r border-line px-0.5 text-center ${tone} ${
                           // A green fill once it scored, red once it didn't, as on the game picks.
                           scored ? (p!.points! > 0 ? "bg-[var(--win-fill)]" : "bg-[var(--loss-fill)]") : ""
                         }`}
                       >
                         {team && (
-                          <div className="leading-tight">
-                            {/* The champion pick's logo alone, like the game picks. */}
-                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="mx-auto size-5" />
-                            <div className={`text-[11px] font-medium ${scored && p!.points === 0 ? "line-through" : ""}`}>
-                              <span className="sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
-                            </div>
-                            {scored && <div className="text-[13px] font-semibold tabular-nums">{points(p!.points!)}</div>}
+                          // One line, like the game picks: the logo, then the points it scored beside it.
+                          <div className="flex items-center justify-center gap-1 leading-tight">
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-5 shrink-0" />
+                            <span className="sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
+                            {scored && (
+                              <span className={`whitespace-nowrap text-[13px] font-semibold tabular-nums ${p!.points === 0 ? "line-through" : ""}`}>{points(p!.points!)}</span>
+                            )}
                             {place && <span className="sr-only">, {place}</span>}
                           </div>
                         )}
