@@ -77,7 +77,7 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
   const raw = (((ctx.pool.settings as Record<string, any> | null)?.majors ?? {}) as { scope?: unknown; purses?: unknown });
   const majors = {
     ...(typeof raw.scope === "string" ? { scope: raw.scope } : {}),
-    ...(raw.purses && typeof raw.purses === "object" ? { purses: raw.purses } : {}),
+    ...(raw.purses && typeof raw.purses === "object" ? { purses: raw.purses as Record<string, number> } : {}),
     contest,
     standings: form.get("standings") === "each" ? "each" : "cumulative",
     tiers: {
