@@ -97,7 +97,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
             <thead>
               <tr className="border-b border-line text-left">
                 <th className={`${th} w-16`}>{salary ? "Salary" : "Tier"}</th>
-                <th className={th}>Golfer</th>
+                <th className={`${th} px-1.5`}>Golfer</th>
                 <th className={`${th} w-14 text-right`}>Place</th>
                 <th className={`${th} w-16 text-right`}>{salary ? "Points" : "Score"}</th>
                 <th className={`${th} w-28 text-right`}>{final ? "Earnings" : "Proj. Earnings"}</th>
@@ -112,8 +112,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                   return (
                     <tr key={l.espn_golfer_id} className={counted ? "" : "text-muted"}>
                       <td className="py-2 text-xs tabular-nums text-muted">{salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : `Tier ${l.tier}`}</td>
-                      <td className={`truncate py-2 ${counted ? "font-semibold" : "font-medium"}`}>
-                        {/* Tap a golfer for their hole-by-hole scorecard. */}
+                      <td className={`truncate px-1.5 py-2 ${counted ? "font-semibold" : "font-medium"}`}>
+                        {/* Tap a golfer for their hole-by-hole scorecard. The cell's side padding leaves room
+                            for the name's hover highlight (the cell clips what overflows). */}
                         <ScorecardLink
                           golfer={{
                             id: l.espn_golfer_id,
