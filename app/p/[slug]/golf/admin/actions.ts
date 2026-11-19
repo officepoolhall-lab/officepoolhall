@@ -71,7 +71,11 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
   if (budget < 1000 || budget > 1_000_000) return { error: "Set a budget between $1,000 and $1,000,000." };
   if (roster < 1 || roster > 12) return { error: "A roster can have 1 to 12 golfers." };
 
+  // Keep what the pool was made for (all majors, one major or one tour event: settings.majors.scope),
+  // which this form doesn't edit.
+  const scope = (((ctx.pool.settings as Record<string, any> | null)?.majors ?? {}) as { scope?: unknown }).scope;
   const majors = {
+    ...(typeof scope === "string" ? { scope } : {}),
     contest,
     standings: form.get("standings") === "each" ? "each" : "cumulative",
     tiers: {
