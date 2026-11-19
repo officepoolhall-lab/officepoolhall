@@ -18,7 +18,7 @@ export function PasswordNudgeBanner() {
     <div className="mb-4 flex group-has-[[data-fill-viewport]]/main:hidden items-center gap-3 rounded-xl bg-surface px-4 py-2.5 text-sm">
       <p className="min-w-0 flex-1 text-muted">
         Skip the emailed code next time:{" "}
-        <Link href="/account" className="font-medium text-accent -mx-1 rounded px-1 transition hover:bg-hover">set a password</Link>
+        <Link href="/account" className="font-medium text-accent -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">set a password</Link>
       </p>
       <button type="button" onClick={dismiss} className="-mr-2 h-11 shrink-0 px-2 text-muted hover:text-ink">
         Not now

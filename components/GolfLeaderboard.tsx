@@ -109,7 +109,7 @@ export function GolfLeaderboard({
                   <td className="border-b border-line px-2 py-2">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">
                       {started && tournamentId ? (
-                        <button type="button" className={`text-left font-medium -mx-1 rounded px-1 transition hover:bg-hover ${r.mine ? "text-accent" : ""}`} onClick={(e) => (e.stopPropagation(), setOpen(r))}>
+                        <button type="button" className={`text-left font-medium -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover ${r.mine ? "text-accent" : ""}`} onClick={(e) => (e.stopPropagation(), setOpen(r))}>
                           {r.name}
                         </button>
                       ) : (

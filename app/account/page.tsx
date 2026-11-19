@@ -113,7 +113,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
                           <li key={h.manager_id} className="flex items-center gap-3 text-sm">
                             <span className="min-w-0 flex-1 truncate">{h.manager_name}</span>
                             <form action={removeComanager.bind(null, p.id, h.manager_id)}>
-                              <button className="min-h-11 text-sm text-loss -mx-1 rounded px-1 transition hover:bg-hover">Remove</button>
+                              <button className="min-h-11 text-sm text-loss -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">Remove</button>
                             </form>
                           </li>
                         ))}
@@ -132,7 +132,7 @@ export default async function AccountPage({ searchParams }: PageProps<"/account"
                     <span className="block text-sm text-muted">You co-manage {r.owner_name}&apos;s entry</span>
                   </span>
                   <form action={removeComanager.bind(null, r.pool_id, user.id)}>
-                    <button className="min-h-11 text-sm text-loss -mx-1 rounded px-1 transition hover:bg-hover">Step down</button>
+                    <button className="min-h-11 text-sm text-loss -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">Step down</button>
                   </form>
                 </li>
               ))}

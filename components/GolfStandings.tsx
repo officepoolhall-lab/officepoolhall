@@ -12,7 +12,7 @@ const head = "text-[11px] font-medium text-muted";
 function Player({ r, href }: { r: { userId: string; name: string; isMe: boolean }; href: (userId: string) => string }) {
   return (
     <>
-      <Link href={href(r.userId)} className={`-mx-1 rounded px-1 transition hover:bg-hover ${r.isMe ? "text-accent" : ""}`}>
+      <Link href={href(r.userId)} className={`-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover ${r.isMe ? "text-accent" : ""}`}>
         {r.name}
       </Link>
     </>
