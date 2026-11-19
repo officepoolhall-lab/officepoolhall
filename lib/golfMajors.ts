@@ -385,15 +385,17 @@ export function formatToPar(n: number | null) {
 // Projected prize money while a major is being played
 
 /**
- * The PGA Tour's usual share of the purse for each finishing place, 1st–65th (percent). The
- * majors set their own tables, close to this; it's used only to project prize money before the
- * real amounts are posted. Tied golfers split the shares of the places they cover.
+ * The PGA Tour's share of the purse for each finishing place, 1st–90th (percent): the Tour's
+ * standard table, checked against its posted breakdown for The RSM Classic 2026 ($7.4M, every
+ * place to the dollar). The majors set their own tables, close to this; it's used only to project
+ * prize money before the real amounts are posted. Tied golfers split the shares of the places they cover.
  */
 export const PAYOUT_PCT = [
   18, 10.9, 6.9, 4.9, 4.1, 3.625, 3.375, 3.125, 2.925, 2.725, 2.525, 2.325, 2.125, 1.925, 1.825, 1.725, 1.625, 1.525, 1.425, 1.325, 1.225, 1.125,
   1.045, 0.965, 0.885, 0.805, 0.775, 0.745, 0.715, 0.685, 0.655, 0.625, 0.595, 0.57, 0.545, 0.52, 0.495, 0.475, 0.455, 0.435, 0.415, 0.395, 0.375,
   0.355, 0.335, 0.315, 0.295, 0.279, 0.265, 0.257, 0.251, 0.245, 0.241, 0.237, 0.235, 0.233, 0.231, 0.229, 0.227, 0.225, 0.223, 0.221, 0.219, 0.217,
   0.215,
+  0.213, 0.211, 0.209, 0.207, 0.205, 0.203, 0.201, 0.199, 0.197, 0.195, 0.193, 0.191, 0.189, 0.187, 0.185, 0.183, 0.181, 0.179, 0.177, 0.175, 0.173, 0.171, 0.169, 0.167, 0.165,
 ];
 
 /**
