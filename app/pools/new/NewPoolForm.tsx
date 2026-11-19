@@ -18,6 +18,7 @@ export function NewPoolForm({ defaultSeason }: { defaultSeason: number }) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
+  const [majorsScope, setMajorsScope] = useState("all");
 
   return (
     <ActionForm action={createPool} className="space-y-6">
@@ -54,8 +55,11 @@ export function NewPoolForm({ defaultSeason }: { defaultSeason: number }) {
           <input name="slug" required className={inputClass} value={slug} onChange={(e) => { setSlugTouched(true); setSlug(slugify(e.target.value)); }} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label={golf ? "Year of the majors" : "Season (start year)"}>
-            <input key={golf ? "golf" : "college"} name="season" type="number" required className={`${inputClass} tabular-nums`} defaultValue={golf ? 2027 : defaultSeason} />
+          <Field label={golf ? (majorsScope === "event" ? "Year" : "Year of the majors") : "Season (start year)"}>
+            <input
+              key={golf ? `golf-${majorsScope === "event"}` : "college"} name="season" type="number" required className={`${inputClass} tabular-nums`}
+              defaultValue={golf ? (majorsScope === "event" ? new Date().getFullYear() : 2027) : defaultSeason}
+            />
           </Field>
           <Field label="Entry fee">
             <input name="entry_fee" type="number" min={0} step={1} className={`${inputClass} tabular-nums`} defaultValue={0} />
@@ -67,12 +71,13 @@ export function NewPoolForm({ defaultSeason }: { defaultSeason: number }) {
         // the pool's Admin afterwards.
         <Panel className={`grid gap-4 p-4 sm:grid-cols-2 ${panelFields}`}>
           <Field label="Majors">
-            <select name="majors_scope" defaultValue="all" className={inputClass}>
+            <select name="majors_scope" value={majorsScope} onChange={(e) => setMajorsScope(e.target.value)} className={inputClass}>
               <option value="all">All Majors</option>
               <option value="masters">Masters</option>
               <option value="pga">PGA Championship</option>
               <option value="us_open">US Open</option>
               <option value="open">Open Championship</option>
+              <option value="event">Another PGA Tour event</option>
             </select>
           </Field>
           <Field label="Contest">
@@ -81,6 +86,16 @@ export function NewPoolForm({ defaultSeason }: { defaultSeason: number }) {
               <option value="salary">Salary Cap</option>
             </select>
           </Field>
+          {majorsScope === "event" && (
+            <>
+              <Field label="Tournament name">
+                <input name="event_name" required className={inputClass} placeholder="The RSM Classic" />
+              </Field>
+              <Field label="ESPN tournament id" hint="The number at the end of its ESPN leaderboard link (…/tournamentId/401850981).">
+                <input name="event_espn_id" required inputMode="numeric" className={`${inputClass} tabular-nums`} />
+              </Field>
+            </>
+          )}
           <p className="text-xs text-muted sm:col-span-2">Tiers, salaries, scoring and standings are set in the pool&apos;s Admin after it&apos;s created.</p>
         </Panel>
       ) : (

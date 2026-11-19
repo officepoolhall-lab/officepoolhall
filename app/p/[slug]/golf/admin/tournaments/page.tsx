@@ -64,6 +64,8 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
   // A single-major pool (made for one major) doesn't add others.
   const scope = (ctx.pool.settings as { majors?: { scope?: string } } | null)?.majors?.scope ?? "all";
   const missing = MAJORS.filter((m) => !events.some((e) => e.major === m.id) && (scope === "all" || scope === m.id));
+  // A single-event pool (one regular PGA Tour event) adds its tournament by name and ESPN id.
+  const single = scope === "event";
   // eslint-disable-next-line react-hooks/purity -- server render
   const now = Date.now();
   const isOpen = (e: GolfEvent) =>
@@ -73,7 +75,7 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
   return (
     <div className="space-y-6">
       {events.length === 0 ? (
-        <Empty>Add the majors this pool covers below.</Empty>
+        <Empty>{single ? "Add the tournament below." : "Add the majors this pool covers below."}</Empty>
       ) : (
         <ol className="divide-y divide-line border-y border-line">
           {events.map((ev) => {
@@ -117,7 +119,24 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
         </ol>
       )}
 
-      {missing.length > 0 && (
+      {single && events.length === 0 && (
+        <Panel className="p-4">
+          <SectionLabel>Add the tournament</SectionLabel>
+          <ActionForm action={addMajor.bind(null, slug)} className="mt-2 grid gap-3 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:items-end">
+            <input type="hidden" name="major" value="event" />
+            <Field label="Tournament name">
+              <input name="event_name" required placeholder="The RSM Classic" className={field.replace("bg-surface", "bg-bg")} />
+            </Field>
+            <Field label="ESPN tournament id" hint="The number at the end of its ESPN leaderboard link (…/tournamentId/401850981).">
+              <input name="espn_id" inputMode="numeric" required className={`${field.replace("bg-surface", "bg-bg")} tabular-nums`} />
+            </Field>
+            <SubmitButton kind="primary" pending="Adding…">
+              Add
+            </SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
+      {!single && missing.length > 0 && (
         <Panel className="p-4">
           <SectionLabel>Add a major</SectionLabel>
           <ActionForm action={addMajor.bind(null, slug)} className="mt-2 grid gap-3 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:items-end">
