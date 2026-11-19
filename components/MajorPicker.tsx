@@ -269,7 +269,7 @@ export function MajorPicker({
                     (contain: size keeps its long list from stretching the row) and scrolls inside it. */}
                 <ul
                   className={`divide-y divide-line ${
-                    t === picks.length ? "lg:min-h-[12rem] lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:[contain:size]" : ""
+                    t === picks.length ? "lg:min-h-[12rem] lg:flex-1 lg:overflow-y-auto lg:[contain:size]" : ""
                   }`}
                 >
                   {/* Stays in view while the last tier's long list scrolls. */}

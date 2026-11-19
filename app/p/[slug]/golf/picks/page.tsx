@@ -133,7 +133,7 @@ export default async function GolfPicksPage({ params, searchParams }: PageProps<
             {log.length === 0 ? (
               <p className="mt-2 border-y border-line py-3 text-sm text-muted">No events have been played yet.</p>
             ) : (
-              <div className="mt-2 min-h-0 flex-1 overflow-auto overscroll-contain border-y border-line">
+              <div className="mt-2 min-h-0 flex-1 overflow-auto border-y border-line">
                 {/* Phones: smaller type and tighter columns so it fits without scrolling sideways. */}
                 <table className="w-full table-fixed text-xs sm:table-auto sm:text-sm">
                   <thead>
@@ -184,7 +184,7 @@ export default async function GolfPicksPage({ params, searchParams }: PageProps<
                   <span className="w-12 shrink-0 text-right sm:w-14">Purse</span>
                   <span className="w-16 shrink-0 text-right">Start Date</span>
                 </div>
-                <ol className="min-h-0 flex-1 divide-y divide-line overflow-y-auto overscroll-contain">
+                <ol className="min-h-0 flex-1 divide-y divide-line overflow-y-auto">
                   {upcoming.map((ev) => {
                     const i = info.get(ev.id);
                     // The first tee time once posted; before that ESPN's start date for the event.
