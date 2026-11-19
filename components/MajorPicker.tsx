@@ -1,6 +1,6 @@
 "use client";
 
-import { FitText } from "./FitText";
+import { FitName } from "./FitName";
 import { useMemo, useState, useTransition } from "react";
 import type { FieldHistory } from "@/lib/golfFieldHistory";
 import type { ActionState } from "./ActionForm";
@@ -125,8 +125,8 @@ export function MajorPicker({
           <span className={`flex size-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? "border-accent bg-accent text-bg" : "border-faint"}`}>
             {on && <CheckIcon className="size-3" />}
           </span>
-          {/* The full name always: it wraps to a second line where the row is narrow (phones). */}
-          <span className={`min-w-0 flex-1 font-medium leading-tight [overflow-wrap:anywhere] ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
+          {/* One line: the name shrinks to fit, then shortens to first initial and last name. */}
+          <FitName name={g.golfer_name} className={`flex-1 font-medium ${on ? "text-accent" : ""}`} />
           <span className="w-10 shrink-0 text-center text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : "NR"}</span>
           {hasOdds && (
             <span className={`w-16 shrink-0 whitespace-nowrap text-center tabular-nums text-muted ${g.odds === null ? "text-[10px] text-faint" : "text-xs"}`}>
@@ -187,8 +187,8 @@ export function MajorPicker({
                           Tier {t}
                           {!readOnly && <span aria-hidden>×</span>}
                         </span>
-                        {/* The full name on one line: the font steps down to fit a long one. */}
-                        <FitText min={8} className="text-xs font-semibold">{g.golfer_name}</FitText>
+                        {/* One line: the name shrinks to fit, then shortens to first initial and last name. */}
+                        <FitName name={g.golfer_name} min={10} className="text-xs font-semibold" />
                       </button>
                     ) : (
                       <button

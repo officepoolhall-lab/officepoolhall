@@ -1,5 +1,6 @@
 "use client";
 
+import { FitName } from "./FitName";
 import { useMemo, useState } from "react";
 import { ActionForm, SubmitButton, type ActionState } from "./ActionForm";
 import type { FieldHistory } from "@/lib/golfFieldHistory";
@@ -140,7 +141,7 @@ export function GolfPicker({
                 {isSelected && <span className="size-2 rounded-full bg-accent" />}
               </button>
               <span className="min-w-0 flex-1">
-                <span className={`block leading-tight [overflow-wrap:anywhere] ${isSelected ? "font-bold" : "font-medium"} ${used ? "line-through decoration-1" : ""}`}>{g.name}</span>
+                <FitName name={g.name} className={`${isSelected ? "font-bold" : "font-medium"} ${used ? "line-through decoration-1" : ""}`} />
                 {g.teeLabel && <span className="block text-xs text-muted">{g.teeLabel}</span>}
               </span>
               {used ? (
