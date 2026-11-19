@@ -62,7 +62,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
       {/* Desktop: this week + standings | news | world rankings. Phones: week, standings, rankings, news. */}
       {/* Desktop: the world rankings set the row's height; the left column and the news fill
           exactly that much (FillColumn), so all three end level. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         <FillColumn className="lg:pr-6">
           <section className="mb-4 border-b border-line pb-3">
             {current ? (
@@ -323,7 +323,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
       <AutoRefresh active={!!live} seconds={120} />
       {/* Desktop: the world rankings set the row's height; the left column and the news fill
           exactly that much (FillColumn), so all three end level. */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         <FillColumn className="lg:pr-6">
           <section className="mb-4 border-b border-line pb-3">
             {next ? (
