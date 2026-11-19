@@ -327,7 +327,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
           <section className="mb-4 border-b border-line pb-3">
             {next ? (
               <>
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{live ? "Under Way" : next.status === "final" ? "Final" : "Next Major"}</div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{live ? "Under Way" : next.status === "final" ? "Final" : isSingleTournament(ctx.pool.settings) ? "Tournament" : "Next Major"}</div>
                 <h2 className="text-lg font-bold leading-snug">{next.name}</h2>
                 {next.start_at && next.status === "scheduled" && (
                   <p className="text-xs text-muted">
