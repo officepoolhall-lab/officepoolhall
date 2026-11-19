@@ -29,7 +29,10 @@ export function MajorPicker({
   history,
   season,
   save,
+  oddsNote = null,
 }: {
+  /** What the Odds column shows (blended or odds to win), under the search and sort. */
+  oddsNote?: string | null;
   contest: "tiers" | "salary";
   golfers: PickerFieldGolfer[];
   picks: number[];
@@ -98,7 +101,7 @@ export function MajorPicker({
         <span className="size-5 shrink-0" />
         <span className="min-w-0 flex-1">Golfer</span>
         <span className="w-10 shrink-0 text-center">WGR</span>
-        {hasOdds && <span className="w-14 shrink-0 text-center">Odds</span>}
+        {hasOdds && <span className="w-16 shrink-0 text-center">Odds</span>}
         {contest === "salary" && <span className="w-16 shrink-0 text-right">Salary</span>}
       </span>
       {/* Same text as the real button (not the title row's capitals and spacing), so the columns line up. */}
@@ -123,7 +126,11 @@ export function MajorPicker({
           </span>
           <span className={`min-w-0 flex-1 truncate font-medium ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
           <span className="w-10 shrink-0 text-center text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
-          {hasOdds && <span className="w-14 shrink-0 text-center text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
+          {hasOdds && (
+            <span className={`w-16 shrink-0 whitespace-nowrap text-center tabular-nums text-muted ${g.odds === null ? "text-[10px] text-faint" : "text-xs"}`}>
+              {g.odds === null ? "Not Available" : oddsLabel(g.odds)}
+            </span>
+          )}
           {contest === "salary" && <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">{dollars(g.salary!)}</span>}
         </button>
         <button
@@ -228,6 +235,8 @@ export function MajorPicker({
           ))}
         </div>
       </div>
+
+      {oddsNote && <p className="-mt-1 mb-3 text-[11px] text-muted">{oddsNote}</p>}
 
       {contest === "tiers" && (
         // Phones and tablets: one tier at a time, chosen here. Desktop shows every tier.

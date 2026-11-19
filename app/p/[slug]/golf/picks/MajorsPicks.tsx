@@ -6,7 +6,7 @@ import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
 import { getEventInfo } from "@/lib/golfEventInfo";
-import { formatShown, formatToPar, golferShown, purseOverride, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, oddsKeyFor, purseOverride, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
@@ -170,11 +170,24 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
     );
   }
 
+  // What the Odds column is: the hand-loaded blend (Winner, Top 5, Top 10) for a regular tour
+  // event, or DraftKings' odds to win for a major.
+  const oddsKey = oddsKeyFor(event);
+  const { data: oddsRow } = oddsKey
+    ? await ctx.supabase.from("golf_odds").select("bookmaker").eq("odds_key", oddsKey).limit(1).maybeSingle()
+    : { data: null };
+  const oddsNote = !field.some((g) => g.odds !== null)
+    ? null
+    : oddsRow?.bookmaker === "draftkings-blend"
+      ? "Odds are a blend of DraftKings' odds to win, to finish Top 5 and to finish Top 10 (weighted 50%, 30% and 20%), shown as odds to win."
+      : "Odds are DraftKings' odds to win.";
+
   return (
     // The full width of the screen; the page scrolls (no inner scroll boxes), Save pinned at the bottom.
     <div data-wide>
       {head}
       <MajorPicker
+        oddsNote={oddsNote}
         contest={s.contest}
         golfers={field}
         picks={s.tiers.picks}
