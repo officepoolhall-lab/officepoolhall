@@ -14,7 +14,7 @@ export function HomeStandings({ views }: { views: { id: string; label: string; t
   const view = views.find((v) => v.id === active) ?? views[0];
   return (
     <section>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-h-11 items-center justify-between gap-2">
         <SectionLabel fit className="!text-sm lg:!text-base">{view.title}</SectionLabel>
         <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
           {views.length > 1 && (

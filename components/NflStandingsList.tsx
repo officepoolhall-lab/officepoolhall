@@ -9,7 +9,7 @@ const pctText = (p: number) => (p >= 1 ? "1.000" : p.toFixed(3).replace(/^0/, ""
 export function NflStandingsList({ standings }: { standings: NflStandings | null }) {
   return (
     <section aria-labelledby="nfl-standings">
-      <div className="flex min-h-11 items-baseline justify-between gap-3">
+      <div className="flex min-h-11 items-center justify-between gap-3">
         <SectionLabel fit className="!text-sm lg:!text-base">
           <span id="nfl-standings">NFL Standings</span>
         </SectionLabel>
