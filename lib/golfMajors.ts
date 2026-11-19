@@ -33,6 +33,16 @@ export function isSingleTournament(settings: unknown): boolean {
   return typeof scope === "string" && scope !== "all";
 }
 
+/**
+ * The purse the commissioner set for a tournament (settings.majors.purses[eventId], dollars), which
+ * takes the place of ESPN's; null when none is set.
+ */
+export function purseOverride(settings: unknown, eventId: string): number | null {
+  const purses = (((settings as Record<string, any> | null)?.majors ?? {}) as { purses?: Record<string, unknown> }).purses;
+  const n = Number(purses?.[eventId]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export type TierSource = "rank" | "odds" | "blend" | "custom";
 
 export type MajorsSettings = {

@@ -6,7 +6,7 @@ import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
 import { getEventInfo } from "@/lib/golfEventInfo";
-import { formatShown, formatToPar, golferShown, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, purseOverride, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
@@ -31,7 +31,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
     events.find((e) => e.status === "in_progress") ??
     events.find((e) => e.status === "scheduled") ??
     events[events.length - 1];
-  const [field, lineups] = await Promise.all([getMajorField(ctx, event.id), getVisibleLineups(ctx)]);
+  const [field, lineups, info] = await Promise.all([getMajorField(ctx, event.id), getVisibleLineups(ctx), getEventInfo([event], ctx.pool.slug)]);
+  // The purse: the commissioner's, else ESPN's. Shown up top, and projected earnings come from it.
+  const purse = purseOverride(ctx.pool.settings, event.id) ?? info.get(event.id)?.purse ?? null;
   const mine = lineups.filter((l) => l.event_id === event.id && l.user_id === ctx.entryUserId);
   const open = isOpen(event);
   const started = event.status === "in_progress" || event.status === "final" || (!!event.start_at && Date.parse(event.start_at) <= now);
@@ -41,7 +43,10 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
     <div className="mb-3 flex shrink-0 flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         <h1 className="text-xl font-extrabold leading-tight tracking-[-0.03em]">My Picks</h1>
-        <h2 className="text-lg font-bold leading-snug">{event.name}</h2>
+        <h2 className="text-lg font-bold leading-snug">
+          {event.name}
+          {purse && <span className="ml-2 whitespace-nowrap align-middle text-sm font-semibold text-muted">· {money(purse)} Purse</span>}
+        </h2>
         <p className="text-xs text-muted">
           {event.start_at
             ? `${started ? "Locked" : "Locks"} ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
@@ -62,9 +67,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
 
   if (started) {
     const final = event.status === "final";
-    const [raw, info] = await Promise.all([getMajorResults(ctx, [event.id]), getEventInfo([event], ctx.pool.slug)]);
+    const raw = await getMajorResults(ctx, [event.id]);
     // Prize money projected from each golfer's place now and the purse, until it's posted.
-    const results = withProjectedEarnings(raw.get(event.id) ?? [], info.get(event.id)?.purse ?? null, final);
+    const results = withProjectedEarnings(raw.get(event.id) ?? [], purse, final);
     const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
     const score = scoreLineup(mine.map((l) => l.espn_golfer_id), results, s, final);
     const counts = new Map(score.golfers.map((g) => [g.espn_golfer_id, g.counts]));

@@ -73,9 +73,11 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
 
   // Keep what the pool was made for (all majors, one major or one tour event: settings.majors.scope),
   // which this form doesn't edit.
-  const scope = (((ctx.pool.settings as Record<string, any> | null)?.majors ?? {}) as { scope?: unknown }).scope;
+  // and the purses set on the Tournaments tab: this form doesn't edit them.
+  const raw = (((ctx.pool.settings as Record<string, any> | null)?.majors ?? {}) as { scope?: unknown; purses?: unknown });
   const majors = {
-    ...(typeof scope === "string" ? { scope } : {}),
+    ...(typeof raw.scope === "string" ? { scope: raw.scope } : {}),
+    ...(raw.purses && typeof raw.purses === "object" ? { purses: raw.purses } : {}),
     contest,
     standings: form.get("standings") === "each" ? "each" : "cumulative",
     tiers: {
@@ -195,4 +197,23 @@ export async function setMajorPicksOpen(slug: string, eventId: string, open: boo
   if (error) return { error: error.message };
   revalidatePath(`/p/${slug}`, "layout");
   return { ok: open ? "Picks are open." : "Picks are closed." };
+}
+
+/** Set (or clear, when blank) the purse for one of the pool's tournaments: projected earnings use it. */
+export async function setEventPurse(slug: string, eventId: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requirePoolCommissioner(slug);
+  const { data: ev } = await ctx.supabase.from("golf_events").select("id").eq("id", eventId).eq("pool_id", ctx.pool.id).maybeSingle();
+  if (!ev) return { error: "Tournament not found." };
+  const text = String(form.get("purse") ?? "").trim();
+  const value = text ? Math.round(Number(text.replace(/[$,\s]/g, "")) * (/m$/i.test(text) ? 1_000_000 : 1)) : null;
+  if (text && !(value && value > 0 && value < 1_000_000_000)) return { error: "Enter the purse in dollars, like 7400000." };
+  const settings = (ctx.pool.settings as Record<string, any> | null) ?? {};
+  const majors = (settings.majors ?? {}) as Record<string, any>;
+  const purses = { ...((majors.purses ?? {}) as Record<string, number>) };
+  if (value) purses[eventId] = value;
+  else delete purses[eventId];
+  const { error } = await ctx.supabase.from("pools").update({ settings: { ...settings, majors: { ...majors, purses } } }).eq("id", ctx.pool.id);
+  if (error) return { error: error.message };
+  revalidatePath(`/p/${slug}`, "layout");
+  return { ok: value ? `Purse set to $${value.toLocaleString("en-US")}.` : "Purse cleared: ESPN's is used." };
 }
