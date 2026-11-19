@@ -135,7 +135,6 @@ export async function MajorsStandings({
               <FitText min={11} className={`flex-1 font-semibold ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</FitText>
               <span className="shrink-0 font-bold tabular-nums">{fmt(shownSort, r.v)}</span>
             </div>
-            <Totals userId={r.user_id} ids={ids} board={board} s={s} fmt={fmt} />
             {columns.map((e) => (
               <Lineup key={e.id} event={e} userId={r.user_id} board={board} s={s} showName={columns.length > 1} />
             ))}
@@ -153,8 +152,7 @@ export async function MajorsStandings({
               <span className="shrink-0 font-semibold tabular-nums">{fmt(shownSort, r.v)}</span>
             </summary>
             <div className="space-y-3 px-2 pb-3 pl-11">
-              <Totals userId={r.user_id} ids={ids} board={board} s={s} fmt={fmt} />
-              {columns.map((e) => (
+                {columns.map((e) => (
                 <Lineup key={e.id} event={e} userId={r.user_id} board={board} s={s} showName={columns.length > 1} />
               ))}
             </div>
@@ -169,32 +167,6 @@ export async function MajorsStandings({
         {s.contest === "tiers" && s.tiers.counting < s.tiers.picks.reduce((a, b) => a + b, 0) ? `The best ${s.tiers.counting} golfers count (in bold). ` : ""}
         {anyLive ? "Earnings (Proj. $) are projected from current standings and the purse (ties split), until the prize money is posted." : ""}
       </p>
-    </div>
-  );
-}
-
-/** The entry's total score to par and prize money (whatever the pool scores by). */
-function Totals({
-  userId,
-  ids,
-  board,
-  s,
-  fmt,
-}: {
-  userId: string;
-  ids: string[];
-  board: Awaited<ReturnType<typeof getMajorsScoreboard>>;
-  s: MajorsSettings;
-  fmt: (by: Sort, v: number | null) => string;
-}) {
-  const toPar = board.totalFor("toPar", userId, ids);
-  const cash = board.totalFor("money", userId, ids);
-  if (toPar === null && cash === null) return null;
-  return (
-    <div className="mt-1 flex gap-3 text-[11px] tabular-nums text-muted">
-      {s.contest === "salary" && <span>Points {fmt("score", board.standingsFor(ids).find((r) => r.user_id === userId)?.total ?? null)}</span>}
-      <span>To Par {fmt("toPar", toPar)}</span>
-      <span>Earnings {fmt("money", cash)}</span>
     </div>
   );
 }
