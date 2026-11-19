@@ -142,7 +142,7 @@ export function GolfLeaderboard({
                   {started ? (
                     <>
                       <td className={`border-b border-line px-1 py-2 text-right font-semibold tabular-nums ${r.toPar?.startsWith("-") ? "text-loss" : ""}`}>{toParText(r.toPar)}</td>
-                      <td className="border-b border-line px-1 py-2 text-right text-xs tabular-nums text-muted">{state === "final" ? "" : r.thru}</td>
+                      <td className="whitespace-nowrap border-b border-line px-1 py-2 text-right text-xs tabular-nums text-muted">{state === "final" ? "" : r.thru}</td>
                       {[0, 1, 2, 3].map((n) => {
                         // The round being played shows the score to par so far for a golfer on the course.
                         const live = r.today !== null && round === n + 1 && r.rounds[n] === null;
