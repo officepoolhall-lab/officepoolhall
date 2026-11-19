@@ -127,7 +127,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
             <div className="mb-1 flex items-baseline justify-between text-xs text-muted">
               <span>{w.rank ? <>{ordinal(w.rank)} of {w.of} that week</> : "Not scored yet"}</span>
               {/* Everyone's picks that week. */}
-              <Link href={`/p/${slug}/grid/${w.week}`} className="font-medium text-accent -mx-1 rounded px-1 transition hover:bg-hover">League Grid</Link>
+              <Link href={`/p/${slug}/grid/${w.week}`} className="font-medium text-accent -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">League Grid</Link>
             </div>
             {list.length ? (
               <ul className="divide-y divide-line border-t border-line">

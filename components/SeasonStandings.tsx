@@ -62,7 +62,7 @@ export function SeasonStandings({
             <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
             <span className="min-w-0 flex-1 truncate font-medium">
               {playerHref ? (
-                <Link href={playerHref(r.userId)} className={`-mx-1 rounded px-1 transition hover:bg-hover ${mine ? "text-accent" : ""}`}>{r.name}</Link>
+                <Link href={playerHref(r.userId)} className={`-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover ${mine ? "text-accent" : ""}`}>{r.name}</Link>
               ) : (
                 <span className={mine ? "text-accent" : ""}>{r.name}</span>
               )}

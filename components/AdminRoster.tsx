@@ -167,7 +167,7 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
                     </ActionForm>
                   </details>
                 ) : emailOf.get(m.user_id) && (
-                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink -mx-1 rounded px-1 transition hover:bg-hover">
+                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">
                     {emailOf.get(m.user_id)}
                   </a>
                 )}
@@ -196,7 +196,7 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
                   <span key={c.manager_id} className="mt-0.5 block truncate text-xs text-muted">
                     <span className="font-semibold">Co-manager:</span> {c.manager_name}
                     <OnlineDot userId={c.manager_id} className="mx-1 align-middle" /> ·{" "}
-                    <a href={`mailto:${c.email}`} className="hover:text-ink -mx-1 rounded px-1 transition hover:bg-hover">{c.email}</a>
+                    <a href={`mailto:${c.email}`} className="hover:text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">{c.email}</a>
                   </span>
                 ))}
               </span>
@@ -261,7 +261,7 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
                     {g.display_name}
                     <span className="ml-1.5 text-xs font-normal text-muted">Guest</span>
                   </span>
-                  <a href={`mailto:${g.email}`} className="block truncate text-sm text-muted hover:text-ink -mx-1 rounded px-1 transition hover:bg-hover">{g.email}</a>
+                  <a href={`mailto:${g.email}`} className="block truncate text-sm text-muted hover:text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">{g.email}</a>
                   <span className="text-xs text-faint">{signedIn(g.last_sign_in_at)}</span>
                 </span>
                 <form action={removeGuest.bind(null, slug, g.user_id)}>

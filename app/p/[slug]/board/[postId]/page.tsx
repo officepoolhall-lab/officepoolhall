@@ -47,7 +47,7 @@ export default async function PostPage({ params }: PageProps<"/p/[slug]/board/[p
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot for "3h ago"
   const now = Date.now();
   const canDelete = (authorId: string) => authorId === me || ctx.isCommissioner;
-  const smallButton = "min-h-11 text-sm text-muted hover:text-ink -mx-1 rounded px-1 transition hover:bg-hover";
+  const smallButton = "min-h-11 text-sm text-muted hover:text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover";
 
   return (
     <div className="max-w-3xl">
@@ -77,7 +77,7 @@ export default async function PostPage({ params }: PageProps<"/p/[slug]/board/[p
           )}
           {canDelete(post.author_id) && (
             <form action={deletePost.bind(null, slug, post.id)}>
-              <button className="min-h-11 text-sm text-loss -mx-1 rounded px-1 transition hover:bg-hover">Delete post</button>
+              <button className="min-h-11 text-sm text-loss -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">Delete post</button>
             </form>
           )}
         </div>
@@ -97,7 +97,7 @@ export default async function PostPage({ params }: PageProps<"/p/[slug]/board/[p
                 <p className="mt-1 whitespace-pre-wrap break-words text-[15px] text-ink">{r.body}</p>
                 {canDelete(r.author_id) && (
                   <form action={deleteReply.bind(null, slug, post.id, r.id)}>
-                    <button className="min-h-9 text-xs text-muted hover:text-loss -mx-1 rounded px-1 transition hover:bg-hover">Delete</button>
+                    <button className="min-h-9 text-xs text-muted hover:text-loss -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">Delete</button>
                   </form>
                 )}
               </li>

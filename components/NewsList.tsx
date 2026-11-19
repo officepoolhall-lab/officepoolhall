@@ -30,7 +30,7 @@ export function NewsList({ stories, now, title = "Top stories" }: { stories: New
               <a href={s.url} target="_blank" rel="noopener noreferrer" className="group flex gap-3 py-2.5">
                 <NewsThumb src={s.image} source={s.source} />
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 text-sm font-semibold leading-snug text-ink -mx-1 rounded px-1 transition group-hover:bg-hover">{s.headline}</span>
+                  <span className="line-clamp-2 text-sm font-semibold leading-snug text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition group-hover:bg-hover">{s.headline}</span>
                   {s.description && <span className="mt-0.5 line-clamp-1 text-xs text-muted">{s.description}</span>}
                   <span className="mt-0.5 block text-[11px] text-faint">
                     <span className="font-semibold text-muted">{s.source}</span>

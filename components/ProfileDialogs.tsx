@@ -69,7 +69,7 @@ export function PlayerName({ sport, id, name, className = "" }: { sport: Sport; 
   if (!id) return <span className={className}>{name}</span>;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={`-mx-1 rounded px-1 text-left transition hover:bg-hover ${className}`}>
+      <button type="button" onClick={() => setOpen(true)} className={`-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 text-left transition hover:bg-hover ${className}`}>
         {name}
       </button>
       {open && <PlayerDialog sport={sport} id={id} name={name} onClose={() => setOpen(false)} />}
