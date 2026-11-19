@@ -97,8 +97,8 @@ export function MajorPicker({
       <span className="flex min-w-0 flex-1 items-center gap-2 px-1.5 pb-0.5 pt-1.5">
         <span className="size-5 shrink-0" />
         <span className="min-w-0 flex-1">Golfer</span>
-        <span className="w-10 shrink-0 text-right">WGR</span>
-        {hasOdds && <span className="w-14 shrink-0 text-right">Odds</span>}
+        <span className="w-10 shrink-0 text-center">WGR</span>
+        {hasOdds && <span className="w-14 shrink-0 text-center">Odds</span>}
         {contest === "salary" && <span className="w-16 shrink-0 text-right">Salary</span>}
       </span>
       {/* Same text as the real button (not the title row's capitals and spacing), so the columns line up. */}
@@ -122,8 +122,8 @@ export function MajorPicker({
             {on && <CheckIcon className="size-3" />}
           </span>
           <span className={`min-w-0 flex-1 truncate font-medium ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
-          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
-          {hasOdds && <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
+          <span className="w-10 shrink-0 text-center text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
+          {hasOdds && <span className="w-14 shrink-0 text-center text-xs tabular-nums text-muted">{oddsLabel(g.odds)}</span>}
           {contest === "salary" && <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">{dollars(g.salary!)}</span>}
         </button>
         <button
