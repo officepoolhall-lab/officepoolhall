@@ -123,7 +123,9 @@ function deriveState(golfers: Golfer[]): State {
   if (golfers.length === 0) return { status: "scheduled", firstTee };
   const allDone = golfers.every((g) => g.status === "post");
   if (allDone && golfers.some((g) => g.playedR4) && golfers.some((g) => g.earnings > 0)) return { status: "final", firstTee };
-  const started = golfers.some((g) => g.status === "post" || g.status === "in" || g.thru > 0);
+  // Between rounds every golfer shows "pre" for the next round with 0 holes: a round already
+  // played (or a score to par) still means the tournament has started.
+  const started = golfers.some((g) => g.status === "post" || g.status === "in" || g.thru > 0 || g.toPar !== null || g.rounds.some((r) => r !== null && r > 0));
   return { status: started ? "in_progress" : "scheduled", firstTee };
 }
 
@@ -181,7 +183,9 @@ Deno.serve(async (req) => {
       const state = deriveState(golfers);
 
       // The lock follows the first tee time only while the event hasn't started.
-      if (state.status === "scheduled" && state.firstTee && state.firstTee !== ev.start_at) {
+      // Never once the stored lock has passed: picks are for the whole tournament.
+      const lockPassed = !!ev.start_at && Date.parse(ev.start_at) <= Date.now();
+      if (state.status === "scheduled" && !lockPassed && ev.status === "scheduled" && state.firstTee && state.firstTee !== ev.start_at) {
         const { error: lockError } = await db.from("golf_events").update({ start_at: state.firstTee }).eq("id", ev.id);
         if (lockError) return json({ error: lockError.message, event: ev.espn_id }, 500);
       }
