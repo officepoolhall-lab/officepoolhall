@@ -1,4 +1,5 @@
 import "server-only";
+import { basketballOrder, reorder } from "./statOrder";
 import { ESPN_PATH, type TeamSport } from "./sports";
 
 // Player and team profiles from ESPN's public APIs, for the box score's player pop-up and My
@@ -101,7 +102,15 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
   if (labels.length && games.length) {
     // Basketball: per-game averages over the games in the log.
     const averages = sport === "ncaab" ? perGame(labels, games.map((g) => g.stats), totals) : null;
-    tables.push({ name: str(seasonType?.displayName) ?? "This season", labels, games, totals, averages });
+    // Basketball: minutes, points, rebounds, assists, turnovers, steals, blocks, shooting, fouls.
+    const order = sport === "ncaab" ? basketballOrder(labels) : labels.map((_, i) => i);
+    tables.push({
+      name: str(seasonType?.displayName) ?? "This season",
+      labels: reorder(labels, order)!,
+      games: games.map((g) => ({ ...g, stats: reorder(g.stats, order)! })),
+      totals: reorder(totals, order),
+      averages: reorder(averages, order),
+    });
   }
 
   return {

@@ -1,5 +1,6 @@
 import "server-only";
 import { ESPN_PATH, isFootball, type TeamSport } from "./sports";
+import { basketballOrder, reorder } from "./statOrder";
 
 // One game's play-by-play and box score from ESPN's game summary
 // (site/v2/sports/{sport}/summary?event={id}). The shape is ESPN's, undocumented, so every
@@ -142,7 +143,19 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
           .filter((r: { name: string; stats: string[] }) => r.name && r.stats.length),
         totals: Array.isArray(g?.totals) && g.totals.length ? g.totals.map((v: any) => String(v)) : null,
       }))
-      .filter((g: StatGroup) => g.rows.length),
+      .filter((g: StatGroup) => g.rows.length)
+      // Basketball: minutes, points, rebounds, assists, turnovers, steals, blocks, shooting, fouls.
+      .map((g: StatGroup): StatGroup => {
+        if (sport !== "ncaab") return g;
+        const p = withPercentages(g);
+        const order = basketballOrder(p.labels);
+        return {
+          ...p,
+          labels: reorder(p.labels, order)!,
+          rows: p.rows.map((r) => ({ ...r, stats: reorder(r.stats, order)! })),
+          totals: reorder(p.totals, order),
+        };
+      }),
   }));
 
   const football = isFootball(sport);
@@ -156,5 +169,26 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
     players,
     periodLabel: (n: number) =>
       football ? (n <= 4 ? `Q${n}` : n === 5 ? "OT" : `${n - 4}OT`) : n <= 2 ? (n === 1 ? "1st Half" : "2nd Half") : n === 3 ? "OT" : `${n - 2}OT`,
+  };
+}
+
+/**
+ * Basketball box scores give shooting as made-attempted ("5-11"): adds FG%, 3P% and FT% columns
+ * worked out from them ("45.5"; "—" with no attempts), so the box score matches the game log.
+ */
+function withPercentages(g: StatGroup): StatGroup {
+  const shots: [string, string][] = [["FG", "FG%"], ["3PT", "3P%"], ["FT", "FT%"]];
+  const add = shots.filter(([from, pct]) => g.labels.includes(from) && !g.labels.includes(pct));
+  if (!add.length) return g;
+  const pct = (v: string | undefined) => {
+    const m = v?.match(/^(\d+)-(\d+)$/);
+    return m && Number(m[2]) > 0 ? ((Number(m[1]) / Number(m[2])) * 100).toFixed(1) : "—";
+  };
+  const extend = (values: string[]) => [...values, ...add.map(([from]) => pct(values[g.labels.indexOf(from)]))];
+  return {
+    ...g,
+    labels: [...g.labels, ...add.map(([, p]) => p)],
+    rows: g.rows.map((r) => ({ ...r, stats: extend(r.stats) })),
+    totals: g.totals ? extend(g.totals) : null,
   };
 }
