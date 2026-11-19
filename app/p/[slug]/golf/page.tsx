@@ -228,11 +228,12 @@ async function Rankings({ timezone }: { timezone: string }) {
   const owgr = await getWorldRankings(25);
   return (
     <section aria-labelledby="owgr">
-      <div className="flex min-h-11 items-baseline justify-between gap-3">
-        <SectionLabel fit className="!text-sm lg:!text-base">
+      {/* The title, then the week under it. */}
+      <div className="flex min-h-11 flex-col justify-center">
+        <SectionLabel fit className="!flex-none !text-sm lg:!text-base">
           <span id="owgr">World golf rankings</span>
         </SectionLabel>
-        {owgr?.asOf && <span className="shrink-0 whitespace-nowrap text-xs text-muted">Week of {formatInTimeZone(owgr.asOf, timezone, "MMM d")}</span>}
+        {owgr?.asOf && <span className="whitespace-nowrap text-xs text-muted">Week of {formatInTimeZone(owgr.asOf, timezone, "MMM d")}</span>}
       </div>
       {!owgr ? (
         <p className="border-y border-line py-3 text-sm text-muted">The rankings aren&apos;t available right now. Check back soon.</p>
