@@ -93,9 +93,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
         {mine.length === 0 ? (
           <Empty>No lineup for this major.</Empty>
         ) : (
-          {/* Fixed column widths: one line per golfer on every screen, the numbers spread evenly
-              (wider apart on larger screens) and the name taking the rest. */}
           <table className="w-full max-w-4xl table-fixed text-sm">
+            {/* Fixed column widths: one line per golfer on every screen, the numbers spread evenly
+                (wider apart on larger screens) and the name taking the rest. */}
             <thead>
               <tr className="border-b border-line text-left">
                 <th className={`${th} ${salary ? "w-16" : "w-10 text-center"}`}>{salary ? "Salary" : "Tier"}</th>
@@ -162,8 +162,8 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                 <td colSpan={3} className="py-2 text-xs text-muted">
                   {counts.size && countedIds.length < mine.length ? `Total (the ${countedIds.length} that count)` : "Total"}
                 </td>
-                <td className="py-2 text-right font-bold tabular-nums">{salary ? formatShown({ kind: "points", value: score.total }) : formatToPar(toParTotal)}</td>
-                <td className="py-2 text-right font-bold tabular-nums">{money(cashTotal)}</td>
+                <td className="whitespace-nowrap py-2 text-center font-bold tabular-nums">{salary ? formatShown({ kind: "points", value: score.total }) : formatToPar(toParTotal)}</td>
+                <td className="whitespace-nowrap py-2 pr-1 text-right font-bold tabular-nums">{money(cashTotal)}</td>
               </tr>
             </tfoot>
           </table>
