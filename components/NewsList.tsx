@@ -14,7 +14,7 @@ function ago(iso: string, now: number) {
 export function NewsList({ stories, now, title = "Top stories" }: { stories: NewsStory[]; now: number; title?: string }) {
   return (
     <section aria-labelledby="news">
-      <div className="flex min-h-11 items-baseline justify-between gap-3">
+      <div className="flex min-h-11 items-center justify-between gap-3">
         <SectionLabel fit className="!text-sm lg:!text-base">
           <span id="news">{title}</span>
         </SectionLabel>
