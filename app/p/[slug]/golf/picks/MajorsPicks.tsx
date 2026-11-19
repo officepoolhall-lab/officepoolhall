@@ -112,9 +112,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                   return (
                     <tr key={l.espn_golfer_id} className={counted ? "" : "text-muted"}>
                       <td className="py-2 text-xs tabular-nums text-muted">{salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : `Tier ${l.tier}`}</td>
-                      <td className={`truncate px-1.5 py-2 ${counted ? "font-semibold" : "font-medium"}`}>
-                        {/* Tap a golfer for their hole-by-hole scorecard. The cell's side padding leaves room
-                            for the name's hover highlight (the cell clips what overflows). */}
+                      <td className={`px-1.5 py-2 leading-tight [overflow-wrap:anywhere] ${counted ? "font-semibold" : "font-medium"}`}>
+                        {/* Tap a golfer for their hole-by-hole scorecard. The full name always (it wraps on a
+                            narrow screen); the cell's side padding leaves room for the hover highlight. */}
                         <ScorecardLink
                           golfer={{
                             id: l.espn_golfer_id,

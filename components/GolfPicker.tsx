@@ -140,7 +140,7 @@ export function GolfPicker({
                 {isSelected && <span className="size-2 rounded-full bg-accent" />}
               </button>
               <span className="min-w-0 flex-1">
-                <span className={`block truncate ${isSelected ? "font-bold" : "font-medium"} ${used ? "line-through decoration-1" : ""}`}>{g.name}</span>
+                <span className={`block leading-tight [overflow-wrap:anywhere] ${isSelected ? "font-bold" : "font-medium"} ${used ? "line-through decoration-1" : ""}`}>{g.name}</span>
                 {g.teeLabel && <span className="block text-xs text-muted">{g.teeLabel}</span>}
               </span>
               {used ? (
