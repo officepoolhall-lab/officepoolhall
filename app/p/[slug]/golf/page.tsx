@@ -30,7 +30,7 @@ import {
 import { tzAbbrev } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
-import { formatShown, formatToPar, golferShown, isSingleTournament } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, hasStarted, isSingleTournament } from "@/lib/golfMajors";
 import { getMajorsScoreboard, getVisibleLineups } from "@/lib/golfMajorsData";
 
 export const metadata: Metadata = { title: "Home" };
@@ -298,7 +298,8 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
   // eslint-disable-next-line react-hooks/purity -- server render
   const now = Date.now();
   const board = await getMajorsScoreboard(ctx, events, members);
-  const live = events.find((e) => e.status === "in_progress");
+  // Under way from the first tee time (picks lock), even before the score feed says so.
+  const live = events.find((e) => e.status !== "final" && hasStarted(e, now));
   const next = live ?? events.find((e) => e.status === "scheduled") ?? events[events.length - 1];
   const open = next && next.status === "scheduled" && !!next.start_at && now < Date.parse(next.start_at) && !!next.picks_open_at && Date.parse(next.picks_open_at) <= now;
   const mine = next ? lineups.filter((l) => l.event_id === next.id && l.user_id === ctx.entryUserId) : [];
@@ -356,7 +357,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                     the golfers that count are in bold. */}
                 {mine.length > 0 && (
                   <ul className="mt-1 divide-y divide-line">
-                    {next.status !== "scheduled" && (
+                    {hasStarted(next, now) && (
                       <li className="flex items-center gap-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-faint" aria-hidden>
                         <span className="w-10 shrink-0">{s.contest === "salary" ? "Salary" : "Tier"}</span>
                         <span className="min-w-0 flex-1">Golfer</span>
@@ -370,7 +371,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                       .map((l) => {
                         const r = myResults.get(l.espn_golfer_id);
                         const g = myScore?.golfers.find((x) => x.espn_golfer_id === l.espn_golfer_id);
-                        const started = next.status !== "scheduled";
+                        const started = hasStarted(next, now);
                         return (
                           <li key={l.espn_golfer_id} className={`flex min-h-8 items-center gap-2 py-1 text-sm ${started && g && !g.counts ? "text-muted" : ""}`}>
                             <span className="w-10 shrink-0 text-[11px] tabular-nums text-muted">

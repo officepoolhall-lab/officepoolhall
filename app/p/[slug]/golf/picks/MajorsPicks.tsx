@@ -96,7 +96,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
           <table className="w-full max-w-4xl text-sm">
             <thead>
               <tr className="border-b border-line text-left">
-                <th className={`${th} w-16`}>{salary ? "Salary" : "Tier"}</th>
+                <th className={`${th} ${salary ? "w-16" : "w-10 text-center"}`}>{salary ? "Salary" : "Tier"}</th>
                 <th className={`${th} px-1.5`}>Golfer</th>
                 <th className={`${th} w-14 text-right`}>Place</th>
                 <th className={`${th} w-16 text-right`}>{salary ? "Points" : "Score"}</th>
@@ -111,7 +111,10 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                   const counted = counts.get(l.espn_golfer_id);
                   return (
                     <tr key={l.espn_golfer_id} className={counted ? "" : "text-muted"}>
-                      <td className="py-2 text-xs tabular-nums text-muted">{salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : `Tier ${l.tier}`}</td>
+                      {/* Tiers: just the number, centered under the Tier title (one line). */}
+                      <td className={`whitespace-nowrap py-2 text-xs tabular-nums text-muted ${salary ? "" : "text-center"}`}>
+                        {salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : l.tier}
+                      </td>
                       <td className={`max-w-0 w-full truncate px-1.5 py-2 ${counted ? "font-semibold" : "font-medium"}`}>
                         {/* Tap a golfer for their hole-by-hole scorecard. One line: the name shrinks to fit,
                             then shortens to first initial and last name; the cell's side padding leaves room

@@ -36,7 +36,7 @@ export async function MajorsStandings({
   const board = await getMajorsScoreboard(ctx, events, members);
   const { settings: s, started } = board;
   const names = new Map(members.map((m) => [m.user_id, m.display_name]));
-  const live = started.some((e) => e.status === "in_progress");
+  const live = started.some((e) => e.status !== "final");
 
   if (!started.length) {
     return (
