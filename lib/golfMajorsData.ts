@@ -3,7 +3,7 @@ import { cache } from "react";
 import { allRows, type GolfEvent } from "./golf";
 import type { PoolBase } from "./pool";
 import { getEventInfo } from "./golfEventInfo";
-import { majorsSettings, purseOverride, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
+import { hasStarted, majorsSettings, purseOverride, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
 
 export type LineupRow = { user_id: string; event_id: string; espn_golfer_id: string; golfer_name: string; tier: number | null; salary: number | null };
 
@@ -85,7 +85,8 @@ export type SortKey = "score" | "name" | "toPar" | "money";
  */
 export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], members: { user_id: string }[]) {
   const s = getMajorsSettings(ctx);
-  const started = events.filter((e) => e.status === "in_progress" || e.status === "final");
+  // Under way: ESPN says so, or picks have locked at the first tee time.
+  const started = events.filter((e) => hasStarted(e));
   const [lineups, raw, info] = await Promise.all([
     getVisibleLineups(ctx),
     getMajorResults(ctx, started.map((e) => e.id)),

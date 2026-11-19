@@ -43,6 +43,15 @@ export function purseOverride(settings: unknown, eventId: string): number | null
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * Whether a tournament is under way for the pool: ESPN says so, or picks have locked (its first
+ * tee time has passed), so standings and everyone's lineups show from the lock, not from whenever
+ * the score feed next updates its status.
+ */
+export function hasStarted(e: { status: string; start_at: string | null }, now = Date.now()): boolean {
+  return e.status === "in_progress" || e.status === "final" || (e.status === "scheduled" && !!e.start_at && Date.parse(e.start_at) <= now);
+}
+
 export type TierSource = "rank" | "odds" | "blend" | "custom";
 
 export type MajorsSettings = {
