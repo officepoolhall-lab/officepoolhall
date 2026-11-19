@@ -30,7 +30,7 @@ import {
 import { tzAbbrev } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
-import { formatShown, formatToPar, golferShown } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, isSingleTournament } from "@/lib/golfMajors";
 import { getMajorsScoreboard, getVisibleLineups } from "@/lib/golfMajorsData";
 
 export const metadata: Metadata = { title: "Home" };
@@ -409,7 +409,9 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
               </Link>
             </div>
             {shown.length === 0 ? (
-              <p className="border-y border-line py-3 text-sm text-muted">Standings start once the first major tees off.</p>
+              <p className="border-y border-line py-3 text-sm text-muted">
+                {isSingleTournament(ctx.pool.settings) ? "Standings are available once the tournament begins." : "Standings start once the first major tees off."}
+              </p>
             ) : (
               <ol className="divide-y divide-line border-y border-line" data-fill-list="">
                 {shown.map((r, i) => (
