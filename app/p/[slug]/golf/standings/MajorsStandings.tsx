@@ -96,11 +96,11 @@ export async function MajorsStandings({
   const href = (by: Sort) => `/p/${slug}/golf/standings?${new URLSearchParams({ ...(focus ? { event: focus.id } : {}), ...(by === ownSort ? {} : { sort: by }) })}`;
 
   // The narrowest card that shows everything: the fixed columns (tier, place, score, money, gaps
-  // and padding: about 14.5rem) plus the longest golfer name at 14px (~0.5rem a letter), or the
-  // entry's name and total along the top (16px semibold, ~0.6rem a letter, plus about 6.5rem).
+  // and padding: about 12rem) plus the longest golfer name at 13px (~0.45rem a letter), or the
+  // entry's name and total along the top (14px semibold, ~0.52rem a letter, plus about 5.5rem).
   const longestGolfer = Math.max(0, ...[...board.lineups.entries()].filter(([k]) => ids.some((id) => k.endsWith(`|${id}`))).flatMap(([, ls]) => ls.map((l) => l.golfer_name.length)));
   const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
-  const cardRem = Math.max(17, Math.ceil(Math.max(14.5 + longestGolfer * 0.5, 6.5 + longestEntry * 0.6)));
+  const cardRem = Math.max(14, Math.ceil(Math.max(12 + longestGolfer * 0.45, 5.5 + longestEntry * 0.52) * 2) / 2);
 
   return (
     <div data-wide>
@@ -127,11 +127,11 @@ export async function MajorsStandings({
       {/* Desktop: every entry's lineup as a card, as many across as fit with nothing cut off: each
           card is at least as wide as its longest golfer or entry name needs, so a wide screen shows
           more cards per row and a narrower one fewer. */}
-      <ol className="hidden gap-3 lg:grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardRem}rem), 1fr))` }}>
+      <ol className="hidden gap-2 lg:grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardRem}rem), 1fr))` }}>
         {rows.map((r) => (
-          <li key={r.user_id} className={`rounded-lg border p-3 ${r.user_id === me ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : "border-line"}`}>
-            <div className="flex items-baseline gap-2 border-b border-line pb-1.5">
-              <span className="w-6 shrink-0 tabular-nums text-muted">{r.v === null && sort !== "name" ? "" : place.get(r.user_id)}</span>
+          <li key={r.user_id} className={`rounded-lg border px-2.5 py-2 ${r.user_id === me ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : "border-line"}`}>
+            <div className="flex items-baseline gap-1.5 border-b border-line pb-1 text-sm">
+              <span className="w-5 shrink-0 tabular-nums text-muted">{r.v === null && sort !== "name" ? "" : place.get(r.user_id)}</span>
               <FitText min={11} className={`flex-1 font-semibold ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</FitText>
               <span className="shrink-0 font-bold tabular-nums">{fmt(shownSort, r.v)}</span>
             </div>
@@ -226,13 +226,13 @@ function Lineup({
       {rows.length === 0 ? (
         <p className="text-sm text-muted">No lineup.</p>
       ) : (
-        <ul className="text-sm">
-          <li className="flex items-center gap-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint" aria-hidden>
-            <span className="w-9 shrink-0">{s.contest === "salary" ? "Salary" : "Tier"}</span>
+        <ul className="text-[13px]">
+          <li className="flex items-center gap-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint" aria-hidden>
+            <span className={`${s.contest === "salary" ? "w-9" : "w-7"} shrink-0`}>{s.contest === "salary" ? "Sal." : "Tier"}</span>
             <span className="min-w-0 flex-1">Golfer</span>
-            <span className="w-9 shrink-0 text-right">Place</span>
-            <span className="w-11 shrink-0 text-right">{s.contest === "salary" ? "Pts" : "Score"}</span>
-            <span className="w-14 shrink-0 text-right">{final ? "Earnings" : "Proj. $"}</span>
+            <span className="w-8 shrink-0 text-right">Pos</span>
+            <span className="w-9 shrink-0 text-right">{s.contest === "salary" ? "Pts" : "Score"}</span>
+            <span className="w-12 shrink-0 text-right">{final ? "Earn." : "Proj. $"}</span>
           </li>
           {[...rows]
             .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (b.salary ?? 0) - (a.salary ?? 0) || a.golfer_name.localeCompare(b.golfer_name))
@@ -240,14 +240,14 @@ function Lineup({
               const r = byId.get(l.espn_golfer_id);
               const counted = counts.get(l.espn_golfer_id)?.counts;
               return (
-                <li key={l.espn_golfer_id} className={`flex items-center gap-2 py-0.5 ${counted ? "" : "text-muted"}`}>
-                  <span className="w-9 shrink-0 text-[11px] tabular-nums text-muted">{s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}</span>
+                <li key={l.espn_golfer_id} className={`flex items-center gap-1.5 py-px ${counted ? "" : "text-muted"}`}>
+                  <span className={`${s.contest === "salary" ? "w-9" : "w-7"} shrink-0 text-[11px] tabular-nums text-muted`}>{s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}</span>
                   {/* The card is sized to fit the longest name; the font steps down if one still doesn't. */}
                   <FitText min={10} className={`flex-1 ${counted ? "font-medium" : ""}`}>{l.golfer_name}</FitText>
-                  <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
-                  <span className={`w-11 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, asScore, final))}</span>
+                  <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
+                  <span className={`w-9 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, asScore, final))}</span>
                   {/* Prize money: projected from current standings until it's posted. */}
-                  <span className="w-14 shrink-0 text-right text-xs tabular-nums text-muted">{r ? shortMoney(r.earnings) : "–"}</span>
+                  <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-muted">{r ? shortMoney(r.earnings) : "–"}</span>
                 </li>
               );
             })}

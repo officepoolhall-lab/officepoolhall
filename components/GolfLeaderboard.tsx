@@ -67,7 +67,7 @@ export function GolfLeaderboard({
         <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left">
-              <th className={`${th} w-12 pl-4 pr-1 sm:pl-0`}>{started ? "Pos" : ""}</th>
+              <th className={`${th} w-12 pl-4 pr-1 sm:pl-2`}>{started ? "Pos" : ""}</th>
               <th className={`${th} px-2`}>Golfer</th>
               <th className={`${th} w-12 px-1 text-center leading-tight`}>Pool Picks</th>
               {started ? (
@@ -105,7 +105,7 @@ export function GolfLeaderboard({
                   onClick={() => started && tournamentId && setOpen(r)}
                   className={`${started && tournamentId ? "cursor-pointer hover:bg-surface" : ""} ${r.mine ? "[&>td]:bg-[color-mix(in_srgb,var(--accent)_18%,var(--bg))] hover:[&>td]:bg-[color-mix(in_srgb,var(--accent)_24%,var(--bg))]" : ""}`}
                 >
-                  <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-0 ${r.mine ? "shadow-[inset_3px_0_0_var(--accent)]" : ""}`}>{r.pos}</td>
+                  <td className={`border-b border-line py-2 pl-4 pr-1 tabular-nums text-muted sm:pl-2 ${r.mine ? "shadow-[inset_3px_0_0_var(--accent)]" : ""}`}>{r.pos}</td>
                   <td className="border-b border-line px-2 py-2">
                     <div className="flex flex-wrap items-baseline gap-x-1.5">
                       {started && tournamentId ? (
