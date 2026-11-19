@@ -150,6 +150,10 @@ export async function MajorsStandings({
               <span className="w-7 shrink-0 tabular-nums text-muted">{r.v === null && sort !== "name" ? "" : place.get(r.user_id)}</span>
               <span className={`min-w-0 flex-1 truncate font-medium ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</span>
               <span className="shrink-0 font-semibold tabular-nums">{fmt(shownSort, r.v)}</span>
+              {/* Tap to show the lineup: a small arrow that turns when it's open. */}
+              <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+              </svg>
             </summary>
             <div className="space-y-3 px-2 pb-3 pl-11">
                 {columns.map((e) => (
