@@ -15,8 +15,8 @@ export function HomeStandings({ views }: { views: { id: string; label: string; t
   return (
     <section>
       <div className="flex items-center justify-between gap-2">
-        <SectionLabel className="!text-sm lg:!text-base">{view.title}</SectionLabel>
-        <div className="flex items-center gap-1">
+        <SectionLabel fit className="!text-sm lg:!text-base">{view.title}</SectionLabel>
+        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
           {views.length > 1 && (
             <div className="hidden gap-1 sm:flex" role="group" aria-label="Season or this week">
               {views.map((v) => (

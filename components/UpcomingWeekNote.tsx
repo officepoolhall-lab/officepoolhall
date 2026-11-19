@@ -1,3 +1,4 @@
+import { FitText } from "./FitText";
 import Link from "next/link";
 import { windowLabel } from "@/lib/format";
 import { ChevronIcon } from "./ui";
@@ -28,11 +29,12 @@ export function UpcomingWeekNote({
       href={href}
       className={`flex items-center gap-2 rounded-lg bg-accent/10 px-3 py-2 text-sm ring-1 ring-accent/30 transition hover:bg-accent/15 ${className}`}
     >
-      <span className="min-w-0 flex-1">
+      {/* One line: the text steps down to fit a narrow column. */}
+      <FitText min={10} className="flex-1">
         <span className="font-semibold text-accent">{label} Picks Are Open</span>
         <span className="text-muted"> · {windowLabel(slate.window_start, slate.window_end, timezone)}</span>
-      </span>
-      <span className="flex shrink-0 items-center gap-0.5 font-medium text-accent tabular-nums">
+      </FitText>
+      <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-accent tabular-nums">
         {picked === 0 ? `Make ${label} Picks` : `${picked}/${picksPerSlate} Picked`}
         <ChevronIcon className="size-4" />
       </span>

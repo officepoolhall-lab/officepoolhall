@@ -1,3 +1,4 @@
+import { FitText } from "./FitText";
 import Link from "next/link";
 import { points } from "@/lib/format";
 import { winPct } from "@/lib/record";
@@ -167,7 +168,8 @@ function Row({
   return (
     <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"} ${className}`} {...data}>
       <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
-      <span className="min-w-0 flex-1 truncate font-medium">
+      {/* The name on one line, never cut off: it steps down to fit a narrow column. */}
+      <FitText min={11} className="flex-1 font-medium">
         {playerHref ? (
           <Link href={playerHref(r.userId)} className={`-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover ${mine ? "text-accent" : ""}`}>{r.name}</Link>
         ) : (
@@ -178,7 +180,7 @@ function Row({
         {r.missed > 0 && (
           <span className="ml-1.5 text-xs font-normal text-muted">{weekly ? "No picks" : `${r.missed} missed`}</span>
         )}
-      </span>
+      </FitText>
       {extras?.map((e) => {
         const v = e.values.get(r.userId);
         return (
