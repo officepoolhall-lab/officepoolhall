@@ -94,8 +94,8 @@ export function GridPanel({
       const winner = side ? (side === "home" ? g.home : g.away) : null;
       return { g, total: ps.length, w, l, pu, graded: w + l + pu > 0, winner };
     })
-    // Confidence pools list a game only once it's over (graded), not while it's live.
-    .filter((x) => x.total > 0 && (!confidence || x.graded));
+    // A game shows here only once it's over (graded), never while it's live (Most Picked does show live picks).
+    .filter((x) => x.total > 0 && x.graded);
   const tw = perGame.reduce((t, x) => t + x.w, 0);
   const tl = perGame.reduce((t, x) => t + x.l, 0);
   const tp = perGame.reduce((t, x) => t + x.pu, 0);
