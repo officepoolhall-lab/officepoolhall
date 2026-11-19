@@ -1,3 +1,4 @@
+import { FitText } from "./FitText";
 import type { NflGroup, NflStandings } from "@/lib/nflStandings";
 import { SectionLabel, TeamLogo } from "./ui";
 import { ConferenceTabs } from "./ConferenceTabs";
@@ -39,7 +40,7 @@ function Division({ group }: { group: NflGroup }) {
     // Each division in its own thin blue box, so the four don't run together.
     <div className="overflow-hidden rounded-lg border border-accent">
       <div className="flex items-end gap-2.5 border-b border-line bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-2.5 pb-1 pt-1.5 text-[11px] font-medium text-muted">
-        <span className="min-w-0 flex-1 font-semibold uppercase tracking-wide">{group.name}</span>
+        <FitText min={9} className="flex-1 font-semibold uppercase tracking-wide">{group.name}</FitText>
         <span className="w-14 text-right">W–L</span>
         <span className="w-10 text-right">Pct</span>
         <span className="w-8 text-right">Strk</span>
@@ -48,7 +49,7 @@ function Division({ group }: { group: NflGroup }) {
         {group.teams.map((t) => (
           <li key={t.abbreviation || t.name} className="flex min-h-9 items-center gap-2.5 px-2.5 py-1.5 text-sm">
             <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5" />
-            <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
+            <FitText min={10} className="flex-1 font-medium">{t.name}</FitText>
             <span className="w-14 text-right text-xs font-semibold tabular-nums">
               {t.wins}–{t.losses}
               {t.ties ? `–${t.ties}` : ""}

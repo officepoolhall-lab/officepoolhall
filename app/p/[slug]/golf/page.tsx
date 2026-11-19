@@ -1,3 +1,4 @@
+import { FitName } from "@/components/FitName";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -244,7 +245,7 @@ async function Rankings({ timezone }: { timezone: string }) {
             return (
               <li key={`${g.rank}-${g.name}`} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
                 <span className="w-6 text-right tabular-nums text-muted">{g.rank}</span>
-                <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
+                <FitName name={g.name} min={10} className="flex-1 font-medium" />
                 {g.country && <span className="text-xs text-muted">{g.country}</span>}
                 {g.points !== null && <span className="w-12 text-right text-xs tabular-nums text-muted">{g.points.toFixed(2)}</span>}
                 <span
