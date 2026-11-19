@@ -93,14 +93,23 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
         {mine.length === 0 ? (
           <Empty>No lineup for this major.</Empty>
         ) : (
-          <table className="w-full max-w-4xl text-sm">
+          <table className="w-full max-w-4xl table-fixed text-sm">
+            {/* Fixed column widths: one line per golfer on every screen, the numbers spread evenly
+                (wider apart on larger screens) and the name taking the rest. */}
             <thead>
               <tr className="border-b border-line text-left">
                 <th className={`${th} ${salary ? "w-16" : "w-10 text-center"}`}>{salary ? "Salary" : "Tier"}</th>
                 <th className={`${th} px-1.5`}>Golfer</th>
-                <th className={`${th} w-14 text-right`}>Place</th>
-                <th className={`${th} w-16 text-right`}>{salary ? "Points" : "Score"}</th>
-                <th className={`${th} w-28 text-right`}>{final ? "Earnings" : "Proj. Earnings"}</th>
+                <th className={`${th} w-12 text-center sm:w-20`}>Pos</th>
+                <th className={`${th} w-14 text-center sm:w-20`}>{salary ? "Pts" : "Score"}</th>
+                <th className={`${th} w-[5.5rem] pr-1 text-right sm:w-32`}>
+                  {final ? "Earnings" : (
+                    <>
+                      <span className="sm:hidden">Proj. $</span>
+                      <span className="hidden sm:inline">Proj. Earnings</span>
+                    </>
+                  )}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -115,7 +124,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                       <td className={`whitespace-nowrap py-2 text-xs tabular-nums text-muted ${salary ? "" : "text-center"}`}>
                         {salary ? `$${(l.salary ?? 0).toLocaleString("en-US")}` : l.tier}
                       </td>
-                      <td className={`max-w-0 w-full truncate px-1.5 py-2 ${counted ? "font-semibold" : "font-medium"}`}>
+                      <td className={`truncate px-1.5 py-2 ${counted ? "font-semibold" : "font-medium"}`}>
                         {/* Tap a golfer for their hole-by-hole scorecard. One line: the name shrinks to fit,
                             then shortens to first initial and last name; the cell's side padding leaves room
                             for the hover highlight. */}
@@ -141,9 +150,9 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                           live={event.status === "in_progress"}
                         />
                       </td>
-                      <td className="py-2 text-right text-xs tabular-nums text-muted">{r?.out ? (r.pos && !/^\d|^T/.test(r.pos) ? r.pos : "MC") : (r?.pos ?? "")}</td>
-                      <td className="py-2 text-right font-semibold tabular-nums">{shown(l.espn_golfer_id)}</td>
-                      <td className="py-2 text-right tabular-nums">{cash(l.espn_golfer_id)}</td>
+                      <td className="whitespace-nowrap py-2 text-center text-xs tabular-nums text-muted">{r?.out ? (r.pos && !/^\d|^T/.test(r.pos) ? r.pos : "MC") : (r?.pos ?? "")}</td>
+                      <td className="whitespace-nowrap py-2 text-center font-semibold tabular-nums">{shown(l.espn_golfer_id)}</td>
+                      <td className="whitespace-nowrap py-2 pr-1 text-right tabular-nums">{cash(l.espn_golfer_id)}</td>
                     </tr>
                   );
                 })}
@@ -153,8 +162,8 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                 <td colSpan={3} className="py-2 text-xs text-muted">
                   {counts.size && countedIds.length < mine.length ? `Total (the ${countedIds.length} that count)` : "Total"}
                 </td>
-                <td className="py-2 text-right font-bold tabular-nums">{salary ? formatShown({ kind: "points", value: score.total }) : formatToPar(toParTotal)}</td>
-                <td className="py-2 text-right font-bold tabular-nums">{money(cashTotal)}</td>
+                <td className="whitespace-nowrap py-2 text-center font-bold tabular-nums">{salary ? formatShown({ kind: "points", value: score.total }) : formatToPar(toParTotal)}</td>
+                <td className="whitespace-nowrap py-2 pr-1 text-right font-bold tabular-nums">{money(cashTotal)}</td>
               </tr>
             </tfoot>
           </table>
