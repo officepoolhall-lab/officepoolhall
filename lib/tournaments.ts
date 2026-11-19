@@ -36,9 +36,9 @@ export const PLACES: Record<Scoring, { id: Placement; label: string; points: num
     { id: "fourth", label: "Lost 3rd-place game", points: 1 },
   ],
   semifinals: [
-    { id: "champion", label: "Champion", points: 5 },
-    { id: "runner_up", label: "Runner-up", points: 3 },
-    { id: "semifinal", label: "Lost in semifinal", points: 1.5 },
+    { id: "champion", label: "Champion", points: 7 },
+    { id: "runner_up", label: "Runner-up", points: 5 },
+    { id: "semifinal", label: "Lost in semifinal", points: 2 },
   ],
   // Conference tournaments.
   champion_only: [{ id: "champion", label: "Champion", points: 5 }],
@@ -46,7 +46,7 @@ export const PLACES: Record<Scoring, { id: Placement; label: string; points: num
 
 export const SCORING_LABEL: Record<Scoring, string> = {
   third_place: "Champion 5 · Runner-up 3 · 3rd-place game 2 / 1",
-  semifinals: "Champion 5 · Runner-up 3 · Semifinal losers 1.5",
+  semifinals: "Champion 7 · Runner-up 5 · Semifinal losers 2",
   champion_only: "Champion 5",
 };
 
@@ -98,8 +98,8 @@ export async function getMemberTournamentPicks(ctx: PoolContext, userId: string)
   return (data ?? []).map((p) => ({ ...p, points: p.points === null ? null : Number(p.points) }));
 }
 
-/** A champion's points: the most one in-season tournament pick can add to a week. */
-export const CHAMPION_POINTS = 5;
+/** A champion's points: the most one in-season tournament pick can add to a week (by its scoring). */
+export const championPoints = (scoring: Scoring) => PLACES[scoring][0].points;
 
 /**
  * What a week's in-season tournaments (MTEs; not conference tournaments) can still add to an
@@ -108,12 +108,12 @@ export const CHAMPION_POINTS = 5;
  * only entries with a pick in it. Used for "possible" points on Home and the Grid.
  */
 export function tournamentUpside(weekTournaments: Tournament[], picks: TournamentPick[], userId: string, now: number) {
-  return (
-    weekTournaments.filter(
+  return weekTournaments
+    .filter(
       (t) =>
         t.scoring !== "champion_only" &&
         !t.decided &&
         (Date.parse(t.lockAt) > now || picks.some((p) => p.tournament_id === t.id && p.user_id === userId)),
-    ).length * CHAMPION_POINTS
-  );
+    )
+    .reduce((sum, t) => sum + championPoints(t.scoring), 0);
 }
