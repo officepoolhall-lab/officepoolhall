@@ -153,7 +153,6 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
             </tfoot>
           </table>
         )}
-        {!final && <p className="mt-2 text-[11px] text-muted">Projected earnings: where each golfer stands now and the purse, by the PGA Tour&apos;s usual share for each place (ties split), until the prize money is posted.</p>}
       </div>
     );
   }
