@@ -109,7 +109,7 @@ export function GolfPicker({
       </p>
 
       {/* Fills the rest of the screen and scrolls inside, so Save stays in view below it. */}
-      <ul className="mt-1.5 min-h-[10rem] flex-1 divide-y divide-line overflow-y-auto overscroll-contain rounded-lg border border-line [scrollbar-gutter:stable]" aria-label="Field">
+      <ul className="mt-1.5 min-h-[10rem] flex-1 divide-y divide-line overflow-y-auto rounded-lg border border-line [scrollbar-gutter:stable]" aria-label="Field">
         {visible.length === 0 && <li className="px-3 py-4 text-sm text-muted">No golfer matches “{query}”.</li>}
         {visible.map((g) => {
           const used = !!g.usedWeek;
