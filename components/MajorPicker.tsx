@@ -137,7 +137,7 @@ export function MajorPicker({
           type="button"
           onClick={() => setHistoryFor(g)}
           aria-label={`${g.golfer_name}: history`}
-          className="relative h-7 shrink-0 rounded-full border border-line bg-bg px-2.5 text-xs font-medium text-ink after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] hover:bg-hover"
+          className="relative h-7 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--ink)_16%,var(--bg))] bg-[color-mix(in_srgb,var(--ink)_9%,var(--bg))] px-2.5 text-xs font-medium text-ink after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] hover:bg-[color-mix(in_srgb,var(--ink)_15%,var(--bg))]"
         >
           History
         </button>
