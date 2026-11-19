@@ -125,7 +125,7 @@ export function MajorPicker({
             {on && <CheckIcon className="size-3" />}
           </span>
           <span className={`min-w-0 flex-1 truncate font-medium ${on ? "text-accent" : ""}`}>{g.golfer_name}</span>
-          <span className="w-10 shrink-0 text-center text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : ""}</span>
+          <span className="w-10 shrink-0 text-center text-xs tabular-nums text-muted">{g.world_rank ? `#${g.world_rank}` : "NR"}</span>
           {hasOdds && (
             <span className={`w-16 shrink-0 whitespace-nowrap text-center tabular-nums text-muted ${g.odds === null ? "text-[10px] text-faint" : "text-xs"}`}>
               {g.odds === null ? "Not Available" : oddsLabel(g.odds)}
