@@ -143,10 +143,10 @@ export function MajorPicker({
 
   return (
     <div>
-      {/* The lineup so far. */}
-      <div className="mb-3 rounded-lg bg-surface p-3">
+      {/* The lineup so far, outlined in blue: filled slots solid, empty ones dashed. */}
+      <div className="mb-3 rounded-lg border-2 border-accent bg-surface p-3">
         <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2 text-xs text-muted">
-          <span className="font-semibold uppercase tracking-wide">
+          <span className="font-semibold uppercase tracking-wide text-accent">
             My Lineup · {chosen.length} of {need}
           </span>
           {contest === "salary" && (
@@ -171,7 +171,7 @@ export function MajorPicker({
                         type="button"
                         disabled={readOnly}
                         onClick={() => toggle(g)}
-                        className="flex h-11 w-full min-w-0 flex-col justify-center rounded-lg bg-bg px-2.5 text-left ring-1 ring-line enabled:hover:ring-accent"
+                        className="flex h-11 w-full min-w-0 flex-col justify-center rounded-lg bg-bg px-2.5 text-left ring-1 ring-accent enabled:hover:ring-2"
                         title={readOnly ? undefined : `Remove ${g.golfer_name}`}
                       >
                         <span className="flex items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
@@ -184,7 +184,7 @@ export function MajorPicker({
                       <button
                         type="button"
                         onClick={() => setTier(t)}
-                        className="flex h-11 w-full flex-col justify-center rounded-lg border border-dashed border-line px-2.5 text-left lg:cursor-default"
+                        className="flex h-11 w-full flex-col justify-center rounded-lg border border-dashed border-[color-mix(in_srgb,var(--accent)_55%,transparent)] px-2.5 text-left lg:cursor-default"
                       >
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">Tier {t}</span>
                         <span className="text-xs text-faint">Pick a golfer</span>
@@ -205,7 +205,7 @@ export function MajorPicker({
                   type="button"
                   disabled={readOnly}
                   onClick={() => toggle(g)}
-                  className="inline-flex h-7 items-center gap-1 rounded-full bg-bg px-2.5 text-xs font-medium ring-1 ring-line enabled:hover:ring-accent"
+                  className="inline-flex h-7 items-center gap-1 rounded-full bg-bg px-2.5 text-xs font-medium ring-1 ring-accent enabled:hover:ring-2"
                   title={readOnly ? undefined : `Remove ${g.golfer_name}`}
                 >
                   <span className="tabular-nums text-muted">{dollars(g.salary!)}</span>
