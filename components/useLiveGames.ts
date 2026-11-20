@@ -5,7 +5,22 @@ import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
 const LIVE_POLL_MS = 10_000;
-type LiveDetail = { clock: string; home: number | null; away: number | null; lastPlay: string | null; situation: string | null; possession: "home" | "away" | null };
+type LiveDetail = {
+  clock: string;
+  home: number | null;
+  away: number | null;
+  lastPlay: string | null;
+  situation: string | null;
+  possession: "home" | "away" | null;
+  homeTeam?: string | null;
+  awayTeam?: string | null;
+};
+
+/** ESPN's sides turned to ours (a game stored the other way round from ESPN gets swapped). */
+function orient(d: LiveDetail, ourHome: string | null | undefined): LiveDetail {
+  if (!ourHome || d.awayTeam !== ourHome || d.homeTeam === ourHome) return d;
+  return { ...d, home: d.away, away: d.home, possession: d.possession === "home" ? "away" : d.possession === "away" ? "home" : null };
+}
 
 /** yyyymmdd in US Eastern (ESPN's scoreboard dates). */
 const espnDay = (at: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(at)).replaceAll("-", "");
@@ -50,8 +65,10 @@ export function useLiveGames(games: SlateGame[], now: number, sport: "ncaaf" | "
   }, [sport, dates]);
 
   return games.map((g) => {
-    const d = g.espnId ? detail[g.espnId] : undefined;
-    if (!d || !isLiveGame(g)) return g;
+    const raw = g.espnId ? detail[g.espnId] : undefined;
+    if (!raw || !isLiveGame(g)) return g;
+    // Matched by team, not ESPN's home/away (which can be the other way round from ours).
+    const d = orient(raw, g.home?.espn_id);
     return { ...g, clock: d.clock, lastPlay: d.lastPlay, situation: d.situation, possession: d.possession, homeScore: d.home ?? g.homeScore, awayScore: d.away ?? g.awayScore };
   });
 }

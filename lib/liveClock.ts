@@ -40,7 +40,23 @@ export type LiveDetail = {
   situation: string | null;
   /** Football: which side has the ball. */
   possession: "home" | "away" | null;
+  /** ESPN's team ids on its home and away sides, to match against our game's sides. */
+  homeTeam: string | null;
+  awayTeam: string | null;
 };
+
+/**
+ * ESPN's detail turned to our game's sides: a game stored with the teams the other way round
+ * from ESPN (a neutral-site game, say) gets its scores and possession swapped to match.
+ */
+export function orientLive<T extends { home: number | null; away: number | null; possession: "home" | "away" | null; homeTeam?: string | null; awayTeam?: string | null }>(
+  d: T,
+  ourHomeEspnId: string | null | undefined,
+): T {
+  const flipped = !!ourHomeEspnId && d.awayTeam === ourHomeEspnId && d.homeTeam !== ourHomeEspnId;
+  if (!flipped) return d;
+  return { ...d, home: d.away, away: d.home, possession: d.possession === "home" ? "away" : d.possession === "away" ? "home" : null };
+}
 
 /**
  * Live detail for in-progress games on the given ESPN dates (yyyymmdd), keyed by ESPN game id.
@@ -69,6 +85,10 @@ export async function fetchLiveDetails(sport: TeamSport, dates: string[], _maxAg
             const v = c?.competitors?.find((x) => x.homeAway === side)?.score;
             return v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
           };
+          const teamId = (side: string) => {
+            const id = c?.competitors?.find((x) => x.homeAway === side)?.team?.id;
+            return id != null ? String(id) : null;
+          };
           const sit = c?.situation;
           const holder = sit?.possession != null ? c?.competitors?.find((x) => String(x.team?.id) === String(sit.possession)) : undefined;
           const ball = holder?.team?.abbreviation;
@@ -81,6 +101,8 @@ export async function fetchLiveDetails(sport: TeamSport, dates: string[], _maxAg
             lastPlay: cleanPlay(sit?.lastPlay?.text),
             situation: down ? (ball ? `${ball} · ${down}` : down) : null,
             possession: holder?.homeAway === "home" || holder?.homeAway === "away" ? holder.homeAway : null,
+            homeTeam: teamId("home"),
+            awayTeam: teamId("away"),
           });
         }
       } catch {
@@ -97,8 +119,10 @@ export async function withLiveClocks(sport: TeamSport, games: SlateGame[], now: 
   if (!live.length) return games;
   const found = await fetchLiveDetails(sport, live.map((g) => espnDate(g.startAt)));
   return games.map((g) => {
-    const f = g.espnId ? found.get(g.espnId) : undefined;
-    if (!f || !isLive(g, now)) return g;
+    const raw = g.espnId ? found.get(g.espnId) : undefined;
+    if (!raw || !isLive(g, now)) return g;
+    // Matched by team, not ESPN's home/away (which can be the other way round from ours).
+    const f = orientLive(raw, g.home?.espn_id);
     return { ...g, clock: f.clock, lastPlay: f.lastPlay, situation: f.situation, possession: f.possession, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };
   });
 }
