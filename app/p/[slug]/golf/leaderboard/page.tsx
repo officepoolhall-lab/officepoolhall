@@ -88,7 +88,8 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           name: g.name,
           country: g.country,
           flag: g.flag,
-          pos: g.pos !== "-" ? g.pos : (g.out ?? (state === "scheduled" ? "" : "–")),
+          // Out of the event (MC, WD, DQ) shows as such, even where ESPN still lists a place.
+          pos: g.out ?? (g.pos !== "-" ? g.pos : state === "scheduled" ? "" : "–"),
           toPar: g.toPar,
           thru: state === "scheduled" || waiting ? tee(g.tee) : g.thru === "F" ? "F" : (g.thru ?? null),
           rounds: g.rounds,
@@ -139,11 +140,26 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
     rows = rows.map((r) => ({ ...r, projected: proj.get(r.id) ?? null }));
   }
 
+  // Rounds 1 and 2, before the cut is made: where it projects to fall, by the cut rule (top 65 and
+  // ties on the PGA Tour; the Masters 50, U.S. Open 60, PGA Championship and The Open 70), from
+  // the golfers still in it in their current order. Not for small no-cut fields.
+  const OUT = /^(MC|CUT|WD|DQ)$/;
+  let projectedCut: { score: string; after: number } | null = null;
+  if (state === "live" && live && (round ?? 1) <= 2 && !rows.some((r) => /^(MC|CUT)$/.test(r.pos)) && rows.length > 80) {
+    const places = /masters/i.test(event.name) ? 50 : /u\.?s\.? open/i.test(event.name) ? 60 : /pga championship|open championship|^the open$/i.test(event.name) ? 70 : 65;
+    const scored = rows.map((r, i) => ({ i, s: OUT.test(r.pos) ? null : parNum(r.toPar) })).filter((x): x is { i: number; s: number } => x.s !== null);
+    if (scored.length > places) {
+      const line = [...scored].sort((a, b) => a.s - b.s)[places - 1].s;
+      const after = Math.max(...scored.filter((x) => x.s <= line).map((x) => x.i));
+      projectedCut = { score: fmt(line), after };
+    }
+  }
+
   const status =
     state === "final"
       ? "Final"
       : state === "live"
-        ? `${round ? `Round ${round} · ` : ""}Under Way · Updates Every Minute`
+        ? `${round ? `Round ${round} · ` : ""}${projectedCut ? `Projected Cut ${projectedCut.score.replace(/^-/, "−")} · ` : ""}Under Way · Updates Every Minute`
         : event.start_at
           ? `Starts ${formatInTimeZone(event.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} ${tzAbbrev(event.start_at, ctx.displayTz)}`
           : "Tee Times Not Posted Yet";
@@ -179,7 +195,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
       {rows.length === 0 ? (
         <Empty>The field for this tournament hasn&apos;t been posted yet.</Empty>
       ) : (
-        <GolfLeaderboard rows={rows} round={round} state={state} tournamentId={readEspn && live ? tournamentId : null} eventName={event.name} />
+        <GolfLeaderboard rows={rows} round={round} state={state} projectedCut={projectedCut} tournamentId={readEspn && live ? tournamentId : null} eventName={event.name} />
       )}
     </div>
   );
