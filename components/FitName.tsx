@@ -14,10 +14,10 @@ export function initialName(name: string): string {
  * and last name ("B. James") and fits that. Re-fits when the box changes width (and tries the
  * full name again).
  */
-export function FitName({ name, className = "", min = 11 }: { name: string; className?: string; min?: number }) {
+export function FitName({ name, className = "", min = 11, fallback }: { name: string; className?: string; min?: number; /** Shown instead when the name doesn't fit (default: first initial and last name). */ fallback?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [short, setShort] = useState(false);
-  const shortName = initialName(name);
+  const shortName = fallback ?? initialName(name);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
