@@ -102,6 +102,14 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
   if (labels.length && games.length) {
     // Basketball: per-game averages over the games in the log.
     const averages = sport === "ncaab" ? perGame(labels, games.map((g) => g.stats), totals) : null;
+    // The season line's percentages too: made over attempted, not ESPN's average of game percentages.
+    if (sport === "ncaab" && totals) {
+      labels.forEach((l, i) => {
+        if (!/%/.test(l)) return;
+        const pct = shootingPct(labels, games.map((g) => g.stats), i);
+        if (pct !== undefined) totals[i] = pct;
+      });
+    }
     // Basketball: minutes, points, rebounds, assists, turnovers, steals, blocks, shooting, fouls.
     const order = sport === "ncaab" ? basketballOrder(labels) : labels.map((_, i) => i);
     tables.push({
@@ -132,6 +140,28 @@ export async function getPlayerProfile(sport: TeamSport, athleteId: string): Pro
  * pairs ("5-11" → "4.7-10.2"), and percentages from the season's totals when ESPN gives them
  * (an average of game percentages would weigh a 1-for-1 night like a 10-for-20 one).
  */
+/** FG% ↔ FG, 3P% ↔ 3PT, FT% ↔ FT: the made-attempted column a percentage comes from. */
+const PCT_OF: Record<string, string[]> = { "FG%": ["FG", "FGM-A"], "3P%": ["3PT", "3P", "3PM-A"], "3PT%": ["3PT", "3P", "3PM-A"], "FT%": ["FT", "FTM-A"] };
+
+/**
+ * Total made over total attempted for the percentage column `i` ("47.3"), from its made-attempted
+ * column across `rows`; "—" with no attempts; undefined when there's no such column to use.
+ */
+function shootingPct(labels: string[], rows: string[][], i: number): string | undefined {
+  const from = PCT_OF[labels[i]?.toUpperCase() ?? ""];
+  const j = from ? labels.findIndex((l) => from.includes(l.toUpperCase())) : -1;
+  if (j === -1) return undefined;
+  let made = 0;
+  let att = 0;
+  for (const r of rows) {
+    const m = r[j]?.match(/^(\d+)-(\d+)$/);
+    if (!m) continue;
+    made += Number(m[1]);
+    att += Number(m[2]);
+  }
+  return att > 0 ? ((made / att) * 100).toFixed(1) : "—";
+}
+
 function perGame(labels: string[], rows: string[][], totals: string[] | null): string[] | null {
   if (!rows.length) return null;
   const one = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
@@ -139,6 +169,10 @@ function perGame(labels: string[], rows: string[][], totals: string[] | null): s
     const vals = rows.map((r) => r[i]).filter((v): v is string => v !== undefined && v !== "" && v !== "--");
     if (!vals.length) return "";
     if (/%/.test(label)) {
+      // A shooting percentage: made over attempted across the games, from its made-attempted
+      // column (so a 0-0 game counts for nothing), not an average of each game's percentage.
+      const pct = shootingPct(labels, rows, i);
+      if (pct !== undefined) return pct;
       if (totals?.[i]) return totals[i];
       const n = vals.map(Number).filter((x) => !Number.isNaN(x));
       return n.length ? one(n.reduce((a, b) => a + b, 0) / n.length) : "";
