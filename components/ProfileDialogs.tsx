@@ -1,5 +1,6 @@
 "use client";
 
+import { FitName } from "./FitName";
 import { formatInTimeZone } from "date-fns-tz";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerProfile, TeamHistory } from "@/lib/espnProfiles";
@@ -259,11 +260,20 @@ export function TeamHistoryDialog({
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
                     <span className="w-5 shrink-0 text-xs text-muted">{g.atVs}</span>
-                    {/* Phones: the opponent's logo alone (names got cut off). Wider screens: the logo
-                        and the opponent's name, which fits there. */}
-                    <TeamLogo src={g.opponentLogo} abbr={g.opponent} className="size-6 sm:size-5" />
-                    <span className="min-w-0 flex-1 truncate font-medium max-sm:sr-only">{g.opponentName ?? g.opponent}</span>
-                    <span className="min-w-0 flex-1 sm:hidden" />
+                    {/* The opponent's logo and name. Supercontests (Line and Cover columns): on phones the
+                        logo alone. Elsewhere the name, shrinking a little, then the abbreviation if it
+                        won't fit on one line. */}
+                    <TeamLogo src={g.opponentLogo} abbr={g.opponent} className={`shrink-0 ${ats ? "size-6 sm:size-5" : "size-5"}`} />
+                    {ats ? (
+                      <>
+                        <FitName name={g.opponentName ?? g.opponent ?? ""} fallback={g.opponent ?? undefined} min={12} className="flex-1 font-medium max-sm:hidden" />
+                        <span className="min-w-0 flex-1 sm:hidden">
+                          <span className="sr-only">{g.opponentName ?? g.opponent}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <FitName name={g.opponentName ?? g.opponent ?? ""} fallback={g.opponent ?? undefined} min={12} className="flex-1 font-medium" />
+                    )}
                     <span className={`w-4 shrink-0 font-semibold ${g.result === "W" ? "text-win" : g.result === "L" ? "text-loss" : "text-muted"}`}>{g.result ?? ""}</span>
                     <span className="w-14 shrink-0 text-right tabular-nums">{g.score ?? ""}</span>
                     {/* ATS pools: the team's line that game and whether it covered. */}
