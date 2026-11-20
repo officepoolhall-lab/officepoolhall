@@ -7,7 +7,7 @@ import { basketballOrder, reorder } from "./statOrder";
 // field is read defensively: anything missing just doesn't show.
 
 
-export type SummaryTeam = { id: string; abbreviation: string; name: string; logo: string | null; score: string | null; linescores: string[]; homeAway: "home" | "away" };
+export type SummaryTeam = { id: string; abbreviation: string; name: string; /** The school / city alone ("Notre Dame"). */ school: string; logo: string | null; score: string | null; linescores: string[]; homeAway: "home" | "away" };
 export type Play = { id: string; text: string; clock: string | null; period: number | null; scoring: boolean; homeScore: number | null; awayScore: number | null; down: string | null; type: string | null; teamId: string | null };
 export type Drive = {
   id: string;
@@ -80,6 +80,7 @@ export async function getGameSummary(sport: TeamSport, espnId: string, live: boo
       id: String(c.team?.id ?? c.id ?? ""),
       abbreviation: str(c.team?.abbreviation) ?? str(c.team?.shortDisplayName) ?? "",
       name: str(c.team?.shortDisplayName) ?? str(c.team?.displayName) ?? "",
+      school: str(c.team?.location) ?? str(c.team?.shortDisplayName) ?? str(c.team?.displayName) ?? "",
       logo: str(c.team?.logos?.[0]?.href) ?? str(c.team?.logo),
       score: str(c.score),
       linescores: (c.linescores ?? []).map((l: any) => str(l?.displayValue) ?? str(l?.value) ?? ""),
