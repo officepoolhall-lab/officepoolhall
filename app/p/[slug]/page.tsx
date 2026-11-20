@@ -263,7 +263,7 @@ async function News({ sport, now }: { sport: TeamSport; now: number }) {
 
 /** AP Top 25 (or CFP rankings) from ESPN; streams in after the rest of the page. */
 async function Poll({ sport, timezone }: { sport: TeamSport; timezone: string }) {
-  return <ApPollList poll={await getApPoll(sport)} timezone={timezone} />;
+  return <ApPollList poll={await getApPoll(sport, { currentRecords: true })} timezone={timezone} />;
 }
 
 /** NFL division standings from ESPN; streams in after the rest of the page. */
