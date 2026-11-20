@@ -94,7 +94,16 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           // A withdrawal or disqualification shows as WD / DQ even where ESPN still lists a place;
           // a missed cut once ESPN drops the place (before the cut is made it flags golfers
           // projected to miss while they keep their place: that's the projected cut line below).
-          pos: g.out && g.out !== "MC" ? g.out : g.pos !== "-" ? g.pos : (g.out ?? (state === "scheduled" ? "" : "–")),
+          // No cut is made before round 2 ends, so a golfer ESPN drops from the board earlier with
+          // only its cut flag has withdrawn.
+          pos:
+            g.out && g.out !== "MC"
+              ? g.out
+              : g.pos !== "-"
+                ? g.pos
+                : g.out === "MC" && state === "live" && (round ?? 1) <= 2 && !g.rounds[1]
+                  ? "WD"
+                  : (g.out ?? (state === "scheduled" ? "" : "–")),
           toPar: g.toPar,
           thru: state === "scheduled" || waiting ? tee(g.tee) : g.thru === "F" ? "F" : (g.thru ?? null),
           rounds: g.rounds,
@@ -150,7 +159,8 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   // the golfers still in it in their current order. Not for small no-cut fields.
   const OUT = /^(MC|CUT|WD|DQ)$/;
   let projectedCut: { score: string; after: number } | null = null;
-  if (state === "live" && live && (round ?? 1) <= 2 && !rows.some((r) => /^(MC|CUT)$/.test(r.pos)) && rows.length > 80) {
+  // (A real missed cut, once made, ends it; withdrawals don't.)
+  if (state === "live" && live && (round ?? 1) <= 2 && rows.length > 80 && !rows.some((r) => r.pos === "MC")) {
     const places = /masters/i.test(event.name) ? 50 : /u\.?s\.? open/i.test(event.name) ? 60 : /pga championship|open championship|^the open$/i.test(event.name) ? 70 : 65;
     const scored = rows.map((r, i) => ({ i, s: OUT.test(r.pos) ? null : parNum(r.toPar) })).filter((x): x is { i: number; s: number } => x.s !== null);
     // ESPN's own projection when it gives one: it flags the golfers projected to miss.
