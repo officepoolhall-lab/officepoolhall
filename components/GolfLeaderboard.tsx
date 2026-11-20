@@ -40,7 +40,10 @@ export function GolfLeaderboard({
   state,
   tournamentId,
   eventName,
+  projectedCut = null,
 }: {
+  /** Before the cut: its projected score, and the row it falls after. */
+  projectedCut?: { score: string; after: number } | null;
   rows: LeaderRow[];
   /** The round being played, while live. */
   round?: number | null;
@@ -98,6 +101,13 @@ export function GolfLeaderboard({
                   <tr>
                     <td colSpan={12} className="border-b border-line bg-surface px-4 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-muted sm:px-0">
                       Missed the Cut
+                    </td>
+                  </tr>
+                )}
+                {projectedCut && i === projectedCut.after + 1 && (
+                  <tr>
+                    <td colSpan={12} className="border-b border-accent bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg))] px-4 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-accent sm:px-0">
+                      Projected Cut {projectedCut.score.replace(/^-/, "−")}
                     </td>
                   </tr>
                 )}

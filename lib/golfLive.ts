@@ -86,7 +86,18 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       total: typeof o.tot === "number" && o.tot > 0 ? o.tot : null,
       country: typeof o.flagCountry === "string" ? o.flagCountry : null,
       flag: typeof o.flag === "string" && o.flag.startsWith("https://") ? o.flag : null,
-      out: o.cut === true || o.tee === "CUT" ? "MC" : typeof o.tee === "string" && /^[A-Z]{2,4}$/.test(o.tee) ? o.tee : null,
+      // Withdrawals and disqualifications: ESPN puts WD / DQ where the tee time goes, or as the
+      // golfer's status.
+      out:
+        o.cut === true || o.tee === "CUT"
+          ? "MC"
+          : typeof o.tee === "string" && /^[A-Z]{2,4}$/.test(o.tee)
+            ? o.tee
+            : typeof o.status === "string" && /^(WD|DQ)$/i.test(o.status)
+              ? o.status.toUpperCase()
+              : typeof o.pos === "string" && /^(WD|DQ)$/i.test(o.pos)
+                ? o.pos.toUpperCase()
+                : null,
     });
   }
   return [...byId.values()];
