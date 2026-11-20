@@ -1,5 +1,6 @@
 "use client";
 
+import { FitName } from "./FitName";
 import { useState, type ReactNode } from "react";
 import { chipClass } from "./ui";
 
@@ -11,7 +12,7 @@ export function SubTabs({
   tabs,
   ariaLabel,
 }: {
-  /** `short`: the label on phones when the full one is too long for a third of the width. */
+  /** `short`: shown on phones instead of the label when the label won't fit its third of the width. */
   tabs: { id: string; label: string; short?: string; content: ReactNode }[];
   ariaLabel: string;
 }) {
@@ -30,7 +31,12 @@ export function SubTabs({
             title={t.label}
             className={`${chipClass(t.id === active, "", "xs")} min-w-0 flex-1 !shrink basis-0 justify-center !text-xs sm:flex-none sm:!shrink-0 sm:basis-auto`}
           >
-            <span className="truncate whitespace-nowrap sm:hidden">{t.short ?? t.label}</span>
+            {/* Phones: the label if it fits on one line (shrinking a little), else the short one. */}
+            {t.short ? (
+              <FitName name={t.label} fallback={t.short} min={11} className="w-full text-center sm:hidden" />
+            ) : (
+              <span className="truncate whitespace-nowrap sm:hidden">{t.label}</span>
+            )}
             <span className="hidden whitespace-nowrap sm:inline">{t.label}</span>
           </button>
         ))}

@@ -209,12 +209,6 @@ function PlayByPlay({ summary }: { summary: GameSummary }) {
   return <p className="border-y border-line py-3 text-sm text-muted">No plays yet.</p>;
 }
 
-/** A team's tab label on phones: its name if it fits a third of the row, else its abbreviation. */
-function phoneName(team: GameSummary["home"]) {
-  if (!team) return undefined;
-  return team.name.length > 14 && team.abbreviation ? team.abbreviation : team.name;
-}
-
 /** Basketball's basic counting stats: the columns a box score shows until Full stats is on. */
 const BASIC = new Set(["MIN", "PTS", "REB", "AST", "STL", "BLK", "TO"]);
 /** The other basketball columns: hidden until Expand is tapped (BoxStatsToggle). */
@@ -320,8 +314,9 @@ function BoxScore({ summary, sport }: { summary: GameSummary; sport: "ncaaf" | "
       ariaLabel="Box score"
       tabs={[
         ...(teamStats ? [{ id: "team", label: "Team Stats", content: teamStats }] : []),
-        { id: "home", label: home?.name ?? "Home", short: phoneName(home), content: playersFor(home) },
-        { id: "away", label: away?.name ?? "Away", short: phoneName(away), content: playersFor(away) },
+        // The school's name ("Notre Dame"); where it won't fit (phones), the abbreviation.
+        { id: "home", label: home?.school || home?.name || "Home", short: home?.abbreviation || undefined, content: playersFor(home) },
+        { id: "away", label: away?.school || away?.name || "Away", short: away?.abbreviation || undefined, content: playersFor(away) },
       ]}
     />
   );
