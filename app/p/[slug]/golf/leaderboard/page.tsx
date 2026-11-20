@@ -59,7 +59,10 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   // While a round is being played: which one, and the course's par, to give each golfer on the
   // course their score for the round so far (total to par less the finished rounds' scores).
   const [round, coursePar] = state === "live" && live && tournamentId ? await Promise.all([currentRound(tournamentId, live), getCoursePar(tournamentId)]) : [null, null];
-  const parNum = (t: string | null) => (t === "E" ? 0 : t && /^[+-]?\d+$/.test(t) ? Number(t) : null);
+  const parNum = (t: string | null) => {
+    const v = t?.replace(/[\u2212\u2013\u2014]/g, "-").trim() ?? null;
+    return v === "E" ? 0 : v && /^[+-]?\d+$/.test(v) ? Number(v) : null;
+  };
   const fmt = (d: number) => (d === 0 ? "E" : d > 0 ? `+${d}` : String(d));
   const today = (g: { toPar: string | null; thru: string | null; rounds: (number | null)[] }) => {
     if (!round || !coursePar || !g.thru || g.thru === "F") return null;
@@ -88,8 +91,10 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           name: g.name,
           country: g.country,
           flag: g.flag,
-          // Out of the event (MC, WD, DQ) shows as such, even where ESPN still lists a place.
-          pos: g.out ?? (g.pos !== "-" ? g.pos : state === "scheduled" ? "" : "–"),
+          // A withdrawal or disqualification shows as WD / DQ even where ESPN still lists a place;
+          // a missed cut once ESPN drops the place (before the cut is made it flags golfers
+          // projected to miss while they keep their place: that's the projected cut line below).
+          pos: g.out && g.out !== "MC" ? g.out : g.pos !== "-" ? g.pos : (g.out ?? (state === "scheduled" ? "" : "–")),
           toPar: g.toPar,
           thru: state === "scheduled" || waiting ? tee(g.tee) : g.thru === "F" ? "F" : (g.thru ?? null),
           rounds: g.rounds,
@@ -148,7 +153,13 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   if (state === "live" && live && (round ?? 1) <= 2 && !rows.some((r) => /^(MC|CUT)$/.test(r.pos)) && rows.length > 80) {
     const places = /masters/i.test(event.name) ? 50 : /u\.?s\.? open/i.test(event.name) ? 60 : /pga championship|open championship|^the open$/i.test(event.name) ? 70 : 65;
     const scored = rows.map((r, i) => ({ i, s: OUT.test(r.pos) ? null : parNum(r.toPar) })).filter((x): x is { i: number; s: number } => x.s !== null);
-    if (scored.length > places) {
+    // ESPN's own projection when it gives one: it flags the golfers projected to miss.
+    const flagged = new Set((live ?? []).filter((g) => g.cutFlag && g.pos !== "-").map((g) => g.id));
+    const inside = scored.filter((x) => !flagged.has(rows[x.i].id));
+    if (flagged.size && inside.length) {
+      const last = inside[inside.length - 1];
+      projectedCut = { score: fmt(Math.max(...inside.map((x) => x.s))), after: last.i };
+    } else if (scored.length > places) {
       const line = [...scored].sort((a, b) => a.s - b.s)[places - 1].s;
       const after = Math.max(...scored.filter((x) => x.s <= line).map((x) => x.i));
       projectedCut = { score: fmt(line), after };

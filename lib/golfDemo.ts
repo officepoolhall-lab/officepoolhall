@@ -63,6 +63,7 @@ export function getDemoLeaderboard(now = Date.now()): LiveGolfer[] {
     lastName: g.lastName,
     order: g.order,
     out: g.out,
+    cutFlag: false,
     rounds: g.rounds,
     total: g.total,
     country: g.country,

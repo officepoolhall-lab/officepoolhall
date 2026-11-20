@@ -31,6 +31,8 @@ export type LiveGolfer = {
   order: number | null;
   /** "MC", "WD" or "DQ" for a golfer who didn't finish; null otherwise. */
   out: string | null;
+  /** ESPN's cut flag: before the cut is made, it marks golfers projected to miss it. */
+  cutFlag: boolean;
   /** Strokes in each round played (r1–r4); null for a round not played (yet). */
   rounds: (number | null)[];
   /** Total strokes so far. */
@@ -86,6 +88,7 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       total: typeof o.tot === "number" && o.tot > 0 ? o.tot : null,
       country: typeof o.flagCountry === "string" ? o.flagCountry : null,
       flag: typeof o.flag === "string" && o.flag.startsWith("https://") ? o.flag : null,
+      cutFlag: o.cut === true,
       // Withdrawals and disqualifications: ESPN puts WD / DQ where the tee time goes, or as the
       // golfer's status.
       out:
