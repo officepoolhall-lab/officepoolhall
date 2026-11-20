@@ -83,13 +83,6 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   // Everyone's champion picks (the viewer's own included) show once the tournament locks.
   const tLocked = (t: (typeof tournaments)[number]) => Date.parse(t.lockAt) <= now;
   const teamOf = (t: (typeof tournaments)[number], id: string) => t.teams.find((x) => x.id === id) ?? null;
-  // The most-picked team per tournament, for the footer.
-  const topPick = (t: (typeof tournaments)[number]) => {
-    const n = new Map<string, number>();
-    for (const p of tournamentPicks) if (p.tournament_id === t.id) n.set(p.team_id, (n.get(p.team_id) ?? 0) + 1);
-    const best = [...n.entries()].sort((a, b) => b[1] - a[1])[0];
-    return best ? { team: teamOf(t, best[0]), count: best[1] } : null;
-  };
 
   const ats = ctx.settings.pick_type === "ats";
   // Column times in the viewer's own zone.
@@ -446,20 +439,11 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
                 {/* What the numbers to the right are. */}
                 <span className="block text-[10px] font-normal">{confidencePool ? "% of points wagered" : "Picks on each team"}</span>
               </th>
-              {tournaments.map((t) => {
-                const top = tLocked(t) ? topPick(t) : null;
-                return (
-                  <td key={t.id} className="border-r border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
-                    {!tLocked(t) ? (
-                      <LockIcon className="mx-auto size-3 text-muted" />
-                    ) : top?.team ? (
-                      <div className="whitespace-nowrap" title="Most-picked champion">
-                        <span className="text-muted">{top.team.abbreviation ?? top.team.short_name}</span> <span className="font-semibold tabular-nums">{top.count}</span>
-                      </div>
-                    ) : null}
-                  </td>
-                );
-              })}
+              {/* Tournament columns: left blank here (a pick count wouldn't line up with the games'
+                  share of points). */}
+              {tournaments.map((t) => (
+                <td key={t.id} className="border-r border-t border-line bg-bg" aria-hidden />
+              ))}
               {games.map((g) => {
                 const c = sides.get(g.id) ?? { away: 0, home: 0, awayPts: 0, homePts: 0 };
                 return (
