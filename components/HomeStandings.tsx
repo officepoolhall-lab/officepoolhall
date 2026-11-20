@@ -14,11 +14,18 @@ export function HomeStandings({ views }: { views: { id: string; label: string; t
   const view = views.find((v) => v.id === active) ?? views[0];
   return (
     <section>
-      {/* The title on its own line, a size up; under it the Season / Week buttons and All. */}
-      <SectionLabel fit className="!text-base lg:!text-lg">{view.title}</SectionLabel>
-      <div className="flex min-h-11 items-center justify-between gap-2 whitespace-nowrap">
+      {/* Phones: the title the same size as Home's other headers, with All beside it (the Season /
+          Week buttons are hidden there). Wider screens: the title a size up on its own line, the
+          buttons and All under it. */}
+      <div className="flex min-h-11 items-center gap-2 sm:min-h-0">
+        <SectionLabel fit className="!text-sm sm:!text-base lg:!text-lg">{view.title}</SectionLabel>
+        <Link href={view.href} className="-mr-1 inline-flex h-11 shrink-0 items-center gap-0.5 px-1 text-sm font-medium text-accent sm:hidden">
+          All <ChevronIcon className="size-4" />
+        </Link>
+      </div>
+      <div className="hidden min-h-11 items-center justify-between gap-2 whitespace-nowrap sm:flex">
         {views.length > 1 ? (
-          <div className="hidden gap-1 sm:flex" role="group" aria-label="Season or this week">
+          <div className="flex gap-1" role="group" aria-label="Season or this week">
             {views.map((v) => (
               <button key={v.id} type="button" onClick={() => setActive(v.id)} aria-pressed={v.id === active} className={chipClass(v.id === active, "", "xs")}>
                 {v.label}
