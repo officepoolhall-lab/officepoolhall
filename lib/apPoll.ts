@@ -40,7 +40,11 @@ type EspnRank = {
 type EspnRanking = { type?: string; name?: string; shortName?: string; date?: string; occurrence?: { displayValue?: string }; ranks?: EspnRank[] };
 
 /** CFP rankings when out (football), else the latest AP poll; null if ESPN is unreachable or has none yet. */
-export async function getApPoll(sport: TeamSport): Promise<ApPoll | null> {
+/**
+ * `currentRecords`: replace each team's record at release with its record now (25 more ESPN
+ * calls). Only Home's poll list wants that; the ranks used beside team names don't.
+ */
+export async function getApPoll(sport: TeamSport, { currentRecords = false }: { currentRecords?: boolean } = {}): Promise<ApPoll | null> {
   // The NFL has no poll.
   if (sport === "nfl") return null;
   try {
@@ -76,7 +80,9 @@ export async function getApPoll(sport: TeamSport): Promise<ApPoll | null> {
       .sort((a, b) => a.rank - b.rank);
 
     // Records as of now, not as of the poll's release: each team's current overall record.
-    const current = await Promise.all(teams.map((t) => (t.espnId ? currentRecord(sport, t.espnId) : Promise.resolve(null))));
+    const current = currentRecords
+      ? await Promise.all(teams.map((t) => (t.espnId ? currentRecord(sport, t.espnId) : Promise.resolve(null))))
+      : [];
     teams.forEach((t, i) => {
       if (current[i]) t.record = current[i];
     });
@@ -99,7 +105,7 @@ async function currentRecord(sport: TeamSport, espnId: string): Promise<string |
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/teams/${encodeURIComponent(espnId)}`, {
       headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
       next: { revalidate: 900 },
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(1500),
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { team?: { record?: { items?: { type?: string; summary?: string }[] } } };
