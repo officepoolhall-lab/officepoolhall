@@ -260,10 +260,20 @@ export function TeamHistoryDialog({
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
                     <span className="w-5 shrink-0 text-xs text-muted">{g.atVs}</span>
-                    {/* The opponent's logo and name; where the name doesn't fit (phones, ATS columns), it
-                        shrinks a little, then shows the abbreviation instead. */}
-                    <TeamLogo src={g.opponentLogo} abbr={g.opponent} className="size-5 shrink-0" />
-                    <FitName name={g.opponentName ?? g.opponent ?? ""} fallback={g.opponent ?? undefined} min={12} className="flex-1 font-medium" />
+                    {/* The opponent's logo and name. Supercontests (Line and Cover columns): on phones the
+                        logo alone. Elsewhere the name, shrinking a little, then the abbreviation if it
+                        won't fit on one line. */}
+                    <TeamLogo src={g.opponentLogo} abbr={g.opponent} className={`shrink-0 ${ats ? "size-6 sm:size-5" : "size-5"}`} />
+                    {ats ? (
+                      <>
+                        <FitName name={g.opponentName ?? g.opponent ?? ""} fallback={g.opponent ?? undefined} min={12} className="flex-1 font-medium max-sm:hidden" />
+                        <span className="min-w-0 flex-1 sm:hidden">
+                          <span className="sr-only">{g.opponentName ?? g.opponent}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <FitName name={g.opponentName ?? g.opponent ?? ""} fallback={g.opponent ?? undefined} min={12} className="flex-1 font-medium" />
+                    )}
                     <span className={`w-4 shrink-0 font-semibold ${g.result === "W" ? "text-win" : g.result === "L" ? "text-loss" : "text-muted"}`}>{g.result ?? ""}</span>
                     <span className="w-14 shrink-0 text-right tabular-nums">{g.score ?? ""}</span>
                     {/* ATS pools: the team's line that game and whether it covered. */}
