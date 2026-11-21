@@ -1,12 +1,10 @@
 import "server-only";
 import { formatInTimeZone } from "date-fns-tz";
 import { getGameSummary } from "./gameSummary";
-import { getLiveLeaderboard, espnTournamentId, currentRound, type LiveGolfer } from "./golfLive";
 import { cleanPlay } from "./liveClock";
 import { fresh } from "./microCache";
 import { getPublishedSlates, getSlateGames, type PoolContext, type SlateGame } from "./pool";
 import { poolSettingsSchema } from "./poolSettings";
-import { getStandings, type StandingRow } from "./standings";
 import { createAdminClient } from "./supabase/admin";
 
 // The landing page's previews are the real pages, drawn from a real pool: the RT Supercontest
@@ -74,11 +72,6 @@ export async function getLandingPool(): Promise<LandingPool | null> {
 
 export async function slateFor(lp: LandingPool, week: number) {
   return (await getPublishedSlates(lp.ctx)).find((s: Row) => s.week === week) ?? null;
-}
-
-/** Season standings with made-up names. */
-export async function landingStandings(lp: LandingPool): Promise<StandingRow[]> {
-  return (await getStandings(lp.ctx)).map((r) => ({ ...r, name: lp.rename(r.userId) }));
 }
 
 /** Every pick on a week (it's graded, so all of them are public to members). */
@@ -162,27 +155,4 @@ export async function scoresSnapshot(lp: LandingPool, slateId: string): Promise<
   });
   const days = [...new Set(out.map((g) => formatInTimeZone(g.startAt, lp.ctx.displayTz, "yyyy-MM-dd")))].sort();
   return { games: out, days };
-}
-
-/** A golf pool's tournament under way, for the Leaderboard preview (one entry's golfers marked). */
-export async function landingGolf(): Promise<{ golfers: LiveGolfer[]; mine: Set<string>; round: number | null; event: string; tournamentId: string } | null> {
-  try {
-    const db = createAdminClient() as unknown as Row;
-    const slug = process.env.LANDING_GOLF_SLUG;
-    let q = db.from("golf_events").select("id, espn_id, name, status, pool:pools!inner ( slug )").eq("status", "in_progress").not("espn_id", "like", "demo-%");
-    if (slug) q = q.eq("pool.slug", slug);
-    const { data: events } = await q.limit(1);
-    const ev = events?.[0];
-    if (!ev) return null;
-    const tid = espnTournamentId(ev.espn_id, ev.pool?.slug ?? "", ev.status);
-    if (!tid) return null;
-    const golfers = await getLiveLeaderboard(tid, 0);
-    if (!golfers?.length) return null;
-    const { data: lineups } = await db.from("golf_lineups").select("user_id, espn_golfer_id").eq("event_id", ev.id).limit(2000);
-    const owners = [...new Set(((lineups ?? []) as Row[]).map((l) => l.user_id as string))].sort();
-    const mine = new Set(((lineups ?? []) as Row[]).filter((l) => l.user_id === owners[0]).map((l) => l.espn_golfer_id as string));
-    return { golfers, mine, round: await currentRound(tid, golfers), event: ev.name, tournamentId: tid };
-  } catch {
-    return null;
-  }
 }

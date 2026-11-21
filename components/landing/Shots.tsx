@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { GolfLeaderboard, type LeaderRow } from "@/components/GolfLeaderboard";
 import { GridPanel } from "@/components/GridPanel";
 import { GridView } from "@/components/GridView";
-import { StandingsTable } from "@/components/StandingsTable";
+import { StandingsView } from "@/components/StandingsView";
 import { PickBoard } from "@/app/p/[slug]/picks/PickBoard";
 import { Scoreboard } from "@/app/p/[slug]/scoreboard/Scoreboard";
 import { formatInTimeZone } from "date-fns-tz";
@@ -10,8 +9,6 @@ import { getSlateGames } from "@/lib/pool";
 import { getTeamRecords } from "@/lib/teamRecords";
 import {
   getLandingPool,
-  landingGolf,
-  landingStandings,
   scoresSnapshot,
   slateFor,
   weekPicks,
@@ -19,8 +16,8 @@ import {
 } from "@/lib/landingShots";
 import { ShotTabs } from "./ShotTabs";
 
-// The landing page's look inside: the real My Picks, Grid, Scores, Pool Summary, Standings and
-// golf Leaderboard, each drawn by the app's own components from a real pool (lib/landingShots.ts),
+// The landing page's look inside: the real My Picks, Grid, Scores, Pool Summary and Standings,
+// each drawn by the app's own components from a real pool (lib/landingShots.ts),
 // shown like screenshots: framed, a fixed height, nothing to click.
 
 /** A window around one page: `inert` (a picture, not a page) and its own containing block so
@@ -134,51 +131,21 @@ async function SummaryShot({ lp }: { lp: LandingPool }) {
 }
 
 async function StandingsShot({ lp }: { lp: LandingPool }) {
-  const rows = await landingStandings(lp);
-  return (
-    <>
-      <h2 className="mb-4 text-xl font-extrabold tracking-[-0.03em]">Standings</h2>
-      <StandingsTable rows={rows} me={lp.ctx.entryUserId} limit={14} />
-    </>
-  );
-}
-
-async function LeaderboardShot() {
-  const golf = await landingGolf();
-  if (!golf) return null;
-  const rows: LeaderRow[] = golf.golfers.map((g) => ({
-    id: g.id,
-    name: g.name,
-    country: g.country,
-    flag: g.flag,
-    pos: g.out ?? (g.pos === "-" ? "" : g.pos),
-    toPar: g.toPar,
-    thru: g.thru,
-    rounds: g.rounds,
-    today: null,
-    earnings: g.earnings,
-    pickedBy: 0,
-    mine: golf.mine.has(g.id),
-  }));
-  return (
-    <>
-      <h2 className="mb-4 text-xl font-extrabold tracking-[-0.03em]">{golf.event}</h2>
-      <GolfLeaderboard rows={rows} round={golf.round} state="live" eventName={golf.event} tournamentId={null} />
-    </>
-  );
+  // The real Standings page: Season and Weekly side by side (bonus segments too), on the
+  // preview's week.
+  return <StandingsView ctx={lp.ctx} slug={lp.slug} query={{ week: String(lp.picksWeek) }} embed={{ rename: lp.rename }} />;
 }
 
 /** The tabs of real pages, or nothing when the pool can't be read. */
 export async function Shots() {
   const lp = await getLandingPool();
   if (!lp) return null;
-  const [picks, grid, scores, summary, standings, leaderboard] = await Promise.all([
+  const [picks, grid, scores, summary, standings] = await Promise.all([
     MyPicksShot({ lp }).catch(() => null),
     GridView({ ctx: lp.ctx, slug: lp.slug, week: lp.picksWeek, embed: { maxRows: 18, rename: lp.rename } }).catch(() => null),
     ScoresShot({ lp }).catch(() => null),
     SummaryShot({ lp }).catch(() => null),
     StandingsShot({ lp }).catch(() => null),
-    LeaderboardShot().catch(() => null),
   ]);
   const tabs = [
     { id: "picks", label: "My Picks", node: picks },
@@ -186,7 +153,6 @@ export async function Shots() {
     { id: "scores", label: "Scores", node: scores },
     { id: "summary", label: "Pool Summary", node: summary },
     { id: "standings", label: "Standings", node: standings },
-    { id: "leaderboard", label: "Golf Leaderboard", node: leaderboard },
   ]
     .filter((t) => t.node)
     .map((t) => ({ id: t.id, label: t.label, node: <Frame title={t.label}>{t.node}</Frame> }));
