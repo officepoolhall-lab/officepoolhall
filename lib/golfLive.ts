@@ -75,9 +75,10 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       name: o.name,
       pos: str(o.pos) ?? "-",
       // A golfer who hasn't started has no score yet ("-" or nothing).
-      toPar: str(o.toPar) === "-" ? null : str(o.toPar),
+      // No score once out ("CUT", "WD"…), as before a golfer starts ("-").
+      toPar: str(o.toPar) === "-" || /^[A-Z]+$/i.test(str(o.toPar) ?? "") ? null : str(o.toPar),
       // Before a golfer starts, ESPN sends thru 0 (checked Nov 2026: status "pre", toPar "-").
-      thru: thru === "18" ? "F" : thru === "0" ? null : thru,
+      thru: thru === "18" ? "F" : thru === "0" || /^(CUT|MC|WD|DQ)$/i.test(thru ?? "") ? null : thru,
       tee: teeTime(o.tee),
       status: typeof o.status === "string" ? o.status : "",
       earnings: Number(o["$$"]) || 0,
@@ -94,7 +95,9 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       out: (() => {
         const wd = Object.values(o).find((v) => typeof v === "string" && /^(WD|DQ|W\/D)$/i.test(v.trim())) as string | undefined;
         if (wd) return /^DQ$/i.test(wd.trim()) ? "DQ" : "WD";
-        if (o.cut === true || o.tee === "CUT") return "MC";
+        // A missed cut: the flag, or "CUT" where the score, holes played or tee time go (ESPN's
+        // page shows SCORE "CUT" and THRU "CUT").
+        if (o.cut === true || [o.tee, o.toPar, o.thru, o.pos].some((v) => typeof v === "string" && /^(CUT|MC)$/i.test(v.trim()))) return "MC";
         return typeof o.tee === "string" && /^[A-Z]{2,4}$/.test(o.tee) ? o.tee : null;
       })(),
     });

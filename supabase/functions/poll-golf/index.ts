@@ -105,7 +105,8 @@ function parseGolfers(html: string): Golfer[] {
       thru: Number(o.thru) || 0,
       playedR4: typeof o.r4 === "number" && o.r4 > 0,
       toPar: tp === "E" ? 0 : /^[+-]?\d+$/.test(tp) ? Number(tp) : null,
-      out: o.cut === true || o.tee === "CUT" || /^(MC|CUT|WD|DQ|MDF)$/i.test(pos),
+      // Out: ESPN's cut flag, or CUT / WD / DQ where the place, score, holes played or tee time go.
+      out: o.cut === true || [o.tee, o.toPar, o.thru, pos].some((v) => typeof v === "string" && /^(MC|CUT|WD|DQ|MDF)$/i.test(v.trim())),
       rounds: [o.r1, o.r2, o.r3, o.r4].map(round),
     });
   }
