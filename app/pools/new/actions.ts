@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/ActionForm";
 import { requireUser } from "@/lib/auth";
@@ -116,4 +118,25 @@ async function createMajorsPool({ name, slug, season, entryFee, form }: { name: 
     }
   }
   redirect(`/p/${slug}/golf/admin/tournaments`);
+}
+
+/**
+ * /pools/new for accounts that can't start pools yet: ask to run one. One request per
+ * account, updated in place; the site's creator reads them in Supabase and approves by
+ * adding the email to pool_creators.
+ */
+export async function requestPoolAccess(_: ActionState, form: FormData): Promise<ActionState> {
+  const user = await requireUser("/pools/new");
+  const supabase = await createClient();
+  const { error } = await supabase.from("pool_creator_requests").upsert({
+    user_id: user.id,
+    email: user.email,
+    pools: String(form.get("pools") ?? "").trim().slice(0, 300),
+    group_size: String(form.get("group_size") ?? "").trim().slice(0, 60),
+    message: String(form.get("message") ?? "").trim().slice(0, 1000),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { error: "The request didn't send. Try again in a moment." };
+  revalidatePath("/pools/new");
+  return { ok: "Request sent. You'll get an email as soon as your account can start pools." };
 }
