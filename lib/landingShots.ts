@@ -16,11 +16,18 @@ import { createAdminClient } from "./supabase/admin";
 //   long over, so Scores replays them as a Sunday afternoon: each game's score, clock, down and
 //   last play at one moment, rebuilt from ESPN's play-by-play, with that moment set to now.
 
-const FAKE_NAMES = [
-  "Megan R.", "Dave K.", "Priya S.", "Tom B.", "Alex M.", "Jordan P.", "Chris L.", "Sam W.", "Taylor G.", "Morgan F.",
-  "Jamie D.", "Casey H.", "Riley N.", "Drew C.", "Avery T.", "Quinn J.", "Blake V.", "Reese A.", "Cameron E.", "Hayden O.",
-  "Logan Y.", "Parker I.", "Rowan U.", "Sydney Z.", "Emerson K.", "Finley B.", "Harper M.", "Kendall S.", "Peyton R.", "Skyler D.",
+// Made-up names: a first name and last initial, unique for up to 1,040 players (no numbers).
+const FIRST = [
+  "Megan", "Dave", "Priya", "Tom", "Alex", "Jordan", "Chris", "Sam", "Taylor", "Morgan",
+  "Jamie", "Casey", "Riley", "Drew", "Avery", "Quinn", "Blake", "Reese", "Cameron", "Hayden",
+  "Logan", "Parker", "Rowan", "Sydney", "Emerson", "Finley", "Harper", "Kendall", "Peyton", "Skyler",
+  "Nick", "Laura", "Ben", "Kate", "Matt", "Erin", "Ryan", "Molly", "Greg", "Tess",
 ];
+const fakeName = (i: number) => {
+  const first = i % FIRST.length;
+  const round = Math.floor(i / FIRST.length);
+  return `${FIRST[first]} ${String.fromCharCode(65 + ((round + first * 7) % 26))}.`;
+};
 
 export type LandingPool = {
   ctx: PoolContext;
@@ -46,7 +53,7 @@ export async function getLandingPool(): Promise<LandingPool | null> {
     const { data: members } = await db.from("pool_members").select("user_id").eq("pool_id", (pool as Row).id);
     // A fixed order, so each player keeps the same made-up name on every preview.
     const ids = ((members ?? []) as Row[]).map((m) => m.user_id as string).sort();
-    const names = new Map(ids.map((id, i) => [id, FAKE_NAMES[i % FAKE_NAMES.length] + (i >= FAKE_NAMES.length ? ` ${Math.floor(i / FAKE_NAMES.length) + 1}` : "")]));
+    const names = new Map(ids.map((id, i) => [id, fakeName(i)]));
     const ctx = {
       supabase: db,
       user: { id: owner, email: "" },

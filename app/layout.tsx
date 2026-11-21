@@ -5,7 +5,7 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
-const description = "Pick'em pools for college football, the NFL, college basketball and golf.";
+const description = "Office pools for the common man. Customize every rule, invite your group, and let the picks, scores and standings run themselves. No spreadsheets required.";
 
 export const metadata: Metadata = {
   // Absolute links for the share previews (the image and page URLs a shared link shows).

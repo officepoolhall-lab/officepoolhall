@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { SportIcon } from "@/components/SportIcon";
 import { LinkButton, Wordmark } from "@/components/ui";
 import { PoolTypes } from "./PoolTypes";
 import { Shots } from "./Shots";
@@ -14,14 +13,14 @@ const SIGN_IN = "/login";
 const STEPS = [
   { title: "Start a pool", text: "Choose the sport and format, set the rules, and you're the commissioner." },
   { title: "Invite your people", text: "Share one link by text or email. Friends sign in with their email, no passwords." },
-  { title: "Picks lock and grade themselves", text: "Games lock at kickoff, scores come in live, and standings update the moment games go final." },
+  { title: "Picks lock and grade themselves", text: "Picks lock when each game starts, scores come in live, and standings update the moment results are final." },
 ];
 
 const FEATURES: { title: string; text: string }[] = [
-  { title: "Live scores", text: "Game clocks, scores and the last play on every pick while games are on." },
-  { title: "Automatic locks and grading", text: "Each game locks at its own kickoff. Wins, losses and pushes are graded for you." },
-  { title: "League Grid", text: "Everyone's picks side by side, revealed as each game kicks off." },
-  { title: "Weekly and season standings", text: "Week and season leaders, each player's pick history, and how the pool picked each game." },
+  { title: "Live scores", text: "Scores and game status on every pick while games are on." },
+  { title: "Automatic locks and grading", text: "Each pick locks when its game starts, and every result is graded for you." },
+  { title: "League Grid", text: "Everyone's picks side by side, revealed as each game starts." },
+  { title: "Weekly and season standings", text: "Week and season leaders, each player's pick history, and how the pool picked." },
   { title: "Works on any phone", text: "Built for picking on the go. Times show in each player's own time zone." },
   { title: "Co-managers and guests", text: "Let someone else run an entry, or add followers who can watch without playing." },
   { title: "Message board", text: "Trash talk and announcements stay with the pool." },
@@ -61,19 +60,11 @@ export function Landing() {
         {/* Hero: the pitch and both ways in. */}
         <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-20 lg:pt-24">
           <div>
-            <div className="flex flex-wrap gap-2">
-              {(["football", "basketball", "golf"] as const).map((k) => (
-                <span key={k} className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted">
-                  <SportIcon kind={k} className="size-3.5 text-accent" />
-                  {k === "football" ? "Football" : k === "basketball" ? "Basketball" : "Golf"}
-                </span>
-              ))}
-            </div>
             {/* Tagline to come; the site's name for now. */}
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">The Office Pool Hall</h1>
+            <h1 className="text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">The Office Pool Hall</h1>
             <p className="mt-5 max-w-xl text-lg text-muted">
-              Pick&apos;em pools for college football, the NFL, college basketball and golf. Picks lock at kickoff, scores update live, and the
-              standings take care of themselves.
+              Office pools for the common man. Customize every rule, invite your group with one link, and let the picks, scores and
+              standings run themselves. No spreadsheets required.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <LinkButton href={START} kind="accent" className="!h-12 !px-6">
@@ -132,7 +123,7 @@ export function Landing() {
         <section className="border-t border-line">
           <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Ready for kickoff?</h2>
+              <h2 className="text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Ready to start?</h2>
               <p className="mt-1 text-muted">Start a pool in a couple of minutes, or sign in to get back to yours.</p>
             </div>
             <div className="flex flex-wrap gap-3">
