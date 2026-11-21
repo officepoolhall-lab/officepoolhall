@@ -14,7 +14,6 @@ import {
   weekPicks,
   type LandingPool,
 } from "@/lib/landingShots";
-import { ShotTabs } from "./ShotTabs";
 
 // The landing page's look inside: the real My Picks, Grid, Scores, Pool Summary and Standings,
 // each drawn by the app's own components from a real pool (lib/landingShots.ts),
@@ -136,7 +135,22 @@ async function StandingsShot({ lp }: { lp: LandingPool }) {
   return <StandingsView ctx={lp.ctx} slug={lp.slug} query={{ week: String(lp.picksWeek) }} embed={{ rename: lp.rename }} />;
 }
 
-/** The tabs of real pages, or nothing when the pool can't be read. */
+/** One preview: a short label, headline and reason it matters, then the real page under it. */
+function Story({ label, title, text, children, height }: { label: string; title: string; text: string; children: ReactNode; height?: string }) {
+  return (
+    // Words above, the page full width under them (the real pages need the room).
+    <div>
+      <div className="mb-5 max-w-2xl">
+        <div className="text-xs font-semibold uppercase tracking-wide text-accent">{label}</div>
+        <h3 className="mt-1.5 text-xl font-extrabold leading-tight tracking-[-0.02em] sm:text-2xl">{title}</h3>
+        <p className="mt-2 text-[15px] text-muted">{text}</p>
+      </div>
+      <Frame title={label} height={height}>{children}</Frame>
+    </div>
+  );
+}
+
+/** The real pages as a series of stories down the page, or nothing when the pool can't be read. */
 export async function Shots() {
   const lp = await getLandingPool();
   if (!lp) return null;
@@ -147,15 +161,52 @@ export async function Shots() {
     SummaryShot({ lp }).catch(() => null),
     StandingsShot({ lp }).catch(() => null),
   ]);
-  const tabs = [
-    { id: "picks", label: "My Picks", node: picks },
-    { id: "grid", label: "League Grid", node: grid },
-    { id: "scores", label: "Scores", node: scores },
-    { id: "summary", label: "Pool Summary", node: summary },
-    { id: "standings", label: "Standings", node: standings },
-  ]
-    .filter((t) => t.node)
-    .map((t) => ({ id: t.id, label: t.label, node: <Frame title={t.label}>{t.node}</Frame> }));
-  if (!tabs.length) return null;
-  return <ShotTabs tabs={tabs} />;
+  const stories = [
+    {
+      id: "picks",
+      label: "My Picks",
+      title: "Every game and every line on one clean card.",
+      text: "Players see the week's games, spreads and lock times, make their picks in a few taps, and watch them update live once games start.",
+      node: picks,
+    },
+    {
+      id: "grid",
+      label: "League Grid",
+      title: "The whole pool's picks, revealed the moment each game starts.",
+      text: "Wins and losses fill in as games finish, so everyone can see who's riding with whom and where the week turned.",
+      node: grid,
+    },
+    {
+      id: "scores",
+      label: "Scores",
+      title: "Live scores, right next to the picks.",
+      text: "Clocks, scores, down and distance and the last play for every game, without opening another app.",
+      node: scores,
+    },
+    {
+      id: "summary",
+      label: "Pool Summary",
+      title: "Where the pool landed on every game.",
+      text: "The most-picked sides and how each game split, so the trash talk has receipts.",
+      node: summary,
+      height: "h-[30rem]",
+    },
+    {
+      id: "standings",
+      label: "Standings",
+      title: "Season and weekly standings that keep themselves.",
+      text: "Updated the moment results are final, with every player's pick history a tap away.",
+      node: standings,
+    },
+  ].filter((x) => x.node);
+  if (!stories.length) return null;
+  return (
+    <div className="space-y-16 sm:space-y-20">
+      {stories.map((x) => (
+        <Story key={x.id} label={x.label} title={x.title} text={x.text} height={x.height}>
+          {x.node}
+        </Story>
+      ))}
+    </div>
+  );
 }
