@@ -10,7 +10,7 @@ import { getVisibleLineups } from "@/lib/golfMajorsData";
 import { getEventInfo } from "@/lib/golfEventInfo";
 import { projectedEarnings } from "@/lib/golfMajors";
 import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
-import { getCoursePar } from "@/lib/golfScorecard";
+import { getCoursePar, getRoundTeeTime } from "@/lib/golfScorecard";
 
 export const metadata: Metadata = { title: "Leaderboard" };
 
@@ -82,10 +82,26 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   // (today's round), so it stays on one line.
   const tee = (iso: string | null) => (iso ? formatInTimeZone(iso, ctx.displayTz, state === "scheduled" ? "EEE h:mm a" : "h:mm a") : null);
 
+  // Between rounds ESPN's leaderboard keeps the last round's tee time (and "F") until the next
+  // round starts, so the next round's tee times come from each golfer's linescores instead.
+  const nextTee = new Map<string, string>();
+  if (live && state === "live" && tournamentId) {
+    const between = live.filter((g) => {
+      const played = g.rounds.filter((r) => r !== null).length;
+      return !g.out && g.thru === "F" && played >= 1 && played < 4 && !(g.tee && Date.parse(g.tee) > now);
+    });
+    const times = await Promise.all(between.map((g) => getRoundTeeTime(tournamentId, g.id, g.rounds.filter((r) => r !== null).length + 1)));
+    between.forEach((g, i) => {
+      const t = times[i];
+      if (t && Date.parse(t) > now) nextTee.set(g.id, t);
+    });
+  }
+
   let rows: LeaderRow[] = live
     ? live.map((g) => {
         // A tee time still ahead means the golfer hasn't started today's round.
-        const waiting = g.tee && Date.parse(g.tee) > now;
+        const teeAt = nextTee.get(g.id) ?? g.tee;
+        const waiting = teeAt && Date.parse(teeAt) > now;
         return {
           id: g.id,
           name: g.name,
@@ -105,14 +121,14 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
                   ? "WD"
                   : (g.out ?? (state === "scheduled" ? "" : "–")),
           toPar: g.toPar,
-          thru: state === "scheduled" || waiting ? tee(g.tee) : g.thru === "F" ? "F" : (g.thru ?? null),
+          thru: state === "scheduled" || waiting ? tee(teeAt) : g.thru === "F" ? "F" : (g.thru ?? null),
           rounds: g.rounds,
           today: today(g),
           earnings: g.earnings,
           pickedBy: pickedBy.get(g.id) ?? 0,
           mine: mineSet.has(g.id),
           _order: g.order ?? 9999,
-          _tee: g.tee ?? "~",
+          _tee: teeAt ?? "~",
           _last: g.lastName,
         };
       })

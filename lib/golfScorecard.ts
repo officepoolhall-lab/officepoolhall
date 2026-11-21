@@ -86,6 +86,34 @@ async function coursePars(tournamentId: string): Promise<Map<number, number>> {
   }
 }
 
+/**
+ * A golfer's tee time for one round, from the same linescores list: rounds not yet played carry
+ * only period, teeTime and startTee. Used between rounds, when ESPN's leaderboard still shows
+ * the last round's tee time. Cached ten minutes (tee times are set the evening before).
+ */
+export async function getRoundTeeTime(tournamentId: string, golferId: string, round: number): Promise<string | null> {
+  if (!/^\d+$/.test(tournamentId) || !/^\d+$/.test(golferId)) return null;
+  try {
+    const res = await fetch(
+      `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${tournamentId}/competitions/${tournamentId}/competitors/${golferId}/linescores?lang=en&region=us`,
+      {
+        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
+        next: { revalidate: 600 },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as Obj;
+    const items = (body.items ?? body.linescores) as Obj[] | undefined;
+    const item = Array.isArray(items) ? items.find((r) => num(r.period) === round) : undefined;
+    const t = item?.teeTime;
+    const ms = typeof t === "number" ? t : typeof t === "string" ? Date.parse(t) : NaN;
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Cached `revalidate` seconds (0: read fresh every time, for the card while it's open). */
 export async function getScorecard(tournamentId: string, golferId: string, revalidate: number): Promise<Scorecard | null> {
   if (tournamentId === DEMO_LIVE_ID) return getDemoScorecard(golferId);
