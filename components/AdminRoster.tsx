@@ -316,7 +316,6 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
   const { data: members } = await db.from("pool_members").select("user_id, role, paid").eq("pool_id", ctx.pool.id);
   const benched = await getBenchedIds(db, ctx.pool.id);
   const all = ((members ?? []) as { user_id: string; role: string; paid: boolean; joined_at: string }[]).filter((m) => !benched.has(m.user_id));
-  const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
   // A sample of payment tracking (the real marks stay private): all but six paid, and one
   // unpaid player among the rows shown; the paid rows note how they paid.
   const paidCount = Math.max(0, all.length - SAMPLE_UNPAID);
@@ -363,7 +362,7 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
               <div className={`${CELL.email} min-w-0 truncate text-sm text-muted`}>{email(m.name)}</div>
               <div className={CELL.joined}>
                 <span className="sm:hidden">Joined </span>
-                {joined(m.joined_at)}
+                {sampleJoined(m.user_id)}
               </div>
               <div className={CELL.paid}>
                 <PaidMark paid={k !== SAMPLE_UNPAID_ROW} />
@@ -451,4 +450,11 @@ function DotsIcon() {
 const SAMPLE_NOTES = ["Paid via Venmo", "Paid via PayPal", "Paid cash", "Paid via Venmo", "Paid via PayPal", "Paid cash"];
 const SAMPLE_UNPAID = 6;
 const SAMPLE_UNPAID_ROW = 3;
-const SAMPLE_FEE = 50; // the sample entry fee: Collected = paid × $50
+const SAMPLE_FEE = 50;
+
+/** A sample joined date for the preview: a day in August 2026, the same for a player every time. */
+function sampleJoined(userId: string): string {
+  let h = 0;
+  for (const c of userId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `Aug ${(h % 31) + 1}, 2026`;
+} // the sample entry fee: Collected = paid × $50
