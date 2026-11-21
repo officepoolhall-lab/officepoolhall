@@ -1,4 +1,5 @@
 import { AdminNav } from "@/components/AdminNav";
+import { isPickX } from "@/lib/pickx";
 import { requireCommissioner } from "@/lib/pool";
 
 export default async function AdminLayout({ children, params }: LayoutProps<"/p/[slug]/admin">) {
@@ -9,8 +10,13 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/p/
     <div data-wide>
       <AdminNav
         base={`/p/${slug}/admin`}
-        tabs={[
-          // Roster first: it's where Admin opens.
+        tabs={isPickX(ctx.pool.settings) ? [
+          // Pick X: the tournament field and winners (Bracket) and the rules (Settings).
+          ["roster", "Roster"],
+          ["bracket", "Bracket"],
+          ["settings", "Settings"],
+        ] : [
+          // Roster first: it's where the Commissioner page opens.
           ["roster", "Roster"],
           ["slate", "Slate"],
           ["results", "Results"],

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { isPickX } from "@/lib/pickx";
+import { PickXPicksPage } from "@/components/pickx/PickXPages";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
@@ -22,6 +24,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const { slug } = await params;
   const { for: forParam, week: weekParam } = await searchParams;
   const ctx = await getPoolContext(slug);
+  if (isPickX(ctx.pool.settings)) return <PickXPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} />;
   const [slates, current, upcoming] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
 
   if (!current) {

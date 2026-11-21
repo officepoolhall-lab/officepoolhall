@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { isPickX } from "@/lib/pickx";
+import { redirect } from "next/navigation";
 import { GridView } from "@/components/GridView";
 import { getPoolContext } from "@/lib/pool";
 
@@ -8,5 +10,6 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const { slug, week } = await params;
   const { sort } = await searchParams;
   const ctx = await getPoolContext(slug);
+  if (isPickX(ctx.pool.settings)) redirect(`/p/${slug}/standings`);
   return <GridView ctx={ctx} slug={slug} week={week} sortParam={sort} />;
 }

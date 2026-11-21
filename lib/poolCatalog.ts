@@ -8,7 +8,9 @@ import type { PresetKey } from "./poolSettings";
 // from Start a Pool.
 
 export type GolfTemplate = "golf_tiers" | "golf_salary";
-export type Template = PresetKey | GolfTemplate;
+/** NCAA Pick X (settings.format = "pick_x"). */
+export type PickXTemplate = "ncaab_pickx";
+export type Template = PresetKey | GolfTemplate | PickXTemplate;
 
 export type CatalogType = { id: string; name: string; text: string; live: boolean; template?: Template };
 export type CatalogLeague = { id: "nfl" | "ncaaf" | "ncaab" | "pga"; label: string; full: string; kind: PoolKind; types: CatalogType[] };
@@ -48,7 +50,7 @@ export const LEAGUES: CatalogLeague[] = [
     types: [
       { live: true, id: "confidence", name: "Confidence", template: "ncaab_confidence", text: "Weekly slates all season, ranked by confidence, with bonus points for calling early-season tournament champions." },
       { live: true, id: "pickem", name: "Pick'em", template: "ncaab_pickem", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
-      { live: false, id: "pick-x", name: "Pick X", text: "Pick a set number of tournament teams. Every game they win earns you points, with more for lower seeds." },
+      { live: true, id: "pick-x", name: "Pick X", template: "ncaab_pickx", text: "Pick a set number of tournament teams. Every game they win earns you points, with more for lower seeds." },
       { live: false, id: "bracket", name: "Bracket", text: "Fill out the whole tournament bracket before it tips off. Each round is worth more than the last." },
     ],
   },

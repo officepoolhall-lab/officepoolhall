@@ -1,4 +1,6 @@
 import { FitText } from "@/components/FitText";
+import { isPickX } from "@/lib/pickx";
+import { PickXHome } from "@/components/pickx/PickXPages";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApPollList } from "@/components/ApPollList";
@@ -29,6 +31,8 @@ import { NEWS_TITLE, teamSport, type TeamSport } from "@/lib/sports";
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
+  // An NCAA Pick X pool has its own Home.
+  if (isPickX(ctx.pool.settings)) return <PickXHome ctx={ctx} slug={slug} />;
   const [slate, upcoming] = await Promise.all([getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
   const sport = teamSport(ctx.pool.sport);
   // Everything the pool's own data needs, in one round: the standings (one load of the
