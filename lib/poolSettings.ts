@@ -271,7 +271,7 @@ export const PRESETS = {
     label: "NCAAF Pick'em",
     short: "Pick'em",
     sport: "ncaaf",
-    settings: pickemSettings(10),
+    settings: pickemSettings(25),
   },
   ncaab_pickem: {
     label: "NCAAB Pick'em",
