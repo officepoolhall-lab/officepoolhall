@@ -2,24 +2,57 @@
 
 import { useState } from "react";
 import { PRESETS, evenTiers, parseSegmentWeeks, type PoolSettings } from "@/lib/poolSettings";
-import { Field, SectionLabel, inputClass } from "./ui";
+import { OptionCards, Segmented, SettingRow, SettingsSection, Toggle, settingInput } from "./SettingsUI";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const TIMEZONES = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles"];
-const BOOKMAKERS = ["draftkings", "fanduel", "betmgm", "williamhill_us", "espnbet", "betrivers"];
-
-// These fields always render inside a bg-surface panel, so inputs take the page color to stay visible.
-const field = inputClass.replace("bg-surface", "bg-bg");
-const checkbox = "size-5 shrink-0 accent-[var(--accent)]";
+const TIMEZONES: [string, string][] = [
+  ["America/New_York", "Eastern"],
+  ["America/Chicago", "Central"],
+  ["America/Denver", "Mountain"],
+  ["America/Phoenix", "Arizona"],
+  ["America/Los_Angeles", "Pacific"],
+];
+const BOOKMAKERS: [string, string][] = [
+  ["draftkings", "DraftKings"],
+  ["fanduel", "FanDuel"],
+  ["betmgm", "BetMGM"],
+  ["williamhill_us", "Caesars"],
+  ["espnbet", "ESPN BET"],
+  ["betrivers", "BetRivers"],
+];
 
 // Turning the upset bonus on starts from the guidelines' tiers; editing tiers isn't offered yet.
 const DEFAULT_UPSET_TIERS = PRESETS.ncaab_confidence.settings.upset_bonus.tiers;
 const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
+const num = (n: number) => (Number.isInteger(n) ? String(n) : n === 0.5 ? "½" : String(n));
+const time12 = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+};
+
+/** The rules in a sentence or two, so a commissioner can check them at a glance. */
+function summary(s: PoolSettings): string[] {
+  const what = s.pick_type === "ats" ? "against the spread" : "straight up (pick the winner)";
+  const count = `${s.picks_mode === "exact" ? "exactly" : "up to"} ${s.picks_per_slate}`;
+  const lines = [`Players make ${count} picks ${what} each week${s.full_card ? ", saved as a full card" : ""}.`];
+  if (s.confidence) {
+    const pts = s.confidence.tiers.map((t) => `${t.count}×${t.points}`).join(", ");
+    lines.push(`Confidence points (${pts}); a wrong pick ${s.confidence.wrong_pick === "minus_points" ? "loses its points" : "scores 0"}.`);
+  } else {
+    lines.push(`Win ${num(s.scoring.win)} · Push ${num(s.scoring.push)} · Loss ${num(s.scoring.loss)}, ranked by ${s.standings_by === "points" ? "points" : "record"}.`);
+  }
+  lines.push(
+    s.lock.mode === "per_game"
+      ? "Each game locks when it starts."
+      : `Picks are due ${WEEKDAYS[s.lock.weekly?.weekday ?? 0]} at ${time12(s.lock.weekly?.time ?? "12:00")}${s.lock.weekly?.first_day_time ? `, ${WEEKDAYS[s.window.start_weekday]} games by ${time12(s.lock.weekly.first_day_time)}` : ""}.`,
+  );
+  return lines;
+}
 
 /**
- * Editable pool settings. Serializes to a hidden `settings` input (JSON) that the
- * server action validates with zod. `lockedCore` disables fields that can't change
- * once a week has opened.
+ * Editable pool settings, grouped by topic: Picks, Scoring, Deadlines, Season and (against the
+ * spread) Lines. Serializes to a hidden `settings` input (JSON) that the server action validates
+ * with zod. `lockedCore` locks the settings that can't change once a week has opened.
  */
 export function SettingsFields({ initial, lockedCore = false }: { initial: PoolSettings; lockedCore?: boolean }) {
   const [s, setS] = useState<PoolSettings>(initial);
@@ -28,261 +61,258 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
   const set = (patch: Partial<PoolSettings>) => setS((prev) => ({ ...prev, ...patch }));
   const tierTotal = s.confidence?.tiers.reduce((n, t) => n + t.count, 0) ?? 0;
   const value: PoolSettings = { ...s, visibility: { show_picks_after: s.lock.mode === "weekly" ? "lock" : "game_start" } };
+  const locked = lockedCore;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4">
       <input type="hidden" name="settings" value={JSON.stringify(value)} />
-      {lockedCore && (
-        <p className="rounded-[10px] bg-bg p-3 text-sm text-muted">
-          A week has opened, so pick type, pick count, confidence tiers, and the wrong-pick, upset and missed-week
-          rules are locked for the season.
-        </p>
-      )}
 
-      <fieldset className="grid gap-4 disabled:opacity-60 sm:grid-cols-2" disabled={lockedCore}>
-        <SectionLabel className="sm:col-span-2">Picks</SectionLabel>
-        <Field label="Pick type">
-          <select className={field} value={s.pick_type} onChange={(e) => set({ pick_type: e.target.value as PoolSettings["pick_type"] })}>
-            <option value="straight_up">Straight up (pick the winner)</option>
-            <option value="ats">Against the spread</option>
-          </select>
-        </Field>
-        <Field label="Picks per week">
+      {/* The rules at a glance; updates as settings change. */}
+      <div className="rounded-2xl bg-accent/10 p-4 ring-1 ring-accent/30">
+        <div className="text-xs font-semibold uppercase tracking-wide text-accent">The rules at a glance</div>
+        <ul className="mt-1.5 space-y-0.5 text-[15px] text-ink">
+          {summary(value).map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+        {locked && <p className="mt-2 text-xs text-muted">A week has opened, so the settings marked with a lock can&apos;t change this season.</p>}
+      </div>
+
+      <SettingsSection title="Picks" description="What players pick each week.">
+        <SettingRow label="Pick" locked={locked}>
+          <Segmented
+            ariaLabel="Pick type"
+            value={s.pick_type}
+            onChange={(v) => set({ pick_type: v })}
+            options={[
+              { value: "straight_up", label: "The winner" },
+              { value: "ats", label: "Against the spread" },
+            ]}
+          />
+        </SettingRow>
+        <SettingRow label="Picks each week" locked={locked}>
           <input
-            type="number" min={1} max={100} className={`${field} tabular-nums`} value={s.picks_per_slate}
+            type="number" min={1} max={100} aria-label="Picks each week" className={`${settingInput} w-24 text-center tabular-nums`} value={s.picks_per_slate}
             onChange={(e) => {
               const n = Number(e.target.value);
               set({ picks_per_slate: n, confidence: s.confidence ? { ...s.confidence, tiers: evenTiers(n, s.confidence.tiers.map((t) => t.points)) } : null });
             }}
           />
-        </Field>
-        <label className="flex min-h-11 items-center gap-3 sm:col-span-2">
-          <input
-            type="checkbox" className={checkbox} checked={Boolean(s.confidence)}
-            onChange={(e) => set({ confidence: e.target.checked ? { tiers: evenTiers(s.picks_per_slate), wrong_pick: "zero" } : null })}
+        </SettingRow>
+        <SettingRow label="Players make" hint={s.picks_mode === "max" ? "Fewer is fine; unused picks score nothing." : "Every pick is required."}>
+          <Segmented
+            ariaLabel="Players make"
+            value={s.picks_mode}
+            onChange={(v) => set({ picks_mode: v })}
+            options={[
+              { value: "exact", label: `Exactly ${s.picks_per_slate}` },
+              { value: "max", label: `Up to ${s.picks_per_slate}` },
+            ]}
           />
-          <span className="text-[15px]">Confidence points (assign a point value to each pick)</span>
-        </label>
+        </SettingRow>
+        <SettingRow label="Save only a full card" hint="Picks save once all of them are made. Picks on games that haven't started can still be swapped.">
+          <Toggle label="Save only a full card" checked={s.full_card} onChange={(v) => set({ full_card: v })} />
+        </SettingRow>
+      </SettingsSection>
+
+      <SettingsSection title="Scoring" description="What each pick is worth, and how the standings rank players.">
+        <SettingRow label="Confidence points" hint="Players give each pick a point value; their surest picks are worth the most." locked={locked}>
+          <Toggle
+            label="Confidence points"
+            checked={Boolean(s.confidence)}
+            onChange={(v) => set({ confidence: v ? { tiers: evenTiers(s.picks_per_slate), wrong_pick: "zero" } : null })}
+          />
+        </SettingRow>
         {s.confidence && (
-          <div className="sm:col-span-2">
-            <div className="mb-2 flex items-baseline justify-between text-sm">
-              <span className="text-muted">Tiers</span>
-              <span className={`tabular-nums ${tierTotal === s.picks_per_slate ? "text-muted" : "font-semibold text-loss"}`}>
-                {tierTotal} of {s.picks_per_slate} picks
+          <SettingRow
+            stack
+            locked={locked}
+            label="Point values"
+            hint={
+              <span className={tierTotal === s.picks_per_slate ? "" : "font-semibold text-loss"}>
+                How many picks get each value: {tierTotal} of {s.picks_per_slate} assigned.
               </span>
-            </div>
+            }
+          >
             <div className="grid grid-cols-5 gap-2">
               {s.confidence.tiers.map((t, i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5 rounded-[10px] bg-hover p-1.5 pt-2">
-                  <span className="text-xl font-semibold leading-none tabular-nums text-ink">{t.points}</span>
-                  <span className="text-[11px] leading-none text-muted">pts</span>
+                <label key={i} className="flex flex-col items-center gap-1 rounded-xl bg-bg p-2">
+                  <span className="text-lg font-bold leading-none tabular-nums text-ink">{t.points}</span>
+                  <span className="text-[11px] leading-none text-muted">points</span>
                   <input
-                    type="number" min={0} aria-label={`How many ${t.points}s`}
-                    className="h-11 w-full rounded-lg bg-bg text-center text-[15px] font-medium tabular-nums text-accent outline-none focus:ring-2 focus:ring-accent"
+                    type="number" min={0} aria-label={`Picks worth ${t.points}`}
+                    className="mt-1 h-9 w-full rounded-lg bg-surface text-center text-[15px] font-semibold tabular-nums text-accent outline-none focus:ring-2 focus:ring-accent"
                     value={t.count}
                     onChange={(e) => {
                       const tiers = s.confidence!.tiers.map((x, j) => (j === i ? { ...x, count: Number(e.target.value) } : x));
                       set({ confidence: { ...s.confidence!, tiers } });
                     }}
                   />
-                </div>
+                </label>
               ))}
             </div>
-          </div>
+          </SettingRow>
         )}
-      </fieldset>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SectionLabel className="sm:col-span-2">Scoring</SectionLabel>
-        <Field label="Players must make" hint={s.full_card ? "Picks save only as a full card." : "Partial weeks are saved; unpicked slots score 0."}>
-          <select className={field} value={s.picks_mode} onChange={(e) => set({ picks_mode: e.target.value as PoolSettings["picks_mode"] })}>
-            <option value="exact">Exactly {s.picks_per_slate} picks</option>
-            <option value="max">Up to {s.picks_per_slate} picks</option>
-          </select>
-        </Field>
-        <label className="flex min-h-11 items-center gap-3 sm:col-span-2">
-          <input type="checkbox" className={checkbox} checked={s.full_card} onChange={(e) => set({ full_card: e.target.checked })} />
-          <span className="text-[15px]">
-            Require all {s.picks_per_slate} picks to save
-            <span className="block text-xs text-muted">Players save a full card; picks on games that haven&apos;t locked can still be changed.</span>
-          </span>
-        </label>
+        {s.confidence ? (
+          <SettingRow label="Wrong picks lose their points" hint="Off: a wrong pick scores 0." locked={locked}>
+            <Toggle
+              label="Wrong picks lose their points"
+              checked={s.confidence.wrong_pick === "minus_points"}
+              onChange={(v) => set({ confidence: { ...s.confidence!, wrong_pick: v ? "minus_points" : "zero" } })}
+            />
+          </SettingRow>
+        ) : (
+          <SettingRow label="Points per pick">
+            <div className="flex gap-2">
+              {(["win", "push", "loss"] as const).map((k) => (
+                <label key={k} className="flex flex-col items-center gap-1">
+                  <span className="text-xs capitalize text-muted">{k}</span>
+                  <input
+                    type="number" step={0.5} aria-label={`Points for a ${k}`} className={`${settingInput} w-20 text-center tabular-nums`} value={s.scoring[k]}
+                    onChange={(e) => set({ scoring: { ...s.scoring, [k]: Number(e.target.value) } })}
+                  />
+                </label>
+              ))}
+            </div>
+          </SettingRow>
+        )}
         {!s.confidence && (
-          <div className="grid grid-cols-3 gap-2">
-            {(["win", "push", "loss"] as const).map((k) => (
-              <Field key={k} label={`Pts / ${k}`}>
+          <SettingRow label="Rank standings by" hint={s.standings_by === "points" ? "Points first, with a Pts column." : "Win–loss record; points aren't shown."}>
+            <Segmented
+              ariaLabel="Rank standings by"
+              value={s.standings_by}
+              onChange={(v) => set({ standings_by: v })}
+              options={[
+                { value: "record", label: "Record" },
+                { value: "points", label: "Points" },
+              ]}
+            />
+          </SettingRow>
+        )}
+        <SettingRow
+          label="Upset bonus"
+          locked={locked}
+          hint={
+            s.upset_bonus
+              ? `Extra points for a correct pick most of the pool went against: ${s.upset_bonus.tiers.map((t) => `+${t.bonus} over ${pct(t.min_share)}`).join(", ")} of the pool's ${s.confidence ? "points" : "picks"} on the other side.`
+              : "Extra points for a correct pick most of the pool went against."
+          }
+        >
+          <Toggle label="Upset bonus" checked={Boolean(s.upset_bonus)} onChange={(v) => set({ upset_bonus: v ? { tiers: [...DEFAULT_UPSET_TIERS] } : null })} />
+        </SettingRow>
+        <SettingRow label="A player who misses a whole week" locked={locked}>
+          <Segmented
+            ariaLabel="A player who misses a whole week"
+            value={s.missed_week}
+            onChange={(v) => set({ missed_week: v })}
+            options={[
+              { value: "zero", label: "Scores 0" },
+              { value: "last_place", label: "Gets last place's score" },
+            ]}
+          />
+        </SettingRow>
+      </SettingsSection>
+
+      <SettingsSection title="Deadlines" description="When picks lock, and how the weeks run.">
+        <SettingRow label="Picks lock" stack>
+          <OptionCards
+            ariaLabel="Picks lock"
+            value={s.lock.mode}
+            onChange={(v) => set({ lock: v === "weekly" ? { mode: "weekly", weekly: s.lock.weekly ?? { weekday: 2, time: "19:00" } } : { mode: "per_game" } })}
+            options={[
+              { value: "per_game", label: "When each game starts", text: "Players can pick right up to each game." },
+              { value: "weekly", label: "At one weekly deadline", text: "All picks are due at once; games before it lock at their start." },
+            ]}
+          />
+        </SettingRow>
+        {s.lock.mode === "weekly" && s.lock.weekly && (
+          <>
+            <SettingRow label="Deadline">
+              <div className="flex gap-2">
+                <select
+                  aria-label="Deadline day" className={settingInput} value={s.lock.weekly.weekday}
+                  onChange={(e) => set({ lock: { mode: "weekly", weekly: { ...s.lock.weekly!, weekday: Number(e.target.value) as 0 } } })}
+                >
+                  {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
+                </select>
                 <input
-                  type="number" step={0.5} className={`${field} text-right tabular-nums`} value={s.scoring[k]}
-                  onChange={(e) => set({ scoring: { ...s.scoring, [k]: Number(e.target.value) } })}
+                  type="time" aria-label="Deadline time" className={`${settingInput} tabular-nums`} value={s.lock.weekly.time}
+                  onChange={(e) => set({ lock: { mode: "weekly", weekly: { ...s.lock.weekly!, time: e.target.value } } })}
                 />
-              </Field>
-            ))}
-          </div>
-        )}
-        {/* Confidence pools always rank by points. */}
-        {!s.confidence && (
-          <Field
-            label="Standings based on"
-            hint={s.standings_by === "points" ? "Ranked by points, with a Pts column first." : "Ranked by record (W–L); points aren't shown."}
-          >
-            <select className={field} value={s.standings_by} onChange={(e) => set({ standings_by: e.target.value as PoolSettings["standings_by"] })}>
-              <option value="record">Record</option>
-              <option value="points">Points</option>
-            </select>
-          </Field>
-        )}
-      </div>
-
-      <fieldset className="grid gap-4 disabled:opacity-60 sm:grid-cols-2" disabled={lockedCore}>
-        {s.confidence && (
-          <label className="flex min-h-11 items-center gap-3 sm:col-span-2">
-            <input
-              type="checkbox" className={checkbox} checked={s.confidence.wrong_pick === "minus_points"}
-              onChange={(e) => set({ confidence: { ...s.confidence!, wrong_pick: e.target.checked ? "minus_points" : "zero" } })}
-            />
-            <span className="text-[15px]">Wrong picks lose their points</span>
-          </label>
-        )}
-        <div className="sm:col-span-2">
-          <label className="flex min-h-11 items-center gap-3">
-            <input
-              type="checkbox" className={checkbox} checked={Boolean(s.upset_bonus)}
-              onChange={(e) => set({ upset_bonus: e.target.checked ? { tiers: [...DEFAULT_UPSET_TIERS] } : null })}
-            />
-            <span className="text-[15px]">Upset bonus</span>
-          </label>
-          {s.upset_bonus && (
-            <p className="ml-8 text-sm text-muted tabular-nums">
-              {s.upset_bonus.tiers.map((t) => `+${t.bonus} over ${pct(t.min_share)}`).join(" · ")}
-              <span className="mt-0.5 block text-xs">
-                For a correct pick on the side the pool was against, by the other side&apos;s share of the pool&apos;s
-                {s.confidence ? " points" : " picks"} on that game.
-              </span>
-            </p>
-          )}
-        </div>
-        <Field label="No picks at all for a week">
-          <select className={field} value={s.missed_week} onChange={(e) => set({ missed_week: e.target.value as PoolSettings["missed_week"] })}>
-            <option value="zero">Score 0</option>
-            <option value="last_place">Same as last place</option>
-          </select>
-        </Field>
-      </fieldset>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SectionLabel className="sm:col-span-2">Locks and weeks</SectionLabel>
-        <Field label="Pick lock">
-          <select
-            className={field} value={s.lock.mode}
-            onChange={(e) =>
-              set({ lock: e.target.value === "weekly" ? { mode: "weekly", weekly: s.lock.weekly ?? { weekday: 2, time: "19:00" } } : { mode: "per_game" } })
-            }
-          >
-            <option value="per_game">Each game locks at its start</option>
-            <option value="weekly">One weekly deadline</option>
-          </select>
-        </Field>
-        {s.lock.mode === "weekly" && s.lock.weekly && (
-          <div className="grid grid-cols-2 gap-2">
-            <Field label="Deadline day">
-              <select
-                className={field} value={s.lock.weekly.weekday}
-                onChange={(e) => set({ lock: { mode: "weekly", weekly: { ...s.lock.weekly!, weekday: Number(e.target.value) as 0 } } })}
-              >
-                {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
-              </select>
-            </Field>
-            <Field label="Time">
+              </div>
+            </SettingRow>
+            <SettingRow
+              label={`Earlier deadline for ${WEEKDAYS[s.window.start_weekday]} games`}
+              hint={`Optional. ${WEEKDAYS[s.window.start_weekday]} games are due by this time (or their start, if earlier). Leave blank for one deadline.`}
+            >
               <input
-                type="time" className={`${field} tabular-nums`} value={s.lock.weekly.time}
-                onChange={(e) => set({ lock: { mode: "weekly", weekly: { ...s.lock.weekly!, time: e.target.value } } })}
+                type="time" aria-label="Earlier deadline" className={`${settingInput} tabular-nums`} value={s.lock.weekly.first_day_time ?? ""}
+                onChange={(e) => {
+                  // An absent key, not "", means no first-day deadline (zod rejects "").
+                  const weekly = { ...s.lock.weekly!, first_day_time: e.target.value || undefined };
+                  if (!weekly.first_day_time) delete weekly.first_day_time;
+                  set({ lock: { mode: "weekly", weekly } });
+                }}
               />
-            </Field>
-          </div>
+            </SettingRow>
+          </>
         )}
-        {s.lock.mode === "weekly" && s.lock.weekly && (
-          <Field
-            label={`${WEEKDAYS[s.window.start_weekday]} games due`}
-            hint={`Optional earlier deadline for the week's first ${WEEKDAYS[s.window.start_weekday]}, or that day's first tip if earlier. Blank = one deadline.`}
-          >
-            <input
-              type="time" className={`${field} tabular-nums`} value={s.lock.weekly.first_day_time ?? ""}
-              onChange={(e) => {
-                // An absent key, not "", means no first-day deadline (zod rejects "").
-                const weekly = { ...s.lock.weekly!, first_day_time: e.target.value || undefined };
-                if (!weekly.first_day_time) delete weekly.first_day_time;
-                set({ lock: { mode: "weekly", weekly } });
-              }}
-            />
-          </Field>
-        )}
-
-        <Field label="Time zone">
-          <select className={field} value={s.timezone} onChange={(e) => set({ timezone: e.target.value })}>
-            {TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz.replace("America/", "").replace("_", " ")}</option>)}
+        <SettingRow label="Pool time zone" hint="Deadlines are set in this time zone. Players see game times in their own.">
+          <select aria-label="Pool time zone" className={settingInput} value={s.timezone} onChange={(e) => set({ timezone: e.target.value })}>
+            {TIMEZONES.map(([tz, label]) => <option key={tz} value={tz}>{label}</option>)}
           </select>
-        </Field>
-        <Field label="Week starts" hint={`${s.window.length_days}-day weeks, from midnight`}>
+        </SettingRow>
+        <SettingRow label="Weeks start on" hint={`Each week runs ${s.window.length_days} days, from midnight.`}>
           <select
-            className={field} value={s.window.start_weekday}
+            aria-label="Weeks start on" className={settingInput} value={s.window.start_weekday}
             onChange={(e) => set({ window: { ...s.window, start_weekday: Number(e.target.value) } })}
           >
             {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
           </select>
-        </Field>
-        <Field
-          label="Segments start at weeks"
+        </SettingRow>
+      </SettingsSection>
+
+      <SettingsSection title="Season" description="Optional extras across the season.">
+        <SettingRow
+          label="Bonus segments"
           hint={
             segmentError ? (
               <span className="text-loss">{segmentError}</span>
             ) : s.segments ? (
               <>
-                {s.segments.length} segment{s.segments.length === 1 ? "" : "s"} with their own standings.{" "}
-                <button
-                  type="button" className="font-medium text-accent"
-                  onClick={() => {
-                    setSegmentText("");
-                    set({ segments: null });
-                  }}
-                >
-                  Clear
+                {s.segments.length} segment{s.segments.length === 1 ? "" : "s"}, each with its own standings.{" "}
+                <button type="button" className="font-semibold text-accent" onClick={() => { setSegmentText(""); set({ segments: null }); }}>
+                  Remove
                 </button>
               </>
             ) : (
-              "Optional. Split the season, like 1, 6, 11, for separate standings."
+              "Split the season into parts with their own standings. Enter the week each part starts, like 1, 6, 11."
             )
           }
         >
           <input
-            type="text" inputMode="numeric" placeholder="1, 6, 11" className={`${field} tabular-nums`} value={segmentText}
+            type="text" inputMode="numeric" placeholder="1, 6, 11" aria-label="Bonus segments start at weeks" className={`${settingInput} w-36 tabular-nums`} value={segmentText}
             onChange={(e) => {
               setSegmentText(e.target.value);
               // Invalid entries still serialize, so the server's validation message backs up the hint.
               set({ segments: parseSegmentWeeks(e.target.value).segments });
             }}
           />
-        </Field>
-      </div>
+        </SettingRow>
+      </SettingsSection>
 
-      {/* Lines only matter against the spread; straight-up pools (picking winners) have none. */}
+      {/* Lines only matter against the spread. */}
       {s.pick_type === "ats" && (
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SectionLabel className="sm:col-span-2">Lines</SectionLabel>
-        <Field label="Line source" hint="One sportsbook is the source of truth for spreads.">
-          <select className={field} value={s.lines.bookmaker} onChange={(e) => set({ lines: { ...s.lines, bookmaker: e.target.value } })}>
-            {BOOKMAKERS.map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
-        </Field>
-        {s.pick_type === "ats" && (
-          <label className="flex min-h-11 items-center gap-3 sm:self-start sm:pt-7">
-            <input
-              type="checkbox" className={checkbox} checked={s.lines.force_half_point}
-              onChange={(e) => set({ lines: { ...s.lines, force_half_point: e.target.checked } })}
-            />
-            <span className="text-[15px]">Add a half point to whole-number spreads (no pushes)</span>
-          </label>
-        )}
-      </div>
+        <SettingsSection title="Lines" description="Where the spreads come from. They're frozen when each week is published.">
+          <SettingRow label="Sportsbook">
+            <select aria-label="Sportsbook" className={settingInput} value={s.lines.bookmaker} onChange={(e) => set({ lines: { ...s.lines, bookmaker: e.target.value } })}>
+              {BOOKMAKERS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </SettingRow>
+          <SettingRow label="No pushes" hint="Adds a half point to whole-number spreads, so every game has a winner against the spread.">
+            <Toggle label="No pushes" checked={s.lines.force_half_point} onChange={(v) => set({ lines: { ...s.lines, force_half_point: v } })} />
+          </SettingRow>
+        </SettingsSection>
       )}
     </div>
   );
