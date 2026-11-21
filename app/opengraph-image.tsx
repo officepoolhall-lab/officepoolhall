@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { LOGO, OG_SIZE, OgFrame } from "@/lib/ogFrame";
 
 // The image a shared link to the site shows (any page without its own).
-export const alt = "The Office Pool Hall: all your pools in one place. All your pools in one customizable, zero-hassle space.";
+export const alt = "The Office Pool Hall: say goodbye to the spreadsheets. All your pools in one customizable, zero-hassle space.";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 
