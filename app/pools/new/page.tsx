@@ -8,8 +8,9 @@ import { NewPoolForm } from "./NewPoolForm";
 
 export const metadata: Metadata = { title: "New pool" };
 
-export default async function NewPoolPage() {
+export default async function NewPoolPage({ searchParams }: PageProps<"/pools/new">) {
   await requireUser("/pools/new");
+  const { type } = await searchParams;
   const supabase = await createClient();
   const { data: canCreate } = await supabase.rpc("can_create_pools");
   if (!canCreate) redirect("/pools");
@@ -21,7 +22,8 @@ export default async function NewPoolPage() {
       <AppHeader />
       <main className="mx-auto w-full max-w-5xl px-4 py-6">
         <PageTitle sub="You'll be the commissioner. You can tweak rules until the first week opens.">Start a pool</PageTitle>
-        <NewPoolForm defaultSeason={defaultSeason} />
+        {/* ?type=nfl_pickem (etc.) opens with that template chosen. */}
+        <NewPoolForm defaultSeason={defaultSeason} initial={typeof type === "string" ? type : undefined} />
       </main>
     </>
   );
