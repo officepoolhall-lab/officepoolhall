@@ -1,0 +1,92 @@
+// Super Bowl Squares: a 10 × 10 board for one game. Players take squares; once the board is
+// ready the commissioner draws a digit (0-9) for each column and row at random. At the end of
+// each quarter, the square where the two teams' last digits meet wins. The rules live in
+// pools.settings.squares (settings.format = "squares").
+
+import { block, int, num } from "./formats";
+
+export type SquaresSettings = {
+  /** What a square costs (for the pot shown on the board; the site doesn't collect money). */
+  price: number;
+  /** The most squares one entry can take; null = no limit. */
+  max_per_entry: number | null;
+  /** The pot's split, in percent: end of the 1st quarter, halftime, end of the 3rd, final. */
+  payouts: [number, number, number, number];
+};
+
+export const SQUARES_DEFAULT: SquaresSettings = { price: 10, max_per_entry: null, payouts: [25, 25, 25, 25] };
+
+export const PAYOUT_PRESETS: { id: string; label: string; text: string; payouts: SquaresSettings["payouts"] }[] = [
+  { id: "even", label: "Even quarters", text: "25% at the end of each quarter.", payouts: [25, 25, 25, 25] },
+  { id: "final-heavy", label: "Bigger final", text: "20% for each of the first three quarters, 40% for the final score.", payouts: [20, 20, 20, 40] },
+  { id: "half-final", label: "Half and final", text: "25% at halftime, 50% for the final, 12.5% for the 1st and 3rd.", payouts: [12.5, 25, 12.5, 50] },
+  { id: "final", label: "Final score only", text: "The whole pot rides on the final score.", payouts: [0, 0, 0, 100] },
+];
+
+export const QUARTERS = ["1st quarter", "Halftime", "3rd quarter", "Final"] as const;
+
+export function squaresSettings(settings: unknown): SquaresSettings {
+  const s = block(settings, "squares");
+  const p = Array.isArray(s.payouts) && s.payouts.length === 4 && s.payouts.every((n: unknown) => num(n, 0, 100) !== null) ? (s.payouts as SquaresSettings["payouts"]) : SQUARES_DEFAULT.payouts;
+  return { price: num(s.price, 0, 100000) ?? SQUARES_DEFAULT.price, max_per_entry: int(s.max_per_entry, 1, 100), payouts: p };
+}
+
+export function squaresSettingsError(s: SquaresSettings): string | null {
+  if (s.price < 0) return "The price per square can't be negative.";
+  const total = s.payouts.reduce((a, b) => a + b, 0);
+  if (Math.abs(total - 100) > 0.01) return `The payouts add up to ${total}%. They have to add up to 100%.`;
+  return null;
+}
+
+const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
+
+/** The rules in plain words, for the board and the settings summary. */
+export function squaresRules(s: SquaresSettings): string[] {
+  const paid = QUARTERS.map((q, i) => ({ q, pct: s.payouts[i] })).filter((x) => x.pct > 0);
+  return [
+    `Take squares on the board${s.price > 0 ? ` at ${money(s.price)} each` : ""}${s.max_per_entry ? `, up to ${s.max_per_entry} per entry` : ""}.`,
+    "Once the board is ready, the commissioner draws the numbers at random and the board locks.",
+    "At the end of each quarter, the square where the last digit of each team's score meets wins.",
+    `Payouts: ${paid.map((x) => `${x.q} ${x.pct}%`).join(" · ")}.`,
+  ];
+}
+
+export type Score = { home: number; away: number };
+
+/** The square (0-99, row × 10 + column) that wins on a score, once the numbers are drawn. */
+export function winningSquare(colDigits: number[] | null, rowDigits: number[] | null, score: Score | null): number | null {
+  if (!colDigits || !rowDigits || !score) return null;
+  const col = colDigits.indexOf(score.home % 10);
+  const row = rowDigits.indexOf(score.away % 10);
+  return col < 0 || row < 0 ? null : row * 10 + col;
+}
+
+/**
+ * The score at the end of each quarter from ESPN's line scores (points per period). A quarter
+ * counts once a later period has begun or the game is over; the final includes overtime.
+ */
+export function scoresFromLines(homeLines: string[], awayLines: string[], over: boolean, homeTotal: number | null, awayTotal: number | null): (Score | null)[] {
+  const n = (v: string | undefined) => (v !== undefined && v !== "" && Number.isFinite(Number(v)) ? Number(v) : 0);
+  const periods = Math.max(homeLines.length, awayLines.length);
+  const at = (q: number): Score | null => {
+    if (!(over || periods > q)) return null;
+    let home = 0;
+    let away = 0;
+    for (let i = 0; i < q; i++) {
+      home += n(homeLines[i]);
+      away += n(awayLines[i]);
+    }
+    return { home, away };
+  };
+  const final = over && homeTotal !== null && awayTotal !== null ? { home: homeTotal, away: awayTotal } : null;
+  return [at(1), at(2), at(3), final];
+}
+
+/** "JD" for "Jordan Davis": what fits in a square on a phone. */
+export const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || "?";

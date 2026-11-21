@@ -14,12 +14,22 @@ export type PickXScoring = {
   bonus: number;
 };
 export type PickXLimits = { one_per_seed: boolean; max_per_region: number | null; min_seed_total: number | null };
-export type PickXSettings = { picks: number; scoring: PickXScoring; limits: PickXLimits };
+export type PickXSettings = {
+  picks: number;
+  scoring: PickXScoring;
+  limits: PickXLimits;
+  /** How ties are broken: not at all (tied entries share a place), or by the closest guess of the championship game's total points. */
+  tiebreaker: "none" | "title_total";
+  /** The championship game's total points, once played (filled from ESPN, or typed in). */
+  title_total: number | null;
+};
 
 export const PICKX_DEFAULT: PickXSettings = {
   picks: 8,
   scoring: { seed: true, rounds: [1, 2, 3, 4, 5, 6], bonus: 0 },
   limits: { one_per_seed: false, max_per_region: null, min_seed_total: null },
+  tiebreaker: "none",
+  title_total: null,
 };
 
 /** Common scoring setups, offered as one-tap choices (all editable). */
@@ -49,6 +59,8 @@ export function pickXSettings(settings: unknown): PickXSettings {
       max_per_region: int(lim.max_per_region, 1, 16),
       min_seed_total: int(lim.min_seed_total, 1, 999),
     },
+    tiebreaker: p.tiebreaker === "title_total" ? "title_total" : "none",
+    title_total: int(p.title_total, 0, 999),
   };
 }
 
@@ -147,5 +159,6 @@ export function rulesSummary(s: PickXSettings): string[] {
   if (s.limits.max_per_region !== null) lim.push(`up to ${s.limits.max_per_region} from a region`);
   if (s.limits.min_seed_total !== null) lim.push(`seeds adding up to at least ${s.limits.min_seed_total}`);
   if (lim.length) out.push(`Rules: ${lim.join(", ")}.`);
+  if (s.tiebreaker === "title_total") out.push("Tiebreaker: the closest guess of the championship game's total points.");
   return out;
 }

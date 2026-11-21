@@ -7,6 +7,9 @@ import type { ActionState } from "@/components/ActionForm";
 import { requireUser } from "@/lib/auth";
 import { parsePoolSettings, settingsError } from "@/lib/poolSettings";
 import { pickXSettings, pickXSettingsError } from "@/lib/pickx";
+import { survivorSettings, survivorSettingsError } from "@/lib/survivor";
+import { squaresSettings, squaresSettingsError } from "@/lib/squares";
+import { pfSettings, pfSettingsError } from "@/lib/playoffFantasy";
 import { createClient } from "@/lib/supabase/server";
 import { notifyCreator } from "@/lib/notify";
 import type { Json } from "@/lib/database.types";
@@ -48,6 +51,36 @@ export async function createPool(_: ActionState, form: FormData): Promise<Action
     const problem = pickXSettingsError(pick_x);
     if (problem) return { error: problem };
     settings = { ...parsed.data, format: "pick_x", pick_x };
+  }
+
+  // Survivor, Squares and Playoff Fantasy: an NFL pool with its own format and rules.
+  const format = String(form.get("format") ?? "");
+  if (format) {
+    if (sport !== "nfl") return { error: "That's an NFL pool." };
+    let rules: unknown;
+    try {
+      rules = JSON.parse(String(form.get("rules")));
+    } catch {
+      return { error: "The rules are missing." };
+    }
+    if (format === "survivor") {
+      const r = survivorSettings({ survivor: rules });
+      const problem = survivorSettingsError(r);
+      if (problem) return { error: problem };
+      settings = { ...parsed.data, format, survivor: r };
+    } else if (format === "squares") {
+      const r = squaresSettings({ squares: rules });
+      const problem = squaresSettingsError(r);
+      if (problem) return { error: problem };
+      settings = { ...parsed.data, format, squares: r };
+    } else if (format === "playoff_fantasy") {
+      const r = pfSettings({ playoff_fantasy: rules });
+      const problem = pfSettingsError(r);
+      if (problem) return { error: problem };
+      settings = { ...parsed.data, format, playoff_fantasy: r };
+    } else {
+      return { error: "Unknown pool type." };
+    }
   }
 
   const supabase = await createClient();

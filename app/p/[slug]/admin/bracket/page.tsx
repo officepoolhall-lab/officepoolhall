@@ -8,7 +8,7 @@ import { ROUNDS, SEED_ORDER, gameKey, gameTeams, gamesIn } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { windowLabel } from "@/lib/format";
 import { requireCommissioner } from "@/lib/pool";
-import { deleteBracket, saveBracket, saveBracketResults } from "../actions";
+import { deleteBracket, saveBracket, saveBracketResults, syncBracketResults } from "../actions";
 
 export const metadata: Metadata = { title: "Bracket" };
 
@@ -128,7 +128,17 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
 
       {/* Results: each game's winner, round by round. A later round lists its teams once the games before it have winners. */}
       <Panel className="p-4 sm:p-5">
-        <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Results</h2>
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Results</h2>
+            <p className="text-sm text-muted">Winners fill in from ESPN by themselves during the tournament (checked every 15 minutes). You can also pull them now, or set any game by hand.</p>
+          </div>
+          {locked && (
+            <ActionButton action={syncBracketResults.bind(null, slug, bracket.id)} kind="secondary" className="!px-4 !text-sm" pendingLabel="Checking ESPN…">
+              Update from ESPN
+            </ActionButton>
+          )}
+        </div>
         <ActionForm action={saveBracketResults.bind(null, slug, bracket.id)} className="space-y-3">
           {ROUNDS.map(({ round, name }) => {
             const done = Array.from({ length: gamesIn(round) }, (_, g) => bracket.results[gameKey(round, g)]).filter(Boolean).length;
