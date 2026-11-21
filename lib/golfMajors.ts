@@ -431,6 +431,16 @@ export function projectedEarnings(results: MajorResult[], purse: number | null, 
 }
 
 /** Results with prize money replaced by the projection (live) or kept (final). */
+/**
+ * A golfer's place as shown in a lineup: "T7"; for one who's out, ESPN's reason ("WD", "DQ")
+ * or "MC". ESPN's "-" (no place: out, or not started) never shows.
+ */
+export function posLabel(r: { pos: string | null; out: boolean } | null | undefined): string {
+  if (!r) return "";
+  if (r.out) return r.pos && /^[A-Z]+$/i.test(r.pos) ? r.pos.toUpperCase() : "MC";
+  return r.pos && r.pos !== "-" ? r.pos : "";
+}
+
 export function withProjectedEarnings(results: MajorResult[], purse: number | null, final: boolean): MajorResult[] {
   if (final) return results;
   const money = projectedEarnings(results, purse, false);

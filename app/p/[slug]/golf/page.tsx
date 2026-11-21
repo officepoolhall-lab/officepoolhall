@@ -31,7 +31,7 @@ import {
 import { tzAbbrev } from "@/lib/format";
 import { getNews } from "@/lib/news";
 import { getWorldRankings } from "@/lib/worldRankings";
-import { formatShown, formatToPar, golferShown, hasStarted, isSingleTournament } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, hasStarted, isSingleTournament, posLabel } from "@/lib/golfMajors";
 import { getMajorsScoreboard, getVisibleLineups } from "@/lib/golfMajorsData";
 
 export const metadata: Metadata = { title: "Home" };
@@ -382,7 +382,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                             <span className={`min-w-0 flex-1 truncate ${started && g?.counts ? "font-semibold" : "font-medium"}`}>{l.golfer_name}</span>
                             {started && (
                               <>
-                                <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
+                                <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted">{posLabel(r)}</span>
                                 {/* Score to par (points for salary cap), then prize money: projected from
                                     current standings until it's posted. */}
                                 <span className="w-11 shrink-0 text-right tabular-nums">

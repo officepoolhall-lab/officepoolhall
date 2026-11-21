@@ -4,7 +4,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfEventSelect } from "@/components/GolfEventSelect";
 import { Empty, PageTitle, chipClass } from "@/components/ui";
 import { type GolfContext, type GolfEvent, getGolfMembers, money } from "@/lib/golf";
-import { formatShown, formatToPar, golferShown, isSingleTournament, type MajorsSettings } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, isSingleTournament, type MajorsSettings, posLabel } from "@/lib/golfMajors";
 import { getMajorsScoreboard } from "@/lib/golfMajorsData";
 
 type Sort = "score" | "name" | "toPar" | "money";
@@ -220,7 +220,7 @@ function Lineup({
                   <span className={`${s.contest === "salary" ? "w-9" : "w-7"} shrink-0 text-[11px] tabular-nums text-muted`}>{s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}</span>
                   {/* The card is sized to fit the longest name; the font steps down if one still doesn't. */}
                   <FitText min={10} className={`flex-1 ${counted ? "font-medium" : ""}`}>{l.golfer_name}</FitText>
-                  <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted">{r?.out ? "MC" : (r?.pos ?? "")}</span>
+                  <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted">{posLabel(r)}</span>
                   <span className={`w-9 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, asScore, final))}</span>
                   {/* Prize money: projected from current standings until it's posted. */}
                   <span className="w-12 shrink-0 text-right text-[11px] tabular-nums text-muted">{r ? shortMoney(r.earnings) : "–"}</span>
