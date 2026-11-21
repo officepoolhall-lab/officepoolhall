@@ -1,4 +1,6 @@
 import { FitName } from "@/components/FitName";
+import { espnTournamentId } from "@/lib/golfLive";
+import { PlaySuspended } from "@/components/PlaySuspended";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -73,6 +75,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                   {current.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
                 </div>
                 <div className="mt-0.5 text-lg font-bold leading-snug text-ink">{current.name}</div>
+                {current.status === "in_progress" && <PlaySuspended tournamentId={espnTournamentId(current.espn_id, ctx.pool.slug, current.status)} className="my-2" />}
                 <div className="text-xs text-muted">
                   {current.start_at
                     ? `First Tee ${formatInTimeZone(current.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")}`
@@ -332,6 +335,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
               <>
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted">{live ? "Under Way" : next.status === "final" ? "Final" : isSingleTournament(ctx.pool.settings) ? "Tournament" : "Next Major"}</div>
                 <h2 className="text-lg font-bold leading-snug">{next.name}</h2>
+                {next.status === "in_progress" && <PlaySuspended tournamentId={espnTournamentId(next.espn_id, ctx.pool.slug, next.status)} className="my-2" />}
                 {next.start_at && next.status === "scheduled" && (
                   <p className="text-xs text-muted">
                     Locks {formatInTimeZone(next.start_at, ctx.displayTz, "EEE, MMM d · h:mm a")} {tzAbbrev(next.start_at, ctx.displayTz)}

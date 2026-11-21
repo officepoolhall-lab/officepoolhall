@@ -1,4 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
+import { PlaySuspended } from "@/components/PlaySuspended";
 import { Countdown } from "@/components/Countdown";
 import { GolfEventSelect } from "@/components/GolfEventSelect";
 import { MajorPicker } from "@/components/MajorPicker";
@@ -90,6 +91,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
     return (
       <div data-wide>
         {head}
+        {event.status === "in_progress" && <PlaySuspended tournamentId={tournamentId} className="mb-3 max-w-4xl" />}
         <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{who}</h3>
         {mine.length === 0 ? (
           <Empty>No lineup for this major.</Empty>
