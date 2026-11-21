@@ -87,18 +87,20 @@ async function coursePars(tournamentId: string): Promise<Map<number, number>> {
 }
 
 /**
- * A golfer's tee time for one round, from the same linescores list: rounds not yet played carry
- * only period, teeTime and startTee. Used between rounds, when ESPN's leaderboard still shows
- * the last round's tee time. Cached ten minutes (tee times are set the evening before).
+ * Where a golfer stands in one round, from the same linescores list: the round's tee time
+ * (rounds not yet played carry only period, teeTime and startTee) and, once begun, holes played
+ * and the round's score to par. Used between rounds and early in a round, when ESPN's
+ * leaderboard page can still show the last round ("F" and its tee time). Cached two minutes.
  */
-export async function getRoundTeeTime(tournamentId: string, golferId: string, round: number): Promise<string | null> {
+export type RoundProgress = { tee: string | null; holes: number; toPar: string | null };
+export async function getRoundProgress(tournamentId: string, golferId: string, round: number): Promise<RoundProgress | null> {
   if (!/^\d+$/.test(tournamentId) || !/^\d+$/.test(golferId)) return null;
   try {
     const res = await fetch(
       `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${tournamentId}/competitions/${tournamentId}/competitors/${golferId}/linescores?lang=en&region=us`,
       {
         headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-        next: { revalidate: 600 },
+        next: { revalidate: 120 },
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       },
     );
@@ -106,9 +108,12 @@ export async function getRoundTeeTime(tournamentId: string, golferId: string, ro
     const body = (await res.json()) as Obj;
     const items = (body.items ?? body.linescores) as Obj[] | undefined;
     const item = Array.isArray(items) ? items.find((r) => num(r.period) === round) : undefined;
-    const t = item?.teeTime;
+    if (!item) return null;
+    const t = item.teeTime;
     const ms = typeof t === "number" ? t : typeof t === "string" ? Date.parse(t) : NaN;
-    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+    const holes = Array.isArray(item.linescores) ? (item.linescores as Obj[]).filter((h) => (num(h.value) ?? 0) > 0).length : 0;
+    const toPar = typeof item.displayValue === "string" && /^([+-]\d+|E)$/.test(item.displayValue) ? item.displayValue : null;
+    return { tee: Number.isFinite(ms) ? new Date(ms).toISOString() : null, holes, toPar };
   } catch {
     return null;
   }
