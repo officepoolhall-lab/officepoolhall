@@ -203,7 +203,7 @@ export async function GridView({
   };
 
   const grid = (
-    <AxisLockScroll className={embed ? "relative max-h-[30rem] overflow-auto isolate" : "relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0"}>
+    <AxisLockScroll className={embed ? "relative overflow-x-auto isolate" : "relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0"}>
       {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
           but never narrower than a readable column each; past that it scrolls as on phones. */}
       <table

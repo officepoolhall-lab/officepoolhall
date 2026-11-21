@@ -353,6 +353,34 @@ export async function setPaid(slug: string, userId: string, paid: boolean) {
   revalidateRoster(slug);
 }
 
+/** The commissioner's private note on a player (the Roster's Notes column). */
+export async function setMemberNote(slug: string, userId: string, note: string) {
+  const ctx = await requirePoolCommissioner(slug);
+  const text = note.trim().slice(0, 300);
+  const { error } = await ctx.supabase
+    .from("pool_member_notes")
+    .upsert({ pool_id: ctx.pool.id, user_id: userId, note: text, updated_at: new Date().toISOString() });
+  if (error) return { ok: false as const, message: "Couldn't save the note." };
+  return { ok: true as const };
+}
+
+/** Bench an entry: it sits out (no picks, out of the standings) but keeps its spot. */
+export async function benchMember(slug: string, userId: string) {
+  const ctx = await requirePoolCommissioner(slug);
+  if (userId === ctx.user.id) return;
+  await ctx.supabase.from("pool_member_bench").upsert({ pool_id: ctx.pool.id, user_id: userId });
+  revalidateRoster(slug);
+  revalidatePath(`/p/${slug}`, "layout");
+}
+
+/** Bring a benched entry back into the pool. */
+export async function unbenchMember(slug: string, userId: string) {
+  const ctx = await requirePoolCommissioner(slug);
+  await ctx.supabase.from("pool_member_bench").delete().eq("pool_id", ctx.pool.id).eq("user_id", userId);
+  revalidateRoster(slug);
+  revalidatePath(`/p/${slug}`, "layout");
+}
+
 export async function removeMember(slug: string, userId: string) {
   const ctx = await requirePoolCommissioner(slug);
   if (userId === ctx.user.id) return;

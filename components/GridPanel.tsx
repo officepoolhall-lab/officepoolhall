@@ -33,16 +33,19 @@ export function GridPanel({
   ats: boolean;
   confidence: boolean;
   /** "side": the column beside the Grid on wide screens, sized to never scroll. "drawer": the
-      same content in the Pool Summary pop-out on smaller screens, at its natural height. */
-  layout?: "side" | "drawer";
+      same content in the Pool Summary pop-out on smaller screens, at its natural height. "wide":
+      the drawer's content laid out across a wide box (the landing page preview), sections side
+      by side. */
+  layout?: "side" | "drawer" | "wide";
 }) {
-  const drawer = layout === "drawer";
+  const drawer = layout !== "side";
+  const wide = layout === "wide";
   const shown = games.filter((g) => !g.voided && revealed(g.id));
   const byId = new Map(shown.map((g) => [g.id, g]));
   const visible = picks.filter((p) => byId.has(p.game_id) && p.result !== "void");
   if (!visible.length) {
     return (
-      <Panel drawer={drawer}>
+      <Panel drawer={drawer} wide={wide}>
         <p className="text-sm text-muted">The pool&apos;s picks show here once games kick off.</p>
       </Panel>
     );
@@ -99,7 +102,7 @@ export function GridPanel({
   const tw = perGame.reduce((t, x) => t + x.w, 0);
   const tl = perGame.reduce((t, x) => t + x.l, 0);
   const tp = perGame.reduce((t, x) => t + x.pu, 0);
-  const twoCols = perGame.length > 16;
+  const twoCols = perGame.length > (wide ? 8 : 16);
 
   // ---------- The viewer's picks beside the pool's ----------
   const mine = me ? visible.filter((p) => p.user_id === me).sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)) : [];
@@ -120,7 +123,7 @@ export function GridPanel({
   const chips = mine.length > 8;
 
   return (
-    <Panel drawer={drawer}>
+    <Panel drawer={drawer} wide={wide}>
       <Section drawer={drawer} title="Most picked" rows={most.length}>
         {most.map((s) => {
           const team = s.side === "home" ? s.game.home : s.game.away;
@@ -242,7 +245,8 @@ export function GridPanel({
   );
 }
 
-function Panel({ children, drawer }: { children: ReactNode; drawer: boolean }) {
+function Panel({ children, drawer, wide = false }: { children: ReactNode; drawer: boolean; wide?: boolean }) {
+  if (wide) return <div className="grid items-start gap-x-8 gap-y-6 text-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)]">{children}</div>;
   if (drawer) return <div className="flex flex-col gap-5 text-sm">{children}</div>;
   // Hidden until the page's media rule shows it (only when it leaves the Grid enough room).
   return (

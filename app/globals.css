@@ -142,3 +142,9 @@ textarea {
 ::-webkit-scrollbar-thumb:active {
   background: color-mix(in srgb, var(--muted) 65%, transparent);
 }
+
+/* Landing preview carousel: the bar under the current page name fills until the next slide. */
+@keyframes slide-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}

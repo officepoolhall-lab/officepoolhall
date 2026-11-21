@@ -6,15 +6,23 @@ import { fresh } from "./microCache";
 import { getPublishedSlates, getSlateGames, type PoolContext, type SlateGame } from "./pool";
 import { poolSettingsSchema } from "./poolSettings";
 import { createAdminClient } from "./supabase/admin";
+import { getTeamHistory } from "./espnProfiles";
+import { getGolfEvents, getGolfResults } from "./golf";
+import { loadFieldHistory } from "./golfFieldHistory";
+import { storedLineLookup } from "./storedLines";
+import { getWorldRankMap, golferKey } from "./worldRankings";
+import type { PoolBase } from "./pool";
 
 // The landing page's previews are the real pages, drawn from a real pool: the RT Supercontest
 // (LANDING_POOL_SLUG to choose another), seen from the commissioner's entry. Every player's name
 // is replaced with a made-up one. Read with the service role, since visitors aren't signed in.
 //
-// - My Picks and the Grid: a finished week (LANDING_PICKS_WEEK, default 8).
-// - Scores and the Pool Summary: the next week (LANDING_SCORES_WEEK, default 9). Its games are
-//   long over, so Scores replays them as a Sunday afternoon: each game's score, clock, down and
-//   last play at one moment, rebuilt from ESPN's play-by-play, with that moment set to now.
+// - One finished week for My Picks, the Grid, the Pool Summary and Scores (LANDING_WEEK,
+//   default 8). Its games are long over, so Scores replays them as a Sunday afternoon: each
+//   game's score, clock, down and last play at one moment, rebuilt from ESPN's play-by-play,
+//   with that moment set to now.
+// - History: the team pop-up for the entry's first pick that week, and the golfer pop-up from
+//   the PGA season pool (LANDING_GOLF_SLUG to choose another) for its latest event's winner.
 
 // Made-up names: a first name and last initial, unique for up to 1,040 players (no numbers).
 const FIRST = [
@@ -33,8 +41,7 @@ export type LandingPool = {
   ctx: PoolContext;
   slug: string;
   rename: (userId: string) => string;
-  picksWeek: number;
-  scoresWeek: number;
+  week: number;
 };
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -69,8 +76,8 @@ export async function getLandingPool(): Promise<LandingPool | null> {
       ctx,
       slug: (pool as Row).slug,
       rename: (id) => names.get(id) ?? "Player",
-      picksWeek: Number(process.env.LANDING_PICKS_WEEK) || 8,
-      scoresWeek: Number(process.env.LANDING_SCORES_WEEK) || 9,
+      // One week for every preview (My Picks, Grid, Pool Summary, Scores).
+      week: Number(process.env.LANDING_WEEK ?? process.env.LANDING_PICKS_WEEK) || 8,
     };
   } catch {
     return null;
@@ -162,4 +169,45 @@ export async function scoresSnapshot(lp: LandingPool, slateId: string): Promise<
   });
   const days = [...new Set(out.map((g) => formatInTimeZone(g.startAt, lp.ctx.displayTz, "yyyy-MM-dd")))].sort();
   return { games: out, days };
+}
+
+/** The team pop-up for the entry's first pick of the week (ATS splits and recent games). */
+export async function landingTeamHistory(lp: LandingPool) {
+  const slate = await slateFor(lp, lp.week);
+  if (!slate) return null;
+  const [games, picks] = await Promise.all([getSlateGames(lp.ctx, slate.id), weekPicks(lp, slate.id)]);
+  const mine = picks.filter((p) => p.user_id === lp.ctx.entryUserId);
+  const team = games
+    .filter((g) => mine.some((p) => p.game_id === g.id))
+    .map((g) => (mine.find((p) => p.game_id === g.id)!.picked_side === "home" ? g.home : g.away))
+    .find((t) => t.espn_id);
+  if (!team?.espn_id) return null;
+  const sport = (lp.ctx.pool as Row).sport as "nfl" | "ncaaf" | "ncaab";
+  const ats = lp.ctx.settings.pick_type === "ats";
+  const t = await getTeamHistory(sport, team.espn_id, ats, storedLineLookup(lp.ctx.supabase, sport)).catch(() => null);
+  return t ? { t, team, ats, timezone: lp.ctx.displayTz } : null;
+}
+
+/** The golfer pop-up from the PGA season pool: its latest event's winner, at that event and this season. */
+export async function landingGolferHistory() {
+  try {
+    const db = createAdminClient();
+    const slug = process.env.LANDING_GOLF_SLUG;
+    const { data: pools } = slug
+      ? await db.from("pools").select("*").eq("slug", slug).limit(1)
+      : await db.from("pools").select("*").eq("sport", "pga").order("created_at", { ascending: true });
+    const pool = ((pools ?? []) as Row[]).find((p) => (p.settings as Row | null)?.golf_format !== "majors") ?? (pools ?? [])[0];
+    if (!pool) return null;
+    const ctx = { supabase: db, user: { id: pool.commissioner_id, email: "" }, pool } as unknown as PoolBase;
+    const events = await getGolfEvents(ctx);
+    const event = [...events].reverse().find((e) => e.status === "final") ?? [...events].reverse().find((e) => e.status === "in_progress");
+    if (!event) return null;
+    const [results, ranks] = await Promise.all([getGolfResults(ctx, event.id), getWorldRankMap().catch(() => new Map<string, number>())]);
+    const winner = results[0];
+    if (!winner) return null;
+    const data = await loadFieldHistory(ctx, event, events, [winner.espn_golfer_id]);
+    return { golfer: { id: winner.espn_golfer_id, name: winner.golfer_name, rank: ranks.get(golferKey(winner.golfer_name)) ?? null }, data };
+  } catch {
+    return null;
+  }
 }

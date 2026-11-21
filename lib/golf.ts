@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getPoolBase, type PoolBase } from "./pool";
 import { fromZonedTime } from "date-fns-tz";
 import { getViewerTimeZone } from "./viewerTime";
+import { getBenchedIds } from "./bench";
 
 /** Golf times show in Central unless the viewer's browser reports another zone. */
 export const GOLF_TZ = "America/Chicago";
@@ -233,7 +234,8 @@ export const getGolfMembers = cache(async (ctx: PoolBase): Promise<{ user_id: st
       .order("user_id")
       .range(from, to),
   );
-  return rows.map((m) => ({
+  const benched = await getBenchedIds(ctx.supabase, ctx.pool.id);
+  return rows.filter((m) => !benched.has(m.user_id)).map((m) => ({
     user_id: m.user_id,
     display_name: (m.profile as { display_name: string } | null)?.display_name ?? "Player",
   }));

@@ -7,6 +7,8 @@ import { OptionCards, SettingRow, SettingsSection, settingInput } from "@/compon
 import { SportIcon } from "@/components/SportIcon";
 import { LEAGUES, findTemplate, type CatalogLeague, type Template } from "@/lib/poolCatalog";
 import { PRESETS, type PoolSettings, type PresetKey } from "@/lib/poolSettings";
+import { PickXRulesFields } from "@/components/pickx/PickXRulesFields";
+import { PICKX_DEFAULT } from "@/lib/pickx";
 import { createPool } from "./actions";
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -42,6 +44,7 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
   const league = LEAGUES.find((l) => l.id === leagueId) ?? null;
   const type = league?.types.find((t) => t.template === template) ?? null;
   const golf = template === "golf_tiers" || template === "golf_salary";
+  const pickX = template === "ncaab_pickx";
   const year = new Date().getFullYear();
 
   return (
@@ -115,7 +118,7 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
       {type && (
         <>
           <Step n={3} title="Name your pool">
-            <input type="hidden" name="sport" value={golf ? "pga" : isPreset(template) ? PRESETS[template].sport : ""} />
+            <input type="hidden" name="sport" value={golf ? "pga" : pickX ? "ncaab" : isPreset(template) ? PRESETS[template].sport : ""} />
             <SettingsSection title="Pool details" description="You can rename the pool and change the entry fee any time.">
               <SettingRow label="Pool name">
                 <input
@@ -150,6 +153,13 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
             )}
             {golf ? (
               <GolfOptions template={template!} scope={majorsScope} onScope={setMajorsScope} />
+            ) : pickX ? (
+              <>
+                {/* The weekly rules don't apply to Pick X, but every college basketball pool carries them. */}
+                <input type="hidden" name="settings" value={JSON.stringify(PRESETS.ncaab_pickem.settings)} />
+                <PickXRulesFields initial={PICKX_DEFAULT} />
+                <p className="mt-3 text-sm text-muted">After creating the pool, set the tournament field and the lock time on Commissioner → Bracket.</p>
+              </>
             ) : isPreset(template) ? (
               <SettingsFields key={template} initial={PRESETS[template].settings as PoolSettings} />
             ) : null}

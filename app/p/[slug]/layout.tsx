@@ -8,11 +8,13 @@ import { PoolPresence } from "@/components/PoolPresence";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { PoolTitle } from "@/components/PoolTitle";
 import { getGridWeek, getPoolBase } from "@/lib/pool";
+import { isPickX } from "@/lib/pickx";
+import { getBenchedIds } from "@/lib/bench";
 
 export default async function PoolLayout({ children, modal, params }: LayoutProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolBase(slug);
-  const [gridWeek, { data: memberships }, { data: managed }, { data: guestOf }] = await Promise.all([
+  const [gridWeek, { data: memberships }, { data: managed }, { data: guestOf }, benched] = await Promise.all([
     // The Grid tab opens on last week until this week's first game starts.
     getGridWeek(ctx),
     // The player's other pools, for the switcher in the header, plus entries they co-manage
@@ -20,7 +22,10 @@ export default async function PoolLayout({ children, modal, params }: LayoutProp
     ctx.supabase.from("pool_members").select("pool:pools!inner ( name, slug )").eq("user_id", ctx.user.id).order("joined_at", { ascending: false }),
     ctx.supabase.rpc("my_comanaged_entries"),
     ctx.supabase.rpc("my_guest_pools"),
+    getBenchedIds(ctx.supabase, ctx.pool.id),
   ]);
+  // The viewer's own entry (or the one they co-manage) is sitting out.
+  const isBenched = benched.has(ctx.entryUserId ?? ctx.user.id);
   const pools = [
     ...(memberships ?? []).map((m) => ({ name: m.pool.name, slug: m.pool.slug })),
     ...(managed ?? []).map((m: { pool_name: string; slug: string }) => ({ name: m.pool_name, slug: m.slug })),
@@ -36,7 +41,7 @@ export default async function PoolLayout({ children, modal, params }: LayoutProp
         </div>
       </AppHeader>
       <PoolTitle slug={slug} name={ctx.pool.name} kind={poolKind(ctx.pool.sport)} type={poolTypeLabel(ctx.pool)} />
-      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={gridWeek ?? undefined} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} />
+      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={gridWeek ?? undefined} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} pickX={isPickX(ctx.pool.settings)} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
           Pages that fill the viewport (the Grid) and wide pages (Picks) use the full screen width on desktop. */}
@@ -47,6 +52,11 @@ export default async function PoolLayout({ children, modal, params }: LayoutProp
         {ctx.isGuest && (
           <p className="mb-4 rounded-lg bg-surface px-3 py-2 text-sm text-muted">
             <span className="font-semibold text-ink">Guest view.</span> You can see everything in this pool but can&apos;t make picks or post.
+          </p>
+        )}
+        {isBenched && (
+          <p className="mb-4 rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+            <span className="font-semibold text-ink">This entry is benched.</span> It&apos;s sitting out and can&apos;t make picks. Your commissioner can bring it back.
           </p>
         )}
         {children}

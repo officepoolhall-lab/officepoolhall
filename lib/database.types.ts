@@ -683,6 +683,45 @@ isOneToOne: false
                   }
                   Relationships: []
                 }
+            "pool_member_bench": {
+                  Row: {
+                    "benched_at": string,"pool_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "benched_at"?: string,"pool_id": string,"user_id": string
+                  }
+                  Update: {
+                    "benched_at"?: string,"pool_id"?: string,"user_id"?: string
+                  }
+                  Relationships: []
+                }
+            "pool_member_notes": {
+                  Row: {
+                    "note": string,"pool_id": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "note"?: string,"pool_id": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "note"?: string,"pool_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: []
+                }
+            "pickx_entries": {
+                  Row: {
+                    "edited_by": string | null,"pool_id": string,"team_ids": string[],"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "edited_by"?: string | null,"pool_id": string,"team_ids"?: string[],"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "edited_by"?: string | null,"pool_id"?: string,"team_ids"?: string[],"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: []
+                }
           }
           Functions: {
 "golf_admin_add_major":
@@ -690,6 +729,9 @@ isOneToOne: false
                            },
 "golf_admin_remove_major":
 { Args: { "p_event_id": string }; Returns: undefined
+                           },
+"submit_pickx":
+{ Args: { "p_pool_id": string,"p_team_ids": string[],"p_user_id"?: string | null }; Returns: undefined
                            },
 "submit_golf_lineup":
 { Args: { "p_event_id": string,"p_golfer_ids": string[],"p_user_id"?: string | null }; Returns: undefined

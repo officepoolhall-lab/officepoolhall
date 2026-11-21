@@ -18,6 +18,10 @@ export function poolTypeLabel(pool: { sport: string | null; settings: unknown })
     return "PGA Majors Pool";
   }
   const league = pool.sport === "nfl" ? "NFL" : "NCAA";
+  if (s.format === "pick_x") {
+    const n = (s.pick_x as { picks?: unknown } | undefined)?.picks;
+    return `NCAA Pick ${typeof n === "number" ? n : "X"}`;
+  }
   if (s.confidence) return `${league} Confidence Pool`;
   return s.pick_type === "straight_up" ? `${league} Pick'em` : `${league} Supercontest`;
 }

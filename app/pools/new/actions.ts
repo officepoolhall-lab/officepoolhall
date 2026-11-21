@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/ActionForm";
 import { requireUser } from "@/lib/auth";
 import { parsePoolSettings, settingsError } from "@/lib/poolSettings";
+import { pickXSettings, pickXSettingsError } from "@/lib/pickx";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/database.types";
 
 export async function createPool(_: ActionState, form: FormData): Promise<ActionState> {
   await requireUser("/pools/new");
@@ -29,6 +31,22 @@ export async function createPool(_: ActionState, form: FormData): Promise<Action
   const parsed = parsePoolSettings(raw);
   if (!parsed.success) return { error: settingsError(raw) ?? "Invalid settings." };
 
+  // NCAA Pick X: the same college basketball pool, with its own format and rules.
+  let settings: Record<string, unknown> = parsed.data;
+  if (form.get("pick_x")) {
+    if (sport !== "ncaab") return { error: "Pick X is a college basketball pool." };
+    let rules: unknown;
+    try {
+      rules = JSON.parse(String(form.get("pick_x")));
+    } catch {
+      return { error: "The Pick X rules are missing." };
+    }
+    const pick_x = pickXSettings({ pick_x: rules });
+    const problem = pickXSettingsError(pick_x);
+    if (problem) return { error: problem };
+    settings = { ...parsed.data, format: "pick_x", pick_x };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.rpc("create_pool", {
     p_name: name,
@@ -36,7 +54,7 @@ export async function createPool(_: ActionState, form: FormData): Promise<Action
     p_sport: sport,
     p_season: season,
     p_entry_fee: entryFee,
-    p_settings: parsed.data,
+    p_settings: settings as Json,
   });
   if (error) {
     return { error: error.code === "23505" ? "That URL name is taken; try another." : error.message };
