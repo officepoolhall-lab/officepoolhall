@@ -4,8 +4,8 @@ import { LinkButton, Wordmark } from "@/components/ui";
 import { Shots } from "./Shots";
 
 // The page a signed-out visitor sees at the site's address, written for commissioners and kept
-// short: the pitch, the real pages as slides (from a pool being played, players renamed), how it
-// works, real-person support, then start a pool or sign in. Signed-in players go straight to My
+// short: the pitch, the real pages as slides (from a pool being played, players renamed),
+// real-person support, then start a pool or sign in. Signed-in players go straight to My
 // Pools.
 
 const START = "/login?next=%2Fpools%2Fnew";
@@ -19,19 +19,12 @@ const PROMISES = [
   { title: "Your group stays yours", text: "No ads, and your players' emails are only visible to you." },
 ];
 
-const STEPS = [
-  { title: "Start a pool", text: "Pick the sport and format, set your rules, and you're the commissioner." },
-  { title: "Invite your group", text: "Share one link by text or email. Players create an account and they're in." },
-  { title: "Let it run", text: "Picks lock as games start, scores update live, and standings take care of themselves." },
-];
-
 const SUPPORT = [
   { title: "Getting set up", text: "Help choosing a format, setting the rules and inviting your group." },
   { title: "Mid-season fixes", text: "A missed pick, a postponed game, a rule your group wants changed." },
   { title: "Ideas for the site", text: "Features get added because commissioners ask for them." },
 ];
 
-const FORMATS = ["Supercontest", "Pick'em", "Confidence", "NCAA Pick X", "PGA One-and-Done", "PGA Majors and tournaments"];
 
 function Section({ label, title, children, className = "" }: { label: string; title: string; children: ReactNode; className?: string }) {
   return (
@@ -104,21 +97,6 @@ export function Landing() {
             <Shots />
           </Section>
         </div>
-
-        <Section label="How it works" title="Your pool, ready in one sitting.">
-          <ol className="grid gap-6 sm:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="border-t-2 border-accent pt-3">
-                <div className="text-sm font-bold tabular-nums text-accent">0{i + 1}</div>
-                <h3 className="mt-1 text-lg font-bold leading-tight">{s.title}</h3>
-                <p className="mt-1 text-sm text-muted">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-6 text-sm text-muted">
-            <span className="font-semibold text-ink">Pools you can run today:</span> {FORMATS.join(" · ")}.
-          </p>
-        </Section>
 
         {/* Support: a real person, the one who built it. */}
         <div className="border-y border-line bg-surface/50">

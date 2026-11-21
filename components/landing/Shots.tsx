@@ -18,11 +18,11 @@ import {
 
 // The landing page's look inside: the real My Picks, Grid, Scores, Pool Summary and Standings,
 // each drawn by the app's own components from a real pool (lib/landingShots.ts),
-// shown like screenshots: framed, a fixed height, nothing to click.
+// shown like screenshots: framed, each trimmed to fit whole (never cut off), nothing to click.
 
 /** A window around one page: `inert` (a picture, not a page) and its own containing block so
     the page's fixed bottom bar sits inside the frame. */
-function Frame({ title, children, height = "h-[36rem]" }: { title: string; children: ReactNode; height?: string }) {
+function Frame({ title, children, height = "" }: { title: string; children: ReactNode; height?: string }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-bg ring-1 ring-line shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-2 border-b border-line bg-surface/60 px-4 py-2.5">
@@ -38,6 +38,9 @@ function Frame({ title, children, height = "h-[36rem]" }: { title: string; child
   );
 }
 
+/** Games in the My Picks and Scores previews: enough to show the page, few enough to fit whole. */
+const SHOT_GAMES = 6;
+
 async function MyPicksShot({ lp }: { lp: LandingPool }) {
   const { ctx } = lp;
   const slate = await slateFor(lp, lp.picksWeek);
@@ -47,14 +50,19 @@ async function MyPicksShot({ lp }: { lp: LandingPool }) {
     ctx.supabase.from("picks").select("*").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId),
     ctx.supabase.from("slate_scores").select("points, wins, losses, pushes").eq("slate_id", slate.id).eq("user_id", ctx.entryUserId).maybeSingle(),
   ]);
-  const records = await getTeamRecords("nfl", games.map((g) => g.startAt)).catch(() => ({}));
+  // Six games, so the card shows whole: the entry's picks, then the earliest games not picked.
+  const picked = new Set((picks ?? []).map((p) => p.game_id));
+  const keep = new Set([...games.filter((g) => picked.has(g.id)), ...games.filter((g) => !picked.has(g.id))].slice(0, SHOT_GAMES).map((g) => g.id));
+  const shown = games.filter((g) => keep.has(g.id));
+  const records = await getTeamRecords("nfl", shown.map((g) => g.startAt)).catch(() => ({}));
   return (
-    <>
+    // Bottom padding: the page's pick tracker bar sits over the frame's bottom edge.
+    <div className="pb-14">
       <h2 className="mb-4 text-xl font-extrabold tracking-[-0.03em]">{slate.label ?? `Week ${slate.week}`}</h2>
       <PickBoard
         slug={lp.slug}
         slate={{ id: slate.id, week: slate.week, status: slate.status, lockAt: slate.lock_at, firstDayLockAt: slate.first_day_lock_at }}
-        games={games}
+        games={shown}
         initialPicks={(picks ?? []).map((p) => ({ game_id: p.game_id, picked_side: p.picked_side as "home" | "away", confidence: p.confidence }))}
         graded={Object.fromEntries(
           (picks ?? []).filter((p) => p.result !== null).map((p) => [p.game_id, { result: p.result!, points: Number(p.points ?? 0), bonus: Number(p.bonus ?? 0) }]),
@@ -76,7 +84,7 @@ async function MyPicksShot({ lp }: { lp: LandingPool }) {
         records={records}
         sport="nfl"
       />
-    </>
+    </div>
   );
 }
 
@@ -86,23 +94,31 @@ async function ScoresShot({ lp }: { lp: LandingPool }) {
   const snap = await scoresSnapshot(lp, slate.id);
   if (!snap) return null;
   const today = formatInTimeZone(Date.now(), lp.ctx.displayTz, "yyyy-MM-dd");
+  const day = snap.days.includes(today) ? today : snap.days[0];
+  // Six games on that day, live ones first, so the board shows whole.
+  const order = { in_progress: 0, final: 1, scheduled: 2 } as Record<string, number>;
+  const onDay = snap.games
+    .filter((g) => formatInTimeZone(g.startAt, lp.ctx.displayTz, "yyyy-MM-dd") === day)
+    .sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3))
+    .slice(0, SHOT_GAMES);
+  const games = snap.games.filter((g) => onDay.includes(g)).sort((a, b) => a.startAt.localeCompare(b.startAt));
   return (
     <>
       <h2 className="mb-4 text-xl font-extrabold tracking-[-0.03em]">
         Scoreboard <span className="text-muted">· {slate.label ?? `Week ${slate.week}`}</span>
       </h2>
       <Scoreboard
-        day={snap.days.includes(today) ? today : snap.days[0]}
+        day={day}
         slug={lp.slug}
         week={slate.week}
-        games={snap.games}
+        games={games}
         timezone={lp.ctx.displayTz}
         sport="nfl"
         records={{}}
         ats={lp.ctx.settings.pick_type === "ats"}
         inPool={[]}
         showFilters={false}
-        weekDays={snap.days}
+        weekDays={[day]}
       />
     </>
   );
@@ -113,7 +129,8 @@ async function SummaryShot({ lp }: { lp: LandingPool }) {
   if (!slate) return null;
   const [games, picks] = await Promise.all([getSlateGames(lp.ctx, slate.id), weekPicks(lp, slate.id)]);
   return (
-    <div className="mx-auto max-w-md">
+    // The whole summary at once: its sections side by side instead of the narrow pop-out.
+    <div>
       <h2 className="mb-4 text-xl font-extrabold tracking-[-0.03em]">
         Pool Summary <span className="text-muted">· {slate.label ?? `Week ${slate.week}`}</span>
       </h2>
@@ -124,7 +141,7 @@ async function SummaryShot({ lp }: { lp: LandingPool }) {
         me={lp.ctx.entryUserId}
         ats={lp.ctx.settings.pick_type === "ats"}
         confidence={Boolean(lp.ctx.settings.confidence)}
-        layout="drawer"
+        layout="wide"
       />
     </div>
   );
@@ -133,7 +150,7 @@ async function SummaryShot({ lp }: { lp: LandingPool }) {
 async function StandingsShot({ lp }: { lp: LandingPool }) {
   // The real Standings page: Season and Weekly side by side (bonus segments too), on the
   // preview's week.
-  return <StandingsView ctx={lp.ctx} slug={lp.slug} query={{ week: String(lp.picksWeek) }} embed={{ rename: lp.rename }} />;
+  return <StandingsView ctx={lp.ctx} slug={lp.slug} query={{ week: String(lp.picksWeek) }} embed={{ rename: lp.rename, maxRows: 10 }} />;
 }
 
 /** The real pages as slides, one at a time, or nothing when the pool can't be read. */
@@ -142,7 +159,7 @@ export async function Shots() {
   if (!lp) return null;
   const [picks, grid, scores, summary, standings] = await Promise.all([
     MyPicksShot({ lp }).catch(() => null),
-    GridView({ ctx: lp.ctx, slug: lp.slug, week: lp.picksWeek, embed: { maxRows: 18, rename: lp.rename } }).catch(() => null),
+    GridView({ ctx: lp.ctx, slug: lp.slug, week: lp.picksWeek, embed: { maxRows: 12, rename: lp.rename } }).catch(() => null),
     ScoresShot({ lp }).catch(() => null),
     SummaryShot({ lp }).catch(() => null),
     StandingsShot({ lp }).catch(() => null),
@@ -192,7 +209,7 @@ export async function Shots() {
         label: x.label,
         title: x.title,
         text: x.text,
-        node: <Frame title={x.label} height="h-[30rem]">{x.node}</Frame>,
+        node: <Frame title={x.label}>{x.node}</Frame>,
       }))}
     />
   );

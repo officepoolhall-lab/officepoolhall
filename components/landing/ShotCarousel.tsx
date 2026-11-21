@@ -18,6 +18,10 @@ export function ShotCarousel({ slides }: { slides: Slide[] }) {
   const [userPicked, setUserPicked] = useState(false);
   const [reduced, setReduced] = useState(false);
   const touch = useRef<number | null>(null);
+  const panes = useRef<(HTMLDivElement | null)[]>([]);
+  // The box takes the current slide's height (slides can differ), so a tall slide doesn't
+  // leave empty space under the others.
+  const [h, setH] = useState<number | null>(null);
   const n = slides.length;
   const go = useCallback((to: number) => setI(((to % n) + n) % n), [n]);
   const pick = (to: number) => {
@@ -38,6 +42,14 @@ export function ShotCarousel({ slides }: { slides: Slide[] }) {
     const t = setTimeout(() => go(i + 1), AUTO_MS);
     return () => clearTimeout(t);
   }, [i, paused, userPicked, reduced, n, go]);
+
+  useEffect(() => {
+    const el = panes.current[i];
+    if (!el) return;
+    const ro = new ResizeObserver(() => setH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [i]);
 
   const s = slides[i];
   return (
@@ -87,7 +99,8 @@ export function ShotCarousel({ slides }: { slides: Slide[] }) {
 
       {/* The slides side by side; only the current one is in view. Swipe on touch screens. */}
       <div
-        className="overflow-hidden rounded-2xl"
+        className={`overflow-hidden rounded-2xl ${reduced ? "" : "transition-[height] duration-500 ease-out"}`}
+        style={h ? { height: h } : undefined}
         onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
         onTouchEnd={(e) => {
           if (touch.current === null) return;
@@ -96,9 +109,9 @@ export function ShotCarousel({ slides }: { slides: Slide[] }) {
           if (Math.abs(dx) > 50) pick(i + (dx < 0 ? 1 : -1));
         }}
       >
-        <div className={`flex ${reduced ? "" : "transition-transform duration-500 ease-out"}`} style={{ transform: `translateX(-${i * 100}%)` }}>
+        <div className={`flex items-start ${reduced ? "" : "transition-transform duration-500 ease-out"}`} style={{ transform: `translateX(-${i * 100}%)` }}>
           {slides.map((x, k) => (
-            <div key={x.id} className="w-full shrink-0" aria-hidden={k !== i} role="tabpanel" aria-label={x.label}>
+            <div key={x.id} ref={(el) => { panes.current[k] = el; }} className="w-full shrink-0" aria-hidden={k !== i} role="tabpanel" aria-label={x.label}>
               {x.node}
             </div>
           ))}

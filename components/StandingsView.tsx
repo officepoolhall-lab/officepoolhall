@@ -20,8 +20,8 @@ import { getTournamentPicks, getTournaments } from "@/lib/tournaments";
 
 type Book = Awaited<ReturnType<typeof getStandingsBook>>;
 /** The same standings with each player's name swapped (the landing page's copy). */
-function renamedBook(book: Book, rename: (userId: string) => string): Book {
-  const named = <R extends { userId: string; name: string }>(rows: R[]) => rows.map((r) => ({ ...r, name: rename(r.userId) }));
+function renamedBook(book: Book, rename: (userId: string) => string, maxRows = Infinity): Book {
+  const named = <R extends { userId: string; name: string }>(rows: R[]) => rows.slice(0, maxRows).map((r) => ({ ...r, name: rename(r.userId) }));
   return {
     ...book,
     season: () => named(book.season()),
@@ -47,7 +47,8 @@ export async function StandingsView({
   ctx: PoolContext;
   slug: string;
   query: { week?: string | string[]; segment?: string | string[]; split?: string | string[]; tournaments?: string | string[] };
-  embed?: { rename: (userId: string) => string };
+  /** The landing page's copy: made-up names, and only the top rows so it shows whole. */
+  embed?: { rename: (userId: string) => string; maxRows?: number };
 }) {
   const { week: weekParam, segment: segmentParam, split: splitParam, tournaments: tourneyParam } = query;
   // Favorites/Underdogs only mean something against the spread; straight-up pools show All only.
@@ -87,7 +88,7 @@ export async function StandingsView({
       : [],
   ]);
   // The landing page's copy gives every player a made-up name.
-  const book: Book = embed ? renamedBook(rawBook, embed.rename) : rawBook;
+  const book: Book = embed ? renamedBook(rawBook, embed.rename, embed.maxRows) : rawBook;
   const seasonRows = book.season();
 
   // ---------- Tournament champion picks ----------
