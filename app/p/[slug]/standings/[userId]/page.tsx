@@ -123,7 +123,7 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
           </>
         );
         const body = (
-          <div className={allOpen ? "pb-3" : "pb-3 pl-6"}>
+          <div className="pb-3 pl-6">
             <div className="mb-1 flex items-baseline justify-between text-xs text-muted">
               <span>{w.rank ? <>{ordinal(w.rank)} of {w.of} that week</> : "Not scored yet"}</span>
               {/* Everyone's picks that week. */}
