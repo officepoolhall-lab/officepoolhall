@@ -11,20 +11,21 @@ const START = "/login?next=%2Fpools%2Fnew";
 const SIGN_IN = "/login";
 
 const STEPS = [
-  { title: "Start a pool", text: "Choose the sport and format, set the rules, and you're the commissioner." },
-  { title: "Invite your people", text: "Share one link by text or email. Friends sign in with their email, no passwords." },
-  { title: "Picks lock and grade themselves", text: "Picks lock when each game starts, scores come in live, and standings update the moment results are final." },
+  { title: "Start a pool", text: "Pick the sport and format, set your rules, and you're the commissioner." },
+  { title: "Invite your group", text: "Share one link by text or email. Players create an account and they're in." },
+  { title: "Let it run", text: "Picks lock as games start, scores update live, and standings take care of themselves." },
 ];
 
+// Most important and most distinctive first.
 const FEATURES: { title: string; text: string }[] = [
-  { title: "Live scores", text: "Scores and game status on every pick while games are on." },
-  { title: "Automatic locks and grading", text: "Each pick locks when its game starts, and every result is graded for you." },
-  { title: "League Grid", text: "Everyone's picks side by side, revealed as each game starts." },
-  { title: "Weekly and season standings", text: "Week and season leaders, each player's pick history, and how the pool picked." },
-  { title: "Works on any phone", text: "Built for picking on the go. Times show in each player's own time zone." },
-  { title: "Co-managers and guests", text: "Let someone else run an entry, or add followers who can watch without playing." },
-  { title: "Message board", text: "Trash talk and announcements stay with the pool." },
-  { title: "Commissioner tools", text: "Publish slates, adjust a result, and manage the roster from one place." },
+  { title: "Your rules", text: "Set the scoring, confidence points, upset bonuses, lock times and bonus segments. Every pool plays its own way." },
+  { title: "League Grid", text: "Every player's picks side by side, revealed the moment each game starts." },
+  { title: "Live scores on every pick", text: "Follow the action from your picks, with scores updating as games are played." },
+  { title: "Automatic locks and grading", text: "Each pick locks at its game's start, and every result is graded for you." },
+  { title: "Standings that keep themselves", text: "Season, weekly and segment leaders, plus every player's pick history." },
+  { title: "Co-managers and guests", text: "Let someone else run an entry, or invite followers to watch without playing." },
+  { title: "Message board", text: "Trash talk and announcements, kept with the pool." },
+  { title: "Made for your phone", text: "Make picks anywhere, with every time shown in your own time zone." },
 ];
 
 function Section({ label, title, children, className = "" }: { label: string; title: string; children: ReactNode; className?: string }) {
