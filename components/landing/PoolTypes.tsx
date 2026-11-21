@@ -44,7 +44,7 @@ const LEAGUES: League[] = [
     kind: "basketball",
     types: [
       { name: "Confidence", text: "Weekly slates all season, ranked by confidence, with bonus points for calling early-season tournament champions." },
-      { name: "Pick'em", text: "Pick winners straight up from each week's slate, no spreads.", soon: true },
+      { name: "Pick'em", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
       { name: "Pick X", text: "Pick a set number of tournament teams. Every game they win earns you points, with more for lower seeds.", soon: true },
       { name: "Bracket", text: "Fill out the whole tournament bracket before it tips off. Each round is worth more than the last.", soon: true },
     ],
