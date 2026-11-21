@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LinkButton } from "@/components/ui";
-import { LandingFooter, LandingHeader, SIGN_IN, START } from "@/components/landing/Landing";
+import { CREATE, LandingFooter, LandingHeader, SIGN_IN } from "@/components/landing/Landing";
 import { LEAGUES } from "@/lib/poolCatalog";
 import { findPoolType, poolTypeHref } from "@/lib/poolGuides";
 
@@ -26,6 +26,8 @@ export default async function PoolTypePage({ params }: PageProps<"/formats/[leag
   if (!found) notFound();
   const { league: l, type: t, guide } = found;
   const others = l.types.filter((x) => x.id !== t.id);
+  // Starting this pool: sign in, then Start a Pool opens on this type's template.
+  const start = t.template ? `/login?next=${encodeURIComponent(`/pools/new?type=${t.template}`)}` : CREATE;
 
   return (
     <div className="flex min-h-full flex-col">
@@ -105,7 +107,7 @@ export default async function PoolTypePage({ params }: PageProps<"/formats/[leag
         )}
 
         <div className="mt-10 flex flex-wrap gap-3">
-          <LinkButton href={START} kind="accent" className="!h-12 !px-6">
+          <LinkButton href={start} kind="accent" className="!h-12 !px-6">
             Start your pool →
           </LinkButton>
           <LinkButton href={SIGN_IN} kind="secondary" className="!h-12 !px-6">

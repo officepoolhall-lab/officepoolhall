@@ -10,7 +10,10 @@ import { Shots } from "./Shots";
 // real-person support, then start a pool or sign in. Signed-in players go straight to My
 // Pools.
 
-export const START = "/login?next=%2Fpools%2Fnew";
+/** Where "Start a pool" goes: the public pick-your-sport page; sign-in comes after the choice. */
+export const START = "/formats";
+/** The sign-in-then-create link, for a pool type already chosen. */
+export const CREATE = "/login?next=%2Fpools%2Fnew";
 export const SIGN_IN = "/login";
 
 /** The four promises beside the headline. */
@@ -201,8 +204,8 @@ export function LandingHeader() {
   );
 }
 
-/** The footer's sports, most popular first (each lists its pool types in the catalog's order). */
-const FOOTER_ORDER = ["nfl", "pga", "ncaaf", "ncaab"] as const;
+/** The sports, most popular first (the footer and /formats list them in this order). */
+export const LEAGUE_ORDER = ["nfl", "pga", "ncaaf", "ncaab"] as const;
 
 /** The site's public footer: every sport with its pool types, each linking to its page. */
 export function LandingFooter() {
@@ -213,7 +216,7 @@ export function LandingFooter() {
           <Wordmark className="text-[17px]" />
           <p className="mt-2 max-w-xs text-sm text-muted">Built by a commissioner, for commissioners.</p>
         </div>
-        {FOOTER_ORDER.map((id) => LEAGUES.find((l) => l.id === id)!).map((league) => (
+        {LEAGUE_ORDER.map((id) => LEAGUES.find((l) => l.id === id)!).map((league) => (
           <div key={league.id}>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{league.label}</h3>
             <ul className="mt-3 space-y-2 text-sm">

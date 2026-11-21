@@ -7,7 +7,7 @@ import { forgetsSession, REMEMBER_COOKIE, sessionOnly } from "./lib/remember";
 
 // Invite links render for signed-out visitors (which pool, then sign in) so texts and group
 // chats can show a preview; the share-preview images are public too.
-const PUBLIC_PATHS = ["/login", "/auth", "/join/", "/formats/", "/opengraph-image", "/twitter-image"];
+const PUBLIC_PATHS = ["/login", "/auth", "/join/", "/formats", "/opengraph-image", "/twitter-image"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
