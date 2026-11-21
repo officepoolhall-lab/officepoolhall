@@ -56,9 +56,11 @@ const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 const fmtPts = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+// Untyped on purpose: these reads cross many tables and embed relations; rows are read as Row.
+type Db = any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** Every row of a query, 1000 at a time (the API's page limit). */
-async function allRows(page: (from: number, to: number) => PromiseLike<{ data: Row[] | null }>): Promise<Row[]> {
+async function allRows(page: (from: number, to: number) => PromiseLike<{ data: Row[] | null }> | Db): Promise<Row[]> {
   const out: Row[] = [];
   for (let from = 0; from < 20_000; from += 1000) {
     const { data } = await page(from, from + 999);
@@ -73,7 +75,7 @@ function team(t: Row | null): PreviewTeam {
 }
 
 /** The in-progress pool to show: the named one, or the one with the most members. */
-async function choosePool(db: ReturnType<typeof createAdminClient>, golf: boolean): Promise<Row | null> {
+async function choosePool(db: Db, golf: boolean): Promise<Row | null> {
   const named = golf ? process.env.LANDING_GOLF_SLUG : process.env.LANDING_POOL_SLUG;
   if (named) {
     const { data } = await db.from("pools").select("id, slug, name, sport, settings").eq("slug", named).maybeSingle();
@@ -98,7 +100,7 @@ async function choosePool(db: ReturnType<typeof createAdminClient>, golf: boolea
   return live.sort((a, b) => members(b) - members(a))[0] ?? null;
 }
 
-async function teamPoolData(db: ReturnType<typeof createAdminClient>, now: number) {
+async function teamPoolData(db: Db, now: number): Promise<Omit<LandingData, "golf"> | null> {
   const pool = await choosePool(db, false);
   if (!pool) return null;
   const settings = (pool.settings ?? {}) as Row;
@@ -241,7 +243,7 @@ async function teamPoolData(db: ReturnType<typeof createAdminClient>, now: numbe
   };
 }
 
-async function golfData(db: ReturnType<typeof createAdminClient>): Promise<LandingData["golf"]> {
+async function golfData(db: Db): Promise<LandingData["golf"]> {
   const pool = await choosePool(db, true);
   if (!pool) return null;
   const { data: ev } = await db.from("golf_events").select("id, espn_id, name, status").eq("pool_id", pool.id).eq("status", "in_progress").order("sort_order").limit(1).maybeSingle();
@@ -271,7 +273,7 @@ async function golfData(db: ReturnType<typeof createAdminClient>): Promise<Landi
 export async function getLandingData(): Promise<LandingData | null> {
   return fresh("landing-data", 120_000, async () => {
     try {
-      const db = createAdminClient();
+      const db: Db = createAdminClient();
       const now = Date.now();
       const [team, golf] = await Promise.all([teamPoolData(db, now).catch(() => null), golfData(db).catch(() => null)]);
       if (!team) return null;
