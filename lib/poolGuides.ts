@@ -10,6 +10,8 @@ export type Guide = {
   scoring: string[];
   /** Settings the commissioner chooses. */
   options: string[];
+  /** How ties are broken (TIEBREAKERS below; a placeholder until each pool's are settled). */
+  tiebreakers: string[];
 };
 
 const LOCKS = "When picks lock: each game at its own start, or every pick at one weekly deadline.";
@@ -18,7 +20,7 @@ const SEGMENTS = "Bonus segments: split the season into stretches (first half, s
 const MISSED = "Missed weeks: score nothing, or the week's last-place score.";
 const LINES = "Lines from the sportsbook you choose, frozen when the week is published, with half points if you want no pushes.";
 
-const supercontest: Guide = {
+const supercontest: Omit<Guide, "tiebreakers"> = {
   how: [
     "Each week the commissioner publishes the slate, and the spreads freeze at that moment.",
     "Players pick a set number of games against the spread, five by default.",
@@ -38,7 +40,7 @@ const supercontest: Guide = {
   ],
 };
 
-const pickem: Guide = {
+const pickem: Omit<Guide, "tiebreakers"> = {
   how: [
     "Each week's games are posted, with no spreads.",
     "Players pick the winner of every game straight up.",
@@ -49,7 +51,7 @@ const pickem: Guide = {
   options: ["How many games a week.", LOCKS, REVEAL, "Points for a win, push and loss.", "Upset bonuses: extra points for picking an underdog most of the pool passed on.", SEGMENTS, MISSED],
 };
 
-const confidence: Guide = {
+const confidence: Omit<Guide, "tiebreakers"> = {
   how: [
     "Players pick the winner of every game on the week's slate.",
     "They rank their picks by confidence: their surest pick gets the most points, the next one less, and so on.",
@@ -69,7 +71,7 @@ const confidence: Guide = {
   ],
 };
 
-const pickX: Guide = {
+const pickX: Omit<Guide, "tiebreakers"> = {
   how: [
     "Once the NCAA Tournament field is set, players pick a set number of teams from anywhere in the bracket.",
     "Picks lock when the First Round tips off.",
@@ -84,7 +86,7 @@ const pickX: Guide = {
   ],
 };
 
-const tiers: Guide = {
+const tiers: Omit<Guide, "tiebreakers"> = {
   how: [
     "For each event the field is split into tiers by betting odds, world ranking, or a blend of both.",
     "Players pick golfers from each tier: a favorite or two up top, longer shots further down.",
@@ -101,7 +103,7 @@ const tiers: Guide = {
   ],
 };
 
-const salary: Guide = {
+const salary: Omit<Guide, "tiebreakers"> = {
   how: [
     "Every golfer in the field gets a salary, based on betting odds and world ranking.",
     "Players build a roster of golfers under the salary cap.",
@@ -112,7 +114,7 @@ const salary: Guide = {
   options: ["The salary cap and roster size.", "The lowest and highest salary.", "Salaries from the odds-and-ranking formula, or set by hand.", "Leave out the favorites, by odds or by ranking."],
 };
 
-const oneAndDone: Guide = {
+const oneAndDone: Omit<Guide, "tiebreakers"> = {
   how: [
     "Every week of the PGA Tour season, players pick one golfer.",
     "Each golfer can be used only once all season, so saving the stars for the majors matters.",
@@ -123,7 +125,7 @@ const oneAndDone: Guide = {
   options: ["Which events count.", "What a missed pick earns: $0, or the week's lowest pick."],
 };
 
-const GUIDES: Record<string, Guide> = {
+const GUIDES: Record<string, Omit<Guide, "tiebreakers">> = {
   "nfl/supercontest": supercontest,
   "ncaaf/supercontest": supercontest,
   "nfl/pickem": pickem,
@@ -141,11 +143,32 @@ const GUIDES: Record<string, Guide> = {
   "pga/one-and-done": oneAndDone,
 };
 
+// How each pool type breaks ties, by "league/type". Fill these in as each pool's rules are
+// settled; until then the page shows TIEBREAKER_PLACEHOLDER.
+const TIEBREAKER_PLACEHOLDER = ["Tiebreaker rules for this pool are being finalized and will be listed here soon."];
+const TIEBREAKERS: Record<string, string[]> = {
+  "nfl/supercontest": [],
+  "ncaaf/supercontest": [],
+  "nfl/pickem": [],
+  "ncaaf/pickem": [],
+  "ncaab/pickem": [],
+  "nfl/confidence": [],
+  "ncaaf/confidence": [],
+  "ncaab/confidence": [],
+  "ncaab/pick-x": [],
+  "pga/tiers": [],
+  "pga/salary": [],
+  "pga/one-and-done": [],
+};
+
 export function findPoolType(league: string, type: string): { league: CatalogLeague; type: CatalogType; guide: Guide | null } | null {
   const l = LEAGUES.find((x) => x.id === league);
   const t = l?.types.find((x) => x.id === type);
   if (!l || !t) return null;
-  return { league: l, type: t, guide: t.live ? GUIDES[`${l.id}/${t.id}`] ?? null : null };
+  const key = `${l.id}/${t.id}`;
+  const base = t.live ? GUIDES[key] : undefined;
+  const tiebreakers = TIEBREAKERS[key]?.length ? TIEBREAKERS[key] : TIEBREAKER_PLACEHOLDER;
+  return { league: l, type: t, guide: base ? { ...base, tiebreakers } : null };
 }
 
 export const poolTypeHref = (league: string, type: string) => `/formats/${league}/${type}`;

@@ -17,7 +17,7 @@ export const SIGN_IN = "/login";
 const PROMISES: { title: string; text: ReactNode }[] = [
   {
     title: "Your Group, Not Ours",
-    text: "You joined our site to host your pool, not to be advertised to. Emails are only visible by you. They are not a list for us to cross-sell.",
+    text: "You joined our site to host your pool, not to be advertised to. Emails are only visible to you. They are not a list for us to cross-sell.",
   },
   { title: "Live Scoring", text: "No need for any other website or app. Live scoring, stats and play-by-play available all in one space." },
   { title: "Every Sport, One Space", text: "All of your pools consolidated into one space. All sports, all types." },

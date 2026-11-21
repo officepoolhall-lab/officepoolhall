@@ -68,6 +68,17 @@ export default async function PoolTypePage({ params }: PageProps<"/formats/[leag
                 ))}
               </ul>
             </section>
+            <section>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-accent">Tiebreakers</h2>
+              <ul className="mt-4 space-y-2">
+                {guide.tiebreakers.map((x, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span aria-hidden className="mt-2.5 size-1.5 shrink-0 rounded-full bg-accent" />
+                    <span>{x}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
             <section className="rounded-2xl bg-surface p-5 sm:p-6">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-accent">What the commissioner can set</h2>
               <ul className="mt-4 space-y-2.5">
