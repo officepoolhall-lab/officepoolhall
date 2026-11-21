@@ -109,7 +109,8 @@ export async function withLiveScores(
       const r = stored.get(g.id);
       return {
         espn_golfer_id: g.id,
-        pos: g.pos && g.pos !== "-" ? g.pos : (r?.pos ?? null),
+        // Out of the event: ESPN's reason ("MC", "WD", "DQ") in place of its "-".
+        pos: g.out ? g.out : g.pos && g.pos !== "-" ? g.pos : (r?.pos ?? null),
         to_par: toPar(g.toPar) ?? r?.to_par ?? null,
         out: g.out ? true : (r?.out ?? false),
         thru: g.thru === "F" ? 18 : g.thru && /^\d+$/.test(g.thru) ? Number(g.thru) : (r?.thru ?? null),

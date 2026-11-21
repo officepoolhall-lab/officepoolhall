@@ -6,7 +6,7 @@ import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import { type GolfContext, type GolfEvent, money } from "@/lib/golf";
 import { getEventInfo } from "@/lib/golfEventInfo";
-import { formatShown, formatToPar, golferShown, oddsKeyFor, purseOverride, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
+import { formatShown, formatToPar, golferShown, oddsKeyFor, posLabel, purseOverride, scoreLineup, withProjectedEarnings } from "@/lib/golfMajors";
 import { loadFieldHistory, loadSeasonHistory } from "@/lib/golfFieldHistory";
 import { getMajorField, getMajorResults, withLiveScores, getMajorsSettings, getVisibleLineups } from "@/lib/golfMajorsData";
 import { saveGolfLineup } from "../actions";
@@ -136,7 +136,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                             name: l.golfer_name,
                             country: null,
                             flag: null,
-                            pos: r ? (r.out ? "MC" : (r.pos ?? "")) : "",
+                            pos: posLabel(r),
                             toPar: r?.to_par === null || r?.to_par === undefined ? null : r.to_par === 0 ? "E" : r.to_par > 0 ? `+${r.to_par}` : String(r.to_par),
                             thru: r?.thru === null || r?.thru === undefined ? null : r.thru >= 18 ? "F" : String(r.thru),
                             rounds: r?.rounds ?? [null, null, null, null],
@@ -151,7 +151,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                           live={event.status === "in_progress"}
                         />
                       </td>
-                      <td className="whitespace-nowrap py-2 text-center text-xs tabular-nums text-muted">{r?.out ? (r.pos && !/^\d|^T/.test(r.pos) ? r.pos : "MC") : (r?.pos ?? "")}</td>
+                      <td className="whitespace-nowrap py-2 text-center text-xs tabular-nums text-muted">{posLabel(r)}</td>
                       <td className="whitespace-nowrap py-2 text-center font-semibold tabular-nums">{shown(l.espn_golfer_id)}</td>
                       <td className="whitespace-nowrap py-2 pr-1 text-right tabular-nums">{cash(l.espn_golfer_id)}</td>
                     </tr>
