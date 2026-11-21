@@ -125,11 +125,29 @@ export function Landing() {
           </section>
         </div>
 
+        {/* Pricing: the options are still being set, so this says so for now. */}
+        <section id="pricing" className="scroll-mt-16 border-b border-line">
+          <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
+            <div className="text-sm font-bold uppercase tracking-wide text-accent sm:text-base">Pricing</div>
+            <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Pricing options</h2>
+            <div className="mt-6 rounded-2xl bg-surface p-6 ring-1 ring-line sm:mt-8 sm:p-8">
+              <p className="text-lg font-bold">Pricing options are coming soon.</p>
+              <p className="mt-2 max-w-2xl text-muted">
+                Plans for every size of pool, from a group of friends to an office or a bar with hundreds of entries, will be posted here. Questions in the meantime?{" "}
+                <a href="#support" className="font-semibold text-accent hover:underline">
+                  Reach out to our creators directly
+                </a>
+                .
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section>
           <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Ready to start?</h2>
-              <p className="mt-1 text-muted">For offices, bars and clubs, and friends and family. Start a pool in a couple of minutes.</p>
+              <p className="mt-1 text-muted">For offices, bars, friends, family and more. Create a pool in minutes.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <LinkButton href={START} kind="accent" className="!h-12 !px-6">
@@ -169,6 +187,9 @@ export function LandingHeader() {
   );
 }
 
+/** The footer's sports, most popular first (each lists its pool types in the catalog's order). */
+const FOOTER_ORDER = ["nfl", "pga", "ncaaf", "ncaab"] as const;
+
 /** The site's public footer: every sport with its pool types, each linking to its page. */
 export function LandingFooter() {
   return (
@@ -178,7 +199,7 @@ export function LandingFooter() {
           <Wordmark className="text-[17px]" />
           <p className="mt-2 max-w-xs text-sm text-muted">Built by a commissioner, for commissioners.</p>
         </div>
-        {LEAGUES.map((league) => (
+        {FOOTER_ORDER.map((id) => LEAGUES.find((l) => l.id === id)!).map((league) => (
           <div key={league.id}>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{league.label}</h3>
             <ul className="mt-3 space-y-2 text-sm">
