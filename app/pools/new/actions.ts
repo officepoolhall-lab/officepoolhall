@@ -72,7 +72,7 @@ async function createMajorsPool({ name, slug, season, entryFee, form }: { name: 
     if (error) return { error: error.code === "23505" ? "That URL name is taken; try another." : error.message };
     if (poolId) {
       const { error: addError } = await supabase.rpc("golf_admin_add_major", { p_pool_id: poolId, p_major: "event", p_espn_id: espnId, p_name: eventName });
-      if (addError) return { error: `The pool was made, but the tournament wasn't added: ${addError.message} Add it on the pool's Admin → Tournaments.` };
+      if (addError) return { error: `The pool was made, but the tournament wasn't added: ${addError.message} Add it on the pool's Commissioner → Tournaments page.` };
     }
     redirect(`/p/${slug}/golf/admin/tournaments`);
   }

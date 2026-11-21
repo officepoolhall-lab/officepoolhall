@@ -1,6 +1,7 @@
 import { CopyButton } from "@/components/CopyButton";
 import { OnlineDot } from "@/components/PoolPresence";
-import { Button, CheckIcon, Panel, SectionLabel } from "@/components/ui";
+import { Button, CheckIcon } from "@/components/ui";
+import { SettingsSection } from "@/components/SettingsUI";
 import type { PoolBase } from "@/lib/pool";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setPaid } from "@/app/p/[slug]/admin/actions";
@@ -73,34 +74,48 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
     a.profile.display_name.localeCompare(b.profile.display_name, "en", { sensitivity: "base" }),
   );
 
-  return (
-    <div className="space-y-8">
-      <Panel className="p-4">
-        <h2 className="mb-1 text-[15px] font-semibold">Invite link</h2>
-        <p className="mb-3 text-sm text-muted">Anyone with this link can join. Text it to the group.</p>
-        {link ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted">{link}</code>
-            <CopyButton text={link} />
-          </div>
-        ) : (
-          <p className="text-sm text-muted">No active link.</p>
-        )}
-        <form action={rotateInvite.bind(null, slug)} className="mt-1">
-          <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">
-            {link ? "Replace link (the old one stops working)" : "Create a link"}
-          </button>
-        </form>
-      </Panel>
+  const stat = (label: string, value: string) => (
+    <div className="rounded-2xl bg-surface px-4 py-3">
+      <div className="text-xs font-medium text-muted">{label}</div>
+      <div className="mt-0.5 text-xl font-bold tabular-nums text-ink">{value}</div>
+    </div>
+  );
+  const memberCount = members?.length ?? 0;
 
-      <section>
-        <div className="flex items-baseline gap-2 border-b border-line pb-2">
-          <SectionLabel>Members</SectionLabel>
-          <span className="text-xs text-muted tabular-nums">
-            {members?.length ?? 0}
-            {fee > 0 && ` · ${paidCount} paid · $${(paidCount * fee).toFixed(0)} collected`}
-            {accountOf.size > 0 && ` · ${setUpCount} set up`}
-          </span>
+  return (
+    <div className="space-y-4">
+      {/* The roster at a glance. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stat("Players", String(memberCount))}
+        {stat("Paid", fee > 0 ? `${paidCount} of ${memberCount}` : "No fee")}
+        {stat("Collected", fee > 0 ? `$${(paidCount * fee).toFixed(0)}` : "—")}
+        {stat("Accounts set up", accountOf.size > 0 ? `${setUpCount} of ${memberCount}` : "—")}
+      </div>
+
+      <SettingsSection title="Invite players" description="Anyone with this link can join the pool. Text or email it to the group.">
+        <div className="py-3">
+          {link ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted ring-1 ring-line">{link}</code>
+              <CopyButton text={link} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted">No invite link yet.</p>
+          )}
+          <form action={rotateInvite.bind(null, slug)} className="mt-1">
+            <button className="-mx-2 inline-flex min-h-10 items-center rounded-full px-2 text-sm font-medium text-muted hover:bg-hover hover:text-ink">
+              {link ? "Make a new link (the old one stops working)" : "Create an invite link"}
+            </button>
+          </form>
+        </div>
+      </SettingsSection>
+
+      <section className="rounded-2xl bg-surface p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Players</h2>
+            <p className="mt-0.5 text-sm text-muted">Tap Paid or Unpaid to mark entry fees. Emails are only visible to you.</p>
+          </div>
           {allEmails && (
             <span className="ml-auto">
               <CopyButton text={allEmails} label="Copy all emails" subtle />
@@ -203,7 +218,7 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
               <form action={setPaid.bind(null, slug, m.user_id, !m.paid)}>
                 {/* Visible text is the accessible name (label-in-name); the title says what a tap does. */}
                 <button
-                  className={`inline-flex min-h-11 items-center gap-1 rounded-full bg-surface px-3.5 text-sm font-medium transition hover:bg-hover ${m.paid ? "text-win" : "text-muted"}`}
+                  className={`inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-sm font-semibold ring-1 transition ${m.paid ? "bg-[var(--win-fill)] text-win ring-win/40" : "bg-bg text-muted ring-line hover:text-ink"}`}
                   title={m.paid ? "Mark unpaid" : "Mark paid"}
                 >
                   {m.paid && <CheckIcon className="size-4" />}
@@ -212,7 +227,7 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
               </form>
               {m.user_id !== ctx.user.id && (
                 <form action={removeMember.bind(null, slug, m.user_id)}>
-                  <Button kind="danger" className="!px-4 !text-sm">Remove</Button>
+                  <Button kind="danger" className="!h-10 !bg-bg !px-4 !text-sm ring-1 ring-line">Remove</Button>
                 </form>
               )}
             </li>
@@ -221,39 +236,37 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
       </section>
 
       {/* Guests: can view the whole pool but don't play, pick or post, and aren't in the standings. */}
-      <section>
-        <div className="flex items-baseline gap-2 border-b border-line pb-2">
-          <SectionLabel>Guests</SectionLabel>
-          <span className="text-xs text-muted tabular-nums">{guests.length} · view only</span>
-        </div>
-        <Panel className="mt-3 p-4">
-          <h2 className="mb-1 text-[15px] font-semibold">Guest link</h2>
-          <p className="mb-3 text-sm text-muted">
-            Anyone who signs in with this link can see everything in the pool (standings, the Grid, picks once games start, the message board) but can&apos;t make picks or post.
-          </p>
+      <section className="rounded-2xl bg-surface p-4 sm:p-5">
+        <h2 className="text-base font-bold tracking-[-0.01em] text-ink">
+          Guests <span className="text-sm font-normal text-muted tabular-nums">· {guests.length}</span>
+        </h2>
+        <p className="mt-0.5 text-sm text-muted">
+          Guests can see everything (standings, the Grid, picks once games start, the message board) but can&apos;t make picks or post. Share this link to add one.
+        </p>
+        <div className="mt-3">
           {guestLink ? (
             <div className="flex flex-wrap items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted">{guestLink}</code>
+              <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted ring-1 ring-line">{guestLink}</code>
               <CopyButton text={guestLink} />
             </div>
           ) : (
             <p className="text-sm text-muted">No guest link.</p>
           )}
-          <div className="mt-1 flex flex-wrap gap-x-4">
+          <div className="mt-1 flex flex-wrap gap-x-2">
             <form action={rotateGuestInvite.bind(null, slug)}>
-              <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">
-                {guestLink ? "Replace link (the old one stops working)" : "Create a guest link"}
+              <button className="-mx-2 inline-flex min-h-10 items-center rounded-full px-2 text-sm font-medium text-muted hover:bg-hover hover:text-ink">
+                {guestLink ? "Make a new link (the old one stops working)" : "Create a guest link"}
               </button>
             </form>
             {guestLink && (
               <form action={disableGuestInvite.bind(null, slug)}>
-                <button className="-mx-1 inline-flex min-h-11 items-center px-1 text-sm text-muted hover:text-ink">Turn off link</button>
+                <button className="-mx-2 inline-flex min-h-10 items-center rounded-full px-2 text-sm font-medium text-muted hover:bg-hover hover:text-ink">Turn off the link</button>
               </form>
             )}
           </div>
-        </Panel>
+        </div>
         {guests.length > 0 && (
-          <ul className="mt-2 divide-y divide-line">
+          <ul className="mt-3 divide-y divide-line border-t border-line">
             {guests.map((g) => (
               <li key={g.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
                 <span className="min-w-0 flex-1">
@@ -265,7 +278,7 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
                   <span className="text-xs text-faint">{signedIn(g.last_sign_in_at)}</span>
                 </span>
                 <form action={removeGuest.bind(null, slug, g.user_id)}>
-                  <Button kind="danger" className="!px-4 !text-sm">Remove</Button>
+                  <Button kind="danger" className="!h-10 !bg-bg !px-4 !text-sm ring-1 ring-line">Remove</Button>
                 </form>
               </li>
             ))}

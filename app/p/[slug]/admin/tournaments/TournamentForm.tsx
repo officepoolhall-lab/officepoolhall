@@ -10,7 +10,7 @@ type Team = { id: string; name: string; short_name: string | null; abbreviation:
 
 const teamName = (t: Team) => t.short_name ?? t.name;
 // Inputs share bg-surface with the panel, so inside panels they drop to the page background.
-const panelInput = `${inputClass} !bg-bg`;
+const panelInput = `${inputClass} !bg-bg ring-1 ring-line`;
 
 /**
  * Add or edit a tournament: name, the week it belongs to, when picks lock, how it's scored,

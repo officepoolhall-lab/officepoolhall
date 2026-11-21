@@ -1,125 +1,196 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { SettingsFields } from "@/components/SettingsFields";
-import { Field, inputClass, Panel, SectionLabel } from "@/components/ui";
+import { OptionCards, SettingRow, SettingsSection, settingInput } from "@/components/SettingsUI";
+import { SportIcon } from "@/components/SportIcon";
+import { LEAGUES, findTemplate, type CatalogLeague, type Template } from "@/lib/poolCatalog";
 import { PRESETS, type PoolSettings, type PresetKey } from "@/lib/poolSettings";
 import { createPool } from "./actions";
 
-// Inputs share bg-surface with the panel, so inside panels they drop to the page background.
-const panelFields = "[&_input:not([type=checkbox])]:bg-bg [&_select]:bg-bg";
-
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const isPreset = (t: Template | null): t is PresetKey => !!t && t in PRESETS;
 
-type Choice = PresetKey | "pga_majors";
+/** A numbered step: its number and title, then its content. */
+function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-3 flex items-center gap-2.5 text-lg font-extrabold tracking-[-0.02em]">
+        <span className="flex size-7 items-center justify-center rounded-full bg-accent text-sm font-bold text-white dark:text-black">{n}</span>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
 
-/** The templates, grouped by sport in the order the landing page lists them. */
-const GROUPS: { label: string; keys: Choice[] }[] = [
-  { label: "NFL", keys: ["nfl_ats", "nfl_pickem", "nfl_confidence"] },
-  { label: "NCAAF", keys: ["ncaaf_ats", "ncaaf_pickem", "ncaaf_confidence"] },
-  { label: "NCAAB", keys: ["ncaab_confidence", "ncaab_pickem"] },
-  { label: "PGA", keys: ["pga_majors"] },
-];
-
-const isChoice = (v: unknown): v is Choice => typeof v === "string" && (v === "pga_majors" || v in PRESETS);
-
+/**
+ * Start a pool: choose the sport, then the type of pool (the same choices as the landing page),
+ * then name it and check the rules. Each type starts from a template; every rule can still be
+ * changed until the first week opens.
+ */
 export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number; initial?: string }) {
-  const [preset, setPreset] = useState<Choice>(isChoice(initial) ? initial : "ncaab_confidence");
-  const golf = preset === "pga_majors";
+  const start = findTemplate(initial);
+  const [leagueId, setLeagueId] = useState<CatalogLeague["id"] | null>(start?.league.id ?? null);
+  const [template, setTemplate] = useState<Template | null>(start?.type.template ?? null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [majorsScope, setMajorsScope] = useState("all");
 
+  const league = LEAGUES.find((l) => l.id === leagueId) ?? null;
+  const type = league?.types.find((t) => t.template === template) ?? null;
+  const golf = template === "golf_tiers" || template === "golf_salary";
+  const year = new Date().getFullYear();
+
   return (
-    <ActionForm action={createPool} className="space-y-6">
-      {/* Templates by sport, as Cell-style tiles; the fields below live in panels. Each one only
-          fills in the settings, which can all be changed before the first week opens. */}
-      <div className="space-y-4" role="group" aria-label="Pool type">
-        {GROUPS.map((g) => (
-          <div key={g.label}>
-            <SectionLabel>{g.label}</SectionLabel>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {g.keys.map((key) => {
-                const on = preset === key;
-                return (
-                  <button
-                    key={key} type="button" onClick={() => setPreset(key)} aria-pressed={on}
-                    className={`flex min-h-12 items-center rounded-[10px] px-3 py-2 text-left text-[15px] font-medium transition ${
-                      on ? "bg-accent/15 text-accent ring-1 ring-accent" : "bg-surface text-ink hover:bg-hover"
-                    }`}
-                  >
-                    {key === "pga_majors" ? "Majors / Tournament" : PRESETS[key].short}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      <Panel className={`space-y-4 p-4 ${panelFields}`}>
-        <input type="hidden" name="sport" value={golf ? "pga" : PRESETS[preset].sport} />
-        <Field label="Pool name">
-          <input
-            name="name" required className={inputClass} value={name} placeholder="Office Pool Hall NCAAB"
-            onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)); }}
-          />
-        </Field>
-        <Field label="URL name" hint={`officepoolhall…/p/${slug || "your-pool"}`}>
-          <input name="slug" required className={inputClass} value={slug} onChange={(e) => { setSlugTouched(true); setSlug(slugify(e.target.value)); }} />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={golf ? (majorsScope === "event" ? "Year" : "Year of the majors") : "Season (start year)"}>
-            <input
-              key={golf ? `golf-${majorsScope === "event"}` : "college"} name="season" type="number" required className={`${inputClass} tabular-nums`}
-              defaultValue={golf ? (majorsScope === "event" ? new Date().getFullYear() : 2027) : defaultSeason}
-            />
-          </Field>
-          <Field label="Entry fee">
-            <input name="entry_fee" type="number" min={0} step={1} className={`${inputClass} tabular-nums`} defaultValue={0} />
-          </Field>
+    <ActionForm action={createPool} className="space-y-8">
+      <Step n={1} title="Choose a sport">
+        <div role="radiogroup" aria-label="Sport" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {LEAGUES.map((l) => {
+            const on = l.id === leagueId;
+            const ready = l.types.filter((t) => t.template).length;
+            return (
+              <button
+                key={l.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => {
+                  setLeagueId(l.id);
+                  // Keep the pool type only if it belongs to this sport.
+                  if (!l.types.some((t) => t.template && t.template === template)) setTemplate(null);
+                }}
+                className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition ${
+                  on ? "bg-accent text-white ring-1 ring-accent dark:text-black" : "bg-surface text-ink hover:bg-hover"
+                }`}
+              >
+                <SportIcon kind={l.kind} className={`size-6 shrink-0 ${on ? "" : "text-accent"}`} />
+                <span className="min-w-0">
+                  <span className="block text-lg font-extrabold leading-tight tracking-[-0.02em]">{l.label}</span>
+                  <span className={`block truncate text-xs ${on ? "opacity-85" : "text-muted"}`}>
+                    {ready} {ready === 1 ? "pool type" : "pool types"}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </Panel>
-      {golf ? (
-        // Golf majors: which majors and the contest type; tiers, salaries and scoring are set in
-        // the pool's Admin afterwards.
-        <Panel className={`grid gap-4 p-4 sm:grid-cols-2 ${panelFields}`}>
-          <Field label="Majors">
-            <select name="majors_scope" value={majorsScope} onChange={(e) => setMajorsScope(e.target.value)} className={inputClass}>
-              <option value="all">All Majors</option>
-              <option value="masters">Masters</option>
-              <option value="pga">PGA Championship</option>
-              <option value="us_open">US Open</option>
-              <option value="open">Open Championship</option>
-              <option value="event">Another PGA Tour event</option>
-            </select>
-          </Field>
-          <Field label="Contest">
-            <select name="majors_contest" defaultValue="tiers" className={inputClass}>
-              <option value="tiers">Tiers</option>
-              <option value="salary">Salary Cap</option>
-            </select>
-          </Field>
-          {majorsScope === "event" && (
-            <>
-              <Field label="Tournament name">
-                <input name="event_name" required className={inputClass} placeholder="The RSM Classic" />
-              </Field>
-              <Field label="ESPN tournament id" hint="The number at the end of its ESPN leaderboard link (…/tournamentId/401850981).">
-                <input name="event_espn_id" required inputMode="numeric" className={`${inputClass} tabular-nums`} />
-              </Field>
-            </>
-          )}
-          <p className="text-xs text-muted sm:col-span-2">Tiers, salaries, scoring and standings are set in the pool&apos;s Admin after it&apos;s created.</p>
-        </Panel>
-      ) : (
-        <Panel className={`p-4 ${panelFields}`}>
-          <SectionLabel className="mb-3">Rules</SectionLabel>
-          <SettingsFields key={preset} initial={PRESETS[preset].settings as PoolSettings} />
-        </Panel>
+      </Step>
+
+      {league && (
+        <Step n={2} title="Choose a pool type">
+          <div role="radiogroup" aria-label="Pool type" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {league.types.map((t) => {
+              const on = !!t.template && t.template === template;
+              // Not ready to start from here yet: shown, but can't be chosen.
+              if (!t.template) {
+                return (
+                  <div key={t.id} className="flex flex-col rounded-2xl bg-surface/60 p-4 opacity-70">
+                    <span className="mb-2 self-start rounded-full bg-bg px-2 py-0.5 text-[11px] font-semibold text-muted">Coming soon</span>
+                    <div className="whitespace-nowrap text-[17px] font-bold leading-tight text-ink">{t.name}</div>
+                    <p className="mt-1.5 text-sm text-muted">{t.text}</p>
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setTemplate(t.template!)}
+                  className={`flex flex-col rounded-2xl p-4 text-left transition ${on ? "bg-accent/10 ring-2 ring-accent" : "bg-surface ring-1 ring-transparent hover:ring-accent/50"}`}
+                >
+                  <div className={`whitespace-nowrap text-[17px] font-bold leading-tight ${on ? "text-accent" : "text-ink"}`}>{t.name}</div>
+                  <p className="mt-1.5 text-sm text-muted">{t.text}</p>
+                </button>
+              );
+            })}
+          </div>
+        </Step>
       )}
-      <SubmitButton className="w-full" pending="Creating…">Create pool</SubmitButton>
+
+      {type && (
+        <>
+          <Step n={3} title="Name your pool">
+            <input type="hidden" name="sport" value={golf ? "pga" : isPreset(template) ? PRESETS[template].sport : ""} />
+            <SettingsSection title="Pool details" description="You can rename the pool and change the entry fee any time.">
+              <SettingRow label="Pool name">
+                <input
+                  name="name" required aria-label="Pool name" className={`${settingInput} w-full sm:w-72`} value={name} placeholder={`${league!.label} ${type.name}`}
+                  onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)); }}
+                />
+              </SettingRow>
+              <SettingRow label="Web address" hint={`Your pool's link: officepoolhall…/p/${slug || "your-pool"}`}>
+                <input name="slug" required aria-label="Web address" className={`${settingInput} w-full sm:w-72`} value={slug} onChange={(e) => { setSlugTouched(true); setSlug(slugify(e.target.value)); }} />
+              </SettingRow>
+              <SettingRow label={golf ? "Year" : "Season"} hint={golf ? undefined : "The year the season starts."}>
+                <input
+                  key={golf ? `golf-${majorsScope === "event"}` : "team"} name="season" type="number" required aria-label="Season" className={`${settingInput} w-28 text-center tabular-nums`}
+                  defaultValue={golf ? (majorsScope === "event" ? year : year + 1) : defaultSeason}
+                />
+              </SettingRow>
+              <SettingRow label="Entry fee" hint="For your records; the site doesn't collect money.">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted">$</span>
+                  <input name="entry_fee" type="number" min={0} step={1} aria-label="Entry fee" className={`${settingInput} w-28 text-center tabular-nums`} defaultValue={0} />
+                </div>
+              </SettingRow>
+            </SettingsSection>
+          </Step>
+
+          <Step n={4} title="Set the rules">
+            {golf && (
+              <>
+                <input type="hidden" name="majors_contest" value={template === "golf_salary" ? "salary" : "tiers"} />
+                <input type="hidden" name="majors_scope" value={majorsScope} />
+              </>
+            )}
+            {golf ? (
+              <GolfOptions template={template!} scope={majorsScope} onScope={setMajorsScope} />
+            ) : isPreset(template) ? (
+              <SettingsFields key={template} initial={PRESETS[template].settings as PoolSettings} />
+            ) : null}
+          </Step>
+
+          <SubmitButton kind="accent" className="w-full" pending="Creating…">Create pool</SubmitButton>
+        </>
+      )}
     </ActionForm>
+  );
+}
+
+/** Golf: which tournaments the pool covers. Tiers, salaries and scoring are set on the pool's Commissioner page afterwards. */
+function GolfOptions({ template, scope, onScope }: { template: Template; scope: string; onScope: (v: string) => void }) {
+  return (
+    <SettingsSection title="Tournaments" description="Tiers, salaries and scoring can be adjusted on the pool's Commissioner page after it's created.">
+      <SettingRow label="Covers" stack>
+        <OptionCards
+          ariaLabel="Tournaments"
+          value={scope}
+          onChange={onScope}
+          options={[
+            { value: "all", label: "All four majors", text: "Masters, PGA Championship, U.S. Open and The Open." },
+            { value: "masters", label: "The Masters" },
+            { value: "pga", label: "PGA Championship" },
+            { value: "us_open", label: "U.S. Open" },
+            { value: "open", label: "The Open Championship" },
+            { value: "event", label: "Another PGA Tour event", text: "Any single tournament on the schedule." },
+          ]}
+        />
+      </SettingRow>
+      {scope === "event" && (
+        <>
+          <SettingRow label="Tournament name">
+            <input name="event_name" required aria-label="Tournament name" className={`${settingInput} w-full sm:w-72`} placeholder="The RSM Classic" />
+          </SettingRow>
+          <SettingRow label="ESPN tournament id" hint="The number at the end of its ESPN leaderboard link (…/tournamentId/401850981).">
+            <input name="event_espn_id" required inputMode="numeric" aria-label="ESPN tournament id" className={`${settingInput} w-40 tabular-nums`} />
+          </SettingRow>
+        </>
+      )}
+    </SettingsSection>
   );
 }

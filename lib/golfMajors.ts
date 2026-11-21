@@ -56,6 +56,11 @@ export type TierSource = "rank" | "odds" | "blend" | "custom";
 
 export type MajorsSettings = {
   contest: "tiers" | "salary";
+  /**
+   * Leave the favorites out of every field the commissioner builds: the top `count` golfers by
+   * betting odds to win (or world rank), so nobody can pick them. 0 = keep everyone.
+   */
+  omit: { count: number; by: "odds" | "rank" };
   /** Cumulative: one season total across the pool's majors. Each: every major stands alone. */
   standings: "cumulative" | "each";
   tiers: {
@@ -100,8 +105,13 @@ export function majorsSettings(settings: unknown): MajorsSettings {
   const total = picks.reduce((a, b) => a + b, 0);
   const sizes = Array.isArray(t.sizes) && t.sizes.length === count ? (t.sizes as number[]).map((n) => Math.max(0, Math.floor(Number(n) || 0))) : defaultSizes(picks);
   const counting = Number.isInteger(t.counting) && t.counting >= 1 && t.counting <= total ? (t.counting as number) : total;
+  const omit = (m.omit ?? {}) as Record<string, any>;
   return {
     contest: m.contest === "salary" ? "salary" : "tiers",
+    omit: {
+      count: Number.isInteger(omit.count) && omit.count > 0 && omit.count <= 50 ? omit.count : 0,
+      by: omit.by === "rank" ? "rank" : "odds",
+    },
     standings: m.standings === "each" ? "each" : "cumulative",
     tiers: {
       count,
@@ -125,6 +135,30 @@ export function majorsSettings(settings: unknown): MajorsSettings {
 
 export function lineupSize(s: MajorsSettings) {
   return s.contest === "salary" ? s.salary.roster : s.tiers.picks.reduce((a, b) => a + b, 0);
+}
+
+/** Chance to win implied by American odds (+450 → 0.18, −120 → 0.55). */
+export function impliedChance(odds: number | null): number | null {
+  if (odds === null || !Number.isFinite(odds) || odds === 0) return null;
+  return odds > 0 ? 100 / (odds + 100) : -odds / (-odds + 100);
+}
+
+/**
+ * The golfers to leave out (settings.omit): the top `count` by odds to win, golfers without odds
+ * after those with them, ordered by world rank (or straight by world rank).
+ */
+export function favoritesToOmit<T extends { espn_golfer_id: string; world_rank: number | null; odds: number | null }>(field: T[], omit: MajorsSettings["omit"]): Set<string> {
+  if (!omit.count) return new Set();
+  const rank = (g: T) => g.world_rank ?? Infinity;
+  const sorted = [...field].sort((a, b) => {
+    if (omit.by === "odds") {
+      const ca = impliedChance(a.odds) ?? -1;
+      const cb = impliedChance(b.odds) ?? -1;
+      if (ca !== cb) return cb - ca;
+    }
+    return rank(a) - rank(b);
+  });
+  return new Set(sorted.slice(0, omit.count).map((g) => g.espn_golfer_id));
 }
 
 // ---------------------------------------------------------------------------------------------

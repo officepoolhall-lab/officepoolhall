@@ -10,7 +10,7 @@ export default async function GolfAdminLayout({ children, params }: LayoutProps<
   if (!ctx.isCommissioner) notFound();
   return (
     <div data-wide>
-      <PageTitle>Admin</PageTitle>
+      <PageTitle>Commissioner</PageTitle>
       <AdminNav
         base={`/p/${slug}/golf/admin`}
         tabs={[

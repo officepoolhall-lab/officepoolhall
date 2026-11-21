@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Field, LinkButton, Panel, SectionLabel, StatusText, chipClass, inputClass } from "@/components/ui";
+import { Field, LinkButton, Panel, StatusText, chipClass, inputClass } from "@/components/ui";
 import { dayKey, gameTime, windowLabel } from "@/lib/format";
 import { gameDateZone, isGameLocked } from "@/lib/locks";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
@@ -16,7 +16,7 @@ import { teamSport } from "@/lib/sports";
 export const metadata: Metadata = { title: "Slate editor" };
 
 // Inputs sit on a bg-surface panel here, so they take the page color to stay visible.
-const panelInput = inputClass.replace("bg-surface", "bg-bg");
+const panelInput = `${inputClass.replace("bg-surface", "bg-bg")} ring-1 ring-line`;
 
 // datetime-local input value format.
 const LOCAL_INPUT = "yyyy-MM-dd'T'HH:mm";
@@ -66,8 +66,9 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
       </div>
 
       {wantNew || !slate ? (
-        <Panel className="p-4">
-          <h2 className="mb-3 text-[15px] font-semibold">New week</h2>
+        <Panel className="p-4 sm:p-5">
+          <h2 className="text-base font-bold tracking-[-0.01em] text-ink">New week</h2>
+          <p className="mb-4 mt-0.5 text-sm text-muted">Pick the week&apos;s dates, then add games to the draft. Players don&apos;t see it until you publish.</p>
           <ActionForm action={createSlate.bind(null, slug)} className="space-y-4">
             <WeekDates
               defaultStart={suggestedStart}
@@ -77,7 +78,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             <Field label="Label (optional)">
               <input name="label" placeholder={`Week ${(slates?.[0]?.week ?? 0) + 1}`} className={panelInput} />
             </Field>
-            <SubmitButton pending="Creating…">Create draft</SubmitButton>
+            <SubmitButton kind="accent" pending="Creating…">Create the week</SubmitButton>
           </ActionForm>
         </Panel>
       ) : slate.status === "draft" ? (
@@ -160,8 +161,8 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           {s.label} · {windowLabel(s.window_start, s.window_end, tz)}
         </p>
         {ctx.settings.lock.mode === "weekly" && (
-          <Panel className="mb-8 p-4">
-            <h2 className="mb-1 text-[15px] font-semibold">Deadlines</h2>
+          <Panel className="mb-6 p-4 sm:p-5">
+            <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Deadlines</h2>
             {firstDayGroup ? (
               // TODO(brooks): all first-day games lock together at the first tip that day (RULES.md Q4).
               <p className="mb-3 text-sm text-muted">
@@ -217,8 +218,8 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         />
         {/* Unmatched names come from the line feed, which only against-the-spread pools use. */}
         {ctx.settings.pick_type === "ats" && Boolean(queue?.length) && (
-          <Panel className="mt-8 p-4">
-            <h2 className="mb-1 text-[15px] font-semibold">Unmatched team names</h2>
+          <Panel className="mt-6 p-4 sm:p-5">
+            <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Unmatched team names</h2>
             <p className="mb-3 text-sm text-muted">The line feed used these names. Match each to a team so its lines come through.</p>
             <ul className="space-y-2">
               {queue!.map((q) => (
@@ -282,10 +283,10 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     }
     const addable = slate.status === "open" ? await addableGames() : [];
     return (
-      <div className="space-y-8">
-        <div>
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-surface p-4 sm:p-5">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-[15px] font-semibold">{slate.label}</h2>
+            <h2 className="text-lg font-bold tracking-[-0.01em] text-ink">{slate.label}</h2>
             <StatusText status={slate.status} />
           </div>
           <p className="mt-0.5 text-sm text-muted tabular-nums">
@@ -304,14 +305,14 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="secondary">Results &amp; voids</LinkButton>
-            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary">League Grid</LinkButton>
+            <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="secondary" className="!bg-bg ring-1 ring-line">Fix a result</LinkButton>
+            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary" className="!bg-bg ring-1 ring-line">League Grid</LinkButton>
           </div>
         </div>
         {slate.status === "open" && ctx.settings.lock.mode === "weekly" && slate.lock_at && (
-          <section>
-            <SectionLabel className="border-b border-line pb-2">Change the deadline</SectionLabel>
-            <p className="mt-2 text-sm text-muted">
+          <section className="rounded-2xl bg-surface p-4 sm:p-5">
+            <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Change the deadline</h2>
+            <p className="mt-0.5 text-sm text-muted">
               Games already locked stay locked; every other game moves to the new deadline (or locks at tip-off if that&apos;s earlier).
             </p>
             {/* datetime-local's value has to change for the form to reset after a save, so key it. */}
@@ -319,14 +320,14 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
               {slate.first_day_lock_at && (
                 <Field label={`${firstDay} games`} hint="Leave as is once it has passed.">
                   <input
-                    type="datetime-local" name="first_day_lock_at" className={`${inputClass} tabular-nums`}
+                    type="datetime-local" name="first_day_lock_at" className={`${panelInput} tabular-nums`}
                     defaultValue={formatInTimeZone(slate.first_day_lock_at, tz, LOCAL_INPUT)}
                   />
                 </Field>
               )}
               <Field label={slate.first_day_lock_at ? "Everything else" : "Week locks"} hint={`${tz.replace("America/", "").replace("_", " ")} time`}>
                 <input
-                  type="datetime-local" name="lock_at" required className={`${inputClass} tabular-nums`}
+                  type="datetime-local" name="lock_at" required className={`${panelInput} tabular-nums`}
                   defaultValue={formatInTimeZone(slate.lock_at, tz, LOCAL_INPUT)}
                 />
               </Field>
@@ -337,32 +338,32 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           </section>
         )}
         {slate.status === "open" && (
-          <section>
-            <SectionLabel className="border-b border-line pb-2">Add a game to this week</SectionLabel>
-            <p className="mt-2 text-sm text-muted">Players can pick it until its deadline. Picks already in stay as they are.</p>
+          <section className="rounded-2xl bg-surface p-4 sm:p-5">
+            <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Add a game to this week</h2>
+            <p className="mt-0.5 text-sm text-muted">Players can pick it until its deadline. Picks already in stay as they are.</p>
             {addable.length === 0 ? (
               <p className="mt-3 text-sm text-muted">No scheduled games in the next two weeks are off a week yet.</p>
             ) : (
               <ActionForm action={addOpenWeekGame.bind(null, slug, slate.id)} className="mt-3 grid gap-3 sm:grid-cols-2">
                 <Field label="Game">
-                  <select name="game" required className={inputClass}>
+                  <select name="game" required className={panelInput}>
                     <option value="">Choose…</option>
                     {addable.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
                   </select>
                 </Field>
                 {ctx.settings.pick_type === "ats" && (
                   <Field label="Home team's spread (e.g. -3.5)">
-                    <input name="spread" inputMode="decimal" placeholder="-3.5" className={inputClass} />
+                    <input name="spread" inputMode="decimal" placeholder="-3.5" className={panelInput} />
                   </Field>
                 )}
-                <SubmitButton kind="primary" pending="Adding…" className="sm:col-start-2">Add to this week</SubmitButton>
+                <SubmitButton kind="accent" pending="Adding…" className="sm:col-start-2">Add to this week</SubmitButton>
               </ActionForm>
             )}
           </section>
         )}
         {timeable.length > 0 && (
-          <section>
-            <SectionLabel className="border-b border-line pb-2">Tip times to set</SectionLabel>
+          <section className="rounded-2xl bg-surface p-4 sm:p-5">
+            <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Tip times to set</h2>
             <ul className="divide-y divide-line">
               {timeable.map((g) => (
                 <li key={g.id} className="py-2">
@@ -382,9 +383,13 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             </ul>
           </section>
         )}
-        <section>
-          <SectionLabel className="border-b border-line pb-2">Pick progress</SectionLabel>
-          <ul className="divide-y divide-line">
+        <section className="rounded-2xl bg-surface p-4 sm:p-5">
+          <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Pick progress</h2>
+          <p className="mt-0.5 text-sm text-muted tabular-nums">
+            {(progress ?? []).filter((p) => p.picks >= need).length} of {(progress ?? []).length} entries have all {need} picks in. Tap an entry to enter or fix
+            their picks.
+          </p>
+          <ul className="mt-2 divide-y divide-line">
             {progress?.map((p) => (
               <li key={p.user_id} className="flex min-h-12 items-center gap-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{p.display_name}</span>

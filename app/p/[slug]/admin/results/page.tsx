@@ -38,13 +38,16 @@ export default async function ResultsPage({ params, searchParams }: PageProps<"/
           </Link>
         ))}
       </div>
-      <p className="mb-4 text-sm text-muted">
-        Scores come from ESPN every few minutes. Override one here if it&apos;s wrong — your score wins over the feed and
-        standings recompute right away. Void a game (postponed, cancelled) to score it 0 for everyone.
-      </p>
-      <ul className="divide-y divide-line border-t border-line">
+      <div className="mb-4 rounded-2xl bg-surface p-4 sm:p-5">
+        <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Fix a result</h2>
+        <p className="mt-0.5 text-sm text-muted">
+          Scores come from ESPN every few minutes. If one is wrong, enter the right score: yours replaces ESPN&apos;s and the standings update
+          right away. Void a postponed or cancelled game to score it 0 for everyone.
+        </p>
+      </div>
+      <ul className="divide-y divide-line rounded-2xl bg-surface px-4 sm:px-5">
         {games.map((g) => (
-          <li key={g.id} className={`py-3 ${g.voided ? "opacity-60" : ""}`}>
+          <li key={g.id} className={`py-4 ${g.voided ? "opacity-60" : ""}`}>
             <div className="mb-2 min-w-0">
               <Matchup away={g.away} home={g.home} neutral={g.neutral} />
               <div className="text-xs text-muted tabular-nums">
@@ -52,7 +55,7 @@ export default async function ResultsPage({ params, searchParams }: PageProps<"/
                 {g.voided ? (
                   <span className="font-semibold text-loss">Void</span>
                 ) : g.overridden ? (
-                  <span className="font-semibold text-ink">Overridden</span>
+                  <span className="font-semibold text-ink">Your score</span>
                 ) : (
                   sentence(g.status)
                 )}
@@ -74,14 +77,14 @@ export default async function ResultsPage({ params, searchParams }: PageProps<"/
                   {g.home.abbreviation}
                   <input name="home" type="number" min={0} defaultValue={g.homeScore ?? ""} aria-label={`${g.home.short_name ?? g.home.name} score`} className={scoreInput} />
                 </label>
-                <SubmitButton kind="secondary" pending="…" className="!px-4 !text-sm">Save</SubmitButton>
+                <SubmitButton kind="accent" pending="Saving…" className="!h-10 !px-4 !text-sm">Save score</SubmitButton>
                 {g.overridden && (
-                  <button name="clear" value="1" className={buttonClass("ghost", "!px-2 !text-sm")}>Use feed</button>
+                  <button name="clear" value="1" className={buttonClass("ghost", "!h-10 !px-3 !text-sm")}>Use ESPN&apos;s score</button>
                 )}
               </ActionForm>
               <span className="ml-auto">
-                <ActionButton action={setVoided.bind(null, slug, slate.id, g.id, !g.voided)} kind={g.voided ? "secondary" : "danger"} className="!px-4 !text-sm">
-                  {g.voided ? "Un-void" : "Void"}
+                <ActionButton action={setVoided.bind(null, slug, slate.id, g.id, !g.voided)} kind={g.voided ? "secondary" : "danger"} className="!h-10 !bg-bg !px-4 !text-sm ring-1 ring-line">
+                  {g.voided ? "Restore game" : "Void game"}
                 </ActionButton>
               </span>
             </div>
@@ -173,7 +176,7 @@ function SplitLine({
 const STATUS_LABEL: Record<string, string> = { draft: "Draft", open: "Open", locked: "Locked", graded: "Final" };
 
 const scoreInput =
-  "h-11 w-16 rounded-[10px] bg-surface px-2 text-right text-[15px] font-semibold tabular-nums text-ink outline-none focus:ring-2 focus:ring-accent";
+  "h-10 w-16 rounded-[10px] bg-bg px-2 text-center text-[15px] font-semibold tabular-nums text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-accent";
 
 // Feed statuses arrive as snake_case ("in_progress"); show them in sentence case.
 function sentence(status: string) {

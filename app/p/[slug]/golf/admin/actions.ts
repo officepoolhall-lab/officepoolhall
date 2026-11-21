@@ -68,6 +68,8 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
   const roster = Math.floor(Number(form.get("roster")) || 8);
   const rankWeight = Math.min(100, Math.max(0, Number(form.get("rank_weight") ?? 50))) / 100;
   const tierRankWeight = Math.min(100, Math.max(0, Number(form.get("tier_rank_weight") ?? 20))) / 100;
+  const omitCount = form.get("omit_on") === "on" ? Math.floor(Number(form.get("omit_count")) || 0) : 0;
+  if (omitCount < 0 || omitCount > 50) return { error: "Leave out between 1 and 50 golfers." };
   if (budget < 1000 || budget > 1_000_000) return { error: "Set a budget between $1,000 and $1,000,000." };
   if (roster < 1 || roster > 12) return { error: "A roster can have 1 to 12 golfers." };
 
@@ -79,6 +81,7 @@ export async function saveMajorsSettings(slug: string, _: ActionState, form: For
     ...(typeof raw.scope === "string" ? { scope: raw.scope } : {}),
     ...(raw.purses && typeof raw.purses === "object" ? { purses: raw.purses as Record<string, number> } : {}),
     contest,
+    omit: { count: omitCount, by: form.get("omit_by") === "rank" ? "rank" : "odds" },
     standings: form.get("standings") === "each" ? "each" : "cumulative",
     tiers: {
       count,
@@ -140,7 +143,7 @@ export async function removeMajor(slug: string, eventId: string, _?: ActionState
  */
 export async function buildMajorField(slug: string, eventId: string, _?: ActionState, __?: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
-  const { buildSalaries, buildTiers, majorsSettings, oddsKeyFor } = await import("@/lib/golfMajors");
+  const { buildSalaries, buildTiers, favoritesToOmit, majorsSettings, oddsKeyFor } = await import("@/lib/golfMajors");
   const { getWorldRankMap, golferKey } = await import("@/lib/worldRankings");
   const { getStoredOdds } = await import("@/lib/golfMajorsData");
   const s = majorsSettings(ctx.pool.settings);
@@ -160,6 +163,12 @@ export async function buildMajorField(slug: string, eventId: string, _?: ActionS
     tier: null as number | null,
     salary: null as number | null,
   }));
+  // The favorites the commissioner leaves out (settings: Leave out the top golfers): not in the
+  // field at all, so they can't be picked.
+  if (s.omit.count && s.omit.by === "odds" && !oddsByKey.size) return { error: "No odds are stored for this tournament yet, so the favorites by odds can't be left out. Leave them out by world rank instead, or load the odds first." };
+  const omitted = favoritesToOmit(field, s.omit);
+  const left = field.filter((g) => omitted.has(g.espn_golfer_id)).map((g) => g.golfer_name);
+  field = field.filter((g) => !omitted.has(g.espn_golfer_id));
   if (s.contest === "salary") {
     field = buildSalaries(field, s.salary);
   } else {
@@ -172,7 +181,9 @@ export async function buildMajorField(slug: string, eventId: string, _?: ActionS
   if (error) return { error: error.message };
   revalidatePath(`/p/${slug}`, "layout");
   const missing = field.filter((g) => g.world_rank === null).length;
-  return { ok: `Field built: ${field.length} golfers${missing ? `, ${missing} outside the world top 300` : ""}.` };
+  return {
+    ok: `Field built: ${field.length} golfers${missing ? `, ${missing} outside the world top 300` : ""}.${left.length ? ` Left out: ${left.join(", ")}.` : ""}`,
+  };
 }
 
 /** Save the admin's edits to a major's field: [{espn_golfer_id, tier, salary}]. */
