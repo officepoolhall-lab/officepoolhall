@@ -3,19 +3,7 @@ import type { ReactNode } from "react";
 import { SportIcon } from "@/components/SportIcon";
 import { LinkButton, Wordmark } from "@/components/ui";
 import { PoolTypes } from "./PoolTypes";
-import type { LandingData } from "@/lib/landingData";
-import {
-  GolfPreview,
-  GridPreview,
-  LiveGolfPreview,
-  LiveGridPreview,
-  LivePicksPreview,
-  LiveStandingsPreview,
-  LiveSummaryPreview,
-  PicksPreview,
-  ScoresPreview,
-  StandingsPreview,
-} from "./Previews";
+import { Shots } from "./Shots";
 
 // The page a signed-out visitor sees at the site's address: what it is, the pools it runs, how it
 // works, a look at the pages, then start a pool or sign in. (Signed-in players go to My Pools.)
@@ -50,8 +38,7 @@ function Section({ label, title, children, className = "" }: { label: string; ti
   );
 }
 
-/** `data`: this week's real games and picks (players renamed); null shows made-up examples. */
-export function Landing({ data }: { data: LandingData | null }) {
+export function Landing() {
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -71,8 +58,8 @@ export function Landing({ data }: { data: LandingData | null }) {
       </header>
 
       <main className="flex-1">
-        {/* Hero: the pitch and both ways in, with a look at My Picks. */}
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16 lg:pb-24 lg:pt-24">
+        {/* Hero: the pitch and both ways in. */}
+        <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-20 lg:pt-24">
           <div>
             <div className="flex flex-wrap gap-2">
               {(["football", "basketball", "golf"] as const).map((k) => (
@@ -98,12 +85,16 @@ export function Landing({ data }: { data: LandingData | null }) {
             </div>
             <p className="mt-4 text-sm text-muted">Got an invite? Open the link from your commissioner to join their pool.</p>
           </div>
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            {data?.myPicks.games.length ? <LivePicksPreview data={data} /> : <PicksPreview />}
-          </div>
         </section>
 
+        {/* The real pages, from a pool being played (players renamed). */}
         <div className="border-t border-line bg-surface/50">
+          <Section label="A look inside" title="Everything the group argues about, in one place.">
+            <Shots />
+          </Section>
+        </div>
+
+        <div className="border-t border-line">
           <Section label="Pool types" title="Choose your sport, then your pool.">
             <PoolTypes />
           </Section>
@@ -121,53 +112,6 @@ export function Landing({ data }: { data: LandingData | null }) {
           </ol>
         </Section>
 
-        <div className="border-y border-line bg-surface/50">
-          <Section label="A look inside" title="Everything the group argues about, in one place.">
-            {data ? (
-              <div className="grid items-start gap-5 md:grid-cols-2">
-                <div className="space-y-5">
-                  {data.grid.games.length ? <LiveGridPreview data={data} /> : <GridPreview />}
-                  {data.golf ? <LiveGolfPreview golf={data.golf} /> : <GolfPreview />}
-                </div>
-                <div className="space-y-5">
-                  <LiveStandingsPreview data={data} />
-                  <LiveSummaryPreview data={data} />
-                  <ScoresPreview data={data} />
-                </div>
-              </div>
-            ) : (
-              <div className="grid items-start gap-5 md:grid-cols-2">
-                <div className="space-y-5">
-                  <GridPreview />
-                  <GolfPreview />
-                </div>
-                <div className="space-y-5">
-                  <StandingsPreview />
-                  <div className="rounded-2xl bg-bg p-5 ring-1 ring-line">
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Pool summary</div>
-                    <div className="mt-3 space-y-3">
-                      {[
-                        ["Rams −6.5", 78],
-                        ["Owls +3", 64],
-                        ["Pines −3", 52],
-                      ].map(([side, pct]) => (
-                        <div key={side as string}>
-                          <div className="flex justify-between text-sm">
-                            <span className="font-semibold">{side}</span>
-                            <span className="tabular-nums text-muted">{pct}% picked</span>
-                          </div>
-                          <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
-                            <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </Section>
-        </div>
 
         <Section label="Features" title="Built for commissioners and the people who play.">
           <div className="grid gap-x-10 gap-y-7 sm:grid-cols-2 lg:grid-cols-4">
