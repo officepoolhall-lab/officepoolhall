@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { SportIcon } from "@/components/SportIcon";
 import type { PoolKind } from "@/lib/poolType";
@@ -62,7 +61,7 @@ const LEAGUES: League[] = [
   },
 ];
 
-export function PoolTypes({ startHref }: { startHref: string }) {
+export function PoolTypes() {
   const [active, setActive] = useState(LEAGUES[0].id);
   const league = LEAGUES.find((l) => l.id === active) ?? LEAGUES[0];
 
@@ -98,25 +97,15 @@ export function PoolTypes({ startHref }: { startHref: string }) {
       <div role="tabpanel" aria-label={`${league.full} pools`} className="mt-6">
         <div className="mb-3 text-sm font-semibold text-muted">{league.full} pools</div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {league.types.map((t) =>
-            t.soon ? (
-              <div key={t.name} className="flex flex-col rounded-2xl bg-bg p-5 ring-1 ring-line">
-                {/* The label sits above the name so long names stay on one line. */}
-                <span className="mb-2 self-start rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted">Coming soon</span>
-                <h3 className="whitespace-nowrap text-lg font-bold leading-tight">{t.name}</h3>
-                <p className="mt-2 flex-1 text-sm text-muted">{t.text}</p>
-              </div>
-            ) : (
-              <Link key={t.name} href={startHref} className="group flex flex-col rounded-2xl bg-bg p-5 ring-1 ring-line transition hover:ring-2 hover:ring-accent">
-                <h3 className="whitespace-nowrap text-lg font-bold leading-tight">{t.name}</h3>
-                <p className="mt-2 flex-1 text-sm text-muted">{t.text}</p>
-                <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-accent">
-                  Start this pool
-                  <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
-                </span>
-              </Link>
-            ),
-          )}
+          {/* Not links yet: pool setup is being reworked, so these only describe each pool. */}
+          {league.types.map((t) => (
+            <div key={t.name} className="flex flex-col rounded-2xl bg-bg p-5 ring-1 ring-line">
+              {/* The label sits above the name so long names stay on one line. */}
+              {t.soon && <span className="mb-2 self-start rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted">Coming soon</span>}
+              <h3 className="whitespace-nowrap text-lg font-bold leading-tight">{t.name}</h3>
+              <p className="mt-2 flex-1 text-sm text-muted">{t.text}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

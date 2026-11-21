@@ -92,7 +92,7 @@ export function Landing() {
 
         <div className="border-t border-line bg-surface/50">
           <Section label="Pool types" title="Choose your sport, then your pool.">
-            <PoolTypes startHref={START} />
+            <PoolTypes />
           </Section>
         </div>
 
