@@ -75,9 +75,9 @@ describe("buildSalaries", () => {
 });
 
 describe("toParScores", () => {
-  it("gives a golfer out of the event the worst score among those still in it", () => {
+  it("gives a golfer out of the event their own score", () => {
     const tp = toParScores([result("a", -10), result("b", 4), result("c", 6, { out: true })]);
-    expect(tp.get("c")).toBe(4);
+    expect(tp.get("c")).toBe(6);
     expect(tp.get("a")).toBe(-10);
   });
 });
