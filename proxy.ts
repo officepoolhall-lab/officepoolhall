@@ -34,7 +34,8 @@ export async function proxy(request: NextRequest) {
   const signedIn = Boolean(data?.claims);
   const { pathname, search } = request.nextUrl;
 
-  if (!signedIn && !PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  // The site's front page is public too (the landing page for signed-out visitors).
+  if (!signedIn && pathname !== "/" && !PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = `?next=${encodeURIComponent(pathname + search)}`;

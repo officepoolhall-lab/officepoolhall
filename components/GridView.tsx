@@ -1,0 +1,536 @@
+// The League Grid for one week: the page at /p/[slug]/grid/[week], and (with `embed`) the
+// landing page's copy of a real week.
+import type { CSSProperties } from "react";
+import Link from "next/link";
+import { AxisLockScroll } from "@/components/AxisLockScroll";
+import { FitText } from "@/components/FitText";
+import { GridPanel } from "@/components/GridPanel";
+import { GridPanelDrawer } from "@/components/GridPanelDrawer";
+import { LinkSelect } from "@/components/LinkSelect";
+import { chipClass, Empty, LiveDot, LockIcon, PageTitle, TeamLogo } from "@/components/ui";
+import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format";
+import { hasStarted, isGameLocked } from "@/lib/locks";
+import { getSlateGames, type PoolContext } from "@/lib/pool";
+import { possiblePoints, slotValuesFor } from "@/lib/possible";
+import { getStandings, getWeekAndSeasonStandings } from "@/lib/standings";
+import { getTournamentPicks, getTournaments, placeLabel, tournamentUpside, type Tournament, type TournamentPick } from "@/lib/tournaments";
+import { TrophyIcon } from "@/components/GolfGrid";
+
+/** Row order: this week's score (default), season total, or name. */
+/**
+ * Every pick on the slate. PostgREST returns at most 1000 rows per request, and a pool with
+ * about 40 players has 1000 picks in a week, so the grid pages through the rest; otherwise
+ * the last players in the list come back with blank rows.
+ */
+type PickRow = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; points: number | null; bonus: number | null; edited_by: string | null };
+async function slatePicks(ctx: PoolContext, slateId: string, service = false): Promise<PickRow[]> {
+  // One call that checks access once for the whole week (grid_picks); far faster than the
+  // per-pick policy on a big college basketball week. Falls back if the function isn't there yet.
+  // (The landing page reads with the service role, which grid_picks doesn't know as a member.)
+  const fast = service ? null : await ctx.supabase.rpc("grid_picks", { p_slate_id: slateId });
+  if (fast && !fast.error && Array.isArray(fast.data)) return fast.data as unknown as PickRow[];
+  const rows: PickRow[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await ctx.supabase
+      .from("picks")
+      .select("user_id, game_id, picked_side, confidence, result, points, bonus, edited_by")
+      .eq("slate_id", slateId)
+      .order("user_id")
+      .order("game_id")
+      .range(from, from + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
+export const SORTS = [
+  { id: "week", label: "Week" },
+  { id: "season", label: "Season" },
+  { id: "name", label: "A–Z" },
+] as const;
+export type Sort = (typeof SORTS)[number]["id"];
+
+/** The landing page's copy of a week's Grid: its top rows, with made-up names. */
+export type GridEmbed = { maxRows: number; rename: (userId: string) => string };
+
+/** The first `n` rows, with the viewer's own row in place of the last if it isn't among them. */
+function topRows<R extends { userId: string }>(rows: R[], n: number, me: string): R[] {
+  const top = rows.slice(0, n);
+  if (top.some((r) => r.userId === me)) return top;
+  const mine = rows.find((r) => r.userId === me);
+  return mine ? [...top.slice(0, n - 1), mine] : top;
+}
+
+export async function GridView({
+  ctx,
+  slug,
+  week,
+  sortParam,
+  embed,
+}: {
+  ctx: PoolContext;
+  slug: string;
+  week: string | number;
+  sortParam?: string | string[];
+  embed?: GridEmbed;
+}) {
+  // Default sort: season score for football pools, the week's score for basketball.
+  const defaultSort: Sort = ctx.pool.sport === "ncaab" ? "week" : "season";
+  const sort: Sort = SORTS.find((s) => s.id === sortParam)?.id ?? defaultSort;
+  const sortQuery = sort === defaultSort ? "" : `?sort=${sort}`;
+  const { data: slates } = await ctx.supabase
+    .from("slates").select("id, week, label, status").eq("pool_id", ctx.pool.id).neq("status", "draft").order("week");
+  const slate = slates?.find((s) => s.week === Number(week));
+  if (!slate) return (<><PageTitle>League Grid</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
+
+  const [games, { week: standings, season }, picks, { data: submissions }, allTournaments] = await Promise.all([
+    getSlateGames(ctx, slate.id),
+    // The season sort needs both: one read of the season's scores gives the week's too.
+    sort === "season" ? getWeekAndSeasonStandings(ctx, slate.id) : getStandings(ctx, slate.id).then((week) => ({ week, season: null })),
+    // RLS only returns other players' picks on games that have kicked off (or a graded week).
+    slatePicks(ctx, slate.id, Boolean(embed)),
+    // Who has submitted this week (counts only; picks stay hidden until kickoff).
+    embed ? Promise.resolve({ data: null }) : ctx.supabase.rpc("slate_submissions", { p_slate_id: slate.id }),
+    // Champion picks for tournaments set in this week: their own columns at the start of the grid.
+    getTournaments(ctx).then(async (all): Promise<{ list: Tournament[]; picks: TournamentPick[] }> => {
+      const list = all.filter((t) => t.week === slate.week);
+      return { list, picks: list.length ? await getTournamentPicks(ctx, list.map((t) => t.id)) : [] };
+    }),
+  ]);
+  const tournaments: Tournament[] = allTournaments.list;
+  const tournamentPicks: TournamentPick[] = allTournaments.picks;
+  const champPick = new Map(tournamentPicks.map((p) => [`${p.user_id}:${p.tournament_id}`, p]));
+  // Until that database function exists, fall back to "missed" from the week's scores.
+  const submitted = submissions ? new Map<string, number>((submissions as { user_id: string; picks: number }[]).map((x) => [x.user_id, x.picks])) : null;
+  const noPicks = (r: { userId: string; missed: number }) => (submitted ? (submitted.get(r.userId) ?? 0) === 0 : r.missed > 0);
+  const byCell = new Map((picks ?? []).map((p) => [`${p.user_id}:${p.game_id}`, p]));
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which columns have locked
+  const now = Date.now();
+  // Everyone's champion picks (the viewer's own included) show once the tournament locks.
+  const tLocked = (t: (typeof tournaments)[number]) => Date.parse(t.lockAt) <= now;
+  const teamOf = (t: (typeof tournaments)[number], id: string) => t.teams.find((x) => x.id === id) ?? null;
+
+  const ats = ctx.settings.pick_type === "ats";
+  // Column times in the viewer's own zone.
+  const tz = ctx.displayTz;
+  const isLocked = (g: (typeof games)[number]) => slate.status !== "open" || isGameLocked(g, now);
+  // A column's picks (the viewer's own included) show once the game kicks off. In college
+  // basketball they show from the week's lock instead, so the whole week opens at once. A
+  // graded week shows everything, cancelled games included.
+  const weekReveal = ctx.pool.sport === "ncaab";
+  const isRevealed = (g: (typeof games)[number]) =>
+    slate.status === "graded" || hasStarted(g, now) || (weekReveal && (slate.status === "locked" || isGameLocked(g, now)));
+
+  // Week score sorts by this week's standings; the others reorder the same rows.
+  const seasonById = new Map((season ?? []).map((r) => [r.userId, r]));
+  const rows =
+    sort === "season"
+      ? [...standings].sort((a, b) => (seasonById.get(a.userId)?.rank ?? Infinity) - (seasonById.get(b.userId)?.rank ?? Infinity) || a.name.localeCompare(b.name))
+      : sort === "name"
+        ? [...standings].sort((a, b) => a.name.localeCompare(b.name))
+        : standings;
+  // The landing page's copy: the top rows (and the viewer's own), with made-up names.
+  const shown = embed ? topRows(rows, embed.maxRows, ctx.entryUserId) : rows;
+  const nameOf = (r: (typeof rows)[number]) => (embed ? embed.rename(r.userId) : r.name);
+
+  // Possible points: the most each player can still finish this week with (lib/possible.ts).
+  const slotValues = slotValuesFor(ctx.settings);
+  const openGameIds = games.filter((g) => !g.voided && !isLocked(g)).map((g) => g.id);
+  const picksByUser = new Map<string, NonNullable<typeof picks>>();
+  for (const p of picks ?? []) picksByUser.set(p.user_id, [...(picksByUser.get(p.user_id) ?? []), p]);
+  // In-season tournaments count toward the week: one not yet decided can add up to a
+  // champion's points (5). Before it locks everyone can still pick (and others' picks aren't
+  // visible yet), so everyone has it; after, only entries with a pick in it.
+  const upside = (userId: string) => tournamentUpside(tournaments, tournamentPicks, userId, now);
+  const possible = (r: (typeof standings)[number]) =>
+    possiblePoints({ points: r.points, picks: picksByUser.get(r.userId) ?? [], openGameIds, slotValues }) + upside(r.userId);
+
+  // Picks per side, for the footer. Only meaningful once a game locks: before that RLS
+  // returns just the viewer's own pick.
+  const sides = new Map<string, { away: number; home: number; awayPts: number; homePts: number }>();
+  for (const p of picks ?? []) {
+    if (p.result === "void") continue;
+    const c = sides.get(p.game_id) ?? { away: 0, home: 0, awayPts: 0, homePts: 0 };
+    const side = p.picked_side === "home" ? "home" : "away";
+    c[side]++;
+    // Confidence pools: the points wagered on each side (what the upset bonus is measured by).
+    c[side === "home" ? "homePts" : "awayPts"] += Number(p.confidence ?? 0);
+    sides.set(p.game_id, c);
+  }
+  const confidencePool = Boolean(ctx.settings.confidence);
+  // The upset bonus a correct pick on this side would earn: it holds the smaller share of the
+  // points and the other side's share passes a tier's min_share (the richest tier passed).
+  const upsetTiers = [...(ctx.settings.upset_bonus?.tiers ?? [])].sort((a, b) => b.min_share - a.min_share);
+  const bonusFor = (c: { awayPts: number; homePts: number }, side: "away" | "home") => {
+    const total = c.awayPts + c.homePts;
+    const mine = side === "home" ? c.homePts : c.awayPts;
+    if (!total || mine * 2 >= total) return null;
+    const other = (total - mine) / total;
+    return upsetTiers.find((t) => other > t.min_share)?.bonus ?? null;
+  };
+  /** "62%": a side's share of the points (confidence pools) on a game. */
+  const pointShare = (c: { awayPts: number; homePts: number }, side: "away" | "home") => {
+    const total = c.awayPts + c.homePts;
+    return total ? `${Math.round(((side === "home" ? c.homePts : c.awayPts) / total) * 100)}%` : "–";
+  };
+
+  // Desktop widths, in rem: the player column (narrower on long weeks), then each column's
+  // minimum. The grid fills the screen and only scrolls sideways below this.
+  const playerRem = games.length > 30 ? 11 : games.length > 16 ? 14 : 18;
+  // Desktop: the games share whatever width is left after the player and tournament columns
+  // (and the side panel, when it shows), but never below a roomy 3.25rem each, so the logos
+  // stay across the top and nothing gets cramped; past that the grid scrolls sideways.
+  const GAME_MIN_REM = 4;
+  const fixedRem = playerRem + tournaments.length * 3 + 2 + 1 + 1.75; // + page padding, scrollbar, the summary tab
+  const gridMinRem = playerRem + tournaments.length * 3 + games.length * GAME_MIN_REM;
+  // The side panel (18rem, plus its gap) shows only when the screen also has room for the grid
+  // at that width, and is tall enough for the panel to fit without scrolling.
+  const panelFromPx = Math.ceil((gridMinRem + 18 + 1.25 + 1.5 + 2 + 1) * 16);
+
+  // The side panel's content: beside the Grid on wide screens, in the Pool Summary pop-out otherwise.
+  const panelProps = {
+    games,
+    picks: picks ?? [],
+    revealed: (id: string) => {
+      const g = games.find((x) => x.id === id);
+      return Boolean(g && isRevealed(g));
+    },
+    me: ctx.isGuest ? null : ctx.entryUserId,
+    ats,
+    confidence: Boolean(ctx.settings.confidence),
+  };
+
+  const grid = (
+    <AxisLockScroll className={embed ? "relative max-h-[30rem] overflow-auto isolate" : "relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0"}>
+      {/* Desktop: the grid fills the screen, the games sharing the width evenly (fixed layout),
+          but never narrower than a readable column each; past that it scrolls as on phones. */}
+      <table
+        className="border-separate border-spacing-0 text-sm lg:w-full lg:min-w-[var(--grid-min)] lg:table-fixed"
+        style={
+          {
+            "--grid-min": `${gridMinRem}rem`,
+            "--colw": embed ? `${GAME_MIN_REM}rem` : `max(${GAME_MIN_REM}rem, calc((100vw - ${fixedRem}rem - var(--panel, 0rem)) / ${Math.max(games.length, 1)}))`,
+            "--cell-font": "clamp(11px, calc(var(--colw) * 0.24), 13px)",
+            // Picks are logos only on desktop: 18–22px, with little room around them.
+            "--logo": "clamp(18px, calc(var(--colw) - 20px), 22px)",
+            // Header logos: 14px, beside the team's abbreviation or score.
+            "--head-logo": "14px",
+          } as CSSProperties
+        }
+      >
+        <thead>
+          <tr>
+            {/* Player and Pts share one pinned cell so the points never scroll away. */}
+            <th className={`sticky left-0 top-0 z-30 border-b border-r border-line bg-bg px-4 py-1.5 text-left align-bottom text-xs font-medium text-muted lg:w-[var(--player-w)]`} style={{ "--player-w": `${playerRem}rem` } as CSSProperties}>
+              <div className="flex items-end justify-between gap-3">
+                <span className="min-w-20">Player</span>
+                <span className="min-w-8 shrink-0 text-right whitespace-nowrap">
+                  {sort === "season" ? "Season" : <>Pts<span className="text-faint">/Poss</span></>}
+                </span>
+              </div>
+            </th>
+            {tournaments.map((t) => (
+              <th
+                key={t.id}
+               
+                title={`${t.name}: champion pick`}
+                className="sticky top-0 z-20 w-12 min-w-12 max-w-12 border-b border-r border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium leading-tight text-muted"
+              >
+                {/* The name in full ("Tournament" dropped), a trophy under it. */}
+                {/* Sideways, reading bottom to top, on one line: never cut off or split. Centered in the column. */}
+                <div className="flex justify-center">
+                  <span className="whitespace-nowrap font-semibold text-ink [transform:rotate(180deg)] [writing-mode:vertical-rl]">
+                    {t.name.replace(/\s*\btournament\b\s*/gi, " ").trim()}
+                  </span>
+                </div>
+                <TrophyIcon className="mx-auto mt-0.5 size-3.5 text-[#b8860b] dark:text-[#e0b84c]" />
+              </th>
+            ))}
+            {games.map((g) => {
+              const revealed = isRevealed(g);
+              // Same live states as the Picks tab's status line.
+              const started = hasStarted(g, now);
+              const final = g.status === "final" || g.overridden;
+              const live = started && !final && g.status !== "postponed" && g.status !== "cancelled";
+              const showScore = started && g.homeScore !== null && g.awayScore !== null;
+              const winner =
+                final && g.homeScore !== null && g.awayScore !== null
+                  ? g.homeScore - g.awayScore + (ats ? (g.spread ?? 0) : 0)
+                  : null;
+              return (
+                <th
+                  key={g.id}
+                  title={`${g.away.abbreviation ?? g.away.name} ${g.neutral ? "vs" : "@"} ${g.home.abbreviation ?? g.home.name}${g.tv ? ` · ${g.tv}` : ""}`}
+                  className={`sticky top-0 z-20 min-w-16 border-b border-r border-line bg-bg px-1 py-1 text-center align-bottom text-[11px] font-medium leading-tight text-muted last:border-r-0 lg:min-w-0 lg:overflow-hidden ${g.voided ? "line-through opacity-50" : ""}`}
+                >
+                  {/* Compact: status (time / Live / Final) and network, then each team on one line
+                      (logo with its abbreviation, or its score once the game starts), then the
+                      line. Columns are at least 4rem so abbreviations are never cut off; a thin
+                      line separates each game. */}
+                  <div className="mb-0.5 whitespace-nowrap text-[10px] font-normal tabular-nums">
+                    {g.voided ? (
+                      <span className="font-semibold text-loss">Void</span>
+                    ) : final ? (
+                      <span className="font-semibold">Final</span>
+                    ) : live ? (
+                      <LiveDot>Live</LiveDot>
+                    ) : g.status === "postponed" || g.status === "cancelled" ? (
+                      <span className="font-semibold">{g.status === "postponed" ? "Ppd" : "Canc"}</span>
+                    ) : (
+                      shortGameTime(g.startAt, tz, g.timeTbd)
+                    )}
+                    {/* Where to watch, through the whole game. */}
+                    {/* Where to watch, until the game is final. */}
+                    {g.tv && !final && <div className="truncate text-[9px] leading-tight">{g.tv}</div>}
+                  </div>
+                  {(["away", "home"] as const).map((side) => {
+                    const team = side === "home" ? g.home : g.away;
+                    const score = side === "home" ? g.homeScore : g.awayScore;
+                    const won = winner !== null && (side === "home" ? winner > 0 : winner < 0);
+                    return (
+                      <div key={side} className={`flex items-center justify-center gap-1 whitespace-nowrap leading-tight ${won ? "font-semibold text-ink" : ""}`}>
+                        {/* Final: a bigger logo and score (the network's line is gone). */}
+                        <TeamLogo src={team.logo_url} abbr={team.abbreviation} className={`shrink-0 ${final ? "size-5" : "size-3.5 lg:size-[var(--head-logo)]"}`} />
+                        <span className={showScore ? `font-semibold tabular-nums text-ink ${final ? "text-[13px]" : ""}` : ""}>{showScore ? score : team.abbreviation}</span>
+                      </div>
+                    );
+                  })}
+                  {ats && <div className="tabular-nums leading-tight">{formatSpread(g.spread)}</div>}
+                  {/* Picks in this column are still hidden (until kickoff). */}
+                  {!revealed && <LockIcon className="mx-auto mt-0.5 size-2.5 text-muted" />}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((r) => {
+            const mine = r.userId === ctx.entryUserId;
+            return (
+              <tr key={r.userId} className="[&:last-child>*]:border-b-0">
+                {/* "You" is the accent name plus a 2px edge, not a row fill. */}
+                <th
+                  className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-0.5 text-left text-[13px] font-medium lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    {/* Names in full, never cut off: a long name's text shrinks to fit the column
+                        (down to 9px) rather than widening it. */}
+                    <span className={`w-28 min-w-0 sm:w-36 lg:w-auto lg:flex-1 ${mine ? "text-accent" : ""}`}>
+                      <FitText min={9}>{nameOf(r)}</FitText>
+                      {/* Nothing in for this week yet (a missed week is scored per settings.missed_week). */}
+                      {noPicks(r) && <span className="block truncate text-[10px] font-normal leading-tight text-muted">No picks submitted</span>}
+                    </span>
+                    <span className="min-w-8 shrink-0 whitespace-nowrap text-right font-semibold tabular-nums text-ink">
+                      {sort === "season" ? (
+                        <>
+                          {points(seasonById.get(r.userId)?.points ?? 0)}
+                          <span className="sr-only"> season points</span>
+                        </>
+                      ) : (
+                        <>
+                          {points(r.points)}
+                          <span className="font-normal text-muted">/{points(possible(r))}</span>
+                          <span className="sr-only"> points this week, {points(possible(r))} possible</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </th>
+                {tournaments.map((t) => {
+                  const p = tLocked(t) ? champPick.get(`${r.userId}:${t.id}`) : undefined;
+                  const team = p ? teamOf(t, p.team_id) : null;
+                  const scored = p?.points != null;
+                  const tone = scored ? (p!.points! > 0 ? "text-win" : "text-loss") : "text-ink";
+                  const place = team ? placeLabel(t.scoring, team.placement) : null;
+                  return (
+                    <td
+                      key={t.id}
+                      title={team ? `${team.name}${place ? ` · ${place}` : ""}` : undefined}
+                      className={`h-8 w-12 min-w-12 max-w-12 border-b border-r border-line px-0.5 text-center ${tone} ${
+                        // A green fill once it scored, red once it didn't, as on the game picks.
+                        scored ? (p!.points! > 0 ? "bg-[var(--win-fill)]" : "bg-[var(--loss-fill)]") : ""
+                      }`}
+                    >
+                      {team && (
+                        // One line, like the game picks: the logo, then the points it scored beside it.
+                        <div className="flex items-center justify-center gap-1 leading-tight">
+                          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-5 shrink-0" />
+                          <span className="sr-only">{team.abbreviation ?? team.short_name ?? team.name}</span>
+                          {scored && (
+                            <span className={`whitespace-nowrap text-[13px] font-semibold tabular-nums ${p!.points === 0 ? "line-through" : ""}`}>{points(p!.points!)}</span>
+                          )}
+                          {place && <span className="sr-only">, {place}</span>}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+                {games.map((g) => {
+                  // Nothing shows before kickoff, the viewer's own pick included.
+                  const p = isRevealed(g) ? byCell.get(`${r.userId}:${g.id}`) : undefined;
+                  const team = p ? (p.picked_side === "home" ? g.home : g.away) : null;
+                  const tone = p?.result === "win" ? "text-win" : p?.result === "loss" ? "text-loss" : "text-ink";
+                  // A light win/loss fill: with logos only, it's what shows the result.
+                  const fill =
+                    p?.result === "win"
+                      ? "bg-[var(--win-fill)]"
+                      : p?.result === "loss"
+                        ? "bg-[var(--loss-fill)]"
+                        : "";
+                  const bonus = Number(p?.bonus ?? 0);
+                  // Graded cells show what the pick scored before the bonus: a minus-points
+                  // loss reads "−5"; a zero-points loss keeps its value, struck through.
+                  const base = p?.result != null && p.points != null ? Number(p.points) - bonus : null;
+                  return (
+                    <td key={g.id} className={`h-8 min-w-10 border-b border-line px-0.5 text-center lg:h-8 lg:min-w-0 lg:overflow-hidden lg:px-0.5 ${tone} ${fill}`}>
+                      {team && (
+                        // One line: the logo, then (confidence pools) the points value beside it. The
+                        // cell's green or red fill gives the result.
+                        <div className="flex items-center justify-center gap-1 leading-tight">
+                          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-5 shrink-0 lg:size-[var(--logo)]" />
+                          <span className="text-[11px] font-medium leading-none">
+                            {/* The abbreviation stays for screen readers. */}
+                            <span className="sr-only">{team.abbreviation}</span>
+                            {/* Color isn't the only signal for the result. */}
+                            {p?.result === "win" && <span className="sr-only">, won</span>}
+                            {p?.result === "loss" && <span className="sr-only">, lost</span>}
+                            {p?.edited_by && (
+                              <span title="Changed by the commissioner" className="ml-0.5 inline-block size-1.5 rounded-full bg-muted align-super">
+                                <span className="sr-only">, changed by the commissioner</span>
+                              </span>
+                            )}
+                          </span>
+                          {p?.confidence != null && (
+                            <span className="whitespace-nowrap text-[13px] font-semibold tabular-nums">
+                              {base !== null && base < 0 ? (
+                                signedPoints(base)
+                              ) : (
+                                <span className={p.result === "loss" ? "line-through" : ""}>{p.confidence}</span>
+                              )}
+                              {bonus > 0 && <sup className="ml-px text-[10px] font-semibold text-accent">+{points(bonus)}</sup>}
+                            </span>
+                          )}
+                          {/* Flat pools have no value, so the bonus sits beside the logo on its own. */}
+                          {p?.confidence == null && bonus > 0 && (
+                            <span className="text-[10px] font-semibold tabular-nums text-accent">+{points(bonus)}</span>
+                          )}
+                          {bonus > 0 && <span className="sr-only">, upset bonus {points(bonus)}</span>}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">
+              {standings.length} {standings.length === 1 ? "player" : "players"}
+              {/* What the numbers to the right are. */}
+              <span className="block text-[10px] font-normal">{confidencePool ? "% of points wagered" : "Picks on each team"}</span>
+            </th>
+            {/* Tournament columns: left blank here (a pick count wouldn't line up with the games'
+                share of points). */}
+            {tournaments.map((t) => (
+              <td key={t.id} className="border-r border-t border-line bg-bg" aria-hidden />
+            ))}
+            {games.map((g) => {
+              const c = sides.get(g.id) ?? { away: 0, home: 0, awayPts: 0, homePts: 0 };
+              return (
+                <td
+                  key={g.id}
+                 
+                  className={`border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight lg:overflow-hidden lg:px-0.5 lg:text-[length:var(--cell-font)] ${g.voided ? "opacity-50" : ""}`}
+                >
+                  {/* Counted from kickoff, when every player's pick is visible. */}
+                  {isRevealed(g) ? (
+                    <>
+                      {/* Each side: its logo and the picks on it, or in confidence pools its share
+                          of the points wagered (what the upset bonus goes by). A side that would
+                          earn an upset bonus is highlighted blue. Same order as the header. */}
+                      {(["away", "home"] as const).map((side) => {
+                        const team = side === "home" ? g.home : g.away;
+                        const bonus = confidencePool ? bonusFor(c, side) : null;
+                        return (
+                          <div
+                            key={side}
+                            title={bonus ? `${team.abbreviation}: +${bonus} upset bonus for a correct pick` : undefined}
+                            className={`flex items-center justify-center gap-1 whitespace-nowrap rounded ${bonus ? "bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] font-semibold text-accent" : ""}`}
+                          >
+                            <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-3.5 shrink-0" />
+                            <span className="sr-only">{team.abbreviation}</span>
+                            <span className="font-semibold tabular-nums">{confidencePool ? pointShare(c, side) : side === "home" ? c.home : c.away}</span>
+                            {bonus && <span className="sr-only">, upset bonus {bonus}</span>}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <LockIcon className="mx-auto size-3 text-muted" />
+                  )}
+                </td>
+              );
+            })}
+          </tr>
+        </tfoot>
+      </table>
+    </AxisLockScroll>
+  );
+  // The landing page: just the grid (no sort, weeks or Pool Summary).
+  if (embed) return grid;
+
+  return (
+    // Fills the viewport under the sticky header (and the phone tab row) so the grid's own
+    // scrollbars sit on screen; the layout drops its tracker padding for this page.
+    <div
+      data-fill-viewport
+      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+    >
+      <h1 className="sr-only">Selections</h1>
+      {/* One row: sort on the left, weeks on the right (they scroll when there are many). */}
+      <div className="-mx-4 mb-1 flex shrink-0 items-center gap-2 px-4">
+        <div className="flex shrink-0 items-center gap-1 border-r border-line py-1 pr-2">
+          <span className="mr-0.5 text-[11px] font-medium text-muted">Sort</span>
+          {SORTS.map((s) => (
+            <Link
+              key={s.id}
+              href={`/p/${slug}/grid/${slate.week}${s.id === defaultSort ? "" : `?sort=${s.id}`}`}
+              aria-current={s.id === sort ? "true" : undefined}
+              aria-label={s.id === "week" ? "Sort by week score" : s.id === "season" ? "Sort by season score" : "Sort by name"}
+              className={chipClass(s.id === sort, "", "xs")}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </div>
+        {/* The week: a dropdown rather than a long row of buttons. */}
+        <div className="ml-auto min-w-0 py-1">
+          <LinkSelect
+            ariaLabel="Choose a week"
+            value={`/p/${slug}/grid/${slate.week}${sortQuery}`}
+            options={(slates ?? []).map((s) => ({ href: `/p/${slug}/grid/${s.week}${sortQuery}`, label: s.label ?? `Week ${s.week}` }))}
+          />
+        </div>
+      </div>
+      {/* Scrolls both ways: header row pinned top, player column left. Side counts sit after the last row. */}
+      {/* On touch screens each swipe scrolls one way only (up/down or left/right). */}
+      {/* Room for the Pool Summary tab: above it on phones, beside it on wider screens (the
+          media rule drops this where the panel shows instead). */}
+      <div id="grid-wrap" className="flex min-h-0 flex-1 gap-6 pb-9 lg:pb-0 lg:pr-7">
+      {grid}
+      {/* The panel takes 18rem plus its gap and border from the grid's width (--panel). */}
+      <style>{`@media (min-width: ${panelFromPx}px) and (min-height: 720px) { #grid-panel { display: flex; } #grid-panel-button { display: none; } #grid-wrap { --panel: 20.75rem; padding-right: 0; } }`}</style>
+      <GridPanel {...panelProps} />
+      {/* Where the side panel doesn't fit: the "View Pool Summary" tab on the screen's edge
+          (fixed; hidden by the media rule above wherever the panel shows). */}
+      <GridPanelDrawer>
+        <GridPanel {...panelProps} layout="drawer" />
+      </GridPanelDrawer>
+      </div>
+    </div>
+  );
+}
