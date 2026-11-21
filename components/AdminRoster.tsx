@@ -318,7 +318,10 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
   const all = ((members ?? []) as { user_id: string; role: string; paid: boolean; joined_at: string }[]).filter((m) => !benched.has(m.user_id));
   const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
   const fee = Number(ctx.pool.entry_fee);
-  const paidCount = all.filter((m) => m.paid).length;
+  // A sample of payment tracking (the real marks stay private): all but six paid, and one
+  // unpaid player among the rows shown; the paid rows note how they paid.
+  const paidCount = Math.max(0, all.length - SAMPLE_UNPAID);
+  const sampleFee = fee > 0 ? fee : SAMPLE_FEE;
   const rows = all
     .map((m) => ({ ...m, name: embed.rename(m.user_id) }))
     .sort((a, b) => (a.role === "commissioner" ? -1 : b.role === "commissioner" ? 1 : a.name.localeCompare(b.name)))
@@ -334,8 +337,8 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stat("Players", String(all.length))}
-        {stat("Paid", fee > 0 ? `${paidCount} of ${all.length}` : "No fee")}
-        {stat("Collected", fee > 0 ? `$${(paidCount * fee).toFixed(0)}` : "—")}
+        {stat("Paid", `${paidCount} of ${all.length}`)}
+        {stat("Collected", `$${(paidCount * sampleFee).toLocaleString("en-US")}`)}
         {stat("Benched", String(benched.size))}
       </div>
       <SettingsSection title="Invite players" description="Anyone with this link can join the pool. Text or email it to the group.">
@@ -365,12 +368,12 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
                 {joined(m.joined_at)}
               </div>
               <div className={CELL.paid}>
-                <PaidMark paid={m.paid} />
+                <PaidMark paid={k !== SAMPLE_UNPAID_ROW} />
               </div>
               <div className={CELL.notes}>
                 {/* Sample notes (a commissioner's real ones are private). */}
-                <div className={`flex h-10 items-center truncate rounded-[10px] bg-bg px-3 text-sm ring-1 ring-line ${SAMPLE_NOTES[k % SAMPLE_NOTES.length] ? "text-ink" : "text-faint"}`}>
-                  {SAMPLE_NOTES[k % SAMPLE_NOTES.length] || "Add a note"}
+                <div className={`flex h-10 items-center truncate rounded-[10px] bg-bg px-3 text-sm ring-1 ring-line ${k !== SAMPLE_UNPAID_ROW ? "text-ink" : "text-faint"}`}>
+                  {k !== SAMPLE_UNPAID_ROW ? SAMPLE_NOTES[k % SAMPLE_NOTES.length] : "Add a note"}
                 </div>
               </div>
               <div className={CELL.remove}>
@@ -446,4 +449,8 @@ function DotsIcon() {
   );
 }
 
-const SAMPLE_NOTES = ["Paid by Venmo", "", "Pays cash at lunch", "Owes $25", "", "Second entry next year"];
+// The landing preview's sample payments.
+const SAMPLE_NOTES = ["Paid via Venmo", "Paid via PayPal", "Paid cash", "Paid via Venmo", "Paid via PayPal", "Paid cash"];
+const SAMPLE_UNPAID = 6;
+const SAMPLE_UNPAID_ROW = 3;
+const SAMPLE_FEE = 50;
