@@ -28,7 +28,7 @@ async function slatePicks(ctx: PoolContext, slateId: string): Promise<PickRow[]>
   // One call that checks access once for the whole week (grid_picks); far faster than the
   // per-pick policy on a big college basketball week. Falls back if the function isn't there yet.
   const fast = await ctx.supabase.rpc("grid_picks", { p_slate_id: slateId });
-  if (!fast.error && Array.isArray(fast.data)) return fast.data as PickRow[];
+  if (!fast.error && Array.isArray(fast.data)) return fast.data as unknown as PickRow[];
   const rows: PickRow[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await ctx.supabase

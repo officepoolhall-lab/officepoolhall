@@ -929,6 +929,9 @@ isOneToOne: false
 "set_post_pinned":
 { Args: { "p_pinned": boolean,"p_post_id": string }; Returns: undefined
                            },
+"grid_picks":
+{ Args: { "p_slate_id": string }; Returns: Json
+                           },
 "slate_submissions":
 { Args: { "p_slate_id": string }; Returns: {
               "picks": number,
