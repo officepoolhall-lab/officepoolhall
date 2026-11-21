@@ -12,7 +12,7 @@ import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getStandings, getWeekAndSeasonStandings } from "@/lib/standings";
-import { getTournamentPicks, getTournaments, placeLabel, tournamentUpside } from "@/lib/tournaments";
+import { getTournamentPicks, getTournaments, placeLabel, tournamentUpside, type Tournament, type TournamentPick } from "@/lib/tournaments";
 import { TrophyIcon } from "@/components/GolfGrid";
 
 export const metadata: Metadata = { title: "League Grid" };
@@ -23,8 +23,13 @@ export const metadata: Metadata = { title: "League Grid" };
  * about 40 players has 1000 picks in a week, so the grid pages through the rest; otherwise
  * the last players in the list come back with blank rows.
  */
-async function slatePicks(ctx: PoolContext, slateId: string) {
-  const rows: { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; points: number | null; bonus: number | null; edited_by: string | null }[] = [];
+type PickRow = { user_id: string; game_id: string; picked_side: string; confidence: number | null; result: string | null; points: number | null; bonus: number | null; edited_by: string | null };
+async function slatePicks(ctx: PoolContext, slateId: string): Promise<PickRow[]> {
+  // One call that checks access once for the whole week (grid_picks); far faster than the
+  // per-pick policy on a big college basketball week. Falls back if the function isn't there yet.
+  const fast = await ctx.supabase.rpc("grid_picks", { p_slate_id: slateId });
+  if (!fast.error && Array.isArray(fast.data)) return fast.data as unknown as PickRow[];
+  const rows: PickRow[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await ctx.supabase
       .from("picks")
@@ -68,11 +73,14 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
     slatePicks(ctx, slate.id),
     // Who has submitted this week (counts only; picks stay hidden until kickoff).
     ctx.supabase.rpc("slate_submissions", { p_slate_id: slate.id }),
-    getTournaments(ctx),
+    // Champion picks for tournaments set in this week: their own columns at the start of the grid.
+    getTournaments(ctx).then(async (all): Promise<{ list: Tournament[]; picks: TournamentPick[] }> => {
+      const list = all.filter((t) => t.week === slate.week);
+      return { list, picks: list.length ? await getTournamentPicks(ctx, list.map((t) => t.id)) : [] };
+    }),
   ]);
-  // Champion picks for tournaments set in this week: their own columns at the start of the grid.
-  const tournaments = allTournaments.filter((t) => t.week === slate.week);
-  const tournamentPicks = await getTournamentPicks(ctx, tournaments.map((t) => t.id));
+  const tournaments: Tournament[] = allTournaments.list;
+  const tournamentPicks: TournamentPick[] = allTournaments.picks;
   const champPick = new Map(tournamentPicks.map((p) => [`${p.user_id}:${p.tournament_id}`, p]));
   // Until that database function exists, fall back to "missed" from the week's scores.
   const submitted = submissions ? new Map<string, number>((submissions as { user_id: string; picks: number }[]).map((x) => [x.user_id, x.picks])) : null;
