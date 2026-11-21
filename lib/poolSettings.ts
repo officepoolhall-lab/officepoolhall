@@ -152,11 +152,43 @@ const POOL_A_UPSET_TIERS = [
   { min_share: 0.95, bonus: 3 },
 ];
 
+/** A straight-up pick'em: up to `picks` games a week, one point a win, ranked by record. */
+function pickemSettings(picks: number): PoolSettings {
+  return {
+    pick_type: "straight_up",
+    picks_per_slate: picks,
+    picks_mode: "max",
+    full_card: false,
+    confidence: null,
+    upset_bonus: null,
+    missed_week: "zero",
+    scoring: { win: 1, push: 0, loss: 0 },
+    standings_by: "record",
+    lock: { mode: "per_game" },
+    timezone: "America/Chicago",
+    window: { start_weekday: 1, length_days: 7 },
+    lines: { bookmaker: "draftkings", freeze_at: "publish", force_half_point: false },
+    visibility: { show_picks_after: "game_start" },
+    segments: null,
+  } as PoolSettings;
+}
+
+/** A confidence pool: exactly `picks` games straight up, split evenly over 5/4/3/2/1 points. */
+function confidenceSettings(picks: number): PoolSettings {
+  return {
+    ...pickemSettings(picks),
+    picks_mode: "exact",
+    confidence: { tiers: evenTiers(picks), wrong_pick: "zero" },
+    standings_by: "points",
+  } as PoolSettings;
+}
+
 export const PRESETS = {
   // Pool A — NCAAB Confidence Pool
   // Brooks: 25 picks a week, five at each of 5/4/3/2/1, from a slate of 30–35 games.
   ncaab_confidence: {
     label: "NCAAB Confidence Pool",
+    short: "Confidence",
     sport: "ncaab",
     settings: {
       pick_type: "straight_up",
@@ -185,6 +217,7 @@ export const PRESETS = {
   // Pool B — NCAAF Supercontest
   ncaaf_ats: {
     label: "NCAAF Supercontest (ATS)",
+    short: "Supercontest",
     sport: "ncaaf",
     settings: {
       pick_type: "ats",
@@ -207,6 +240,7 @@ export const PRESETS = {
   // NFL Supercontest: the same rules as the NCAAF one, for the NFL
   nfl_ats: {
     label: "NFL Supercontest (ATS)",
+    short: "Supercontest",
     sport: "nfl",
     settings: {
       pick_type: "ats",
@@ -226,7 +260,39 @@ export const PRESETS = {
       visibility: { show_picks_after: "game_start" },
     },
   },
-} as const satisfies Record<string, { label: string; sport: "ncaab" | "ncaaf" | "nfl"; settings: PoolSettings }>;
+  // Pick'em: every game on the week's slate, straight up (no spreads), one point a win.
+  nfl_pickem: {
+    label: "NFL Pick'em",
+    short: "Pick'em",
+    sport: "nfl",
+    settings: pickemSettings(16),
+  },
+  ncaaf_pickem: {
+    label: "NCAAF Pick'em",
+    short: "Pick'em",
+    sport: "ncaaf",
+    settings: pickemSettings(10),
+  },
+  ncaab_pickem: {
+    label: "NCAAB Pick'em",
+    short: "Pick'em",
+    sport: "ncaab",
+    settings: pickemSettings(25),
+  },
+  // Confidence: every game straight up, ranked into point tiers (5 down to 1).
+  nfl_confidence: {
+    label: "NFL Confidence Pool",
+    short: "Confidence",
+    sport: "nfl",
+    settings: confidenceSettings(15),
+  },
+  ncaaf_confidence: {
+    label: "NCAAF Confidence Pool",
+    short: "Confidence",
+    sport: "ncaaf",
+    settings: confidenceSettings(20),
+  },
+} as const satisfies Record<string, { label: string; short: string; sport: "ncaab" | "ncaaf" | "nfl"; settings: PoolSettings }>;
 
 export type PresetKey = keyof typeof PRESETS;
 
