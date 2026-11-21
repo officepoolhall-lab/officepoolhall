@@ -317,11 +317,9 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
   const benched = await getBenchedIds(db, ctx.pool.id);
   const all = ((members ?? []) as { user_id: string; role: string; paid: boolean; joined_at: string }[]).filter((m) => !benched.has(m.user_id));
   const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
-  const fee = Number(ctx.pool.entry_fee);
   // A sample of payment tracking (the real marks stay private): all but six paid, and one
   // unpaid player among the rows shown; the paid rows note how they paid.
   const paidCount = Math.max(0, all.length - SAMPLE_UNPAID);
-  const sampleFee = fee > 0 ? fee : SAMPLE_FEE;
   const rows = all
     .map((m) => ({ ...m, name: embed.rename(m.user_id) }))
     .sort((a, b) => (a.role === "commissioner" ? -1 : b.role === "commissioner" ? 1 : a.name.localeCompare(b.name)))
@@ -338,7 +336,7 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stat("Players", String(all.length))}
         {stat("Paid", `${paidCount} of ${all.length}`)}
-        {stat("Collected", `$${(paidCount * sampleFee).toLocaleString("en-US")}`)}
+        {stat("Collected", `$${(paidCount * SAMPLE_FEE).toLocaleString("en-US")}`)}
         {stat("Benched", String(benched.size))}
       </div>
       <SettingsSection title="Invite players" description="Anyone with this link can join the pool. Text or email it to the group.">
@@ -453,4 +451,4 @@ function DotsIcon() {
 const SAMPLE_NOTES = ["Paid via Venmo", "Paid via PayPal", "Paid cash", "Paid via Venmo", "Paid via PayPal", "Paid cash"];
 const SAMPLE_UNPAID = 6;
 const SAMPLE_UNPAID_ROW = 3;
-const SAMPLE_FEE = 50;
+const SAMPLE_FEE = 50; // the sample entry fee: Collected = paid × $50
