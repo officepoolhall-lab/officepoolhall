@@ -63,8 +63,7 @@ export function Landing() {
             {/* Tagline to come; the site's name for now. */}
             <h1 className="text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">The Office Pool Hall</h1>
             <p className="mt-5 max-w-xl text-lg text-muted">
-              Every pool your group runs, all in one place. Pick the sport, set your own scoring, locks and bonuses, and let the site
-              handle the picks, scores and standings. No spreadsheets required.
+              All your pools in one place. Customizable, easy and smooth. No more spreadsheets.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <LinkButton href={START} kind="accent" className="!h-12 !px-6">

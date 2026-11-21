@@ -5,7 +5,7 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
-const description = "Every pool your group runs, all in one place. Pick the sport, set your own scoring, locks and bonuses, and let the site handle the picks, scores and standings. No spreadsheets required.";
+const description = "All your pools in one place. Customizable, easy and smooth. No more spreadsheets.";
 
 export const metadata: Metadata = {
   // Absolute links for the share previews (the image and page URLs a shared link shows).
