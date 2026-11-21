@@ -201,14 +201,29 @@ export function TeamHistoryDialog({
 }) {
   const data = useJson<TeamHistory>(`/api/espn/team?sport=${sport}&id=${espnId}${ats ? "&ats=1" : ""}`);
   const t = typeof data === "object" ? data : null;
-  const overall = t?.ats.find((s) => s.name === "atsOverall") ?? t?.ats[0];
   return (
     <Shell
       label={`${name}: recent games`}
       onClose={onClose}
       size={ats ? "wide" : "normal"}
-      header={
-        <div className="flex items-center gap-3">
+      header={<TeamHistoryHeader t={t} name={name} logo={logo} ats={ats} />}
+    >
+      {data === "loading" ? (
+        <Note>Loading…</Note>
+      ) : data === "failed" || !t ? (
+        <Note>ESPN doesn&apos;t have this team&apos;s results right now.</Note>
+      ) : (
+        <TeamHistoryBody t={t} ats={ats} timezone={timezone} />
+      )}
+    </Shell>
+  );
+}
+
+/** The team pop-up's heading: logo, name, overall record and (ATS pools) record against the spread. */
+export function TeamHistoryHeader({ t, name, logo, ats }: { t: TeamHistory | null; name: string; logo: string | null; ats: boolean }) {
+  const overall = t?.ats.find((s) => s.name === "atsOverall") ?? t?.ats[0];
+  return (
+    <div className="flex items-center gap-3">
           <TeamLogo src={t?.logo ?? logo} abbr={null} className="size-10" />
           <div className="min-w-0">
             <h2 className="truncate text-lg font-bold">{t?.name ?? name}</h2>
@@ -218,13 +233,12 @@ export function TeamHistoryDialog({
             </p>
           </div>
         </div>
-      }
-    >
-      {data === "loading" ? (
-        <Note>Loading…</Note>
-      ) : data === "failed" || !t ? (
-        <Note>ESPN doesn&apos;t have this team&apos;s results right now.</Note>
-      ) : (
+  );
+}
+
+/** The team pop-up's contents (also shown on the landing page): ATS splits and recent games. */
+export function TeamHistoryBody({ t, ats, timezone, maxGames }: { t: TeamHistory; ats: boolean; timezone: string; maxGames?: number }) {
+  return (
         <>
           {ats && t.ats.length > 0 && (
             <section className="mt-4">
@@ -256,7 +270,7 @@ export function TeamHistoryDialog({
             </div>
             {t.recent.length ? (
               <ul className="border-t border-line text-sm">
-                {t.recent.slice(0, ats ? 15 : 10).map((g) => (
+                {t.recent.slice(0, maxGames ?? (ats ? 15 : 10)).map((g) => (
                   <li key={g.id} className="flex items-center gap-2 border-b border-line py-1.5">
                     <span className="w-11 shrink-0 text-xs tabular-nums text-muted">{g.date ? formatInTimeZone(g.date, timezone, "M/d") : ""}</span>
                     <span className="w-5 shrink-0 text-xs text-muted">{g.atVs}</span>
@@ -301,8 +315,6 @@ export function TeamHistoryDialog({
             )}
           </section>
         </>
-      )}
-    </Shell>
   );
 }
 

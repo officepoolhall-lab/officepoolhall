@@ -3,12 +3,17 @@ import { ShotCarousel } from "./ShotCarousel";
 import { GridPanel } from "@/components/GridPanel";
 import { GridView } from "@/components/GridView";
 import { AdminRoster } from "@/components/AdminRoster";
+import { GolferHistoryBody, GolferHistoryHeader } from "@/components/GolferHistoryDialog";
+import { PickHistoryView } from "@/components/PickHistoryView";
+import { TeamHistoryBody, TeamHistoryHeader } from "@/components/ProfileDialogs";
 import { PickBoard } from "@/app/p/[slug]/picks/PickBoard";
 import { Scoreboard } from "@/app/p/[slug]/scoreboard/Scoreboard";
 import { formatInTimeZone } from "date-fns-tz";
 import { getSlateGames } from "@/lib/pool";
 import { getTeamRecords } from "@/lib/teamRecords";
 import {
+  landingGolferHistory,
+  landingTeamHistory,
   getLandingPool,
   scoresSnapshot,
   slateFor,
@@ -16,7 +21,8 @@ import {
   type LandingPool,
 } from "@/lib/landingShots";
 
-// The landing page's look inside: the real My Picks, Grid, Scores, Pool Summary and Standings,
+// The landing page's look inside: the real My Picks, Grid, Pool Summary, Scores, team and golfer
+// history, Pick History and the Roster,
 // each drawn by the app's own components from a real pool (lib/landingShots.ts),
 // shown like screenshots: framed, each trimmed to fit whole (never cut off), nothing to click.
 
@@ -147,6 +153,42 @@ async function SummaryShot({ lp }: { lp: LandingPool }) {
   );
 }
 
+/** A pop-up as it looks open: the blue outline, the heading, then its contents. */
+function Popup({ header, children }: { header: ReactNode; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border-2 border-accent bg-bg p-5 shadow-xl">
+      {header}
+      {children}
+    </div>
+  );
+}
+
+async function HistoryShot({ lp }: { lp: LandingPool }) {
+  // The two history pop-ups side by side: a team's (from My Picks, with its record against the
+  // spread) and a golfer's (from a golf pool's picks).
+  const [team, golfer] = await Promise.all([landingTeamHistory(lp), landingGolferHistory()]);
+  if (!team && !golfer) return null;
+  return (
+    <div className="grid items-start gap-6 lg:grid-cols-2">
+      {team && (
+        <Popup header={<TeamHistoryHeader t={team.t} name={team.team.short_name ?? team.team.name} logo={team.team.logo_url} ats={team.ats} />}>
+          <TeamHistoryBody t={team.t} ats={team.ats} timezone={team.timezone} maxGames={8} />
+        </Popup>
+      )}
+      {golfer && (
+        <Popup header={<GolferHistoryHeader golfer={golfer.golfer} />}>
+          <GolferHistoryBody golferId={golfer.golfer.id} data={golfer.data} recentEvents={6} />
+        </Popup>
+      )}
+    </div>
+  );
+}
+
+async function PickHistoryShot({ lp }: { lp: LandingPool }) {
+  // The entry's Pick History: week by week and by team, side by side.
+  return PickHistoryView({ ctx: lp.ctx, slug: lp.slug, userId: lp.ctx.entryUserId!, embed: { rename: lp.rename, maxTeams: 12 } });
+}
+
 async function RosterShot({ lp }: { lp: LandingPool }) {
   // The commissioner's Roster page: made-up names and emails, a sample invite link.
   return (
@@ -161,11 +203,13 @@ async function RosterShot({ lp }: { lp: LandingPool }) {
 export async function Shots() {
   const lp = await getLandingPool();
   if (!lp) return null;
-  const [picks, grid, summary, scores, roster] = await Promise.all([
+  const [picks, grid, summary, scores, history, pickHistory, roster] = await Promise.all([
     MyPicksShot({ lp }).catch(() => null),
     GridView({ ctx: lp.ctx, slug: lp.slug, week: lp.week, embed: { maxRows: 12, rename: lp.rename } }).catch(() => null),
     SummaryShot({ lp }).catch(() => null),
     ScoresShot({ lp }).catch(() => null),
+    HistoryShot({ lp }).catch(() => null),
+    PickHistoryShot({ lp }).catch(() => null),
     RosterShot({ lp }).catch(() => null),
   ]);
   const stories = [
@@ -196,6 +240,20 @@ export async function Shots() {
       title: "Live scores, right next to the picks.",
       text: "Clocks, scores, down and distance and the last play for every game, without opening another app.",
       node: scores,
+    },
+    {
+      id: "history",
+      label: "Team & Golfer History",
+      title: "Every team's and golfer's record, a tap away.",
+      text: "Tap a team for its recent games and record against the spread, or a golfer for past finishes at the event and this season's results.",
+      node: history,
+    },
+    {
+      id: "pick-history",
+      label: "Pick History",
+      title: "Every player's picks, week by week and team by team.",
+      text: "Each week's record and picks, plus how a player has done with every team they've taken.",
+      node: pickHistory,
     },
     {
       id: "roster",

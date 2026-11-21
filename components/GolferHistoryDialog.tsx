@@ -89,7 +89,34 @@ export function GolferHistoryDialog({
 
 /** The two sections, once the field's history has arrived. */
 function Results({ golferId, history, majors, season }: { golferId: string; history: Promise<FieldHistory>; majors: boolean; season?: Promise<SeasonHistory> }) {
-  const data = use(history);
+  return <GolferHistoryBody golferId={golferId} data={use(history)} majors={majors} season={season} />;
+}
+
+/** The golfer pop-up's heading: name and world rank. */
+export function GolferHistoryHeader({ golfer }: { golfer: { name: string; rank: number | null } }) {
+  return (
+    <div className="min-w-0">
+      <h2 className="truncate text-lg font-bold">{golfer.name}</h2>
+      <p className="text-xs text-muted">{golfer.rank ? `World Rank #${golfer.rank}` : "Outside the World Top 300"}</p>
+    </div>
+  );
+}
+
+/** The golfer pop-up's contents (also shown on the landing page): at this event, then this season. */
+export function GolferHistoryBody({
+  golferId,
+  data,
+  majors = false,
+  season,
+  recentEvents,
+}: {
+  golferId: string;
+  data: FieldHistory;
+  majors?: boolean;
+  season?: Promise<SeasonHistory>;
+  /** Only this many of the season's latest events in the list (the landing page); the summary still counts them all. */
+  recentEvents?: number;
+}) {
   const atYears = data.years.map((y, i) => ({ ...y, result: data.at[golferId]?.[i] ?? null }));
   return (
           <>
@@ -142,7 +169,7 @@ function Results({ golferId, history, majors, season }: { golferId: string; hist
                 <SeasonFrom golferId={golferId} season={season} majors={majors} />
               </Suspense>
             ) : (
-              <SeasonSection golferId={golferId} data={data} majors={majors} />
+              <SeasonSection golferId={golferId} data={data} majors={majors} recentEvents={recentEvents} />
             )}
           </>
   );
@@ -162,7 +189,7 @@ function SeasonFrom({ golferId, season, majors }: { golferId: string; season: Pr
 }
 
 /** This season so far: a summary, then each event played with finish and prize money. */
-function SeasonSection({ golferId, data, majors }: { golferId: string; data: SeasonHistory; majors: boolean }) {
+function SeasonSection({ golferId, data, majors, recentEvents }: { golferId: string; data: SeasonHistory; majors: boolean; recentEvents?: number }) {
   const unit = "events";
   const rows = (data.season[golferId] ?? []).map((r) => ({ ...data.played[r.i], pos: r.pos, earnings: r.earnings }));
   const eventsPlayed = data.played.length;
@@ -205,7 +232,7 @@ function SeasonSection({ golferId, data, majors }: { golferId: string; data: Sea
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
-                      {rows.map((r) => (
+                      {(recentEvents ? rows.slice(-recentEvents) : rows).map((r) => (
                         <tr key={r.week}>
                           {!majors && <td className="py-1.5 tabular-nums text-muted">{r.week}</td>}
                           <td className="truncate py-1.5 pr-2">{r.name}</td>
