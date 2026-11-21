@@ -1,4 +1,5 @@
 import "server-only";
+import { espnScoreboardJson } from "./microCache";
 import { hasStarted } from "./locks";
 import type { SlateGame } from "./pool";
 import { ESPN_PATH, groupsParam, type TeamSport } from "./sports";
@@ -67,15 +68,9 @@ export async function fetchLiveDetails(sport: TeamSport, dates: string[], _maxAg
   await Promise.all(
     [...new Set(dates)].slice(0, 4).map(async (date) => {
       try {
-        const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
-          headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-          // Always fresh: these are games in progress (a timed cache could hand back a stale
-          // clock on the first request after a quiet spell).
-          cache: "no-store",
-          signal: AbortSignal.timeout(3000),
-        });
-        if (!res.ok) return;
-        const body = (await res.json()) as { events?: EspnEvent[] };
+        // Fresh within 15 seconds, one fetch shared by every page view in that time (lib/microCache).
+        const body = (await espnScoreboardJson(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`)) as { events?: EspnEvent[] } | null;
+        if (!body) return;
         for (const e of body.events ?? []) {
           const c = e.competitions?.[0];
           const status = c?.status ?? e.status;

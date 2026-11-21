@@ -1,4 +1,5 @@
 import "server-only";
+import { fresh } from "./microCache";
 import { DEMO_LIVE_ID, getDemoLeaderboard } from "./golfDemo";
 
 // ESPN's PGA Tour leaderboard page, read live for the home page ticker: each golfer's place,
@@ -114,6 +115,13 @@ export async function getLiveLeaderboard(espnId: string, revalidate = 120, timeo
   // The demo pool's Masters, frozen mid-round 3 (lib/golfDemo.ts).
   if (espnId === DEMO_LIVE_ID) return getDemoLeaderboard();
   if (!/^\d+$/.test(espnId)) return null;
+  // "Fresh" (0): within 20 seconds, one read of ESPN's (large) page shared by every golf page view
+  // in that time: Leaderboard, My Picks, Standings and Home all use it.
+  if (revalidate === 0) return fresh(`lb:${espnId}`, 20_000, () => readLeaderboard(espnId, 0, timeoutMs));
+  return readLeaderboard(espnId, revalidate, timeoutMs);
+}
+
+async function readLeaderboard(espnId: string, revalidate: number, timeoutMs: number): Promise<LiveGolfer[] | null> {
   try {
     const res = await fetch(`https://www.espn.com/golf/leaderboard/_/tournamentId/${espnId}`, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },

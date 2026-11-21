@@ -1,4 +1,5 @@
 import "server-only";
+import { fresh } from "./microCache";
 import { ESPN_PATH, isFootball, type TeamSport } from "./sports";
 import { basketballOrder, reorder } from "./statOrder";
 
@@ -56,6 +57,11 @@ function play(p: any): Play {
 }
 
 export async function getGameSummary(sport: TeamSport, espnId: string, live: boolean): Promise<GameSummary | null> {
+  // Live: fresh within 10 seconds, shared by everyone watching the game (and each open pop-up's refresh).
+  return live ? fresh(`sum:${sport}:${espnId}`, 10_000, () => readGameSummary(sport, espnId, true)) : readGameSummary(sport, espnId, false);
+}
+
+async function readGameSummary(sport: TeamSport, espnId: string, live: boolean): Promise<GameSummary | null> {
   let data: any;
   try {
     const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${ESPN_PATH[sport]}/summary?event=${encodeURIComponent(espnId)}`, {

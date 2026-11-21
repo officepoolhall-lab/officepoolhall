@@ -1,4 +1,5 @@
 import "server-only";
+import { espnScoreboardJson } from "./microCache";
 import type { SlateGame } from "./pool";
 import { ESPN_PATH, groupsParam, type TeamSport } from "./sports";
 
@@ -66,16 +67,17 @@ export type DayGame = SlateGame & { records: { home: string | null; away: string
 export async function getEspnDay(sport: TeamSport, date: string, isToday: boolean): Promise<DayGame[]> {
   const [confs, data] = await Promise.all([
     conferences(sport),
-    fetch(`${BASE}/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
-      headers: HEADERS,
-      // Today: always fresh from ESPN. (A timed cache hands the first visitor after it expires
-      // the old copy while it refetches, e.g. "2:00 2nd half" for a game already in overtime.)
-      // Other days: cached 15 minutes.
-      ...(isToday ? { cache: "no-store" as const } : { next: { revalidate: 900 } }),
-      signal: AbortSignal.timeout(5000),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null),
+    // Today: fresh within 15 seconds, one fetch shared by every view in that time (a timed fetch
+    // cache would hand the first visitor after a quiet spell an old copy). Other days: 15 minutes.
+    isToday
+      ? espnScoreboardJson(`${BASE}/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`)
+      : fetch(`${BASE}/${ESPN_PATH[sport]}/scoreboard?dates=${date}${groupsParam(sport)}&limit=500`, {
+          headers: HEADERS,
+          next: { revalidate: 900 },
+          signal: AbortSignal.timeout(5000),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
   ]);
   const out: DayGame[] = [];
   for (const e of (data as any)?.events ?? []) {
