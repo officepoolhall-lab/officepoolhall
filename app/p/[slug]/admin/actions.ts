@@ -353,6 +353,17 @@ export async function setPaid(slug: string, userId: string, paid: boolean) {
   revalidateRoster(slug);
 }
 
+/** The commissioner's private note on a player (the Roster's Notes column). */
+export async function setMemberNote(slug: string, userId: string, note: string) {
+  const ctx = await requirePoolCommissioner(slug);
+  const text = note.trim().slice(0, 300);
+  const { error } = await ctx.supabase
+    .from("pool_member_notes")
+    .upsert({ pool_id: ctx.pool.id, user_id: userId, note: text, updated_at: new Date().toISOString() });
+  if (error) return { ok: false as const, message: "Couldn't save the note." };
+  return { ok: true as const };
+}
+
 export async function removeMember(slug: string, userId: string) {
   const ctx = await requirePoolCommissioner(slug);
   if (userId === ctx.user.id) return;

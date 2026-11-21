@@ -4,7 +4,8 @@ import { Button, CheckIcon } from "@/components/ui";
 import { SettingsSection } from "@/components/SettingsUI";
 import type { PoolBase } from "@/lib/pool";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setPaid } from "@/app/p/[slug]/admin/actions";
+import { RosterNote } from "@/components/RosterNote";
+import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setMemberNote, setPaid } from "@/app/p/[slug]/admin/actions";
 
 /**
  * The commissioner's roster, the same for every sport: the invite link, every entry with its
@@ -40,6 +41,9 @@ export async function AdminRoster({
     ctx.supabase.from("invites").select("token").eq("pool_id", ctx.pool.id).eq("guest", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ctx.supabase.rpc("pool_guest_accounts", { p_pool_id: ctx.pool.id }),
   ]);
+  // The commissioner's private notes (none until the notes migration is in).
+  const { data: noteRows } = await ctx.supabase.from("pool_member_notes").select("user_id, note").eq("pool_id", ctx.pool.id);
+  const noteOf = new Map(((noteRows ?? []) as { user_id: string; note: string }[]).map((n) => [n.user_id, n.note]));
   const guests = (guestRows ?? []) as { user_id: string; display_name: string; email: string; last_sign_in_at: string | null }[];
   const comanagersOf = new Map<string, { manager_id: string; manager_name: string; email: string }[]>();
   for (const c of (comanagers ?? []) as { owner_id: string; manager_id: string; manager_name: string; email: string }[]) {
@@ -66,6 +70,7 @@ export async function AdminRoster({
     return Boolean(a?.password_set && a.name_confirmed);
   };
   const setUpCount = (members ?? []).filter((m) => setUp(m.user_id)).length;
+  const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
   const signedIn = (iso: string | null) =>
     iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: timezone })}` : "Never signed in";
   // Imported entries (Splash) start with a placeholder address nobody can sign in with,
@@ -127,7 +132,7 @@ export async function AdminRoster({
         <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
           <div className="min-w-0">
             <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Players</h2>
-            <p className="mt-0.5 text-sm text-muted">Tap Paid or Unpaid to mark entry fees. Emails are only visible to you.</p>
+            <p className="mt-0.5 text-sm text-muted">Tap Paid or Unpaid to mark entry fees. Emails and notes are only visible to you.</p>
           </div>
           {allEmails && (
             <span className="ml-auto">
@@ -166,83 +171,90 @@ export async function AdminRoster({
         {emailFailed && (
           <p className="border-b border-line py-2 text-sm text-muted">Members&apos; emails can&apos;t be shown right now (the database needs its latest update).</p>
         )}
+        <RosterHeader />
         <ul className="divide-y divide-line">
           {byName.map((m) => (
-            <li key={m.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
-              <span className="min-w-0 flex-1">
+            <li key={m.user_id} className={ROW}>
+              {/* Name, with who's online, the commissioner tag and any co-managers. */}
+              <div className={`${CELL.name} min-w-0`}>
                 <span className="block truncate text-[15px] font-medium">
                   {m.profile.display_name}
                   {/* Green when they're on the site right now (components/PoolPresence). */}
                   <OnlineDot userId={m.user_id} className="ml-1.5 align-middle" />
                   {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
                 </span>
-                {unclaimed(m.user_id) ? (
-                  // Imported, no real email yet: add one here; they then sign in with it.
-                  <details className="mt-0.5">
-                    <summary className="inline-flex cursor-pointer items-center gap-2 text-xs">
-                      <span className="font-semibold text-muted">Imported · no email yet</span>
-                      <span className="font-semibold text-accent">Add email</span>
-                    </summary>
-                    <ActionForm action={assignEntryEmail.bind(null, slug, m.user_id)} className="mt-2 grid gap-2 pb-1 sm:grid-cols-[1fr_1fr_1.5fr_auto]">
-                      <input name="first_name" placeholder="First name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
-                      <input name="last_name" placeholder="Last name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
-                      <input name="email" type="email" required placeholder="Email" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
-                      <SubmitButton pending="Adding…" className="!h-10">Add</SubmitButton>
-                      <label className="flex items-center gap-2 text-xs text-muted sm:col-span-4">
-                        <input type="checkbox" name="send" defaultChecked className="size-4 accent-[var(--accent)]" />
-                        Email them a sign-in link now
-                      </label>
-                    </ActionForm>
-                  </details>
-                ) : emailOf.get(m.user_id) && (
-                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="block truncate text-sm text-muted hover:text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">
-                    {emailOf.get(m.user_id)}
-                  </a>
-                )}
                 {/* Account status: password chosen and name confirmed = set up. */}
-                {accountOf.get(m.user_id) && !unclaimed(m.user_id) && (
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                    {setUp(m.user_id) ? (
-                      <span className="inline-flex items-center gap-0.5 font-semibold text-win">
-                        <CheckIcon className="size-3.5" /> Account set up
-                      </span>
-                    ) : (
-                      <span className="font-semibold text-muted">
-                        {[
-                          !accountOf.get(m.user_id)!.password_set && "No password yet",
-                          !accountOf.get(m.user_id)!.name_confirmed && "Name not confirmed",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    )}
-                    <span className="text-faint">{signedIn(accountOf.get(m.user_id)!.last_sign_in_at)}</span>
+                {accountOf.get(m.user_id) && !unclaimed(m.user_id) && !setUp(m.user_id) && (
+                  <span className="block truncate text-xs font-semibold text-muted">
+                    {[!accountOf.get(m.user_id)!.password_set && "No password yet", !accountOf.get(m.user_id)!.name_confirmed && "Name not confirmed"]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 )}
                 {/* People this player invited to help run their entry. */}
                 {(comanagersOf.get(m.user_id) ?? []).map((c) => (
-                  <span key={c.manager_id} className="mt-0.5 block truncate text-xs text-muted">
+                  <span key={c.manager_id} className="block truncate text-xs text-muted" title={c.email}>
                     <span className="font-semibold">Co-manager:</span> {c.manager_name}
-                    <OnlineDot userId={c.manager_id} className="mx-1 align-middle" /> ·{" "}
-                    <a href={`mailto:${c.email}`} className="hover:text-ink -mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover">{c.email}</a>
+                    <OnlineDot userId={c.manager_id} className="ml-1 align-middle" />
                   </span>
                 ))}
-              </span>
-              <form action={setPaid.bind(null, slug, m.user_id, !m.paid)}>
+              </div>
+
+              <div className={`${CELL.email} min-w-0`}>
+                {unclaimed(m.user_id) ? (
+                  // Imported, no real email yet: add one here; they then sign in with it.
+                  <details>
+                    <summary className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                      <span className="text-muted">No email yet</span>
+                      <span className="font-semibold text-accent">Add email</span>
+                    </summary>
+                    <ActionForm action={assignEntryEmail.bind(null, slug, m.user_id)} className="mt-2 grid gap-2 pb-1">
+                      <input name="first_name" placeholder="First name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <input name="last_name" placeholder="Last name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <input name="email" type="email" required placeholder="Email" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <label className="flex items-center gap-2 text-xs text-muted">
+                        <input type="checkbox" name="send" defaultChecked className="size-4 accent-[var(--accent)]" />
+                        Email them a sign-in link now
+                      </label>
+                      <SubmitButton pending="Adding…" className="!h-10">Add</SubmitButton>
+                    </ActionForm>
+                  </details>
+                ) : emailOf.get(m.user_id) ? (
+                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="-mx-1.5 -my-0.5 block truncate rounded-md px-1.5 py-0.5 text-sm text-muted transition hover:bg-hover hover:text-ink">
+                    {emailOf.get(m.user_id)}
+                  </a>
+                ) : (
+                  <span className="text-sm text-faint">—</span>
+                )}
+              </div>
+
+              <div className={CELL.joined}>
+                <span className="sm:hidden">Joined </span>
+                {joined(m.joined_at)}
+              </div>
+
+              <form action={setPaid.bind(null, slug, m.user_id, !m.paid)} className={CELL.paid}>
                 {/* Visible text is the accessible name (label-in-name); the title says what a tap does. */}
-                <button
-                  className={`inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-sm font-semibold ring-1 transition ${m.paid ? "bg-[var(--win-fill)] text-win ring-win/40" : "bg-bg text-muted ring-line hover:text-ink"}`}
-                  title={m.paid ? "Mark unpaid" : "Mark paid"}
-                >
-                  {m.paid && <CheckIcon className="size-4" />}
-                  {m.paid ? "Paid" : "Unpaid"}
-                </button>
+                <PaidMark paid={m.paid} button />
               </form>
-              {m.user_id !== ctx.user.id && (
-                <form action={removeMember.bind(null, slug, m.user_id)}>
-                  <Button kind="danger" className="!h-10 !bg-bg !px-4 !text-sm ring-1 ring-line">Remove</Button>
-                </form>
-              )}
+
+              <div className={CELL.notes}>
+                <RosterNote initial={noteOf.get(m.user_id) ?? ""} save={setMemberNote.bind(null, slug, m.user_id)} label={`Notes on ${m.profile.display_name}`} />
+              </div>
+
+              <div className={CELL.remove}>
+                {m.user_id !== ctx.user.id && (
+                  <form action={removeMember.bind(null, slug, m.user_id)}>
+                    <button
+                      aria-label={`Remove ${m.profile.display_name}`}
+                      title="Remove from the pool"
+                      className="flex size-10 items-center justify-center rounded-full text-muted transition hover:bg-hover hover:text-loss"
+                    >
+                      <XIcon />
+                    </button>
+                  </form>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -312,7 +324,8 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
   ]);
   const confirmed = new Set(((profiles ?? []) as { id: string; name_confirmed: boolean | null }[]).filter((p) => p.name_confirmed).map((p) => p.id));
   const userOf = new Map(users.map((u) => [u.id, u]));
-  const all = (members ?? []) as { user_id: string; role: string; paid: boolean }[];
+  const all = (members ?? []) as { user_id: string; role: string; paid: boolean; joined_at: string }[];
+  const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
   const setUp = (id: string) => Boolean(userOf.get(id)?.user_metadata?.password_set && confirmed.has(id));
   const fee = Number(ctx.pool.entry_fee);
   const paidCount = all.filter((m) => m.paid).length;
@@ -321,8 +334,6 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
     .sort((a, b) => (a.role === "commissioner" ? -1 : b.role === "commissioner" ? 1 : a.name.localeCompare(b.name)))
     .slice(0, embed.maxRows);
   const email = (name: string) => `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@email.com`;
-  const signedIn = (iso: string | null | undefined) =>
-    iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: timezone })}` : "Never signed in";
   const stat = (label: string, value: string) => (
     <div className="rounded-2xl bg-surface px-4 py-3">
       <div className="text-xs font-medium text-muted">{label}</div>
@@ -346,40 +357,101 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
       <section className="rounded-2xl bg-surface p-4 sm:p-5">
         <div className="border-b border-line pb-3">
           <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Players</h2>
-          <p className="mt-0.5 text-sm text-muted">Tap Paid or Unpaid to mark entry fees. Emails are only visible to you.</p>
+          <p className="mt-0.5 text-sm text-muted">Tap Paid or Unpaid to mark entry fees. Emails and notes are only visible to you.</p>
         </div>
+        <RosterHeader />
         <ul className="divide-y divide-line">
-          {rows.map((m) => {
-            const u = userOf.get(m.user_id);
-            return (
-              <li key={m.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">
-                    {m.name}
-                    {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
+          {rows.map((m, k) => (
+            <li key={m.user_id} className={ROW}>
+              <div className={`${CELL.name} min-w-0`}>
+                <span className="block truncate text-[15px] font-medium">
+                  {m.name}
+                  {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
+                </span>
+              </div>
+              <div className={`${CELL.email} min-w-0 truncate text-sm text-muted`}>{email(m.name)}</div>
+              <div className={CELL.joined}>
+                <span className="sm:hidden">Joined </span>
+                {joined(m.joined_at)}
+              </div>
+              <div className={CELL.paid}>
+                <PaidMark paid={m.paid} />
+              </div>
+              <div className={CELL.notes}>
+                {/* Sample notes (a commissioner's real ones are private). */}
+                <div className={`flex h-10 items-center truncate rounded-[10px] bg-bg px-3 text-sm ring-1 ring-line ${SAMPLE_NOTES[k % SAMPLE_NOTES.length] ? "text-ink" : "text-faint"}`}>
+                  {SAMPLE_NOTES[k % SAMPLE_NOTES.length] || "Add a note"}
+                </div>
+              </div>
+              <div className={CELL.remove}>
+                {m.role !== "commissioner" && (
+                  <span className="flex size-10 items-center justify-center text-muted">
+                    <XIcon />
                   </span>
-                  <span className="block truncate text-sm text-muted">{email(m.name)}</span>
-                  {u && (
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
-                      {setUp(m.user_id) ? (
-                        <span className="inline-flex items-center gap-0.5 font-semibold text-win"><CheckIcon className="size-3.5" /> Account set up</span>
-                      ) : (
-                        <span className="font-semibold text-muted">Not set up yet</span>
-                      )}
-                      <span className="text-faint">{signedIn(u.last_sign_in_at)}</span>
-                    </span>
-                  )}
-                </span>
-                <span className={`inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-sm font-semibold ring-1 ${m.paid ? "bg-[var(--win-fill)] text-win ring-win/40" : "bg-bg text-muted ring-line"}`}>
-                  {m.paid && <CheckIcon className="size-4" />}
-                  {m.paid ? "Paid" : "Unpaid"}
-                </span>
-              </li>
-            );
-          })}
+                )}
+              </div>
+            </li>
+          ))}
         </ul>
         {all.length > rows.length && <p className="pt-3 text-sm text-muted">+ {all.length - rows.length} more players</p>}
       </section>
     </div>
   );
 }
+
+/**
+ * One player per row: Name · Email · Joined · Paid · Notes, and remove at the end. On phones
+ * the name and paid mark share the top line, then the email, the joined date (with remove), and the note.
+ */
+const ROW =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 py-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_7rem_6.5rem_minmax(0,1.6fr)_2.5rem] sm:gap-x-4 sm:py-2";
+const CELL = {
+  name: "col-start-1 row-start-1 sm:col-start-auto sm:row-start-auto",
+  paid: "col-start-2 row-start-1 justify-self-end sm:col-start-auto sm:row-start-auto sm:justify-self-start",
+  email: "col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto",
+  remove: "col-start-2 row-start-3 -my-2 justify-self-end sm:col-start-auto sm:row-start-auto sm:my-0",
+  joined: "col-start-1 row-start-3 text-sm tabular-nums text-muted sm:col-start-auto sm:row-start-auto",
+  notes: "col-span-2 row-start-4 sm:col-span-1 sm:row-start-auto",
+};
+
+function RosterHeader() {
+  return (
+    <div className="hidden grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_7rem_6.5rem_minmax(0,1.6fr)_2.5rem] gap-x-4 border-b border-line py-2 text-xs font-semibold uppercase tracking-wide text-muted sm:grid">
+      <span>Name</span>
+      <span>Email</span>
+      <span>Joined</span>
+      <span>Paid</span>
+      <span>Notes</span>
+      <span />
+    </div>
+  );
+}
+
+function PaidMark({ paid, button = false }: { paid: boolean; button?: boolean }) {
+  const cls = `inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-sm font-semibold ring-1 transition ${
+    paid ? "bg-[var(--win-fill)] text-win ring-win/40" : `bg-bg text-muted ring-line ${button ? "hover:text-ink" : ""}`
+  }`;
+  const body = (
+    <>
+      {paid && <CheckIcon className="size-4" />}
+      {paid ? "Paid" : "Unpaid"}
+    </>
+  );
+  return button ? (
+    <button className={cls} title={paid ? "Mark unpaid" : "Mark paid"}>
+      {body}
+    </button>
+  ) : (
+    <span className={cls}>{body}</span>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" className="size-4">
+      <path d="M5.5 5.5l9 9m0-9l-9 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const SAMPLE_NOTES = ["Paid by Venmo", "", "Pays cash at lunch", "Owes $25", "", "Second entry next year"];
