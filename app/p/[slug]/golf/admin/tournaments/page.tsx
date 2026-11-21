@@ -5,7 +5,7 @@ import { Empty } from "@/components/ui";
 import { tzAbbrev } from "@/lib/format";
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Field, Panel, SectionLabel, inputClass } from "@/components/ui";
+import { Field, Panel, inputClass } from "@/components/ui";
 import { getGolfContext, getGolfEvents, golfFormat, type GolfEvent } from "@/lib/golf";
 import { MAJORS, majorsSettings, purseOverride } from "@/lib/golfMajors";
 import { addMajor, removeMajor, setEventPurse, setMajorPicksOpen, updateGolfEvent } from "../actions";
@@ -31,7 +31,7 @@ export default async function GolfTournamentsPage({ params }: PageProps<"/p/[slu
   return (
     <>
       <p className="mb-3 text-sm text-muted">Lock times, status and results update from ESPN every 10 minutes.</p>
-      <ol className="divide-y divide-line border-y border-line">
+      <ol className="divide-y divide-line rounded-2xl bg-surface px-4 sm:px-5">
         {events.map((ev) => {
           if (ev.status !== "canceled") week++;
           return (
@@ -73,21 +73,36 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
   const now = Date.now();
   const isOpen = (e: GolfEvent) =>
     e.status === "scheduled" && !!e.start_at && now < Date.parse(e.start_at) && !!e.picks_open_at && Date.parse(e.picks_open_at) <= now;
-  const field = inputClass;
+  // Inputs sit on the cards, so they take the page color with an outline.
+  const field = `${inputClass} ring-1 ring-line`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-surface p-4 sm:p-5">
+        <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Getting each tournament ready</h2>
+        <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-muted">
+          <li>Build the field once ESPN posts it (usually the week before).</li>
+          <li>Check the {s.contest === "salary" ? "salaries" : "tiers"} and adjust any golfer.</li>
+          <li>Open picks. They lock at the first tee time.</li>
+        </ol>
+        {s.omit.count > 0 && (
+          <p className="mt-2 text-sm text-ink">
+            The top {s.omit.count} golfers by {s.omit.by === "odds" ? "odds to win" : "world rank"} are left out of each field you build (change this in Settings).
+          </p>
+        )}
+        <p className="mt-2 text-xs text-muted">Tee times, the field and scores update from ESPN every 10 minutes.</p>
+      </div>
       {events.length === 0 ? (
         <Empty>{single ? "Add the tournament below." : "Add the majors this pool covers below."}</Empty>
       ) : (
-        <ol className="divide-y divide-line border-y border-line">
+        <ol className="space-y-3">
           {events.map((ev) => {
             const n = fieldCount.get(ev.id) ?? 0;
             const started = ev.status !== "scheduled";
             return (
-              <li key={ev.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <li key={ev.id} className="grid gap-3 rounded-2xl bg-surface p-4 sm:p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="min-w-0">
-                  <div className="font-semibold">{ev.name}</div>
+                  <div className="text-base font-bold text-ink">{ev.name}</div>
                   <div className="text-xs tabular-nums text-muted">
                     {ev.start_at ? `Locks ${formatInTimeZone(ev.start_at, ctx.displayTz, "EEE MMM d, h:mm a")} ${tzAbbrev(ev.start_at, ctx.displayTz)}` : "Tee times not posted"}
                     {" · "}
@@ -105,7 +120,7 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
                         inputMode="numeric"
                         defaultValue={purseOverride(ctx.pool.settings, ev.id) ?? ""}
                         placeholder={info.get(ev.id)?.purse ? String(info.get(ev.id)!.purse) : "7400000"}
-                        className={`${field.replace("bg-surface", "bg-bg")} !h-8 w-32 tabular-nums`}
+                        className={`${field.replace("bg-surface", "bg-bg")} !h-9 w-36 tabular-nums`}
                       />
                     </label>
                     <SubmitButton kind="secondary" pending="Saving…" className="!min-h-8 !px-3 !text-xs">
@@ -126,7 +141,7 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
                   </Link>
                   {!started && n > 0 && (
                     <ActionForm action={setMajorPicksOpen.bind(null, slug, ev.id, !isOpen(ev))}>
-                      <SubmitButton kind={isOpen(ev) ? "secondary" : "primary"} pending="Saving…" className="!min-h-9 !px-3 !text-sm">
+                      <SubmitButton kind={isOpen(ev) ? "secondary" : "accent"} pending="Saving…" className="!min-h-9 !px-3 !text-sm">
                         {isOpen(ev) ? "Close picks" : "Open picks"}
                       </SubmitButton>
                     </ActionForm>
@@ -146,8 +161,8 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
       )}
 
       {single && events.length === 0 && (
-        <Panel className="p-4">
-          <SectionLabel>Add the tournament</SectionLabel>
+        <Panel className="p-4 sm:p-5">
+          <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Add the tournament</h2>
           <ActionForm action={addMajor.bind(null, slug)} className="mt-2 grid gap-3 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:items-end">
             <input type="hidden" name="major" value="event" />
             <Field label="Tournament name">
@@ -156,15 +171,15 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
             <Field label="ESPN tournament id" hint="The number at the end of its ESPN leaderboard link (…/tournamentId/401850981).">
               <input name="espn_id" inputMode="numeric" required className={`${field.replace("bg-surface", "bg-bg")} tabular-nums`} />
             </Field>
-            <SubmitButton kind="primary" pending="Adding…">
+            <SubmitButton kind="accent" pending="Adding…">
               Add
             </SubmitButton>
           </ActionForm>
         </Panel>
       )}
       {!single && missing.length > 0 && (
-        <Panel className="p-4">
-          <SectionLabel>Add a major</SectionLabel>
+        <Panel className="p-4 sm:p-5">
+          <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Add a major</h2>
           <ActionForm action={addMajor.bind(null, slug)} className="mt-2 grid gap-3 sm:grid-cols-[14rem_minmax(0,1fr)_auto] sm:items-end">
             <Field label="Major">
               <select name="major" className={field.replace("bg-surface", "bg-bg")}>
@@ -178,19 +193,15 @@ async function MajorsTournaments({ slug, ctx, events }: { slug: string; ctx: Awa
             <Field label="ESPN tournament id" hint="The number at the end of its ESPN leaderboard link (…/tournamentId/401811937).">
               <input name="espn_id" inputMode="numeric" required className={`${field.replace("bg-surface", "bg-bg")} tabular-nums`} />
             </Field>
-            <SubmitButton kind="primary" pending="Adding…">
+            <SubmitButton kind="accent" pending="Adding…">
               Add
             </SubmitButton>
           </ActionForm>
         </Panel>
       )}
-      <p className="text-sm text-muted">
-        Tee times, the field and scores update from ESPN every 10 minutes. Build each major&apos;s field once ESPN posts it (usually the week before), check it,
-        then open picks. Picks lock at the first tee time.
-      </p>
     </div>
   );
 }
 
 const buttonLink =
-  "inline-flex min-h-9 items-center rounded-full border border-line px-3 text-sm font-semibold text-ink hover:bg-surface";
+  "inline-flex min-h-9 items-center rounded-full bg-bg px-3 text-sm font-semibold text-ink ring-1 ring-line hover:bg-hover";

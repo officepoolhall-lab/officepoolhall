@@ -5,7 +5,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm, SubmitButton, type ActionState } from "@/components/ActionForm";
 import { Matchup } from "@/components/Matchup";
-import { Button, Field, SectionLabel, buttonClass, chipClass, inputClass } from "@/components/ui";
+import { Button, Field, buttonClass, chipClass, inputClass } from "@/components/ui";
 import { dayKey, dayLabel, formatSpread, gameTime } from "@/lib/format";
 import { gameDateZone } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
@@ -65,9 +65,9 @@ const LOCAL_INPUT = "yyyy-MM-dd'T'HH:mm";
 const NATIONAL = /^(ESPN|ESPN2|ESPNU|ABC|CBS|FOX|FS1|TNT|TBS|truTV|NBC|Peacock|BTN|SECN|ACCN|CBSSN)\b/i;
 
 // Filter controls size to their content instead of filling the row.
-const filterInput = inputClass.replace("w-full ", "");
+const filterInput = `${inputClass.replace("w-full ", "").replace("bg-surface", "bg-bg")} ring-1 ring-line`;
 // Inputs inside the bg-surface manual-entry panel take the page color to stay visible.
-const panelInput = inputClass.replace("bg-surface", "bg-bg");
+const panelInput = `${inputClass.replace("bg-surface", "bg-bg")} ring-1 ring-line`;
 const smallButton = "!px-4 !text-sm";
 
 export function SlateEditor({
@@ -159,9 +159,9 @@ export function SlateEditor({
         )}
       </div>
 
-      <section>
-        <div className="flex items-baseline gap-2 border-b border-line pb-2">
-          <SectionLabel>On this slate</SectionLabel>
+      <section className="rounded-2xl bg-surface p-4 sm:p-5">
+        <div className="flex flex-wrap items-baseline gap-2 border-b border-line pb-2">
+          <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Games this week</h2>
           <span className="text-xs text-muted tabular-nums">
             <span className={`font-semibold ${shortBy ? "text-loss" : "text-ink"}`}>{onSlate.length}</span>
             {aim ? (
@@ -175,7 +175,7 @@ export function SlateEditor({
           </span>
         </div>
         {onSlate.length === 0 ? (
-          <p className="py-6 text-sm text-muted">No games yet. Add some below.</p>
+          <p className="py-6 text-sm text-muted">No games yet. Add some from the list below.</p>
         ) : (
           <ul className="divide-y divide-line">
             {onSlate.map((g) => (
@@ -224,19 +224,20 @@ export function SlateEditor({
             </p>
           )}
           <div className="flex flex-wrap items-start gap-2">
-            <ActionButton action={publishSlate.bind(null, slug, slateId)} kind="primary" pendingLabel="Publishing…">
-              Publish slate
+            <ActionButton action={publishSlate.bind(null, slug, slateId)} kind="accent" pendingLabel="Publishing…">
+              Publish the week
             </ActionButton>
             <form action={deleteSlate.bind(null, slug, slateId)}>
-              <Button kind="danger">Delete draft</Button>
+              <Button kind="danger" className="!bg-bg ring-1 ring-line">Delete draft</Button>
             </form>
           </div>
           {shortBy > 0 && <p className="text-xs text-muted">Add {shortBy} more game{shortBy === 1 ? "" : "s"} before publishing.</p>}
         </div>
       </section>
 
-      <section className={selected.size > 0 ? (addResult?.error ? "pb-32" : "pb-20") : ""}>
-        <SectionLabel className="mb-3">Add games</SectionLabel>
+      <section className={`rounded-2xl bg-surface p-4 sm:p-5 ${selected.size > 0 ? (addResult?.error ? "mb-32" : "mb-20") : ""}`}>
+        <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Add games</h2>
+        <p className="mb-3 mt-0.5 text-sm text-muted">Tap games to select them, then add them to the week together.</p>
         {!showFilters ? (
           candidates.length > 0 && (
             <div className="mb-3">
@@ -309,7 +310,7 @@ export function SlateEditor({
                     placeholder="—"
                     aria-label={`Home line for ${c.away.short_name ?? c.away.name} at ${c.home.short_name ?? c.home.name}`}
                     className={`h-11 w-16 shrink-0 rounded-[10px] px-2 text-right text-[15px] font-semibold tabular-nums outline-none placeholder:text-muted focus:ring-2 focus:ring-accent ${
-                      on ? "bg-accent/15 text-accent ring-1 ring-accent" : "bg-surface text-ink"
+                      on ? "bg-accent/15 text-accent ring-1 ring-accent" : "bg-bg text-ink ring-1 ring-line"
                     } ${c.id in lineEdits && "error" in parseSpread(lineEdits[c.id]) ? "!ring-loss" : ""}`}
                   />
                 ) : null}
@@ -392,7 +393,7 @@ function SpreadInput({ slug, slateId, gameId, value, homeAbbr }: { slug: string;
           inputMode="decimal"
           placeholder="—"
           aria-label={`Home spread (${homeAbbr ?? "home"})`}
-          className={`h-11 w-16 rounded-[10px] bg-surface px-2 text-right text-[15px] font-semibold tabular-nums text-ink outline-none placeholder:text-muted focus:ring-2 focus:ring-accent ${
+          className={`h-11 w-16 rounded-[10px] bg-bg px-2 text-right ring-1 ring-line text-[15px] font-semibold tabular-nums text-ink outline-none placeholder:text-muted focus:ring-2 focus:ring-accent ${
             error ? "ring-1 ring-loss" : ""
           } ${pending ? "opacity-50" : ""}`}
           onBlur={(e) => {

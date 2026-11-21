@@ -9,7 +9,7 @@ type Tab = { href: string; label: string; short?: string; phone: "main" | "more"
 
 /**
  * Tabs under the header. Phones: a sticky row of the four main tabs plus "More" (Scoreboard,
- * Message Board, Admin) so each tab gets room and readable text. Wider screens: every tab as a pill.
+ * Message Board, Commissioner) so each tab gets room and readable text. Wider screens: every tab as a pill.
  */
 export function PoolNav({ slug, sport, isCommissioner, week, majors = false }: { slug: string; sport: string; isCommissioner: boolean; week?: number; majors?: boolean }) {
   const pathname = usePathname();
@@ -25,7 +25,7 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false }: {
         // Majors pools show each entry's golfers on Standings instead of a grid.
         ...(majors ? [] : [{ href: `${g}/grid`, label: "League Grid", short: "Grid", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/grid`) }]),
         { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
-        ...(isCommissioner ? [{ href: `${g}/admin`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/admin`) }] : []),
+        ...(isCommissioner ? [{ href: `${g}/admin`, label: "Commissioner", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/admin`) }] : []),
       ]
     : [
         { href: base, label: "Home", phone: "main", match: (p) => p === base },
@@ -34,7 +34,7 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false }: {
         { href: `${base}/grid/${week ?? 1}`, label: "League Grid", short: "Grid", phone: "main", match: (p) => p.startsWith(`${base}/grid`) },
         { href: `${base}/scoreboard`, label: "Scoreboard", phone: "more", match: (p) => p.startsWith(`${base}/scoreboard`) },
         { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
-        ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Admin", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
+        ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Commissioner", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
       ];
   const main = tabs.filter((t) => t.phone === "main");
   const more = tabs.filter((t) => t.phone === "more");

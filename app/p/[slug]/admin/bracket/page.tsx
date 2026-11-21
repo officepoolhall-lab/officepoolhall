@@ -3,7 +3,7 @@ import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { Field, Panel, SectionLabel, inputClass } from "@/components/ui";
+import { Field, Panel, inputClass } from "@/components/ui";
 import { ROUNDS, SEED_ORDER, gameKey, gameTeams, gamesIn } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { windowLabel } from "@/lib/format";
@@ -13,7 +13,7 @@ import { deleteBracket, saveBracket, saveBracketResults } from "../actions";
 export const metadata: Metadata = { title: "Bracket" };
 
 const LOCAL_INPUT = "yyyy-MM-dd'T'HH:mm";
-const panelInput = `${inputClass} !bg-bg`;
+const panelInput = `${inputClass} !bg-bg ring-1 ring-line`;
 const DEFAULT_REGIONS = ["East", "West", "South", "Midwest"];
 
 /**
@@ -102,7 +102,7 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
           Set up the NCAA Tournament once the field is announced. Players fill out a bracket from the First Round on; points grow by round and
           by seed, so upsets pay more.
         </p>
-        <Panel className="p-4">{setup}</Panel>
+        <Panel className="p-4 sm:p-5">{setup}</Panel>
       </div>
     );
   }
@@ -127,8 +127,8 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
       </div>
 
       {/* Results: each game's winner, round by round. A later round lists its teams once the games before it have winners. */}
-      <Panel className="p-4">
-        <SectionLabel className="mb-2">Results</SectionLabel>
+      <Panel className="p-4 sm:p-5">
+        <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Results</h2>
         <ActionForm action={saveBracketResults.bind(null, slug, bracket.id)} className="space-y-3">
           {ROUNDS.map(({ round, name }) => {
             const done = Array.from({ length: gamesIn(round) }, (_, g) => bracket.results[gameKey(round, g)]).filter(Boolean).length;
@@ -171,7 +171,7 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
 
       <details className="group">
         <summary className="cursor-pointer text-sm font-medium text-accent">Edit the field, regions or lock time</summary>
-        <Panel className="mt-3 p-4">{setup}</Panel>
+        <Panel className="mt-3 p-4 sm:p-5">{setup}</Panel>
       </details>
     </div>
   );

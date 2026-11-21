@@ -16,6 +16,7 @@ export default async function GolfSettingsPage({ params }: PageProps<"/p/[slug]/
     const s = majorsSettings(ctx.pool.settings);
     const form: MajorsFormSettings = {
       contest: s.contest,
+      omit: s.omit,
       standings: s.standings,
       tiers: { count: s.tiers.count, counting: s.tiers.counting, sizes: s.tiers.sizes, picks: s.tiers.picks, scoring: s.tiers.scoring, source: s.tiers.source, rankWeight: s.tiers.rankWeight },
       salary: { budget: s.salary.budget, roster: s.salary.roster, rankWeight: s.salary.rankWeight, source: s.salary.source },

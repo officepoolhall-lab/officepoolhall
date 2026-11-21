@@ -162,10 +162,10 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
   );
 }
 
-/** Golf: which tournaments the pool covers. Tiers, salaries and scoring are set in the pool's Admin afterwards. */
+/** Golf: which tournaments the pool covers. Tiers, salaries and scoring are set on the pool's Commissioner page afterwards. */
 function GolfOptions({ template, scope, onScope }: { template: Template; scope: string; onScope: (v: string) => void }) {
   return (
-    <SettingsSection title="Tournaments" description="Tiers, salaries and scoring can be adjusted in the pool's Admin after it's created.">
+    <SettingsSection title="Tournaments" description="Tiers, salaries and scoring can be adjusted on the pool's Commissioner page after it's created.">
       <SettingRow label="Covers" stack>
         <OptionCards
           ariaLabel="Tournaments"

@@ -56,14 +56,19 @@ export default async function MajorFieldPage({ params, searchParams }: PageProps
       </div>
 
       {!locked && (
-        <ActionForm action={buildMajorField.bind(null, slug, event.id)} className="flex flex-wrap items-center gap-3">
-          <SubmitButton kind={golfers.length ? "secondary" : "primary"} pending="Building…" disabled={!espnCount}>
-            {golfers.length ? "Rebuild the field" : "Build the field"}
-          </SubmitButton>
-          <span className="text-xs text-muted">
-            Uses ESPN&apos;s field with {sourceLabel}.{golfers.length ? " Rebuilding replaces your edits." : ""}
-          </span>
-        </ActionForm>
+        <div className="rounded-2xl bg-surface p-4 sm:p-5">
+          <h2 className="text-base font-bold tracking-[-0.01em] text-ink">{golfers.length ? "Rebuild the field" : "Build the field"}</h2>
+          <p className="mt-0.5 text-sm text-muted">
+            Uses ESPN&apos;s field with {sourceLabel}.
+            {s.omit.count > 0 && ` The top ${s.omit.count} by ${s.omit.by === "odds" ? "odds to win" : "world rank"} are left out.`}
+            {golfers.length ? " Rebuilding replaces any changes you've made below." : ""}
+          </p>
+          <ActionForm action={buildMajorField.bind(null, slug, event.id)} className="mt-3">
+            <SubmitButton kind={golfers.length ? "secondary" : "accent"} pending="Building…" disabled={!espnCount} className={golfers.length ? "!bg-bg ring-1 ring-line" : ""}>
+              {golfers.length ? "Rebuild the field" : "Build the field"}
+            </SubmitButton>
+          </ActionForm>
+        </div>
       )}
 
       {golfers.length === 0 ? (

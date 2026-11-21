@@ -21,7 +21,7 @@ const BOOKMAKERS: [string, string][] = [
   ["betrivers", "BetRivers"],
 ];
 
-// Turning the upset bonus on starts from the guidelines' tiers; editing tiers isn't offered yet.
+// Turning the upset bonus on starts from the guidelines' tiers (+1 over 80%, +2 over 90%, +3 over 95%).
 const DEFAULT_UPSET_TIERS = PRESETS.ncaab_confidence.settings.upset_bonus.tiers;
 const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
 const num = (n: number) => (Number.isInteger(n) ? String(n) : n === 0.5 ? "½" : String(n));
@@ -41,6 +41,7 @@ function summary(s: PoolSettings): string[] {
   } else {
     lines.push(`Win ${num(s.scoring.win)} · Push ${num(s.scoring.push)} · Loss ${num(s.scoring.loss)}, ranked by ${s.standings_by === "points" ? "points" : "record"}.`);
   }
+  if (s.upset_bonus) lines.push(`Upset bonus: ${[...s.upset_bonus.tiers].sort((a, b) => a.min_share - b.min_share).map((t) => `+${num(t.bonus)} over ${pct(t.min_share)}`).join(", ")}.`);
   lines.push(
     s.lock.mode === "per_game"
       ? "Each game locks when it starts."
@@ -192,14 +193,56 @@ export function SettingsFields({ initial, lockedCore = false }: { initial: PoolS
         <SettingRow
           label="Upset bonus"
           locked={locked}
-          hint={
-            s.upset_bonus
-              ? `Extra points for a correct pick most of the pool went against: ${s.upset_bonus.tiers.map((t) => `+${t.bonus} over ${pct(t.min_share)}`).join(", ")} of the pool's ${s.confidence ? "points" : "picks"} on the other side.`
-              : "Extra points for a correct pick most of the pool went against."
-          }
+          hint={`Extra points for a correct pick most of the pool went against, by how much of the pool's ${s.confidence ? "points" : "picks"} were on the other side.`}
         >
           <Toggle label="Upset bonus" checked={Boolean(s.upset_bonus)} onChange={(v) => set({ upset_bonus: v ? { tiers: [...DEFAULT_UPSET_TIERS] } : null })} />
         </SettingRow>
+        {s.upset_bonus && (
+          <SettingRow stack locked={locked} label="Bonus amounts" hint="The biggest bonus a pick qualifies for is the one it gets.">
+            <div className="space-y-2">
+              {[...s.upset_bonus.tiers]
+                .map((t, i) => ({ t, i }))
+                .sort((a, b) => a.t.min_share - b.t.min_share)
+                .map(({ t, i }) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-semibold text-ink">+</span>
+                    <input
+                      type="number" min={0.5} step={0.5} aria-label="Bonus points" value={t.bonus}
+                      onChange={(e) => set({ upset_bonus: { tiers: s.upset_bonus!.tiers.map((x, j) => (j === i ? { ...x, bonus: Number(e.target.value) } : x)) } })}
+                      className={`${settingInput} w-20 text-center tabular-nums`}
+                    />
+                    <span className="text-muted">when more than</span>
+                    <input
+                      type="number" min={51} max={99} step={1} aria-label="Share on the other side (%)" value={Math.round(t.min_share * 100)}
+                      onChange={(e) => set({ upset_bonus: { tiers: s.upset_bonus!.tiers.map((x, j) => (j === i ? { ...x, min_share: Number(e.target.value) / 100 } : x)) } })}
+                      className={`${settingInput} w-20 text-center tabular-nums`}
+                    />
+                    <span className="text-muted">% were on the other side</span>
+                    {s.upset_bonus!.tiers.length > 1 && (
+                      <button
+                        type="button" aria-label="Remove this bonus" className="ml-auto rounded-full px-2 py-1 text-xs font-semibold text-muted hover:bg-hover hover:text-loss"
+                        onClick={() => set({ upset_bonus: { tiers: s.upset_bonus!.tiers.filter((_, j) => j !== i) } })}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              {s.upset_bonus.tiers.length < 6 && (
+                <button
+                  type="button" className="rounded-full px-3 py-1.5 text-sm font-semibold text-accent hover:bg-hover"
+                  onClick={() => {
+                    const top = Math.max(...s.upset_bonus!.tiers.map((t) => t.min_share));
+                    const bonus = Math.max(...s.upset_bonus!.tiers.map((t) => t.bonus)) + 1;
+                    set({ upset_bonus: { tiers: [...s.upset_bonus!.tiers, { min_share: Math.min(0.99, Math.round((top + 0.03) * 100) / 100), bonus }] } });
+                  }}
+                >
+                  + Add a bonus level
+                </button>
+              )}
+            </div>
+          </SettingRow>
+        )}
         <SettingRow label="A player who misses a whole week" locked={locked}>
           <Segmented
             ariaLabel="A player who misses a whole week"

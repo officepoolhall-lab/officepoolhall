@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ActionForm, SubmitButton, type ActionState } from "@/components/ActionForm";
-import { OptionCards, SettingRow, SettingsSection, settingInput } from "@/components/SettingsUI";
+import { OptionCards, Segmented, SettingRow, SettingsSection, Toggle, settingInput } from "@/components/SettingsUI";
 
 // The golf pools' settings, in the same layout as the other pools': one card per topic, a plain
 // question per setting. The form field names are what the save actions read.
@@ -69,6 +69,7 @@ export function OneAndDoneSettings({ action, name, fee, missed }: { action: Acti
 
 export type MajorsFormSettings = {
   contest: "tiers" | "salary";
+  omit: { count: number; by: "odds" | "rank" };
   standings: "cumulative" | "each";
   tiers: { count: number; counting: number; sizes: number[]; picks: number[]; scoring: "to_par" | "earnings"; source: "rank" | "odds" | "blend" | "custom"; rankWeight: number };
   salary: { budget: number; roster: number; rankWeight: number; source: "blend" | "custom" };
@@ -94,6 +95,9 @@ export function MajorsSettings({
   const [scoring, setScoring] = useState(s.tiers.scoring);
   const [source, setSource] = useState(s.tiers.source);
   const [salarySource, setSalarySource] = useState(s.salary.source);
+  const [omitOn, setOmitOn] = useState(s.omit.count > 0);
+  const [omitCount, setOmitCount] = useState(s.omit.count || 10);
+  const [omitBy, setOmitBy] = useState(s.omit.by);
   const picked = s.tiers.picks.reduce((a, b) => a + b, 0);
 
   return (
@@ -127,8 +131,42 @@ export function MajorsSettings({
             />
           </SettingRow>
         )}
+        <SettingRow
+          label="Leave out the top golfers"
+          hint={
+            omitOn
+              ? `The ${omitCount} favorites ${omitBy === "odds" ? "by odds to win" : "by world rank"} aren't in the field, so nobody can pick them. Applies when you build a tournament's field.`
+              : "Take the favorites out of the field, so lineups have to dig deeper."
+          }
+        >
+          <Toggle label="Leave out the top golfers" checked={omitOn} onChange={setOmitOn} />
+        </SettingRow>
+        {omitOn && (
+          <SettingRow label="Golfers to leave out">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted">Top</span>
+              <input
+                type="number" min={1} max={50} aria-label="How many to leave out" value={omitCount}
+                onChange={(e) => setOmitCount(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+                className={`${settingInput} w-20 text-center tabular-nums`}
+              />
+              <Segmented
+                ariaLabel="Leave out by"
+                value={omitBy}
+                onChange={setOmitBy}
+                options={[
+                  { value: "odds", label: "Odds to win" },
+                  { value: "rank", label: "World rank" },
+                ]}
+              />
+            </div>
+          </SettingRow>
+        )}
       </SettingsSection>
       {/* Hidden fields sit outside the cards (their rows are separated by lines). */}
+      {omitOn && <input type="hidden" name="omit_on" value="on" />}
+      <input type="hidden" name="omit_count" value={omitCount} />
+      <input type="hidden" name="omit_by" value={omitBy} />
       {single && <input type="hidden" name="standings" value={standings} />}
       <input type="hidden" name="tier_picks" value={s.tiers.picks.join(",")} />
       {source !== "blend" && <input type="hidden" name="tier_rank_weight" value={Math.round(s.tiers.rankWeight * 100)} />}

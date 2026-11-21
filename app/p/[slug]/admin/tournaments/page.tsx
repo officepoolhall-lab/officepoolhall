@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { formatInTimeZone } from "date-fns-tz";
 import { ActionButton } from "@/components/ActionButton";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
-import { ChevronIcon, Panel, SectionLabel, TeamLogo, inputClass } from "@/components/ui";
+import { ChevronIcon, Panel, TeamLogo, inputClass } from "@/components/ui";
 import { windowLabel } from "@/lib/format";
 import { requireCommissioner } from "@/lib/pool";
 import { PLACES, SCORING_LABEL, getTournamentPicks, getTournaments, placeLabel } from "@/lib/tournaments";
@@ -12,7 +12,7 @@ import { TournamentForm } from "./TournamentForm";
 export const metadata: Metadata = { title: "Tournaments" };
 
 const LOCAL_INPUT = "yyyy-MM-dd'T'HH:mm";
-const panelInput = `${inputClass} !bg-bg`;
+const panelInput = `${inputClass} !bg-bg ring-1 ring-line`;
 
 /**
  * In-season tournament champion picks: add each tournament with its field, week and lock time;
@@ -76,7 +76,7 @@ export default async function TournamentsAdminPage({ params }: PageProps<"/p/[sl
 
             {/* Results: one place per team. Picks score as soon as a champion is set. */}
             <section>
-              <SectionLabel className="mb-2">Results</SectionLabel>
+              <h2 className="mb-1 text-base font-bold tracking-[-0.01em] text-ink">Results</h2>
               <ActionForm action={saveTournamentResults.bind(null, slug, t.id)} className="space-y-3">
                 <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
                   {t.teams.map((team) => {
@@ -145,8 +145,8 @@ export default async function TournamentsAdminPage({ params }: PageProps<"/p/[sl
         );
       })}
 
-      <Panel className="p-4">
-        <h2 className="mb-3 text-[15px] font-semibold">Add a tournament</h2>
+      <Panel className="p-4 sm:p-5">
+        <h2 className="mb-3 text-base font-bold tracking-[-0.01em] text-ink">Add a tournament</h2>
         <TournamentForm action={saveTournament.bind(null, slug, null)} teams={teams ?? []} weeks={weeks} submitLabel="Add tournament" />
       </Panel>
     </div>
