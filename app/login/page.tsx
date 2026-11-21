@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-12">
       <div className="mb-8 text-center">
         <Logo />
-        <p className="mt-3 text-sm text-muted">College pick&apos;em, among friends.</p>
+        <p className="mt-3 text-sm text-muted">Pick&apos;em pools for football, basketball and golf.</p>
       </div>
       <LoginForm next={next} initialError={typeof params.error === "string" ? params.error : undefined} />
     </main>

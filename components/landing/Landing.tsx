@@ -1,0 +1,213 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { SportIcon } from "@/components/SportIcon";
+import { LinkButton, Wordmark } from "@/components/ui";
+import type { PoolKind } from "@/lib/poolType";
+import { GolfPreview, GridPreview, PicksPreview, StandingsPreview } from "./Previews";
+
+// The page a signed-out visitor sees at the site's address: what it is, the pools it runs, how it
+// works, a look at the pages, then start a pool or sign in. (Signed-in players go to My Pools.)
+
+const START = "/login?next=%2Fpools%2Fnew";
+const SIGN_IN = "/login";
+
+const POOL_TYPES: { kind: PoolKind; name: string; leagues: string; text: string }[] = [
+  { kind: "football", name: "Supercontest", leagues: "NFL · College football", text: "Pick a set number of games against the spread each week. Lines lock when the week is published." },
+  { kind: "football", name: "Confidence pool", leagues: "NFL · College football · College basketball", text: "Pick every game and rank them. Your surest pick is worth the most points." },
+  { kind: "football", name: "Pick'em", leagues: "NFL · College football", text: "Straight-up winners, no spreads. Easy for anyone to jump into." },
+  { kind: "basketball", name: "College basketball", leagues: "Weekly slates · Early-season tournaments", text: "Weekly picks through the season, with bonus points for calling tournament champions." },
+  { kind: "golf", name: "PGA One-and-Done", leagues: "Full PGA Tour season", text: "One golfer a week, each golfer once all season. Standings are the prize money your golfers win." },
+  { kind: "golf", name: "Majors and tournament pools", leagues: "The four majors · Any tour event", text: "Pick a lineup from tiers or under a salary cap. Score to par or prize money decides it." },
+];
+
+const STEPS = [
+  { title: "Start a pool", text: "Choose the sport and format, set the rules, and you're the commissioner." },
+  { title: "Invite your people", text: "Share one link by text or email. Friends sign in with their email, no passwords." },
+  { title: "Picks lock and grade themselves", text: "Games lock at kickoff, scores come in live, and standings update the moment games go final." },
+];
+
+const FEATURES: { title: string; text: string }[] = [
+  { title: "Live scores", text: "Game clocks, scores and the last play on every pick while games are on." },
+  { title: "Automatic locks and grading", text: "Each game locks at its own kickoff. Wins, losses and pushes are graded for you." },
+  { title: "League Grid", text: "Everyone's picks side by side, revealed as each game kicks off." },
+  { title: "Weekly and season standings", text: "Week and season leaders, each player's pick history, and how the pool picked each game." },
+  { title: "Works on any phone", text: "Built for picking on the go. Times show in each player's own time zone." },
+  { title: "Co-managers and guests", text: "Let someone else run an entry, or add followers who can watch without playing." },
+  { title: "Message board", text: "Trash talk and announcements stay with the pool." },
+  { title: "Commissioner tools", text: "Publish slates, adjust a result, and manage the roster from one place." },
+];
+
+function Section({ label, title, children, className = "" }: { label: string; title: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={`mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 ${className}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide text-accent">{label}</div>
+      <h2 className="mt-2 max-w-2xl text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">{title}</h2>
+      <div className="mt-8 sm:mt-10">{children}</div>
+    </section>
+  );
+}
+
+export function Landing() {
+  return (
+    <div className="flex min-h-full flex-col">
+      <header className="sticky top-0 z-30 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4 sm:px-6">
+          <Link href="/" className="flex h-11 items-center text-ink">
+            <Wordmark className="text-[19px]" />
+          </Link>
+          <nav className="ml-auto flex items-center gap-1 sm:gap-2">
+            <Link href={SIGN_IN} className="flex h-11 items-center rounded-full px-3 text-sm font-semibold text-muted hover:bg-surface hover:text-ink">
+              Sign in
+            </Link>
+            <LinkButton href={START} kind="accent" className="!h-9 !px-4 !text-sm">
+              Start a pool
+            </LinkButton>
+          </nav>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        {/* Hero: the pitch and both ways in, with a look at My Picks. */}
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16 lg:pb-24 lg:pt-24">
+          <div>
+            <div className="flex flex-wrap gap-2">
+              {(["football", "basketball", "golf"] as const).map((k) => (
+                <span key={k} className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted">
+                  <SportIcon kind={k} className="size-3.5 text-accent" />
+                  {k === "football" ? "Football" : k === "basketball" ? "Basketball" : "Golf"}
+                </span>
+              ))}
+            </div>
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">
+              Your office pool,
+              <br />
+              <span className="text-accent">without the spreadsheet.</span>
+            </h1>
+            <p className="mt-5 max-w-xl text-lg text-muted">
+              Pick&apos;em pools for college football, the NFL, college basketball and golf. Picks lock at kickoff, scores update live, and the
+              standings take care of themselves.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <LinkButton href={START} kind="accent" className="!h-12 !px-6">
+                Start a pool
+              </LinkButton>
+              <LinkButton href={SIGN_IN} kind="secondary" className="!h-12 !px-6">
+                Sign in
+              </LinkButton>
+            </div>
+            <p className="mt-4 text-sm text-muted">Got an invite? Open the link from your commissioner to join their pool.</p>
+          </div>
+          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+            <PicksPreview />
+          </div>
+        </section>
+
+        <div className="border-t border-line bg-surface/50">
+          <Section label="Pool types" title="Every way your group likes to pick.">
+            <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+              {POOL_TYPES.map((p) => (
+                <div key={p.name} className="flex gap-4">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white dark:text-black">
+                    <SportIcon kind={p.kind} className="size-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="font-bold leading-tight">{p.name}</h3>
+                    <div className="mt-0.5 text-xs font-medium text-accent">{p.leagues}</div>
+                    <p className="mt-1.5 text-sm text-muted">{p.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        </div>
+
+        <Section label="How it works" title="Set it up once. It runs itself all season.">
+          <ol className="grid gap-8 sm:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="border-t-2 border-accent pt-4">
+                <div className="text-sm font-bold tabular-nums text-accent">0{i + 1}</div>
+                <h3 className="mt-1 text-lg font-bold leading-tight">{s.title}</h3>
+                <p className="mt-1.5 text-sm text-muted">{s.text}</p>
+              </li>
+            ))}
+          </ol>
+        </Section>
+
+        <div className="border-y border-line bg-surface/50">
+          <Section label="A look inside" title="Everything the group argues about, in one place.">
+            <div className="grid items-start gap-5 md:grid-cols-2">
+              <div className="space-y-5">
+                <GridPreview />
+                <GolfPreview />
+              </div>
+              <div className="space-y-5">
+                <StandingsPreview />
+                <div className="rounded-2xl bg-bg p-5 ring-1 ring-line">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Pool summary</div>
+                  <div className="mt-3 space-y-3">
+                    {[
+                      ["Rams −6.5", 78],
+                      ["Owls +3", 64],
+                      ["Pines −3", 52],
+                    ].map(([side, pct]) => (
+                      <div key={side as string}>
+                        <div className="flex justify-between text-sm">
+                          <span className="font-semibold">{side}</span>
+                          <span className="tabular-nums text-muted">{pct}% picked</span>
+                        </div>
+                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
+                          <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-faint">Example teams and players.</p>
+          </Section>
+        </div>
+
+        <Section label="Features" title="Built for commissioners and the people who play.">
+          <div className="grid gap-x-10 gap-y-7 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map((f) => (
+              <div key={f.title}>
+                <h3 className="flex items-center gap-2 font-bold leading-tight">
+                  <svg aria-hidden viewBox="0 0 20 20" className="size-4 shrink-0 text-accent">
+                    <path d="M5 10.5l3.2 3.2L15 6.8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {f.title}
+                </h3>
+                <p className="mt-1.5 text-sm text-muted">{f.text}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <section className="border-t border-line">
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:px-6 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Ready for kickoff?</h2>
+              <p className="mt-1 text-muted">Start a pool in a couple of minutes, or sign in to get back to yours.</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <LinkButton href={START} kind="accent" className="!h-12 !px-6">
+                Start a pool
+              </LinkButton>
+              <LinkButton href={SIGN_IN} kind="secondary" className="!h-12 !px-6">
+                Sign in
+              </LinkButton>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-sm text-muted sm:px-6">
+          <Wordmark className="text-[15px]" />
+          <span>Pick&apos;em pools for football, basketball and golf.</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
