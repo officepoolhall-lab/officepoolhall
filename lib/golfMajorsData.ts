@@ -128,7 +128,7 @@ export async function withLiveScores(
 /**
  * A golfer who missed the cut or withdrew counts their own score to par for the rounds they
  * played (the pool's rule), but ESPN shows "CUT" / "WD" there instead of a number. For the picked
- * ones without a score, it's added up from their scorecard's rounds (cached an hour: it no longer
+ * ones, it's added up from their scorecard's rounds (cached an hour: it no longer
  * changes).
  */
 async function withOutScores(ctx: PoolBase, events: GolfEvent[], raw: Map<string, MajorResult[]>, picked: Set<string>): Promise<Map<string, MajorResult[]>> {
@@ -136,7 +136,8 @@ async function withOutScores(ctx: PoolBase, events: GolfEvent[], raw: Map<string
   await Promise.all(
     events.map(async (e) => {
       const rows = raw.get(e.id);
-      const missing = rows?.filter((r) => r.out && r.to_par === null && picked.has(r.espn_golfer_id)) ?? [];
+      // Every picked golfer who's out: a stored score can be from before they went out.
+      const missing = rows?.filter((r) => r.out && picked.has(r.espn_golfer_id)) ?? [];
       if (!rows || !missing.length) return;
       const tid = espnTournamentId(e.espn_id, ctx.pool.slug, e.status) ?? e.espn_id;
       const own = new Map<string, number>();
