@@ -22,13 +22,13 @@ export const LEAGUES: CatalogLeague[] = [
     full: "NFL",
     kind: "football",
     types: [
-      { live: true, id: "supercontest", name: "Supercontest", template: "nfl_ats", text: "Pick a set number of games against the spread each week. Lines lock when the week is published." },
       { live: false, id: "survivor", name: "Survivor", text: "Pick one team to win each week. Lose and you're out, and you can't use a team twice." },
-      { live: true, id: "pickem", name: "Pick'em", template: "nfl_pickem", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
+      { live: true, id: "supercontest", name: "Supercontest", template: "nfl_ats", text: "Pick a set number of games against the spread each week. Lines lock when the week is published." },
+      { live: true, id: "pickem", name: "Pick 'Em", template: "nfl_pickem", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
       { live: true, id: "confidence", name: "Confidence", template: "nfl_confidence", text: "Pick every game and rank them. Your surest pick is worth the most points." },
       { live: false, id: "squares", name: "Super Bowl Squares", text: "A 10-by-10 grid for the big game. Numbers are drawn at random, and each quarter's score picks a winner." },
+      { live: false, id: "guillotine", name: "Guillotine Fantasy", text: "A fantasy league where the lowest-scoring team each week is cut, and its players go back up for grabs." },
       { live: false, id: "playoff-fantasy", name: "Playoff Fantasy", text: "Pick a roster of players for the playoffs and ride them all postseason. Points for every yard and touchdown." },
-      { live: false, id: "guillotine", name: "Guillotine", text: "A fantasy league where the lowest-scoring team each week is cut, and its players go back up for grabs." },
     ],
   },
   {
@@ -38,7 +38,7 @@ export const LEAGUES: CatalogLeague[] = [
     kind: "football",
     types: [
       { live: true, id: "supercontest", name: "Supercontest", template: "ncaaf_ats", text: "Pick a set number of games against the spread from each week's slate." },
-      { live: true, id: "pickem", name: "Pick'em", template: "ncaaf_pickem", text: "Pick winners straight up from the week's biggest games." },
+      { live: true, id: "pickem", name: "Pick 'Em", template: "ncaaf_pickem", text: "Pick winners straight up from the week's biggest games." },
       { live: true, id: "confidence", name: "Confidence", template: "ncaaf_confidence", text: "Pick every game on the slate and rank them by how sure you are." },
     ],
   },
@@ -48,10 +48,12 @@ export const LEAGUES: CatalogLeague[] = [
     full: "College basketball",
     kind: "basketball",
     types: [
-      { live: true, id: "confidence", name: "Confidence", template: "ncaab_confidence", text: "Weekly slates all season, ranked by confidence, with bonus points for calling early-season tournament champions." },
-      { live: true, id: "pickem", name: "Pick'em", template: "ncaab_pickem", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
       { live: true, id: "pick-x", name: "Pick X", template: "ncaab_pickx", text: "Pick a set number of tournament teams. Every game they win earns you points, with more for lower seeds." },
+      { live: false, id: "calcutta", name: "Calcutta", text: "Bid on NCAA Tournament teams in an auction. Every round your teams win pays out a share of the pot." },
       { live: false, id: "bracket", name: "Bracket", text: "Fill out the whole tournament bracket before it tips off. Each round is worth more than the last." },
+      { live: false, id: "takeover", name: "Takeover Bracket", text: "Each player owns teams in the bracket. When your team wins, you take over the team it beat." },
+      { live: true, id: "pickem", name: "Pick 'Em", template: "ncaab_pickem", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
+      { live: true, id: "confidence", name: "Confidence", template: "ncaab_confidence", text: "Weekly slates all season, ranked by confidence, with bonus points for calling early-season tournament champions." },
     ],
   },
   {
@@ -61,8 +63,9 @@ export const LEAGUES: CatalogLeague[] = [
     kind: "golf",
     types: [
       { live: true, id: "tiers", name: "Tiers", template: "golf_tiers", text: "Golfers split into tiers by odds and world ranking. Pick from each tier for a major or any tour event." },
-      { live: true, id: "salary", name: "Salary Cap", template: "golf_salary", text: "Build a roster of golfers under a budget, scored hole by hole, fantasy style." },
       { live: true, id: "one-and-done", name: "One-and-Done", text: "One golfer a week, each golfer only once all season. Standings are the prize money your golfers win." },
+      { live: true, id: "salary", name: "Salary Cap", template: "golf_salary", text: "Build a roster of golfers under a budget, scored hole by hole, fantasy style." },
+      { live: false, id: "calcutta", name: "Calcutta", text: "Bid on golfers in an auction before the tournament. Your golfers' finishes pay out a share of the pot." },
     ],
   },
 ];

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FitBox } from "./FitBox";
 import { ShotCarousel } from "./ShotCarousel";
 import { GridPanel } from "@/components/GridPanel";
 import { GridView } from "@/components/GridView";
@@ -24,11 +25,11 @@ import {
 // The landing page's look inside: the real My Picks, Grid, Pool Summary, Scores, team and golfer
 // history, Pick History and the Roster,
 // each drawn by the app's own components from a real pool (lib/landingShots.ts),
-// shown like screenshots: framed, each trimmed to fit whole (never cut off), nothing to click.
+// shown like screenshots: framed, all one size (a tall page is scaled down to fit), nothing to click.
 
 /** A window around one page: `inert` (a picture, not a page) and its own containing block so
     the page's fixed bottom bar sits inside the frame. */
-function Frame({ title, children, height = "" }: { title: string; children: ReactNode; height?: string }) {
+function Frame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-bg ring-1 ring-line shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-2 border-b border-line bg-surface/60 px-4 py-2.5">
@@ -37,9 +38,12 @@ function Frame({ title, children, height = "" }: { title: string; children: Reac
         <span className="size-2.5 rounded-full bg-line" />
         <span className="ml-2 truncate text-xs font-semibold text-muted">{title}</span>
       </div>
-      <div inert className={`relative ${height} overflow-hidden px-4 py-4 [transform:translateZ(0)] sm:px-6`}>
-        {children}
-      </div>
+      {/* Every preview the same size; a page taller than this is scaled down to fit, not cut off. */}
+      <FitBox className="h-[30rem] sm:h-[36rem]">
+        <div inert className="relative px-4 py-4 [transform:translateZ(0)] sm:px-6">
+          {children}
+        </div>
+      </FitBox>
     </div>
   );
 }

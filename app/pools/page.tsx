@@ -98,11 +98,9 @@ export default async function PoolsPage() {
             You&apos;re not in any pools yet. Ask your commissioner for an invite link{canCreate ? ", or start one" : ""}.
           </Empty>
         )}
-        {canCreate && (
-          <LinkButton href="/pools/new" kind="secondary" className="mt-6 w-full">
-            Start a new pool
-          </LinkButton>
-        )}
+        <LinkButton href="/pools/new" kind="secondary" className="mt-6 w-full">
+          {canCreate ? "Start a new pool" : "Want to run a pool?"}
+        </LinkButton>
       </main>
     </>
   );

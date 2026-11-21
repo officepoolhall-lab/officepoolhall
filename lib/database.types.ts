@@ -683,6 +683,19 @@ isOneToOne: false
                   }
                   Relationships: []
                 }
+            "pool_creator_requests": {
+                  Row: {
+                    "created_at": string,"email": string,"group_size": string,"message": string,"pools": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"email": string,"group_size"?: string,"message"?: string,"pools"?: string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"email"?: string,"group_size"?: string,"message"?: string,"pools"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: []
+                }
             "pool_member_bench": {
                   Row: {
                     "benched_at": string,"pool_id": string,"user_id": string

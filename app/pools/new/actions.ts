@@ -1,11 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/ActionForm";
 import { requireUser } from "@/lib/auth";
 import { parsePoolSettings, settingsError } from "@/lib/poolSettings";
 import { pickXSettings, pickXSettingsError } from "@/lib/pickx";
 import { createClient } from "@/lib/supabase/server";
+import { notifyCreator } from "@/lib/notify";
 import type { Json } from "@/lib/database.types";
 
 export async function createPool(_: ActionState, form: FormData): Promise<ActionState> {
@@ -116,4 +119,45 @@ async function createMajorsPool({ name, slug, season, entryFee, form }: { name: 
     }
   }
   redirect(`/p/${slug}/golf/admin/tournaments`);
+}
+
+/**
+ * /pools/new for accounts that can't start pools yet: ask to run one. One request per
+ * account, updated in place; the site's creator reads them in Supabase and approves by
+ * adding the email to pool_creators.
+ */
+export async function requestPoolAccess(_: ActionState, form: FormData): Promise<ActionState> {
+  const user = await requireUser("/pools/new");
+  const supabase = await createClient();
+  const pools = String(form.get("pools") ?? "").trim().slice(0, 300);
+  const groupSize = String(form.get("group_size") ?? "").trim().slice(0, 60);
+  const message = String(form.get("message") ?? "").trim().slice(0, 1000);
+  // Was there a request already? Decides the email's subject line below.
+  const { data: existing } = await supabase.from("pool_creator_requests").select("user_id").eq("user_id", user.id).maybeSingle();
+  const { error } = await supabase.from("pool_creator_requests").upsert({
+    user_id: user.id,
+    email: user.email,
+    pools,
+    group_size: groupSize,
+    message,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { error: "The request didn't send. Try again in a moment." };
+  // Straight to the inbox too, so nobody has to go looking in the table.
+  await notifyCreator(
+    `${existing ? "Updated pool request" : "New pool request"}: ${user.email}`,
+    [
+      `From: ${user.email}`,
+      `Wants to run: ${pools || "(not said)"}`,
+      `Players: ${groupSize || "(not said)"}`,
+      message ? `Message: ${message}` : null,
+      "",
+      "Approve in the Supabase SQL editor:",
+      `  insert into pool_creators (email) values ('${user.email.replace(/'/g, "''")}');`,
+    ]
+      .filter((x) => x !== null)
+      .join("\n"),
+  );
+  revalidatePath("/pools/new");
+  return { ok: "Request sent. You'll get an email as soon as your account can start pools." };
 }

@@ -1,7 +1,9 @@
 import "server-only";
+import { isGamblingStory } from "./newsFilter";
 import { parseRss } from "./rss";
 
-// Top stories, mixed from several free sources and sorted newest first. Each source is
+// Top stories, mixed from several free sources and sorted newest first, with betting stories
+// and sportsbook ads left out. Each source is
 // fetched on its own and cached 15 minutes; one that fails or changes shape is skipped and
 // the rest still show. To add a site, add an entry to RSS_FEEDS.
 
@@ -119,6 +121,8 @@ export async function getNews(sport: Sport, limit = 12, perSource = 4): Promise<
   const results = await Promise.allSettled([espn(sport), ...RSS_FEEDS[sport].map(rss)]);
   const bySource = results.map((r) =>
     (r.status === "fulfilled" ? r.value : [])
+      // No betting stories or sportsbook ads (lib/newsFilter.ts).
+      .filter((s) => !isGamblingStory(s))
       .sort((a, b) => (b.published ?? "").localeCompare(a.published ?? ""))
       .slice(0, perSource),
   );

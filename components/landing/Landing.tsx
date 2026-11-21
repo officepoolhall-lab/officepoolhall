@@ -10,7 +10,10 @@ import { Shots } from "./Shots";
 // real-person support, then start a pool or sign in. Signed-in players go straight to My
 // Pools.
 
-export const START = "/login?next=%2Fpools%2Fnew";
+/** Where "Start a pool" goes: the public pick-your-sport page; sign-in comes after the choice. */
+export const START = "/formats";
+/** The sign-in-then-create link, for a pool type already chosen. */
+export const CREATE = "/login?next=%2Fpools%2Fnew";
 export const SIGN_IN = "/login";
 
 /** The four promises beside the headline. */
@@ -33,6 +36,13 @@ const PROMISES: { title: string; text: ReactNode }[] = [
       </>
     ),
   },
+];
+
+/** Preliminary pricing, by the number of entries in a pool. */
+const PRICING = [
+  { title: "Up to 5 entries", price: "Free", unit: "per pool", text: "Try it with a small group, with every feature included." },
+  { title: "6 to 25 entries", price: "$20", unit: "per pool", text: "The office pool or the group chat, one flat price." },
+  { title: "26 entries and up", price: "+$1", unit: "per entry over 25", text: "$20 for the first 25 entries, then $1 for each one after." },
 ];
 
 const SUPPORT = [
@@ -125,11 +135,36 @@ export function Landing() {
           </section>
         </div>
 
+        {/* Pricing (preliminary): by the number of entries in the pool. */}
+        <section id="pricing" className="scroll-mt-16 border-b border-line">
+          <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
+            <div className="text-sm font-bold uppercase tracking-wide text-accent sm:text-base">Pricing</div>
+            <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Pricing options</h2>
+            <div className="mt-6 grid gap-4 sm:mt-8 md:grid-cols-3">
+              {PRICING.map((p) => (
+                <div key={p.title} className="flex flex-col rounded-2xl bg-bg p-6 ring-1 ring-line">
+                  <div className="text-sm font-semibold text-muted">{p.title}</div>
+                  <div className="mt-2 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">{p.price}</div>
+                  <div className="mt-1 text-sm text-muted">{p.unit}</div>
+                  <p className="mt-4 text-[15px]">{p.text}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-5 text-sm text-muted">
+              Preliminary pricing, per pool. For example, a 50-entry pool is $20 + 25 × $1 = $45. Every pool type and every feature is included at every size. Questions?{" "}
+              <a href="#support" className="font-semibold text-accent hover:underline">
+                Reach out to our creators directly
+              </a>
+              .
+            </p>
+          </div>
+        </section>
+
         <section>
           <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Ready to start?</h2>
-              <p className="mt-1 text-muted">For offices, bars and clubs, and friends and family. Start a pool in a couple of minutes.</p>
+              <p className="mt-1 text-muted">For offices, bars, friends, family and more. Create a pool in minutes.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <LinkButton href={START} kind="accent" className="!h-12 !px-6">
@@ -169,6 +204,9 @@ export function LandingHeader() {
   );
 }
 
+/** The sports, most popular first (the footer and /formats list them in this order). */
+export const LEAGUE_ORDER = ["nfl", "pga", "ncaaf", "ncaab"] as const;
+
 /** The site's public footer: every sport with its pool types, each linking to its page. */
 export function LandingFooter() {
   return (
@@ -178,7 +216,7 @@ export function LandingFooter() {
           <Wordmark className="text-[17px]" />
           <p className="mt-2 max-w-xs text-sm text-muted">Built by a commissioner, for commissioners.</p>
         </div>
-        {LEAGUES.map((league) => (
+        {LEAGUE_ORDER.map((id) => LEAGUES.find((l) => l.id === id)!).map((league) => (
           <div key={league.id}>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{league.label}</h3>
             <ul className="mt-3 space-y-2 text-sm">
