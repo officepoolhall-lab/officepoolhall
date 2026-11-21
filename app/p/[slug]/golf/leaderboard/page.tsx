@@ -10,7 +10,7 @@ import { getVisibleLineups } from "@/lib/golfMajorsData";
 import { getEventInfo } from "@/lib/golfEventInfo";
 import { projectedEarnings } from "@/lib/golfMajors";
 import { currentRound, espnTournamentId, getLiveLeaderboard, posRank } from "@/lib/golfLive";
-import { getCoursePar } from "@/lib/golfScorecard";
+import { getCoursePar, getRoundProgress, type RoundProgress } from "@/lib/golfScorecard";
 
 export const metadata: Metadata = { title: "Leaderboard" };
 
@@ -82,10 +82,39 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   // (today's round), so it stays on one line.
   const tee = (iso: string | null) => (iso ? formatInTimeZone(iso, ctx.displayTz, state === "scheduled" ? "EEE h:mm a" : "h:mm a") : null);
 
+  // Between rounds (and early in the next) ESPN's leaderboard page can still show the last round:
+  // "F" and that round's tee time. For those golfers, the next round's tee time, holes played
+  // and score come from their linescores instead (in batches, so ESPN isn't hit all at once).
+  const next = new Map<string, RoundProgress>();
+  if (live && state === "live" && tournamentId) {
+    const between = live.filter((g) => {
+      const played = g.rounds.filter((r) => r !== null).length;
+      return !g.out && g.thru === "F" && played >= 1 && played < 4 && !(g.tee && Date.parse(g.tee) > now);
+    });
+    for (let i = 0; i < between.length; i += 20) {
+      const batch = between.slice(i, i + 20);
+      const got = await Promise.all(batch.map((g) => getRoundProgress(tournamentId, g.id, g.rounds.filter((r) => r !== null).length + 1)));
+      batch.forEach((g, j) => {
+        const p = got[j];
+        if (p && (p.tee || p.holes > 0)) next.set(g.id, p);
+      });
+    }
+  }
+  const addToPar = (total: string | null, round: string | null) => {
+    const a = parNum(total);
+    const b = round === "E" ? 0 : round ? Number(round) : null;
+    return a === null || b === null || !Number.isFinite(b) ? total : fmt(a + b);
+  };
+
   let rows: LeaderRow[] = live
     ? live.map((g) => {
-        // A tee time still ahead means the golfer hasn't started today's round.
-        const waiting = g.tee && Date.parse(g.tee) > now;
+        // The next round from the linescores, when ESPN's page hasn't caught up.
+        const n = next.get(g.id);
+        const started = !!n && n.holes > 0;
+        // A tee time still ahead means the golfer hasn't started today's round; so does a next
+        // round with no holes yet.
+        const teeAt = n?.tee ?? g.tee;
+        const waiting = (!!n && !started && !!n.tee) || (!!teeAt && Date.parse(teeAt) > now);
         return {
           id: g.id,
           name: g.name,
@@ -104,15 +133,15 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
                 : g.out === "MC" && state === "live" && (round ?? 1) <= 2 && !g.rounds[1]
                   ? "WD"
                   : (g.out ?? (state === "scheduled" ? "" : "–")),
-          toPar: g.toPar,
-          thru: state === "scheduled" || waiting ? tee(g.tee) : g.thru === "F" ? "F" : (g.thru ?? null),
+          toPar: started ? addToPar(g.toPar, n!.toPar) : g.toPar,
+          thru: started ? (n!.holes >= 18 ? "F" : String(n!.holes)) : state === "scheduled" || waiting ? tee(teeAt) : g.thru === "F" ? "F" : (g.thru ?? null),
           rounds: g.rounds,
-          today: today(g),
+          today: started ? n!.toPar : today(g),
           earnings: g.earnings,
           pickedBy: pickedBy.get(g.id) ?? 0,
           mine: mineSet.has(g.id),
           _order: g.order ?? 9999,
-          _tee: g.tee ?? "~",
+          _tee: teeAt ?? "~",
           _last: g.lastName,
         };
       })

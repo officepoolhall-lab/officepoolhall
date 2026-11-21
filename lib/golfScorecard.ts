@@ -86,6 +86,39 @@ async function coursePars(tournamentId: string): Promise<Map<number, number>> {
   }
 }
 
+/**
+ * Where a golfer stands in one round, from the same linescores list: the round's tee time
+ * (rounds not yet played carry only period, teeTime and startTee) and, once begun, holes played
+ * and the round's score to par. Used between rounds and early in a round, when ESPN's
+ * leaderboard page can still show the last round ("F" and its tee time). Cached two minutes.
+ */
+export type RoundProgress = { tee: string | null; holes: number; toPar: string | null };
+export async function getRoundProgress(tournamentId: string, golferId: string, round: number): Promise<RoundProgress | null> {
+  if (!/^\d+$/.test(tournamentId) || !/^\d+$/.test(golferId)) return null;
+  try {
+    const res = await fetch(
+      `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${tournamentId}/competitions/${tournamentId}/competitors/${golferId}/linescores?lang=en&region=us`,
+      {
+        headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
+        next: { revalidate: 120 },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as Obj;
+    const items = (body.items ?? body.linescores) as Obj[] | undefined;
+    const item = Array.isArray(items) ? items.find((r) => num(r.period) === round) : undefined;
+    if (!item) return null;
+    const t = item.teeTime;
+    const ms = typeof t === "number" ? t : typeof t === "string" ? Date.parse(t) : NaN;
+    const holes = Array.isArray(item.linescores) ? (item.linescores as Obj[]).filter((h) => (num(h.value) ?? 0) > 0).length : 0;
+    const toPar = typeof item.displayValue === "string" && /^([+-]\d+|E)$/.test(item.displayValue) ? item.displayValue : null;
+    return { tee: Number.isFinite(ms) ? new Date(ms).toISOString() : null, holes, toPar };
+  } catch {
+    return null;
+  }
+}
+
 /** Cached `revalidate` seconds (0: read fresh every time, for the card while it's open). */
 export async function getScorecard(tournamentId: string, golferId: string, revalidate: number): Promise<Scorecard | null> {
   if (tournamentId === DEMO_LIVE_ID) return getDemoScorecard(golferId);
