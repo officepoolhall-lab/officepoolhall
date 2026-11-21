@@ -15,18 +15,21 @@ export const SIGN_IN = "/login";
 
 /** The four promises beside the headline. */
 const PROMISES: { title: string; text: ReactNode }[] = [
-  { title: "Your Group, Not Ours", text: "No ads, and your players' emails are only visible to you." },
-  { title: "Live Scoring", text: "Scores update right next to each pick while games are on." },
-  { title: "Every Sport, One Place", text: "Football, basketball and golf pools side by side under one sign-in." },
+  {
+    title: "Your Group, Not Ours",
+    text: "You joined our site to host your pool, not to be advertised to. Emails are only visible by you. They are not a list for us to cross-sell.",
+  },
+  { title: "Live Scoring", text: "No need for any other website or app. Live scoring, stats and play-by-play available all in one space." },
+  { title: "Every Sport, One Space", text: "All of your pools consolidated into one space. All sports, all types." },
   {
     title: "Your Rules",
     text: (
       <>
-        Scoring, locks, bonuses and deadlines set the way your group plays. Need something custom?{" "}
+        Sport, pool type, scoring, tiebreakers, and deadlines set the way your group plays. Need additional customization?{" "}
         <a href="#support" className="font-semibold text-accent hover:underline">
-          Contact the site&apos;s creator
+          Reach out to our creators directly
         </a>{" "}
-        to build your pool&apos;s own rules.
+        for help with building your pool.
       </>
     ),
   },
@@ -42,7 +45,7 @@ const SUPPORT = [
 function Section({ label, title, children, className = "", oneLine = false }: { label: string; title: string; children: ReactNode; className?: string; oneLine?: boolean }) {
   return (
     <section className={`mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14 ${className}`}>
-      <div className="text-xs font-semibold uppercase tracking-wide text-accent">{label}</div>
+      <div className="text-sm font-bold uppercase tracking-wide text-accent sm:text-base">{label}</div>
       <h2 className={`mt-2 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl ${oneLine ? "lg:whitespace-nowrap" : "max-w-2xl"}`}>{title}</h2>
       <div className="mt-6 sm:mt-8">{children}</div>
     </section>
