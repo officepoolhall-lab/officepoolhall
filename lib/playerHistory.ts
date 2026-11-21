@@ -1,6 +1,7 @@
 import "server-only";
 import { getPublishedSlates, type PoolContext } from "./pool";
 import { getSlateScores } from "./standings";
+import { getActiveMembers } from "./bench";
 
 export type HistoryWeek = {
   slateId: string;
@@ -26,7 +27,7 @@ export async function getPlayerHistory(ctx: PoolContext, userId: string) {
   const slates = await getPublishedSlates(ctx);
   const ids = slates.map((s) => s.id);
   const [{ data: members }, { data: scores }] = await Promise.all([
-    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    getActiveMembers(ctx.supabase, ctx.pool.id),
     // Paged: a big pool's season passes PostgREST's 1000-row cap.
     getSlateScores(ctx, ids).then((data) => ({ data })),
   ]);

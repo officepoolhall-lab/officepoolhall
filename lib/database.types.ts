@@ -683,6 +683,19 @@ isOneToOne: false
                   }
                   Relationships: []
                 }
+            "pool_member_bench": {
+                  Row: {
+                    "benched_at": string,"pool_id": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "benched_at"?: string,"pool_id": string,"user_id": string
+                  }
+                  Update: {
+                    "benched_at"?: string,"pool_id"?: string,"user_id"?: string
+                  }
+                  Relationships: []
+                }
             "pool_member_notes": {
                   Row: {
                     "note": string,"pool_id": string,"updated_at": string,"user_id": string

@@ -5,7 +5,9 @@ import { SettingsSection } from "@/components/SettingsUI";
 import type { PoolBase } from "@/lib/pool";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { RosterNote } from "@/components/RosterNote";
-import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, removeMember, rotateGuestInvite, rotateInvite, setMemberNote, setPaid } from "@/app/p/[slug]/admin/actions";
+import { RosterActions } from "@/components/RosterActions";
+import { getBenchedIds } from "@/lib/bench";
+import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, removeMember, benchMember, unbenchMember, rotateGuestInvite, rotateInvite, setMemberNote, setPaid } from "@/app/p/[slug]/admin/actions";
 
 /**
  * The commissioner's roster, the same for every sport: the invite link, every entry with its
@@ -60,16 +62,6 @@ export async function AdminRoster({
     if (error) console.error("Roster: member emails unavailable", error);
   }
   const emailOf = new Map<string, string>(emailRows.map((e: { user_id: string; email: string }) => [e.user_id, e.email]));
-  type Account = { password_set: boolean; name_confirmed: boolean; last_sign_in_at: string | null };
-  const accountOf = new Map<string, Account>(
-    (accounts ?? []).map((a: Account & { user_id: string }) => [a.user_id, a]),
-  );
-  // "Set up": they chose a password and confirmed their name.
-  const setUp = (id: string) => {
-    const a = accountOf.get(id);
-    return Boolean(a?.password_set && a.name_confirmed);
-  };
-  const setUpCount = (members ?? []).filter((m) => setUp(m.user_id)).length;
   const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
   const signedIn = (iso: string | null) =>
     iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: timezone })}` : "Never signed in";
@@ -86,7 +78,8 @@ export async function AdminRoster({
   const link = invite ? `${appUrl}/join/${invite.token}` : null;
   const guestLink = guestInvite ? `${appUrl}/join/${guestInvite.token}` : null;
   const fee = Number(ctx.pool.entry_fee);
-  const paidCount = members?.filter((m) => m.paid).length ?? 0;
+  const benched = await getBenchedIds(ctx.supabase, ctx.pool.id);
+  const paidCount = members?.filter((m) => m.paid && !benched.has(m.user_id)).length ?? 0;
   // Alphabetical by name as shown ("First Last"), ignoring case and accents.
   const byName = [...(members ?? [])].sort((a, b) =>
     a.profile.display_name.localeCompare(b.profile.display_name, "en", { sensitivity: "base" }),
@@ -98,7 +91,83 @@ export async function AdminRoster({
       <div className="mt-0.5 text-xl font-bold tabular-nums text-ink">{value}</div>
     </div>
   );
-  const memberCount = members?.length ?? 0;
+  const memberCount = (members ?? []).filter((m) => !benched.has(m.user_id)).length;
+
+  const active = byName.filter((m) => !benched.has(m.user_id));
+  const benchedRows = byName.filter((m) => benched.has(m.user_id));
+  const renderRow = (m: (typeof byName)[number]) => (
+            <li key={m.user_id} className={ROW}>
+              {/* Name, with who's online, the commissioner tag and any co-managers. */}
+              <div className={`${CELL.name} min-w-0`}>
+                <span className="block truncate text-[15px] font-medium">
+                  {m.profile.display_name}
+                  {/* Green when they're on the site right now (components/PoolPresence). */}
+                  <OnlineDot userId={m.user_id} className="ml-1.5 align-middle" />
+                  {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
+                </span>
+                {/* People this player invited to help run their entry. */}
+                {(comanagersOf.get(m.user_id) ?? []).map((c) => (
+                  <span key={c.manager_id} className="block truncate text-xs text-muted" title={c.email}>
+                    <span className="font-semibold">Co-manager:</span> {c.manager_name}
+                    <OnlineDot userId={c.manager_id} className="ml-1 align-middle" />
+                  </span>
+                ))}
+              </div>
+
+              <div className={`${CELL.email} min-w-0`}>
+                {unclaimed(m.user_id) ? (
+                  // Imported, no real email yet: add one here; they then sign in with it.
+                  <details>
+                    <summary className="inline-flex cursor-pointer items-center gap-2 text-sm">
+                      <span className="text-muted">No email yet</span>
+                      <span className="font-semibold text-accent">Add email</span>
+                    </summary>
+                    <ActionForm action={assignEntryEmail.bind(null, slug, m.user_id)} className="mt-2 grid gap-2 pb-1">
+                      <input name="first_name" placeholder="First name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <input name="last_name" placeholder="Last name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <input name="email" type="email" required placeholder="Email" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
+                      <label className="flex items-center gap-2 text-xs text-muted">
+                        <input type="checkbox" name="send" defaultChecked className="size-4 accent-[var(--accent)]" />
+                        Email them a sign-in link now
+                      </label>
+                      <SubmitButton pending="Adding…" className="!h-10">Add</SubmitButton>
+                    </ActionForm>
+                  </details>
+                ) : emailOf.get(m.user_id) ? (
+                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="-mx-1.5 -my-0.5 block truncate rounded-md px-1.5 py-0.5 text-sm text-muted transition hover:bg-hover hover:text-ink">
+                    {emailOf.get(m.user_id)}
+                  </a>
+                ) : (
+                  <span className="text-sm text-faint">—</span>
+                )}
+              </div>
+
+              <div className={CELL.joined}>
+                <span className="sm:hidden">Joined </span>
+                {joined(m.joined_at)}
+              </div>
+
+              <form action={setPaid.bind(null, slug, m.user_id, !m.paid)} className={CELL.paid}>
+                {/* Visible text is the accessible name (label-in-name); the title says what a tap does. */}
+                <PaidMark paid={m.paid} button />
+              </form>
+
+              <div className={CELL.notes}>
+                <RosterNote initial={noteOf.get(m.user_id) ?? ""} save={setMemberNote.bind(null, slug, m.user_id)} label={`Notes on ${m.profile.display_name}`} />
+              </div>
+
+              <div className={CELL.remove}>
+                {m.user_id !== ctx.user.id && (
+                  <RosterActions
+                    name={m.profile.display_name}
+                    benched={benched.has(m.user_id)}
+                    bench={benchMember.bind(null, slug, m.user_id)}
+                    unbench={unbenchMember.bind(null, slug, m.user_id)}
+                    remove={removeMember.bind(null, slug, m.user_id)}
+                  />
+                )}
+              </div>
+            </li>  );
 
   return (
     <div className="space-y-4">
@@ -107,7 +176,7 @@ export async function AdminRoster({
         {stat("Players", String(memberCount))}
         {stat("Paid", fee > 0 ? `${paidCount} of ${memberCount}` : "No fee")}
         {stat("Collected", fee > 0 ? `$${(paidCount * fee).toFixed(0)}` : "—")}
-        {stat("Accounts set up", accountOf.size > 0 ? `${setUpCount} of ${memberCount}` : "—")}
+        {stat("Benched", String(benched.size))}
       </div>
 
       <SettingsSection title="Invite players" description="Anyone with this link can join the pool. Text or email it to the group.">
@@ -173,91 +242,18 @@ export async function AdminRoster({
         )}
         <RosterHeader />
         <ul className="divide-y divide-line">
-          {byName.map((m) => (
-            <li key={m.user_id} className={ROW}>
-              {/* Name, with who's online, the commissioner tag and any co-managers. */}
-              <div className={`${CELL.name} min-w-0`}>
-                <span className="block truncate text-[15px] font-medium">
-                  {m.profile.display_name}
-                  {/* Green when they're on the site right now (components/PoolPresence). */}
-                  <OnlineDot userId={m.user_id} className="ml-1.5 align-middle" />
-                  {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
-                </span>
-                {/* Account status: password chosen and name confirmed = set up. */}
-                {accountOf.get(m.user_id) && !unclaimed(m.user_id) && !setUp(m.user_id) && (
-                  <span className="block truncate text-xs font-semibold text-muted">
-                    {[!accountOf.get(m.user_id)!.password_set && "No password yet", !accountOf.get(m.user_id)!.name_confirmed && "Name not confirmed"]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </span>
-                )}
-                {/* People this player invited to help run their entry. */}
-                {(comanagersOf.get(m.user_id) ?? []).map((c) => (
-                  <span key={c.manager_id} className="block truncate text-xs text-muted" title={c.email}>
-                    <span className="font-semibold">Co-manager:</span> {c.manager_name}
-                    <OnlineDot userId={c.manager_id} className="ml-1 align-middle" />
-                  </span>
-                ))}
-              </div>
-
-              <div className={`${CELL.email} min-w-0`}>
-                {unclaimed(m.user_id) ? (
-                  // Imported, no real email yet: add one here; they then sign in with it.
-                  <details>
-                    <summary className="inline-flex cursor-pointer items-center gap-2 text-sm">
-                      <span className="text-muted">No email yet</span>
-                      <span className="font-semibold text-accent">Add email</span>
-                    </summary>
-                    <ActionForm action={assignEntryEmail.bind(null, slug, m.user_id)} className="mt-2 grid gap-2 pb-1">
-                      <input name="first_name" placeholder="First name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
-                      <input name="last_name" placeholder="Last name" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
-                      <input name="email" type="email" required placeholder="Email" className="h-10 rounded-[10px] bg-bg px-3 text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent" />
-                      <label className="flex items-center gap-2 text-xs text-muted">
-                        <input type="checkbox" name="send" defaultChecked className="size-4 accent-[var(--accent)]" />
-                        Email them a sign-in link now
-                      </label>
-                      <SubmitButton pending="Adding…" className="!h-10">Add</SubmitButton>
-                    </ActionForm>
-                  </details>
-                ) : emailOf.get(m.user_id) ? (
-                  <a href={`mailto:${emailOf.get(m.user_id)}`} className="-mx-1.5 -my-0.5 block truncate rounded-md px-1.5 py-0.5 text-sm text-muted transition hover:bg-hover hover:text-ink">
-                    {emailOf.get(m.user_id)}
-                  </a>
-                ) : (
-                  <span className="text-sm text-faint">—</span>
-                )}
-              </div>
-
-              <div className={CELL.joined}>
-                <span className="sm:hidden">Joined </span>
-                {joined(m.joined_at)}
-              </div>
-
-              <form action={setPaid.bind(null, slug, m.user_id, !m.paid)} className={CELL.paid}>
-                {/* Visible text is the accessible name (label-in-name); the title says what a tap does. */}
-                <PaidMark paid={m.paid} button />
-              </form>
-
-              <div className={CELL.notes}>
-                <RosterNote initial={noteOf.get(m.user_id) ?? ""} save={setMemberNote.bind(null, slug, m.user_id)} label={`Notes on ${m.profile.display_name}`} />
-              </div>
-
-              <div className={CELL.remove}>
-                {m.user_id !== ctx.user.id && (
-                  <form action={removeMember.bind(null, slug, m.user_id)}>
-                    <button
-                      aria-label={`Remove ${m.profile.display_name}`}
-                      title="Remove from the pool"
-                      className="flex size-10 items-center justify-center rounded-full text-muted transition hover:bg-hover hover:text-loss"
-                    >
-                      <XIcon />
-                    </button>
-                  </form>
-                )}
-              </div>
-            </li>
-          ))}
+          {active.map(renderRow)}
         </ul>
+        {/* Sitting out: kept here, out of the standings and the counts above, no picks. */}
+        {benchedRows.length > 0 && (
+          <div className="mt-4 border-t border-line pt-4">
+            <h3 className="text-sm font-bold text-ink">
+              Benched <span className="font-normal text-muted tabular-nums">· {benchedRows.length}</span>
+            </h3>
+            <p className="mt-0.5 text-sm text-muted">Sitting out: not in the standings or the Grid, and can&apos;t make picks. Bring them back any time from the ⋯ menu.</p>
+            <ul className="mt-1 divide-y divide-line opacity-80">{benchedRows.map(renderRow)}</ul>
+          </div>
+        )}
       </section>
 
       {/* Guests: can view the whole pool but don't play, pick or post, and aren't in the standings. */}
@@ -318,15 +314,9 @@ export async function AdminRoster({
 async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: string; embed: { rename: (userId: string) => string; maxRows: number } }) {
   const db = ctx.supabase;
   const { data: members } = await db.from("pool_members").select("user_id, role, paid").eq("pool_id", ctx.pool.id);
-  const [{ data: profiles }, users] = await Promise.all([
-    db.from("profiles").select("id, name_confirmed").in("id", (members ?? []).map((m) => m.user_id)),
-    db.auth.admin.listUsers({ perPage: 1000 }).then(({ data }) => data?.users ?? []).catch(() => []),
-  ]);
-  const confirmed = new Set(((profiles ?? []) as { id: string; name_confirmed: boolean | null }[]).filter((p) => p.name_confirmed).map((p) => p.id));
-  const userOf = new Map(users.map((u) => [u.id, u]));
-  const all = (members ?? []) as { user_id: string; role: string; paid: boolean; joined_at: string }[];
+  const benched = await getBenchedIds(db, ctx.pool.id);
+  const all = ((members ?? []) as { user_id: string; role: string; paid: boolean; joined_at: string }[]).filter((m) => !benched.has(m.user_id));
   const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: timezone });
-  const setUp = (id: string) => Boolean(userOf.get(id)?.user_metadata?.password_set && confirmed.has(id));
   const fee = Number(ctx.pool.entry_fee);
   const paidCount = all.filter((m) => m.paid).length;
   const rows = all
@@ -346,7 +336,7 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
         {stat("Players", String(all.length))}
         {stat("Paid", fee > 0 ? `${paidCount} of ${all.length}` : "No fee")}
         {stat("Collected", fee > 0 ? `$${(paidCount * fee).toFixed(0)}` : "—")}
-        {stat("Accounts set up", users.length ? `${all.filter((m) => setUp(m.user_id)).length} of ${all.length}` : "—")}
+        {stat("Benched", String(benched.size))}
       </div>
       <SettingsSection title="Invite players" description="Anyone with this link can join the pool. Text or email it to the group.">
         <div className="flex flex-wrap items-center gap-2 py-3">
@@ -386,7 +376,7 @@ async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: 
               <div className={CELL.remove}>
                 {m.role !== "commissioner" && (
                   <span className="flex size-10 items-center justify-center text-muted">
-                    <XIcon />
+                    <DotsIcon />
                   </span>
                 )}
               </div>
@@ -446,10 +436,12 @@ function PaidMark({ paid, button = false }: { paid: boolean; button?: boolean })
   );
 }
 
-function XIcon() {
+function DotsIcon() {
   return (
-    <svg aria-hidden viewBox="0 0 20 20" className="size-4">
-      <path d="M5.5 5.5l9 9m0-9l-9 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg aria-hidden viewBox="0 0 20 20" className="size-5">
+      <circle cx="4.5" cy="10" r="1.6" fill="currentColor" />
+      <circle cx="10" cy="10" r="1.6" fill="currentColor" />
+      <circle cx="15.5" cy="10" r="1.6" fill="currentColor" />
     </svg>
   );
 }

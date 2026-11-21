@@ -1,6 +1,7 @@
 import "server-only";
 import { getPublishedSlates, type PoolContext } from "./pool";
 import type { PoolSettings } from "./poolSettings";
+import { getActiveMembers } from "./bench";
 
 export type StandingRow = {
   userId: string;
@@ -25,7 +26,7 @@ export type StandingsScope = string | { fromWeek: number; toWeek: number | null 
 /** Season (all published weeks), one week, or a segment. Ties share a rank (TODO(brooks): weekly tiebreaker? none in MVP). */
 export async function getStandings(ctx: PoolContext, scope?: StandingsScope): Promise<StandingRow[]> {
   const [{ data: members }, { data: slates }] = await Promise.all([
-    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    getActiveMembers(ctx.supabase, ctx.pool.id),
     ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).neq("status", "draft"),
   ]);
   const slateIds =
@@ -43,7 +44,7 @@ export async function getStandings(ctx: PoolContext, scope?: StandingsScope): Pr
  */
 export async function getWeekAndSeasonStandings(ctx: PoolContext, slateId: string): Promise<{ week: StandingRow[]; season: StandingRow[] }> {
   const [{ data: members }, { data: slates }] = await Promise.all([
-    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    getActiveMembers(ctx.supabase, ctx.pool.id),
     ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).neq("status", "draft"),
   ]);
   const ids = (slates ?? []).map((s) => s.id);
@@ -131,7 +132,7 @@ export function tally(members: MemberRow[], scores: ScoreRow[]): StandingRow[] {
  */
 export async function getStandingsBook(ctx: PoolContext) {
   const [{ data: members }, slates] = await Promise.all([
-    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    getActiveMembers(ctx.supabase, ctx.pool.id),
     // Shared, per-request cache: the page asks for the same list.
     getPublishedSlates(ctx),
   ]);

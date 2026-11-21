@@ -2,6 +2,7 @@ import "server-only";
 import { getBracket, type Bracket } from "./brackets";
 import type { PoolBase, PoolContext } from "./pool";
 import { pickXSettings, teamStatus, teamUpside, type PickXSettings, type TeamStatus } from "./pickx";
+import { getActiveMembers } from "./bench";
 
 // Pick X data for the pool pages: the bracket (field, lock, winners), every entry's teams that
 // the viewer can see, and each entry's score.
@@ -13,7 +14,7 @@ export async function getPickX(ctx: PoolBase) {
   const settings: PickXSettings = pickXSettings(ctx.pool.settings);
   const [bracket, { data: members }, { data: entries }] = await Promise.all([
     getBracket(ctx as unknown as PoolContext),
-    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    getActiveMembers(ctx.supabase, ctx.pool.id),
     // Row security: the viewer's own picks always, everyone's once the bracket locks.
     ctx.supabase.from("pickx_entries").select("user_id, team_ids, edited_by").eq("pool_id", ctx.pool.id),
   ]);

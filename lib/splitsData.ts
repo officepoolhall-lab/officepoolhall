@@ -5,6 +5,7 @@ import { standingsByPoints } from "./standings";
 
 export type FilteredSplit = Exclude<Split, "all">;
 import type { StandingRow } from "./standings";
+import { getActiveMembers } from "./bench";
 
 const PAGE = 1000; // PostgREST's default row cap per request
 
@@ -30,7 +31,7 @@ async function all<T>(page: (from: number, to: number) => PromiseLike<{ data: T[
 export async function getAllSplitStandings(ctx: PoolContext): Promise<Record<FilteredSplit, StandingRow[]>> {
   const ids = (await getPublishedSlates(ctx)).map((s) => s.id);
   const [{ data: members }, games, picks] = await Promise.all([
-    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    getActiveMembers(ctx.supabase, ctx.pool.id),
     ids.length
       ? all<GameRow>((from, to) =>
           ctx.supabase
