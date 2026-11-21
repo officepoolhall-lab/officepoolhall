@@ -3,7 +3,19 @@ import type { ReactNode } from "react";
 import { SportIcon } from "@/components/SportIcon";
 import { LinkButton, Wordmark } from "@/components/ui";
 import { PoolTypes } from "./PoolTypes";
-import { GolfPreview, GridPreview, PicksPreview, StandingsPreview } from "./Previews";
+import type { LandingData } from "@/lib/landingData";
+import {
+  GolfPreview,
+  GridPreview,
+  LiveGolfPreview,
+  LiveGridPreview,
+  LivePicksPreview,
+  LiveStandingsPreview,
+  LiveSummaryPreview,
+  PicksPreview,
+  ScoresPreview,
+  StandingsPreview,
+} from "./Previews";
 
 // The page a signed-out visitor sees at the site's address: what it is, the pools it runs, how it
 // works, a look at the pages, then start a pool or sign in. (Signed-in players go to My Pools.)
@@ -38,7 +50,8 @@ function Section({ label, title, children, className = "" }: { label: string; ti
   );
 }
 
-export function Landing() {
+/** `data`: this week's real games and picks (players renamed); null shows made-up examples. */
+export function Landing({ data }: { data: LandingData | null }) {
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
@@ -86,7 +99,7 @@ export function Landing() {
             <p className="mt-4 text-sm text-muted">Got an invite? Open the link from your commissioner to join their pool.</p>
           </div>
           <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-            <PicksPreview />
+            {data?.myPicks.games.length ? <LivePicksPreview data={data} /> : <PicksPreview />}
           </div>
         </section>
 
@@ -110,36 +123,52 @@ export function Landing() {
 
         <div className="border-y border-line bg-surface/50">
           <Section label="A look inside" title="Everything the group argues about, in one place.">
-            <div className="grid items-start gap-5 md:grid-cols-2">
-              <div className="space-y-5">
-                <GridPreview />
-                <GolfPreview />
+            {data ? (
+              <div className="grid items-start gap-5 md:grid-cols-2">
+                <div className="space-y-5">
+                  {data.grid.games.length ? <LiveGridPreview data={data} /> : <GridPreview />}
+                  {data.golf ? <LiveGolfPreview golf={data.golf} /> : <GolfPreview />}
+                </div>
+                <div className="space-y-5">
+                  <LiveStandingsPreview data={data} />
+                  <LiveSummaryPreview data={data} />
+                  <ScoresPreview data={data} />
+                </div>
               </div>
-              <div className="space-y-5">
-                <StandingsPreview />
-                <div className="rounded-2xl bg-bg p-5 ring-1 ring-line">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Pool summary</div>
-                  <div className="mt-3 space-y-3">
-                    {[
-                      ["Rams −6.5", 78],
-                      ["Owls +3", 64],
-                      ["Pines −3", 52],
-                    ].map(([side, pct]) => (
-                      <div key={side as string}>
-                        <div className="flex justify-between text-sm">
-                          <span className="font-semibold">{side}</span>
-                          <span className="tabular-nums text-muted">{pct}% picked</span>
+            ) : (
+              <div className="grid items-start gap-5 md:grid-cols-2">
+                <div className="space-y-5">
+                  <GridPreview />
+                  <GolfPreview />
+                </div>
+                <div className="space-y-5">
+                  <StandingsPreview />
+                  <div className="rounded-2xl bg-bg p-5 ring-1 ring-line">
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Pool summary</div>
+                    <div className="mt-3 space-y-3">
+                      {[
+                        ["Rams −6.5", 78],
+                        ["Owls +3", 64],
+                        ["Pines −3", 52],
+                      ].map(([side, pct]) => (
+                        <div key={side as string}>
+                          <div className="flex justify-between text-sm">
+                            <span className="font-semibold">{side}</span>
+                            <span className="tabular-nums text-muted">{pct}% picked</span>
+                          </div>
+                          <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
+                            <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                          </div>
                         </div>
-                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface">
-                          <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-            <p className="mt-4 text-xs text-faint">Example teams and players.</p>
+            )}
+            <p className="mt-4 text-xs text-faint">
+              {data ? "Live from pools being played right now. Player names changed." : "Example teams and players."}
+            </p>
           </Section>
         </div>
 
