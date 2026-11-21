@@ -35,6 +35,13 @@ const PROMISES: { title: string; text: ReactNode }[] = [
   },
 ];
 
+/** Preliminary pricing, by the number of entries in a pool. */
+const PRICING = [
+  { title: "Up to 5 entries", price: "Free", unit: "per pool", text: "Try it with a small group, with every feature included." },
+  { title: "6 to 25 entries", price: "$20", unit: "per pool", text: "The office pool or the group chat, one flat price." },
+  { title: "26 entries and up", price: "+$1", unit: "per entry over 25", text: "$20 for the first 25 entries, then $1 for each one after." },
+];
+
 const SUPPORT = [
   { title: "Getting set up", text: "Help choosing a format, setting the rules and inviting your group." },
   { title: "Mid-season fixes", text: "A missed pick, a postponed game, a rule your group wants changed." },
@@ -125,21 +132,28 @@ export function Landing() {
           </section>
         </div>
 
-        {/* Pricing: the options are still being set, so this says so for now. */}
+        {/* Pricing (preliminary): by the number of entries in the pool. */}
         <section id="pricing" className="scroll-mt-16 border-b border-line">
           <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
             <div className="text-sm font-bold uppercase tracking-wide text-accent sm:text-base">Pricing</div>
             <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Pricing options</h2>
-            <div className="mt-6 rounded-2xl bg-surface p-6 ring-1 ring-line sm:mt-8 sm:p-8">
-              <p className="text-lg font-bold">Pricing options are coming soon.</p>
-              <p className="mt-2 max-w-2xl text-muted">
-                Plans for every size of pool, from a group of friends to an office or a bar with hundreds of entries, will be posted here. Questions in the meantime?{" "}
-                <a href="#support" className="font-semibold text-accent hover:underline">
-                  Reach out to our creators directly
-                </a>
-                .
-              </p>
+            <div className="mt-6 grid gap-4 sm:mt-8 md:grid-cols-3">
+              {PRICING.map((p) => (
+                <div key={p.title} className="flex flex-col rounded-2xl bg-bg p-6 ring-1 ring-line">
+                  <div className="text-sm font-semibold text-muted">{p.title}</div>
+                  <div className="mt-2 text-4xl font-extrabold tracking-[-0.03em] tabular-nums">{p.price}</div>
+                  <div className="mt-1 text-sm text-muted">{p.unit}</div>
+                  <p className="mt-4 text-[15px]">{p.text}</p>
+                </div>
+              ))}
             </div>
+            <p className="mt-5 text-sm text-muted">
+              Preliminary pricing, per pool. For example, a 50-entry pool is $20 + 25 × $1 = $45. Every pool type and every feature is included at every size. Questions?{" "}
+              <a href="#support" className="font-semibold text-accent hover:underline">
+                Reach out to our creators directly
+              </a>
+              .
+            </p>
           </div>
         </section>
 
