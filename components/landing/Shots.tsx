@@ -173,7 +173,7 @@ export async function Shots() {
       id: "picks",
       label: "My Picks",
       title: "Every game and every line on one clean card.",
-      text: "Players see the week's games, spreads and lock times, make their picks in a few taps, and watch them update live once games start.",
+      text: "Players see the week's games, spreads, lock times and team history, make their picks in a few taps, and watch it all update live once games start.",
       node: picks,
     },
     {
