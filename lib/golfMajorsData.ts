@@ -4,6 +4,7 @@ import { allRows, type GolfEvent } from "./golf";
 import type { PoolBase } from "./pool";
 import { getEventInfo } from "./golfEventInfo";
 import { espnTournamentId, getLiveLeaderboard } from "./golfLive";
+import { getScorecard } from "./golfScorecard";
 import { hasStarted, majorsSettings, purseOverride, scoreLineup, majorStandings, withProjectedEarnings, type FieldGolfer, type MajorResult, type MajorsSettings, type Scorecard } from "./golfMajors";
 
 export type LineupRow = { user_id: string; event_id: string; espn_golfer_id: string; golfer_name: string; tier: number | null; salary: number | null };
@@ -89,9 +90,14 @@ export type SortKey = "score" | "name" | "toPar" | "money";
  * to par, holes played and rounds straight from ESPN (read fresh, no cache), since the stored
  * results only update every ten minutes. Prize money and hole-by-hole stay as stored.
  */
-export async function withLiveScores(ctx: PoolBase, events: GolfEvent[], raw: Map<string, MajorResult[]>): Promise<Map<string, MajorResult[]>> {
+export async function withLiveScores(
+  ctx: PoolBase,
+  events: GolfEvent[],
+  raw: Map<string, MajorResult[]>,
+  picked: Set<string> = new Set(),
+): Promise<Map<string, MajorResult[]>> {
   const live = events.filter((e) => e.status !== "final" && hasStarted(e));
-  if (!live.length) return raw;
+  if (!live.length) return withOutScores(ctx, events, raw, picked);
   const boards = await Promise.all(live.map((e) => getLiveLeaderboard(espnTournamentId(e.espn_id, ctx.pool.slug, e.status) ?? e.espn_id, 0).catch(() => null)));
   const out = new Map(raw);
   live.forEach((e, i) => {
@@ -116,6 +122,34 @@ export async function withLiveScores(ctx: PoolBase, events: GolfEvent[], raw: Ma
     for (const r of stored.values()) if (!board.some((g) => g.id === r.espn_golfer_id)) rows.push(r);
     out.set(e.id, rows);
   });
+  return withOutScores(ctx, events, out, picked);
+}
+
+/**
+ * A golfer who missed the cut or withdrew counts their own score to par for the rounds they
+ * played (the pool's rule), but ESPN shows "CUT" / "WD" there instead of a number. For the picked
+ * ones without a score, it's added up from their scorecard's rounds (cached an hour: it no longer
+ * changes).
+ */
+async function withOutScores(ctx: PoolBase, events: GolfEvent[], raw: Map<string, MajorResult[]>, picked: Set<string>): Promise<Map<string, MajorResult[]>> {
+  const out = new Map(raw);
+  await Promise.all(
+    events.map(async (e) => {
+      const rows = raw.get(e.id);
+      const missing = rows?.filter((r) => r.out && r.to_par === null && picked.has(r.espn_golfer_id)) ?? [];
+      if (!rows || !missing.length) return;
+      const tid = espnTournamentId(e.espn_id, ctx.pool.slug, e.status) ?? e.espn_id;
+      const own = new Map<string, number>();
+      await Promise.all(
+        missing.map(async (r) => {
+          const card = await getScorecard(tid, r.espn_golfer_id, 3600).catch(() => null);
+          const pars = card?.rounds.map((x) => (x.toPar === "E" ? 0 : x.toPar && /^[+-]?\d+$/.test(x.toPar.replace("\u2212", "-")) ? Number(x.toPar.replace("\u2212", "-")) : null)) ?? [];
+          if (pars.length && pars.every((v) => v !== null)) own.set(r.espn_golfer_id, pars.reduce((a, b) => a! + b!, 0)!);
+        }),
+      );
+      if (own.size) out.set(e.id, rows.map((r) => (own.has(r.espn_golfer_id) ? { ...r, to_par: own.get(r.espn_golfer_id)! } : r)));
+    }),
+  );
   return out;
 }
 
@@ -129,7 +163,7 @@ export async function getMajorsScoreboard(ctx: PoolBase, events: GolfEvent[], me
     started.length ? getEventInfo(started, ctx.pool.slug) : Promise.resolve(new Map()),
   ]);
   // Live place and score straight from ESPN for a tournament being played.
-  const raw = await withLiveScores(ctx, started, stored);
+  const raw = await withLiveScores(ctx, started, stored, new Set(lineups.map((l) => l.espn_golfer_id)));
   const results = new Map<string, MajorResult[]>();
   // The purse: the commissioner's, else ESPN's. Projected prize money is worked out from it.
   const purses = new Map<string, { purse: number | null }>();

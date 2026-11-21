@@ -68,7 +68,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
   if (started) {
     const final = event.status === "final";
     // Live place and score straight from ESPN while it's being played (fresh on every visit).
-    const raw = await withLiveScores(ctx, [event], await getMajorResults(ctx, [event.id]));
+    const raw = await withLiveScores(ctx, [event], await getMajorResults(ctx, [event.id]), new Set(lineups.filter((l) => l.event_id === event.id).map((l) => l.espn_golfer_id)));
     // Prize money projected from each golfer's place now and the purse, until it's posted.
     const results = withProjectedEarnings(raw.get(event.id) ?? [], purse, final);
     const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));

@@ -122,7 +122,7 @@ function MajorsSettingsForm({ slug, pool }: { slug: string; pool: { name: string
             <legend className="text-sm font-semibold">Score by</legend>
             <Choice name="tier_scoring" value="to_par" checked={s.tiers.scoring === "to_par"}>Total score to par (lowest wins)</Choice>
             <Choice name="tier_scoring" value="earnings" checked={s.tiers.scoring === "earnings"}>Prize money (highest wins)</Choice>
-            <p className="text-xs text-muted">Score to par: a golfer who misses the cut or withdraws takes the worst score of any golfer who made the cut.</p>
+            <p className="text-xs text-muted">Score to par: a golfer who misses the cut or withdraws counts their own score for the rounds they played.</p>
           </fieldset>
           <fieldset>
             <legend className="text-sm font-semibold">Build tiers from</legend>

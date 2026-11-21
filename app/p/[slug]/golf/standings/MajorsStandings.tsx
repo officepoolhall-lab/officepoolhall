@@ -166,7 +166,7 @@ export async function MajorsStandings({
 
       <p className="mt-2 text-[11px] text-muted">
         {s.contest === "tiers" && s.tiers.scoring === "to_par"
-          ? "Lowest total wins. A golfer who misses the cut takes the worst score of anyone who made it. "
+          ? "Lowest total wins. A golfer who misses the cut or withdraws counts their own score. "
           : "Highest total wins. "}
         {s.contest === "tiers" && s.tiers.counting < s.tiers.picks.reduce((a, b) => a + b, 0) ? `The best ${s.tiers.counting} golfers count (in bold). ` : ""}
         {anyLive ? "Earnings (Proj. $) are projected from current standings and the purse (ties split), until the prize money is posted." : ""}

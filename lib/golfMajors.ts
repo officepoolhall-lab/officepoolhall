@@ -239,11 +239,13 @@ export function placeNumber(pos: string | null) {
  * cut, withdrew, disqualified) takes the worst score among golfers who made the cut and are
  * still in it. Before anyone's out, golfers keep their own score.
  */
+/**
+ * Each golfer's score to par. A golfer who missed the cut or withdrew counts their own score for
+ * the rounds they played (the commissioner's call, Nov 2026; it used to be the worst score among
+ * those who made the cut).
+ */
 export function toParScores(results: MajorResult[]): Map<string, number | null> {
-  const inEvent = results.filter((r) => !r.out && r.to_par !== null).map((r) => r.to_par!);
-  const anyOut = results.some((r) => r.out);
-  const worst = anyOut && inEvent.length ? Math.max(...inEvent) : null;
-  return new Map(results.map((r) => [r.espn_golfer_id, r.out ? (worst ?? r.to_par) : r.to_par]));
+  return new Map(results.map((r) => [r.espn_golfer_id, r.to_par]));
 }
 
 // DraftKings PGA classic scoring.
