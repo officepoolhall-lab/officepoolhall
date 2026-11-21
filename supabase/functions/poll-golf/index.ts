@@ -80,6 +80,38 @@ async function fetchScorecard(eventId: string, golferId: string) {
   return { rounds };
 }
 
+/**
+ * Whether ESPN has called the tournament complete (its scoreboard status), for an event cut
+ * short: a 54-hole (or 36-hole) finish never plays round 4.
+ */
+async function espnCompleted(espnId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?event=${espnId}`, {
+      headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return false;
+    const body = await res.json();
+    const type = body?.events?.[0]?.competitions?.[0]?.status?.type ?? body?.events?.[0]?.status?.type;
+    return type?.completed === true || type?.state === "post" || /final|complete/i.test(String(type?.name ?? ""));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A tournament shortened by weather: everyone has finished, prize money is posted, but round 4
+ * was never played. Final once ESPN calls it complete (checked only then, so rarely).
+ */
+function maybeShortened(golfers: Golfer[]): boolean {
+  return (
+    golfers.length > 0 &&
+    golfers.every((g) => g.status === "post") &&
+    golfers.some((g) => g.earnings > 0) &&
+    !golfers.some((g) => g.playedR4)
+  );
+}
+
 /** Every golfer object the page embeds ({"guid":...}), one per ESPN id. */
 function parseGolfers(html: string): Golfer[] {
   const byId = new Map<string, Golfer>();
@@ -116,8 +148,8 @@ function parseGolfers(html: string): Golfer[] {
 /**
  * Status from the golfers. Final needs everyone finished AND round 4 played AND prize money
  * posted: between rounds every golfer can show finished, and a final event is frozen for good.
+ * (A tournament cut short is closed separately: see maybeShortened.)
  * Under way: anyone finished, on the course, or with holes played. Otherwise scheduled.
- * (A tournament shortened to 54 holes stays "under way"; the commissioner can close it.)
  */
 function deriveState(golfers: Golfer[]): State {
   const firstTee = golfers.map((g) => g.tee).filter((t): t is string => !!t).sort()[0] ?? null;
@@ -181,7 +213,11 @@ Deno.serve(async (req) => {
         report.push({ event: ev.espn_id, name: ev.name, error: e instanceof Error ? e.message : String(e) });
         continue;
       }
-      const state = deriveState(golfers);
+      let state = deriveState(golfers);
+      // Cut short (54 holes): final once ESPN calls it complete and the money is posted.
+      if (state.status === "in_progress" && maybeShortened(golfers) && (await espnCompleted(ev.espn_id))) {
+        state = { ...state, status: "final" };
+      }
 
       // The lock follows the first tee time only while the event hasn't started.
       // Never once the stored lock has passed: picks are for the whole tournament.
