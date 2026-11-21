@@ -639,13 +639,19 @@ function GameRow({
           {meta && <span className="font-normal"> · {meta}</span>}
           {locked && <LockIcon className="ml-1.5 inline size-3 align-[-2px] text-muted" />}
         </FitText>
-        {/* Live or final: play-by-play and box score. The link covers the whole card (its ::after),
-            so a tap anywhere on the game opens it; picks are locked by then. */}
+        {/* Live or final: play-by-play and box score. When the pick is locked, the link covers the
+            whole card (its ::after), so a tap anywhere on the game opens it. When it can still be
+            changed (the commissioner editing a player's picks), only "Box Score" opens it, so the
+            pick buttons keep working. */}
         {(live || (final && !g.voided)) && (
           <Link
             href={gameHref}
             // The card's background lightens on hover, like the scoreboard's game cards.
-            className="ml-auto shrink-0 font-semibold text-accent after:absolute after:inset-0 after:z-10 after:rounded-lg after:transition after:content-[''] hover:after:bg-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
+            className={`ml-auto shrink-0 font-semibold text-accent ${
+              editable
+                ? "relative z-10 rounded px-1 hover:bg-hover"
+                : "after:absolute after:inset-0 after:z-10 after:rounded-lg after:transition after:content-[''] hover:after:bg-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
+            }`}
           >
             Box Score ›
           </Link>
