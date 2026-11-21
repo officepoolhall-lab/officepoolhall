@@ -1,4 +1,4 @@
-import { getEventStatus, suspendedLine } from "@/lib/golfLive";
+import { currentRound, getEventStatus, getLiveLeaderboard, suspendedLine } from "@/lib/golfLive";
 
 /**
  * A note while play is stopped (weather, darkness), from ESPN's own status line, so a board
@@ -6,7 +6,11 @@ import { getEventStatus, suspendedLine } from "@/lib/golfLive";
  */
 export async function PlaySuspended({ tournamentId, className = "" }: { tournamentId: string | null; className?: string }) {
   if (!tournamentId) return null;
-  const line = suspendedLine(await getEventStatus(tournamentId));
+  const status = await getEventStatus(tournamentId);
+  if (!suspendedLine(status)) return null;
+  // The round actually stopped (ESPN's line can still name the finished one).
+  const round = await currentRound(tournamentId, await getLiveLeaderboard(tournamentId, 0).catch(() => null));
+  const line = suspendedLine(status, round);
   if (!line) return null;
   return (
     <div
