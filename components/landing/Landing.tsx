@@ -166,9 +166,6 @@ export function Landing({ data }: { data: LandingData | null }) {
                 </div>
               </div>
             )}
-            <p className="mt-4 text-xs text-faint">
-              {data ? "Live from pools being played right now. Player names changed." : "Example teams and players."}
-            </p>
           </Section>
         </div>
 
