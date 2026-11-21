@@ -41,10 +41,20 @@ export function TeamLogo({ src, abbr, className = "size-8" }: { src?: string | n
   const dark = src.includes("/teamlogos/ncaa/500/") ? src.replace("/500/", "/500-dark/") : null;
   return (
     <picture className="contents">
-      {dark && <source srcSet={dark} media="(prefers-color-scheme: dark)" />}
-      <img src={src} alt="" loading="lazy" className={`${className} shrink-0 object-contain`} />
+      {dark && <source srcSet={smallLogo(dark)} media="(prefers-color-scheme: dark)" />}
+      <img src={smallLogo(src)} alt="" loading="lazy" decoding="async" className={`${className} shrink-0 object-contain`} />
     </picture>
   );
+}
+
+/**
+ * ESPN's team logos are 500-pixel PNGs; they never show bigger than about 40 points here. ESPN's
+ * image resizer serves the same logo at 96 pixels (sharp on any screen) for a small part of the
+ * download, which matters on pages with hundreds of logos (the Grid). Other images pass through.
+ */
+function smallLogo(src: string): string {
+  const m = src.match(/^https:\/\/a\.espncdn\.com(\/i\/teamlogos\/[^?]+\.png)$/);
+  return m ? `https://a.espncdn.com/combiner/i?img=${m[1]}&w=96&h=96&scale=crop` : src;
 }
 
 /** The header logo: the Check Ball and "officepoolhall", sized by the text size passed in. */
