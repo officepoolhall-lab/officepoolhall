@@ -19,7 +19,7 @@ export async function PlaySuspended({ tournamentId, className = "" }: { tourname
       </svg>
       <div className="min-w-0">
         <div className="font-semibold">{line}</div>
-        <div className="text-xs text-muted">Scores and tee times update here once play resumes. Picks stay locked.</div>
+        <div className="text-xs text-muted">Scores and tee times update here once play resumes.</div>
       </div>
     </div>
   );
