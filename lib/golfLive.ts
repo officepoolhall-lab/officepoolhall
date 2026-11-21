@@ -76,8 +76,8 @@ export function parseLiveGolfers(html: string): LiveGolfer[] {
       name: o.name,
       pos: str(o.pos) ?? "-",
       // A golfer who hasn't started has no score yet ("-" or nothing).
-      // No score once out ("CUT", "WD"…), as before a golfer starts ("-").
-      toPar: str(o.toPar) === "-" || /^[A-Z]+$/i.test(str(o.toPar) ?? "") ? null : str(o.toPar),
+      // No score once out ("CUT", "WD"…), as before a golfer starts ("-"). Even par is "E".
+      toPar: str(o.toPar) === "-" || (/^[A-Z]+$/i.test(str(o.toPar) ?? "") && str(o.toPar)?.toUpperCase() !== "E") ? null : str(o.toPar)?.toUpperCase() === "E" ? "E" : str(o.toPar),
       // Before a golfer starts, ESPN sends thru 0 (checked Nov 2026: status "pre", toPar "-").
       thru: thru === "18" ? "F" : thru === "0" || /^(CUT|MC|WD|DQ)$/i.test(thru ?? "") ? null : thru,
       tee: teeTime(o.tee),
