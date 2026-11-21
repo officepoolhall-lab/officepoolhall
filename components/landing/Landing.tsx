@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { SportIcon } from "@/components/SportIcon";
 import { LinkButton, Wordmark } from "@/components/ui";
-import type { PoolKind } from "@/lib/poolType";
+import { PoolTypes } from "./PoolTypes";
 import { GolfPreview, GridPreview, PicksPreview, StandingsPreview } from "./Previews";
 
 // The page a signed-out visitor sees at the site's address: what it is, the pools it runs, how it
@@ -10,15 +10,6 @@ import { GolfPreview, GridPreview, PicksPreview, StandingsPreview } from "./Prev
 
 const START = "/login?next=%2Fpools%2Fnew";
 const SIGN_IN = "/login";
-
-const POOL_TYPES: { kind: PoolKind; name: string; leagues: string; text: string }[] = [
-  { kind: "football", name: "Supercontest", leagues: "NFL · College football", text: "Pick a set number of games against the spread each week. Lines lock when the week is published." },
-  { kind: "football", name: "Confidence pool", leagues: "NFL · College football · College basketball", text: "Pick every game and rank them. Your surest pick is worth the most points." },
-  { kind: "football", name: "Pick'em", leagues: "NFL · College football", text: "Straight-up winners, no spreads. Easy for anyone to jump into." },
-  { kind: "basketball", name: "College basketball", leagues: "Weekly slates · Early-season tournaments", text: "Weekly picks through the season, with bonus points for calling tournament champions." },
-  { kind: "golf", name: "PGA One-and-Done", leagues: "Full PGA Tour season", text: "One golfer a week, each golfer once all season. Standings are the prize money your golfers win." },
-  { kind: "golf", name: "Majors and tournament pools", leagues: "The four majors · Any tour event", text: "Pick a lineup from tiers or under a salary cap. Score to par or prize money decides it." },
-];
 
 const STEPS = [
   { title: "Start a pool", text: "Choose the sport and format, set the rules, and you're the commissioner." },
@@ -78,11 +69,8 @@ export function Landing() {
                 </span>
               ))}
             </div>
-            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">
-              Your office pool,
-              <br />
-              <span className="text-accent">without the spreadsheet.</span>
-            </h1>
+            {/* Tagline to come; the site's name for now. */}
+            <h1 className="mt-5 text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">The Office Pool Hall</h1>
             <p className="mt-5 max-w-xl text-lg text-muted">
               Pick&apos;em pools for college football, the NFL, college basketball and golf. Picks lock at kickoff, scores update live, and the
               standings take care of themselves.
@@ -103,21 +91,8 @@ export function Landing() {
         </section>
 
         <div className="border-t border-line bg-surface/50">
-          <Section label="Pool types" title="Every way your group likes to pick.">
-            <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-              {POOL_TYPES.map((p) => (
-                <div key={p.name} className="flex gap-4">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white dark:text-black">
-                    <SportIcon kind={p.kind} className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="font-bold leading-tight">{p.name}</h3>
-                    <div className="mt-0.5 text-xs font-medium text-accent">{p.leagues}</div>
-                    <p className="mt-1.5 text-sm text-muted">{p.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <Section label="Pool types" title="Choose your sport, then your pool.">
+            <PoolTypes startHref={START} />
           </Section>
         </div>
 
@@ -205,7 +180,6 @@ export function Landing() {
       <footer className="border-t border-line">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-sm text-muted sm:px-6">
           <Wordmark className="text-[15px]" />
-          <span>Pick&apos;em pools for football, basketball and golf.</span>
         </div>
       </footer>
     </div>
