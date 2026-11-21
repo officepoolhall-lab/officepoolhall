@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import { LinkButton, Wordmark } from "@/components/ui";
 import { Shots } from "./Shots";
 
-// The page a signed-out visitor sees at the site's address, written for commissioners: what the
-// site does for them, the real pages (from a pool being played, players renamed), why it's a
-// better home for their pool, who it's for, then start a pool or sign in. Signed-in players go
-// straight to My Pools.
+// The page a signed-out visitor sees at the site's address, written for commissioners and kept
+// short: the pitch, the real pages as slides (from a pool being played, players renamed), how it
+// works, real-person support, then start a pool or sign in. Signed-in players go straight to My
+// Pools.
 
 const START = "/login?next=%2Fpools%2Fnew";
 const SIGN_IN = "/login";
@@ -25,38 +25,20 @@ const STEPS = [
   { title: "Let it run", text: "Picks lock as games start, scores update live, and standings take care of themselves." },
 ];
 
-const VALUES = [
-  {
-    label: "Control",
-    title: "Your pool, your rules",
-    text: "Points per pick, confidence values, upset bonuses, deadlines, bonus segments and more. Change them until the season starts, and see the whole rulebook at a glance.",
-  },
-  {
-    label: "Your people",
-    title: "Your members, not ours",
-    text: "No ads and no selling your list. Players' emails are only visible to the commissioner, and guests can follow along without joining.",
-  },
-  {
-    label: "Built by a commissioner",
-    title: "Made by someone who runs these pools",
-    text: "Built around real weekly pools, with features added because commissioners asked for them, not to upsell you.",
-  },
-];
-
-const AUDIENCES = [
-  { title: "Offices and workplaces", text: "A weekly pool everyone can join from their phone, with standings to argue about on Monday." },
-  { title: "Bars, restaurants and clubs", text: "Run a house pool for regulars with one link, and keep everyone coming back each week." },
-  { title: "Friends and family", text: "The group-chat pool, without the spreadsheet or the person doing the math every Sunday night." },
+const SUPPORT = [
+  { title: "Getting set up", text: "Help choosing a format, setting the rules and inviting your group." },
+  { title: "Mid-season fixes", text: "A missed pick, a postponed game, a rule your group wants changed." },
+  { title: "Ideas for the site", text: "Features get added because commissioners ask for them." },
 ];
 
 const FORMATS = ["Supercontest", "Pick'em", "Confidence", "NCAA Pick X", "PGA One-and-Done", "PGA Majors and tournaments"];
 
 function Section({ label, title, children, className = "" }: { label: string; title: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 ${className}`}>
+    <section className={`mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14 ${className}`}>
       <div className="text-xs font-semibold uppercase tracking-wide text-accent">{label}</div>
       <h2 className="mt-2 max-w-2xl text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">{title}</h2>
-      <div className="mt-8 sm:mt-10">{children}</div>
+      <div className="mt-6 sm:mt-8">{children}</div>
     </section>
   );
 }
@@ -88,9 +70,9 @@ export function Landing() {
 
       <main className="flex-1">
         {/* Hero: for commissioners. The pitch and both ways in, with four promises beside it. */}
-        <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16 lg:pb-20 lg:pt-24">
+        <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 pb-12 pt-10 sm:px-6 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16 lg:pb-14 lg:pt-16">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Pool hosting for commissioners</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-accent">Built by a commissioner, for commissioners</div>
             <h1 className="mt-3 text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] sm:text-5xl lg:text-6xl">Say goodbye to the spreadsheets.</h1>
             <p className="mt-5 max-w-xl text-lg text-muted">All your pools in one customizable, zero-hassle space.</p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -116,58 +98,58 @@ export function Landing() {
           </ul>
         </section>
 
-        {/* The real pages, one story at a time. */}
+        {/* The real pages, one slide at a time. */}
         <div className="border-t border-line bg-surface/50">
           <Section label="What your pool looks like" title="Everything the group argues about, in one place.">
             <Shots />
           </Section>
         </div>
 
-        <Section label="Get set up" title="Your pool, ready in one sitting.">
-          <ol className="grid gap-8 sm:grid-cols-3">
+        <Section label="How it works" title="Your pool, ready in one sitting.">
+          <ol className="grid gap-6 sm:grid-cols-3">
             {STEPS.map((s, i) => (
-              <li key={s.title} className="border-t-2 border-accent pt-4">
+              <li key={s.title} className="border-t-2 border-accent pt-3">
                 <div className="text-sm font-bold tabular-nums text-accent">0{i + 1}</div>
                 <h3 className="mt-1 text-lg font-bold leading-tight">{s.title}</h3>
-                <p className="mt-1.5 text-sm text-muted">{s.text}</p>
+                <p className="mt-1 text-sm text-muted">{s.text}</p>
               </li>
             ))}
           </ol>
-          <p className="mt-8 text-sm text-muted">
+          <p className="mt-6 text-sm text-muted">
             <span className="font-semibold text-ink">Pools you can run today:</span> {FORMATS.join(" · ")}.
           </p>
         </Section>
 
+        {/* Support: a real person, the one who built it. */}
         <div className="border-y border-line bg-surface/50">
-          <Section label="A better home for your pool" title="Built for the people who run the pool.">
-            <div className="grid gap-4 md:grid-cols-3">
-              {VALUES.map((v) => (
-                <div key={v.title} className="rounded-2xl bg-bg p-5 ring-1 ring-line">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-accent">{v.label}</div>
-                  <h3 className="mt-2 text-lg font-bold leading-tight">{v.title}</h3>
-                  <p className="mt-2 text-sm text-muted">{v.text}</p>
-                </div>
-              ))}
+          <section className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:gap-16">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-accent">Support</div>
+              <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Talk to a real person.</h2>
+              <p className="mt-3 max-w-md text-muted">
+                No chatbot and no ticket queue. When you need a hand, you're connected with the commissioner who built the site, someone who runs these pools every week
+                and knows what a Sunday-morning problem feels like.
+              </p>
             </div>
-          </Section>
+            <ul className="grid gap-3 self-center sm:grid-cols-3 lg:grid-cols-1">
+              {SUPPORT.map((x) => (
+                <li key={x.title} className="flex gap-3 rounded-2xl bg-bg p-4 ring-1 ring-line">
+                  <Check />
+                  <div>
+                    <div className="font-bold leading-tight">{x.title}</div>
+                    <p className="mt-0.5 text-sm text-muted">{x.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
 
-        <Section label="Who it's for" title="A pool with your group's name on it.">
-          <div className="grid gap-x-10 gap-y-8 md:grid-cols-3">
-            {AUDIENCES.map((a) => (
-              <div key={a.title}>
-                <h3 className="text-lg font-bold leading-tight">{a.title}</h3>
-                <p className="mt-1.5 text-sm text-muted">{a.text}</p>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        <section className="border-t border-line">
-          <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:px-6 md:flex-row md:items-center md:justify-between">
+        <section>
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-12 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl">Ready to start?</h2>
-              <p className="mt-1 text-muted">Start a pool in a couple of minutes, or sign in to get back to yours.</p>
+              <p className="mt-1 text-muted">For offices, bars and clubs, and friends and family. Start a pool in a couple of minutes.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <LinkButton href={START} kind="accent" className="!h-12 !px-6">
@@ -182,10 +164,10 @@ export function Landing() {
       </main>
 
       <footer className="border-t border-line bg-surface/50">
-        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div>
             <Wordmark className="text-[17px]" />
-            <p className="mt-2 max-w-xs text-sm text-muted">Pool hosting built for commissioners.</p>
+            <p className="mt-2 max-w-xs text-sm text-muted">Built by a commissioner, for commissioners.</p>
           </div>
           <FooterColumn title="Football" items={["NFL Supercontest", "NFL Pick'em", "NFL Confidence", "College football pools"]} />
           <FooterColumn title="Basketball and golf" items={["College basketball pools", "NCAA Pick X", "PGA One-and-Done", "PGA Majors and tournaments"]} />

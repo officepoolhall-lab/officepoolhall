@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ShotCarousel } from "./ShotCarousel";
 import { GridPanel } from "@/components/GridPanel";
 import { GridView } from "@/components/GridView";
 import { StandingsView } from "@/components/StandingsView";
@@ -135,22 +136,7 @@ async function StandingsShot({ lp }: { lp: LandingPool }) {
   return <StandingsView ctx={lp.ctx} slug={lp.slug} query={{ week: String(lp.picksWeek) }} embed={{ rename: lp.rename }} />;
 }
 
-/** One preview: a short label, headline and reason it matters, then the real page under it. */
-function Story({ label, title, text, children, height }: { label: string; title: string; text: string; children: ReactNode; height?: string }) {
-  return (
-    // Words above, the page full width under them (the real pages need the room).
-    <div>
-      <div className="mb-5 max-w-2xl">
-        <div className="text-xs font-semibold uppercase tracking-wide text-accent">{label}</div>
-        <h3 className="mt-1.5 text-xl font-extrabold leading-tight tracking-[-0.02em] sm:text-2xl">{title}</h3>
-        <p className="mt-2 text-[15px] text-muted">{text}</p>
-      </div>
-      <Frame title={label} height={height}>{children}</Frame>
-    </div>
-  );
-}
-
-/** The real pages as a series of stories down the page, or nothing when the pool can't be read. */
+/** The real pages as slides, one at a time, or nothing when the pool can't be read. */
 export async function Shots() {
   const lp = await getLandingPool();
   if (!lp) return null;
@@ -189,7 +175,6 @@ export async function Shots() {
       title: "Where the pool landed on every game.",
       text: "The most-picked sides and how each game split, so the trash talk has receipts.",
       node: summary,
-      height: "h-[30rem]",
     },
     {
       id: "standings",
@@ -201,12 +186,14 @@ export async function Shots() {
   ].filter((x) => x.node);
   if (!stories.length) return null;
   return (
-    <div className="space-y-16 sm:space-y-20">
-      {stories.map((x) => (
-        <Story key={x.id} label={x.label} title={x.title} text={x.text} height={x.height}>
-          {x.node}
-        </Story>
-      ))}
-    </div>
+    <ShotCarousel
+      slides={stories.map((x) => ({
+        id: x.id,
+        label: x.label,
+        title: x.title,
+        text: x.text,
+        node: <Frame title={x.label} height="h-[30rem]">{x.node}</Frame>,
+      }))}
+    />
   );
 }
