@@ -23,7 +23,7 @@ type Pick = { slate_id: string; game_id: string; picked_side: string; confidence
 
 /**
  * Pick History: one player's season summary, then two views. By Week: every week in order
- * (Week 1 first), each a row with its record that opens to show that week's picks. By Team:
+ * (Week 1 first), each a row with its record that opens to show that week's picks (football: all closed to start). By Team:
  * the player's record and points on each team they've picked, all season. ?view=team opens on it.
  * Another player's picks show from each game's kickoff (RLS), so an open week can be partial.
  */
@@ -58,10 +58,10 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
 
   // Every week in order, Week 1 first (history.weeks is oldest first).
   const weeks = history.weeks;
-  // Football pools list every week's picks at once; basketball weeks (25 picks each) fold up.
-  const allOpen = ctx.pool.sport === "ncaaf" || ctx.pool.sport === "nfl";
-  // The newest week with something to show starts open; the rest open on a tap.
-  const openWeek = [...weeks].reverse().find((w) => w.wins + w.losses + w.pushes > 0 || weekPicks(w).length > 0)?.slateId;
+  // Every week folds up and opens on a tap. Basketball (25 picks a week) starts with its newest
+  // week open; football starts with all of them closed.
+  const football = ctx.pool.sport === "ncaaf" || ctx.pool.sport === "nfl";
+  const openWeek = football ? undefined : [...weeks].reverse().find((w) => w.wins + w.losses + w.pushes > 0 || weekPicks(w).length > 0)?.slateId;
 
   // Highest confidence first (game time within a value), like My Picks.
   function weekPicks(w: HistoryWeek) {
@@ -155,15 +155,6 @@ export default async function PickHistoryPage({ params, searchParams }: PageProp
             )}
           </div>
         );
-        // Football: every week open at once, nothing to tap. Basketball: weeks open on a tap.
-        if (allOpen) {
-          return (
-            <section key={w.slateId} aria-label={w.label}>
-              <div className="flex min-h-11 items-center gap-2 py-2">{summary}</div>
-              {body}
-            </section>
-          );
-        }
         return (
           <details key={w.slateId} open={w.slateId === openWeek} className="group">
             <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 py-2 [&::-webkit-details-marker]:hidden">
