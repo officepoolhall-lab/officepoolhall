@@ -5,7 +5,7 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
-const description = "Office pools for the common man. Customize every rule, invite your group, and let the picks, scores and standings run themselves. No spreadsheets required.";
+const description = "Every pool your group runs, all in one place. Pick the sport, set your own scoring, locks and bonuses, and let the site handle the picks, scores and standings. No spreadsheets required.";
 
 export const metadata: Metadata = {
   // Absolute links for the share previews (the image and page URLs a shared link shows).
