@@ -101,15 +101,14 @@ export function PoolTypes({ startHref }: { startHref: string }) {
           {league.types.map((t) =>
             t.soon ? (
               <div key={t.name} className="flex flex-col rounded-2xl bg-bg p-5 ring-1 ring-line">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-lg font-bold leading-tight">{t.name}</h3>
-                  <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted">Coming soon</span>
-                </div>
+                {/* The label sits above the name so long names stay on one line. */}
+                <span className="mb-2 self-start rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-muted">Coming soon</span>
+                <h3 className="whitespace-nowrap text-lg font-bold leading-tight">{t.name}</h3>
                 <p className="mt-2 flex-1 text-sm text-muted">{t.text}</p>
               </div>
             ) : (
               <Link key={t.name} href={startHref} className="group flex flex-col rounded-2xl bg-bg p-5 ring-1 ring-line transition hover:ring-2 hover:ring-accent">
-                <h3 className="text-lg font-bold leading-tight">{t.name}</h3>
+                <h3 className="whitespace-nowrap text-lg font-bold leading-tight">{t.name}</h3>
                 <p className="mt-2 flex-1 text-sm text-muted">{t.text}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-accent">
                   Start this pool
