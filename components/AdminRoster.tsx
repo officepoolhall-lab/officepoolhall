@@ -11,7 +11,20 @@ import { assignEntryEmail, assignEntryEmails, disableGuestInvite, removeGuest, r
  * email (the one they sign in with), account status, co-managers and paid mark, and guests
  * with their own link.
  */
-export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug: string; timezone: string }) {
+export async function AdminRoster({
+  ctx,
+  slug,
+  timezone,
+  embed,
+}: {
+  ctx: PoolBase;
+  slug: string;
+  timezone: string;
+  /** The landing page's copy (an admin client, no signed-in commissioner): made-up names and
+      emails, a sample invite link, the first few players, no guests, nothing that acts. */
+  embed?: { rename: (userId: string) => string; maxRows: number };
+}) {
+  if (embed) return <RosterEmbed ctx={ctx} timezone={timezone} embed={embed} />;
   const [{ data: members }, { data: invite }, { data: accounts, error: accountsError }, { data: comanagers }, { data: guestInvite }, { data: guestRows }] = await Promise.all([
     ctx.supabase
       .from("pool_members")
@@ -284,6 +297,88 @@ export async function AdminRoster({ ctx, slug, timezone }: { ctx: PoolBase; slug
             ))}
           </ul>
         )}
+      </section>
+    </div>
+  );
+}
+
+/** The landing page's roster: the same layout, with nothing real that identifies anyone. */
+async function RosterEmbed({ ctx, timezone, embed }: { ctx: PoolBase; timezone: string; embed: { rename: (userId: string) => string; maxRows: number } }) {
+  const db = ctx.supabase;
+  const { data: members } = await db.from("pool_members").select("user_id, role, paid").eq("pool_id", ctx.pool.id);
+  const [{ data: profiles }, users] = await Promise.all([
+    db.from("profiles").select("id, name_confirmed").in("id", (members ?? []).map((m) => m.user_id)),
+    db.auth.admin.listUsers({ perPage: 1000 }).then(({ data }) => data?.users ?? []).catch(() => []),
+  ]);
+  const confirmed = new Set(((profiles ?? []) as { id: string; name_confirmed: boolean | null }[]).filter((p) => p.name_confirmed).map((p) => p.id));
+  const userOf = new Map(users.map((u) => [u.id, u]));
+  const all = (members ?? []) as { user_id: string; role: string; paid: boolean }[];
+  const setUp = (id: string) => Boolean(userOf.get(id)?.user_metadata?.password_set && confirmed.has(id));
+  const fee = Number(ctx.pool.entry_fee);
+  const paidCount = all.filter((m) => m.paid).length;
+  const rows = all
+    .map((m) => ({ ...m, name: embed.rename(m.user_id) }))
+    .sort((a, b) => (a.role === "commissioner" ? -1 : b.role === "commissioner" ? 1 : a.name.localeCompare(b.name)))
+    .slice(0, embed.maxRows);
+  const email = (name: string) => `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@email.com`;
+  const signedIn = (iso: string | null | undefined) =>
+    iso ? `Last signed in ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: timezone })}` : "Never signed in";
+  const stat = (label: string, value: string) => (
+    <div className="rounded-2xl bg-surface px-4 py-3">
+      <div className="text-xs font-medium text-muted">{label}</div>
+      <div className="mt-0.5 text-xl font-bold tabular-nums text-ink">{value}</div>
+    </div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stat("Players", String(all.length))}
+        {stat("Paid", fee > 0 ? `${paidCount} of ${all.length}` : "No fee")}
+        {stat("Collected", fee > 0 ? `$${(paidCount * fee).toFixed(0)}` : "—")}
+        {stat("Accounts set up", users.length ? `${all.filter((m) => setUp(m.user_id)).length} of ${all.length}` : "—")}
+      </div>
+      <SettingsSection title="Invite players" description="Anyone with this link can join the pool. Text or email it to the group.">
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted ring-1 ring-line">officepoolhall.com/join/your-pool</code>
+          <span className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-semibold text-white dark:text-black">Copy</span>
+        </div>
+      </SettingsSection>
+      <section className="rounded-2xl bg-surface p-4 sm:p-5">
+        <div className="border-b border-line pb-3">
+          <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Players</h2>
+          <p className="mt-0.5 text-sm text-muted">Tap Paid or Unpaid to mark entry fees. Emails are only visible to you.</p>
+        </div>
+        <ul className="divide-y divide-line">
+          {rows.map((m) => {
+            const u = userOf.get(m.user_id);
+            return (
+              <li key={m.user_id} className="flex min-h-14 items-center gap-2 py-1.5">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">
+                    {m.name}
+                    {m.role === "commissioner" && <span className="ml-1.5 text-xs font-normal text-muted">Commissioner</span>}
+                  </span>
+                  <span className="block truncate text-sm text-muted">{email(m.name)}</span>
+                  {u && (
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
+                      {setUp(m.user_id) ? (
+                        <span className="inline-flex items-center gap-0.5 font-semibold text-win"><CheckIcon className="size-3.5" /> Account set up</span>
+                      ) : (
+                        <span className="font-semibold text-muted">Not set up yet</span>
+                      )}
+                      <span className="text-faint">{signedIn(u.last_sign_in_at)}</span>
+                    </span>
+                  )}
+                </span>
+                <span className={`inline-flex min-h-10 items-center gap-1 rounded-full px-3.5 text-sm font-semibold ring-1 ${m.paid ? "bg-[var(--win-fill)] text-win ring-win/40" : "bg-bg text-muted ring-line"}`}>
+                  {m.paid && <CheckIcon className="size-4" />}
+                  {m.paid ? "Paid" : "Unpaid"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        {all.length > rows.length && <p className="pt-3 text-sm text-muted">+ {all.length - rows.length} more players</p>}
       </section>
     </div>
   );

@@ -33,8 +33,7 @@ export type LandingPool = {
   ctx: PoolContext;
   slug: string;
   rename: (userId: string) => string;
-  picksWeek: number;
-  scoresWeek: number;
+  week: number;
 };
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -69,8 +68,8 @@ export async function getLandingPool(): Promise<LandingPool | null> {
       ctx,
       slug: (pool as Row).slug,
       rename: (id) => names.get(id) ?? "Player",
-      picksWeek: Number(process.env.LANDING_PICKS_WEEK) || 8,
-      scoresWeek: Number(process.env.LANDING_SCORES_WEEK) || 9,
+      // One week for every preview (My Picks, Grid, Pool Summary, Scores).
+      week: Number(process.env.LANDING_WEEK ?? process.env.LANDING_PICKS_WEEK) || 8,
     };
   } catch {
     return null;

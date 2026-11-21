@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { ShotCarousel } from "./ShotCarousel";
 import { GridPanel } from "@/components/GridPanel";
 import { GridView } from "@/components/GridView";
-import { StandingsView } from "@/components/StandingsView";
+import { AdminRoster } from "@/components/AdminRoster";
 import { PickBoard } from "@/app/p/[slug]/picks/PickBoard";
 import { Scoreboard } from "@/app/p/[slug]/scoreboard/Scoreboard";
 import { formatInTimeZone } from "date-fns-tz";
@@ -43,7 +43,7 @@ const SHOT_GAMES = 6;
 
 async function MyPicksShot({ lp }: { lp: LandingPool }) {
   const { ctx } = lp;
-  const slate = await slateFor(lp, lp.picksWeek);
+  const slate = await slateFor(lp, lp.week);
   if (!slate) return null;
   const [games, { data: picks }, { data: score }] = await Promise.all([
     getSlateGames(ctx, slate.id),
@@ -89,7 +89,7 @@ async function MyPicksShot({ lp }: { lp: LandingPool }) {
 }
 
 async function ScoresShot({ lp }: { lp: LandingPool }) {
-  const slate = await slateFor(lp, lp.scoresWeek);
+  const slate = await slateFor(lp, lp.week);
   if (!slate) return null;
   const snap = await scoresSnapshot(lp, slate.id);
   if (!snap) return null;
@@ -125,7 +125,7 @@ async function ScoresShot({ lp }: { lp: LandingPool }) {
 }
 
 async function SummaryShot({ lp }: { lp: LandingPool }) {
-  const slate = await slateFor(lp, lp.scoresWeek);
+  const slate = await slateFor(lp, lp.week);
   if (!slate) return null;
   const [games, picks] = await Promise.all([getSlateGames(lp.ctx, slate.id), weekPicks(lp, slate.id)]);
   return (
@@ -147,22 +147,26 @@ async function SummaryShot({ lp }: { lp: LandingPool }) {
   );
 }
 
-async function StandingsShot({ lp }: { lp: LandingPool }) {
-  // The real Standings page: Season and Weekly side by side (bonus segments too), on the
-  // preview's week.
-  return <StandingsView ctx={lp.ctx} slug={lp.slug} query={{ week: String(lp.picksWeek) }} embed={{ rename: lp.rename, maxRows: 10 }} />;
+async function RosterShot({ lp }: { lp: LandingPool }) {
+  // The commissioner's Roster page: made-up names and emails, a sample invite link.
+  return (
+    <>
+      <h2 className="mb-4 text-xl font-extrabold tracking-[-0.03em]">Roster</h2>
+      <AdminRoster ctx={lp.ctx} slug={lp.slug} timezone={lp.ctx.settings.timezone} embed={{ rename: lp.rename, maxRows: 6 }} />
+    </>
+  );
 }
 
 /** The real pages as slides, one at a time, or nothing when the pool can't be read. */
 export async function Shots() {
   const lp = await getLandingPool();
   if (!lp) return null;
-  const [picks, grid, scores, summary, standings] = await Promise.all([
+  const [picks, grid, summary, scores, roster] = await Promise.all([
     MyPicksShot({ lp }).catch(() => null),
-    GridView({ ctx: lp.ctx, slug: lp.slug, week: lp.picksWeek, embed: { maxRows: 12, rename: lp.rename } }).catch(() => null),
-    ScoresShot({ lp }).catch(() => null),
+    GridView({ ctx: lp.ctx, slug: lp.slug, week: lp.week, embed: { maxRows: 12, rename: lp.rename } }).catch(() => null),
     SummaryShot({ lp }).catch(() => null),
-    StandingsShot({ lp }).catch(() => null),
+    ScoresShot({ lp }).catch(() => null),
+    RosterShot({ lp }).catch(() => null),
   ]);
   const stories = [
     {
@@ -180,13 +184,6 @@ export async function Shots() {
       node: grid,
     },
     {
-      id: "scores",
-      label: "Scores",
-      title: "Live scores, right next to the picks.",
-      text: "Clocks, scores, down and distance and the last play for every game, without opening another app.",
-      node: scores,
-    },
-    {
       id: "summary",
       label: "Pool Summary",
       title: "Where the pool landed on every game.",
@@ -194,11 +191,18 @@ export async function Shots() {
       node: summary,
     },
     {
-      id: "standings",
-      label: "Standings",
-      title: "Season and weekly standings that keep themselves.",
-      text: "Updated the moment results are final, with every player's pick history a tap away.",
-      node: standings,
+      id: "scores",
+      label: "Scores",
+      title: "Live scores, right next to the picks.",
+      text: "Clocks, scores, down and distance and the last play for every game, without opening another app.",
+      node: scores,
+    },
+    {
+      id: "roster",
+      label: "Commissioner",
+      title: "Your roster, payments and invites in one place.",
+      text: "One invite link for the group, every player's email and account status, and a tap to mark who's paid.",
+      node: roster,
     },
   ].filter((x) => x.node);
   if (!stories.length) return null;
