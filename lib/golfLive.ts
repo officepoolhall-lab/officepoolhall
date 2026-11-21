@@ -180,11 +180,22 @@ export async function getEventStatus(tournamentId: string): Promise<EventStatus 
  * When play is stopped (weather, darkness, a delay), ESPN's status line for it
  * ("Round 3 - Play Suspended"); null while play is on or the tournament isn't under way.
  */
-export function suspendedLine(st: EventStatus | null): string | null {
+export function suspendedLine(st: EventStatus | null, round: number | null = null): string | null {
   if (!st) return null;
   const text = `${st.name} ${st.detail}`;
   if (!/suspend|delay|postpon|halt|darkness/i.test(text)) return null;
-  return st.detail || "Play Suspended";
+  const line = st.detail || "Play Suspended";
+  // ESPN can keep the finished round's number ("Round 2 - Suspended" once round 2 is complete
+  // and round 3 is the one stopped): use the round actually being played.
+  if (!round) return line;
+  return /^Round \d+/i.test(line) ? line.replace(/^Round \d+/i, `Round ${round}`) : `Round ${round} - ${line}`;
+}
+
+/** Rounds every golfer still in the event has finished (0 before anyone has). */
+export function roundsComplete(golfers: LiveGolfer[] | null): number {
+  const inEvent = (golfers ?? []).filter((g) => !g.out);
+  if (!inEvent.length) return 0;
+  return Math.min(...inEvent.map((g) => g.rounds.filter((r) => r !== null).length));
 }
 
 /**
@@ -195,7 +206,9 @@ export function suspendedLine(st: EventStatus | null): string | null {
 export async function currentRound(tournamentId: string, golfers: LiveGolfer[] | null): Promise<number | null> {
   if (tournamentId === DEMO_LIVE_ID) return 3;
   const period = (await getEventStatus(tournamentId))?.period;
-  if (period) return period;
+  // Once every golfer still in has finished a round, the next one is the round in play, even
+  // while ESPN's status still names the finished one (between rounds, or play suspended).
+  if (period) return Math.max(period, golfers?.length ? Math.min(4, roundsComplete(golfers) + 1) : 0);
   if (!golfers?.length) return null;
   const finished = Math.max(0, ...golfers.filter((g) => !g.out).map((g) => g.rounds.filter((r) => r !== null).length));
   const midRound = golfers.some((g) => !g.out && g.thru !== null && g.thru !== "F");
