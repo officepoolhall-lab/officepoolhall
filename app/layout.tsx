@@ -5,7 +5,7 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
-const description = "All your pools in one place. Customizable, easy and smooth. No more spreadsheets.";
+const description = "Say goodbye to the spreadsheets. All your pools in one customizable, zero-hassle space.";
 
 export const metadata: Metadata = {
   // Absolute links for the share previews (the image and page URLs a shared link shows).
