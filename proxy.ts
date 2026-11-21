@@ -5,7 +5,9 @@ import { forgetsSession, REMEMBER_COOKIE, sessionOnly } from "./lib/remember";
 // Refreshes the Supabase session cookie on every request and sends signed-out
 // visitors to /login. This is only an optimistic check; RLS is the real guard.
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// Invite links render for signed-out visitors (which pool, then sign in) so texts and group
+// chats can show a preview; the share-preview images are public too.
+const PUBLIC_PATHS = ["/login", "/auth", "/join/", "/opengraph-image", "/twitter-image"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

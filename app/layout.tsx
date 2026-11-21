@@ -5,9 +5,17 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
+const description = "Pick'em pools for college football, the NFL, college basketball and golf.";
+
 export const metadata: Metadata = {
+  // Absolute links for the share previews (the image and page URLs a shared link shows).
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://theofficepoolhall.com"),
   title: { default: "The Office Pool Hall", template: "%s · The Office Pool Hall" },
-  description: "Season-long college pick'em pools.",
+  description,
+  // What a shared link shows in texts, group chats, Slack, email and social apps. Pages
+  // without their own (most are behind sign-in) show this; invite links show the pool.
+  openGraph: { siteName: "The Office Pool Hall", title: "The Office Pool Hall", description, type: "website", locale: "en_US" },
+  twitter: { card: "summary_large_image", title: "The Office Pool Hall", description },
 };
 
 export const viewport: Viewport = {
