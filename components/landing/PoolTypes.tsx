@@ -21,6 +21,9 @@ const LEAGUES: League[] = [
       { name: "Survivor", text: "Pick one team to win each week. Lose and you're out, and you can't use a team twice.", soon: true },
       { name: "Pick'em", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
       { name: "Confidence", text: "Pick every game and rank them. Your surest pick is worth the most points." },
+      { name: "Super Bowl Squares", text: "A 10-by-10 grid for the big game. Numbers are drawn at random, and each quarter's score picks a winner.", soon: true },
+      { name: "Playoff Fantasy", text: "Pick a roster of players for the playoffs and ride them all postseason. Points for every yard and touchdown.", soon: true },
+      { name: "Guillotine", text: "A fantasy league where the lowest-scoring team each week is cut, and its players go back up for grabs.", soon: true },
     ],
   },
   {
@@ -41,6 +44,9 @@ const LEAGUES: League[] = [
     kind: "basketball",
     types: [
       { name: "Confidence", text: "Weekly slates all season, ranked by confidence, with bonus points for calling early-season tournament champions." },
+      { name: "Pick'em", text: "Pick winners straight up from each week's slate, no spreads.", soon: true },
+      { name: "Pick X", text: "Pick a set number of tournament teams. Every game they win earns you points, with more for lower seeds.", soon: true },
+      { name: "Bracket", text: "Fill out the whole tournament bracket before it tips off. Each round is worth more than the last.", soon: true },
     ],
   },
   {
