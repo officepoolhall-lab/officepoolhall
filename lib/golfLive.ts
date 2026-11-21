@@ -147,30 +147,55 @@ export function formatToPar(toPar: string | null) {
   return toPar ? toPar.replace(/^-/, "−") : "";
 }
 
-/**
- * The round being played, for the "Live · Round 3" label. From ESPN's scoreboard for the event
- * (status.period, cached two minutes); otherwise worked out from the leaderboard: the most
- * rounds any golfer has finished, plus one if someone is part-way through the next.
- */
-export async function currentRound(tournamentId: string, golfers: LiveGolfer[] | null): Promise<number | null> {
-  if (tournamentId === DEMO_LIVE_ID) return 3;
-  if (/^\d+$/.test(tournamentId)) {
+/** ESPN's status for a tournament: the round, and its status line ("Round 3 - Play Suspended"). */
+export type EventStatus = { period: number | null; name: string; detail: string };
+
+/** From ESPN's scoreboard for the event; shared for 30 seconds (one read for every visitor). */
+export async function getEventStatus(tournamentId: string): Promise<EventStatus | null> {
+  if (!/^\d+$/.test(tournamentId)) return null;
+  return fresh(`evst:${tournamentId}`, 30_000, async () => {
     try {
       const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?event=${tournamentId}`, {
         headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" },
-        // Fresh each time: it's only read while a round is being played.
         cache: "no-store",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
-      if (res.ok) {
-        const body = (await res.json()) as { events?: { competitions?: { status?: { period?: unknown } }[] }[] };
-        const period = body.events?.[0]?.competitions?.[0]?.status?.period;
-        if (typeof period === "number" && period >= 1 && period <= 4) return period;
-      }
+      if (!res.ok) return null;
+      const body = (await res.json()) as { events?: { competitions?: { status?: { period?: unknown; type?: { name?: unknown; description?: unknown; detail?: unknown; shortDetail?: unknown } } }[] }[] };
+      const st = body.events?.[0]?.competitions?.[0]?.status;
+      if (!st) return null;
+      const str = (v: unknown) => (typeof v === "string" ? v : "");
+      return {
+        period: typeof st.period === "number" && st.period >= 1 && st.period <= 4 ? st.period : null,
+        name: [str(st.type?.name), str(st.type?.description)].join(" "),
+        detail: str(st.type?.detail) || str(st.type?.shortDetail) || str(st.type?.description),
+      };
     } catch {
-      // fall back to the leaderboard below
+      return null;
     }
-  }
+  });
+}
+
+/**
+ * When play is stopped (weather, darkness, a delay), ESPN's status line for it
+ * ("Round 3 - Play Suspended"); null while play is on or the tournament isn't under way.
+ */
+export function suspendedLine(st: EventStatus | null): string | null {
+  if (!st) return null;
+  const text = `${st.name} ${st.detail}`;
+  if (!/suspend|delay|postpon|halt|darkness/i.test(text)) return null;
+  return st.detail || "Play Suspended";
+}
+
+/**
+ * The round being played, for the "Live · Round 3" label. From ESPN's scoreboard for the event
+ * (status.period); otherwise worked out from the leaderboard: the most rounds any golfer has
+ * finished, plus one if someone is part-way through the next.
+ */
+export async function currentRound(tournamentId: string, golfers: LiveGolfer[] | null): Promise<number | null> {
+  if (tournamentId === DEMO_LIVE_ID) return 3;
+  const period = (await getEventStatus(tournamentId))?.period;
+  if (period) return period;
   if (!golfers?.length) return null;
   const finished = Math.max(0, ...golfers.filter((g) => !g.out).map((g) => g.rounds.filter((r) => r !== null).length));
   const midRound = golfers.some((g) => !g.out && g.thru !== null && g.thru !== "F");

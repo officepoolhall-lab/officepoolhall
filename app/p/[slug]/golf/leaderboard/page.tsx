@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PlaySuspended } from "@/components/PlaySuspended";
 import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfEventSelect } from "@/components/GolfEventSelect";
@@ -213,6 +214,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           events={counted.map((e, i) => ({ id: e.id, label: majors ? e.name : `Week ${i + 1} · ${e.name}` }))}
         />}
       </div>
+      {state === "live" && <PlaySuspended tournamentId={tournamentId} className="mb-2 shrink-0" />}
       {rows.length === 0 ? (
         <Empty>The field for this tournament hasn&apos;t been posted yet.</Empty>
       ) : (

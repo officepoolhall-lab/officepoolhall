@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PlaySuspended } from "@/components/PlaySuspended";
 import { Suspense } from "react";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { Countdown } from "@/components/Countdown";
@@ -25,7 +26,7 @@ import {
   type GolfPick,
 } from "@/lib/golf";
 import { loadFieldHistory } from "@/lib/golfFieldHistory";
-import { getLiveLeaderboard } from "@/lib/golfLive";
+import { espnTournamentId, getLiveLeaderboard } from "@/lib/golfLive";
 import { tzAbbrev } from "@/lib/format";
 import { getEventInfo, shortPurse } from "@/lib/golfEventInfo";
 import { EventTag } from "@/components/EventTags";
@@ -249,6 +250,7 @@ async function ThisWeek({
         Week {weekNumber} of {weeks}
         {event.status === "in_progress" && <span className="ml-2 normal-case tracking-normal text-live">● Under Way</span>}
       </div>
+      {event.status === "in_progress" && <PlaySuspended tournamentId={espnTournamentId(event.espn_id, ctx.pool.slug, event.status)} className="my-2 shrink-0" />}
       <h2 className="mt-0.5 shrink-0 text-lg font-bold leading-snug">
         {event.name}
         {/* The purse, so bigger-money weeks stand out. */}
