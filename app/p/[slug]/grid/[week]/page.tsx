@@ -11,7 +11,7 @@ import { formatSpread, points, shortGameTime, signedPoints } from "@/lib/format"
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getPoolContext, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
-import { getStandings } from "@/lib/standings";
+import { getStandings, getWeekAndSeasonStandings } from "@/lib/standings";
 import { getTournamentPicks, getTournaments, placeLabel, tournamentUpside } from "@/lib/tournaments";
 import { TrophyIcon } from "@/components/GolfGrid";
 
@@ -60,10 +60,10 @@ export default async function GridPage({ params, searchParams }: PageProps<"/p/[
   const slate = slates?.find((s) => s.week === Number(week));
   if (!slate) return (<><PageTitle>League Grid</PageTitle><Empty>That week isn&apos;t published.</Empty></>);
 
-  const [games, standings, season, picks, { data: submissions }, allTournaments] = await Promise.all([
+  const [games, { week: standings, season }, picks, { data: submissions }, allTournaments] = await Promise.all([
     getSlateGames(ctx, slate.id),
-    getStandings(ctx, slate.id),
-    sort === "season" ? getStandings(ctx) : null,
+    // The season sort needs both: one read of the season's scores gives the week's too.
+    sort === "season" ? getWeekAndSeasonStandings(ctx, slate.id) : getStandings(ctx, slate.id).then((week) => ({ week, season: null })),
     // RLS only returns other players' picks on games that have kicked off (or a graded week).
     slatePicks(ctx, slate.id),
     // Who has submitted this week (counts only; picks stay hidden until kickoff).

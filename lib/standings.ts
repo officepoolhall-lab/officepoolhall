@@ -34,7 +34,23 @@ export async function getStandings(ctx: PoolContext, scope?: StandingsScope): Pr
       : (slates ?? [])
           .filter((s) => !scope || (s.week >= scope.fromWeek && (scope.toWeek === null || s.week <= scope.toWeek)))
           .map((s) => s.id);
-  return tally((members ?? []) as MemberRow[], await getSlateScores(ctx, slateIds));
+  return tally((members ?? []) as MemberRow[], await getSlateScores(ctx, slateIds, (members ?? []).length));
+}
+
+/**
+ * One week's standings and the season's, from a single read of the season's scores (the Grid
+ * shows both): half the work of two getStandings calls.
+ */
+export async function getWeekAndSeasonStandings(ctx: PoolContext, slateId: string): Promise<{ week: StandingRow[]; season: StandingRow[] }> {
+  const [{ data: members }, { data: slates }] = await Promise.all([
+    ctx.supabase.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
+    ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).neq("status", "draft"),
+  ]);
+  const ids = (slates ?? []).map((s) => s.id);
+  if (!ids.includes(slateId)) ids.push(slateId);
+  const rows = await getSlateScores(ctx, ids, (members ?? []).length);
+  const m = (members ?? []) as MemberRow[];
+  return { week: tally(m, rows.filter((r) => r.slate_id === slateId)), season: tally(m, rows) };
 }
 
 /**
@@ -42,9 +58,27 @@ export async function getStandings(ctx: PoolContext, scope?: StandingsScope): Pr
  * and a season passes that quickly (134 entries × 8 weeks), so this pages through; a single
  * request would quietly drop some entries' weeks from their totals.
  */
-export async function getSlateScores(ctx: PoolContext, slateIds: string[]): Promise<ScoreRow[]> {
+export async function getSlateScores(ctx: PoolContext, slateIds: string[], members = 0): Promise<ScoreRow[]> {
+  if (!slateIds.length) return [];
+  const page = (from: number) =>
+    ctx.supabase
+      .from("slate_scores")
+      .select("slate_id, user_id, points, bonus, wins, losses, pushes, missed")
+      .in("slate_id", slateIds)
+      .order("slate_id")
+      .order("user_id")
+      .range(from, from + 999);
+  // About one row per member per week: ask for that many pages at once instead of one after
+  // another, then keep going one at a time only if the last one came back full.
+  const pages = Math.max(1, Math.ceil((members * slateIds.length) / 1000));
+  const first = await Promise.all(Array.from({ length: pages }, (_, i) => page(i * 1000)));
   const scores: ScoreRow[] = [];
-  for (let from = 0; slateIds.length; from += 1000) {
+  for (const { data, error } of first) {
+    if (error) throw error;
+    scores.push(...((data ?? []) as ScoreRow[]));
+  }
+  if ((first[first.length - 1].data ?? []).length < 1000) return scores;
+  for (let from = pages * 1000; ; from += 1000) {
     const { data, error } = await ctx.supabase
       .from("slate_scores")
       .select("slate_id, user_id, points, bonus, wins, losses, pushes, missed")
@@ -102,7 +136,7 @@ export async function getStandingsBook(ctx: PoolContext) {
     getPublishedSlates(ctx),
   ]);
   const ids = (slates ?? []).map((s: { id: string }) => s.id);
-  const scores = await getSlateScores(ctx, ids);
+  const scores = await getSlateScores(ctx, ids, (members ?? []).length);
   const weekOf = new Map<string, number>((slates ?? []).map((s: { id: string; week: number }) => [s.id, s.week]));
   const m = (members ?? []) as MemberRow[];
 
