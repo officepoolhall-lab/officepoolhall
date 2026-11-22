@@ -5,13 +5,14 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
-import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
+import { Empty, LiveDot, PageTitle, PencilIcon, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
 import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
 import { SurvivorSummary } from "./SurvivorSummary";
+import { SvNameJump } from "./SvNameJump";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
@@ -309,18 +310,20 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const order = new Map(counted.map((w, i) => [w.slateId, i]));
   const games = new Map(weeks.flatMap((w) => w.games).map((g) => [g.id, g]));
   const alive = rows.filter((r) => r.alive).length;
+  const lastWeek = counted.length ? Math.max(...counted.map((w) => w.week)) : 1;
   const back = encodeURIComponent(`/p/${slug}/standings`);
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
   // A thin line between weeks.
   const weekLine = "border-r border-line last:border-r-0";
 
-  const cellOf = (c: SvCell) => {
+  const cellOf = (c: SvCell, userId: string) => {
+    const id = `sv-${userId}-${c.week}`;
     const base = `h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0 ${weekLine}`;
-    if (c.state === "out" || c.state === "before") return <td key={c.slateId} className={base} />;
-    if (c.state === "open") return <td key={c.slateId} className={`${base} text-faint`} title="No pick showing yet">·</td>;
+    if (c.state === "out" || c.state === "before") return <td key={c.slateId} id={id} className={base} />;
+    if (c.state === "open") return <td key={c.slateId} id={id} className={`${base} text-faint`} title="No pick showing yet">·</td>;
     if (c.state === "missed") {
       return (
-        <td key={c.slateId} className={`${base} bg-[var(--loss-fill)] text-[11px] font-semibold text-loss`} title="No pick: a loss">
+        <td key={c.slateId} id={id} className={`${base} bg-[var(--loss-fill)] text-[11px] font-semibold text-loss`} title="No pick: a loss">
           No pick
         </td>
       );
@@ -375,7 +378,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
       </>
     );
     return (
-      <td key={c.slateId} className={`${base} p-0 ${fill} ${c.state === "void" ? "opacity-50" : ""}`}>
+      <td key={c.slateId} id={id} className={`${base} p-0 ${fill} ${c.state === "void" ? "opacity-50" : ""}`}>
         {g && g.started && g.espnId ? (
           <Link
             href={`/p/${slug}/game/${g.id}?back=${back}`}
@@ -443,22 +446,33 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                     <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-3 py-0.5 text-left text-[13px] font-medium sm:px-4 lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-loss"}`}>
-                          {ctx.isCommissioner ? (
-                            <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1.5 -my-0.5 block rounded-md px-1.5 py-0.5 transition hover:bg-hover" title="Make or fix this entry's pick">
-                              <FitText min={9}>{r.name}</FitText>
-                            </Link>
-                          ) : (
+                          {/* The name jumps the grid to the week they went out (this week if still alive). */}
+                          <SvNameJump
+                            target={`sv-${r.userId}-${r.outWeek ?? lastWeek}`}
+                            label={r.alive ? `${r.name}: still alive` : `${r.name}: went out in Week ${r.outWeek}`}
+                          >
                             <FitText min={9}>{r.name}</FitText>
-                          )}
+                          </SvNameJump>
                           {/* Phones: the status under the name, so the column stays narrow. */}
                           <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
                         </span>
                         <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
                           {status}
                         </span>
+                        {/* Commissioners: make or fix this entry's pick. */}
+                        {ctx.isCommissioner && (
+                          <Link
+                            href={`/p/${slug}/picks?for=${r.userId}`}
+                            aria-label={`Make or fix ${r.name}'s pick`}
+                            title="Make or fix this entry's pick"
+                            className="-my-1 shrink-0 rounded-md px-1 py-1 text-muted transition hover:bg-hover hover:text-ink"
+                          >
+                            <PencilIcon className="size-3.5" />
+                          </Link>
+                        )}
                       </div>
                     </th>
-                    {cells.map(cellOf)}
+                    {cells.map((c) => cellOf(c, r.userId))}
                   </tr>
                 );
               })}

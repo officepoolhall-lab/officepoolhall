@@ -21,6 +21,14 @@ export function CheckIcon({ className = "size-4" }: { className?: string }) {
   );
 }
 
+export function PencilIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className={className}>
+      <path d="M13.6 2.9a2 2 0 0 1 2.8 0l.7.7a2 2 0 0 1 0 2.8L7.8 15.7a1 1 0 0 1-.5.3l-3.6.9a.6.6 0 0 1-.7-.7l.9-3.6a1 1 0 0 1 .3-.5l9.4-9.2Z" />
+    </svg>
+  );
+}
+
 export function ChevronIcon({ className = "size-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className={className}>
