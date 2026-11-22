@@ -262,9 +262,11 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const alive = rows.filter((r) => r.alive).length;
   const back = encodeURIComponent(`/p/${slug}/standings`);
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
+  // A thin line between weeks.
+  const weekLine = "border-r border-line last:border-r-0";
 
   const cellOf = (c: SvCell) => {
-    const base = "h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0";
+    const base = `h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0 ${weekLine}`;
     if (c.state === "out" || c.state === "before") return <td key={c.slateId} className={base} />;
     if (c.state === "open") return <td key={c.slateId} className={`${base} text-faint`} title="No pick showing yet">·</td>;
     if (c.state === "missed") {
@@ -367,9 +369,9 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                 {counted.map((w) => {
                   const live = w.games.some((g) => g.started && !g.final && !g.voided);
                   return (
-                    <th key={w.slateId} className={head} title={w.label}>
+                    <th key={w.slateId} className={`${head} ${weekLine}`} title={w.label}>
                       {live && <div className="mb-0.5 whitespace-nowrap text-[10px]"><LiveDot>Live</LiveDot></div>}
-                      <span className="whitespace-nowrap font-semibold text-ink">Wk {w.week}</span>
+                      <span className="whitespace-nowrap text-[13px] font-bold text-ink sm:text-sm">Week {w.week}</span>
                     </th>
                   );
                 })}
@@ -384,7 +386,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                   <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                     <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-3 py-0.5 text-left text-[13px] font-medium sm:px-4 lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-muted"}`}>
+                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-loss"}`}>
                           {ctx.isCommissioner ? (
                             <Link href={`/p/${slug}/picks?for=${r.userId}`} className="block hover:underline" title="Make or fix this entry's pick">
                               <FitText min={9}>{r.name}</FitText>
@@ -393,9 +395,9 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                             <FitText min={9}>{r.name}</FitText>
                           )}
                           {/* Phones: the status under the name, so the column stays narrow. */}
-                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-normal text-muted"}`}>{status}</span>
+                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
                         </span>
-                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-normal text-muted"}`}>
+                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
                           {status}
                         </span>
                       </div>
