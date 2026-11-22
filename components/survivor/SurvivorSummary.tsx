@@ -165,7 +165,7 @@ export function SurvivorSummary({
             {outWeeks.map(([w, n]) => (
               <li key={w} className="flex items-center gap-2 text-xs tabular-nums">
                 <span className="w-14 shrink-0 text-muted">Week {w}</span>
-                <span className="h-3 rounded-sm bg-[var(--loss-fill)] ring-1 ring-loss/40" style={{ width: `${Math.max(4, (n / maxOut) * 100)}%` }} />
+                <span className="h-3 rounded-sm bg-loss/30 ring-1 ring-loss/50" style={{ width: `${Math.max(4, (n / maxOut) * 100)}%` }} />
                 <span className="shrink-0 font-semibold">{n}</span>
               </li>
             ))}
