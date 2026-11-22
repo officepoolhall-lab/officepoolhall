@@ -12,6 +12,7 @@ import { survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, ty
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
 import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
 import { SurvivorSummary } from "./SurvivorSummary";
+import { WeekPickCard } from "./WeekPickCard";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
@@ -74,12 +75,13 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   const rows = survivorStandings(weeks, picks, members, settings);
   const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
   const week = currentWeek(weeks, settings.start_week);
-  const myCell = week && mine ? mine.cells.find((c) => c.slateId === week.slateId) : undefined;
   const myPick = week ? picks.find((p) => p.slateId === week.slateId && p.userId === ctx.entryUserId) : undefined;
   const pickGame = myPick ? week?.games.find((g) => g.id === myPick.gameId) : undefined;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
   const games = week ? await weekSlateGames(ctx, week, now) : [];
+  const myGame = myPick ? (games.find((g) => g.id === myPick.gameId) ?? null) : null;
+  const mySide: "home" | "away" | null = myGame && myPick ? (myPick.teamId === myGame.home.id ? "home" : "away") : null;
   const nextKick = week?.games.filter((g) => !g.voided && !g.started).map((g) => g.startAt).sort()[0] ?? null;
   const canPick = Boolean(mine?.alive && week && !weekClosed(week) && !pickGame?.started);
   const counted = weeks.filter((w) => w.week >= settings.start_week);
@@ -96,37 +98,36 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
         <FillColumn className="space-y-6 lg:pr-6">
           {week ? (
             <section className="border-b border-line pb-4">
-              <div className="whitespace-nowrap text-lg font-bold text-ink">{week.label}</div>
-              <div className="mt-2 grid grid-cols-2 gap-4 [&>*]:min-w-0">
-                {!ctx.isGuest && (
-                  <div className="min-w-0">
-                    <FitText min={9} className="text-xs text-muted">My Pick</FitText>
-                    <FitText min={16} className="mt-0.5 text-3xl font-extrabold tracking-[-0.03em]">
-                      {!mine ? (
-                        <span className="text-muted">No entry</span>
-                      ) : !mine.alive ? (
-                        <span className="text-loss">Out · Wk {mine.outWeek}</span>
-                      ) : myCell?.team ? (
-                        <span className={`inline-flex items-center gap-2 ${myCell.state === "win" ? "text-win" : myCell.state === "loss" ? "text-loss" : ""}`}>
-                          <TeamLogo src={myCell.team.logo_url} abbr={myCell.team.abbreviation} className="size-[1.1em] shrink-0" />
-                          {teamName(myCell.team)}
-                        </span>
-                      ) : (
-                        <span className="text-muted">None yet</span>
-                      )}
-                    </FitText>
-                  </div>
-                )}
+              {/* The week, and when the next game locks, on one line. */}
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="whitespace-nowrap text-lg font-bold text-ink">{week.label}</div>
                 {nextKick && (
-                  <div className="min-w-0">
-                    <FitText min={9} className="text-xs text-muted">Next Game Locks</FitText>
-                    <FitText min={16} className="mt-0.5 text-3xl font-extrabold tracking-[-0.03em] tabular-nums">
+                  <div className="min-w-0 truncate text-sm text-muted">
+                    Next game locks in{" "}
+                    <span className="font-semibold tabular-nums text-ink">
                       <Countdown to={nextKick} done="locked" />
-                    </FitText>
+                    </span>
                   </div>
                 )}
               </div>
-              {canPick && !myCell?.team && (
+              {/* This week's pick: the same card as on My Pick. */}
+              {!ctx.isGuest && mine && mine.alive && (
+                <WeekPickCard
+                  weekLabel={week.label}
+                  game={myGame}
+                  side={mySide}
+                  started={Boolean(pickGame?.started)}
+                  locked={Boolean(pickGame?.started)}
+                  timezone={tzOf(ctx)}
+                  empty={canPick ? "No pick yet" : "No pick"}
+                  compact
+                  className="mt-2"
+                />
+              )}
+              {!ctx.isGuest && mine && !mine.alive && (
+                <p className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-loss">Out in Week {mine.outWeek}</p>
+              )}
+              {canPick && !myPick && (
                 <Link
                   href={`/p/${slug}/picks`}
                   className="mt-3 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95"
