@@ -23,6 +23,7 @@ export function SurvivorSummary({
   onSurface = false,
   only,
   page = false,
+  hideWinner = false,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
@@ -38,6 +39,8 @@ export function SurvivorSummary({
   only?: SummaryPart[];
   /** Headings in the page style (Home) rather than the panel's small grey labels. */
   page?: boolean;
+  /** The page already shows the winner (Home's winner card): just the prize here. */
+  hideWinner?: boolean;
 }) {
   const show = (p: SummaryPart) => !only || only.includes(p);
   const H = ({ children }: { children: ReactNode }) =>
@@ -104,21 +107,21 @@ export function SurvivorSummary({
     <div className="space-y-6">
       {show("remaining") && (
       <section>
-        <H>{won ? (winnerNames.length > 1 ? "Pool winners" : "Pool winner") : "Entries remaining"}</H>
-{won ? (
+        {!(won && hideWinner) && <H>{won ? (winnerNames.length > 1 ? "Pool winners" : "Pool winner") : "Entries remaining"}</H>}
+{won ? (hideWinner ? null : (
           <p className="mt-1 flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em] text-ink">
             <TrophyIcon className="size-5 shrink-0 text-accent" />
             <span className="min-w-0">{winnerNames.join(" & ")}</span>
           </p>
-        ) : (
+        )) : (
                 <p className="mt-1 tabular-nums">
           <span className="text-3xl font-extrabold text-win">{alive}</span> <span className="text-muted">of {total}</span>
           <span className="ml-2 text-sm font-semibold text-ink">({pct(alive, total)})</span>
         </p>
         )}
-        <p className="whitespace-nowrap text-sm text-muted tabular-nums">
+        {!(won && hideWinner) && <p className="whitespace-nowrap text-sm text-muted tabular-nums">
           {won ? (winnerNames.length > 1 ? `Won together in Week ${won.week}` : `Last one standing after Week ${won.week}`) : `${total - alive} eliminated`}
-        </p>
+        </p>}
         {/* The pot, and what each entry would take splitting it, counting everyone still in coming
             into the current week (it changes once a week is final, not game by game). */}
         {entryFee > 0 && splitWays > 0 && (
@@ -218,7 +221,7 @@ export function SurvivorSummary({
         </section>
       )}
 
-      {show("teams") && !reuse && survivors.length > 0 && (
+      {show("teams") && !reuse && !won && survivors.length > 0 && (
         <section>
           <H>Teams left for the survivors</H>
           <FitText min={8} className="mt-0.5 text-xs text-muted">Alive entries that haven&apos;t used each team yet</FitText>

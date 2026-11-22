@@ -170,7 +170,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
               )}
             </Empty>
           )}
-          {rows.length > 0 && <SurvivorSummary {...summary} only={["remaining", "picks"]} />}
+          {rows.length > 0 && <SurvivorSummary {...summary} only={["remaining", "picks"]} hideWinner />}
         </FillColumn>
 
         {/* Top stories, as on every pool's Home. */}
