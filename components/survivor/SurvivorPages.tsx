@@ -36,7 +36,7 @@ const currentWeek = (weeks: SvWeek[], startWeek: number) => {
 };
 
 const lives = (r: SvRow, total: number) =>
-  r.alive ? (total > 1 ? `${r.livesLeft} of ${total} lives left` : "Alive") : `Out · Week ${r.outWeek}`;
+  r.alive ? (total > 1 ? `${r.livesLeft} of ${total} lives left` : "Alive") : `Eliminated · Week ${r.outWeek}`;
 
 /** One week's pick as a small tile: the team, colored by how it went. */
 function Cell({ c }: { c: SvCell }) {
@@ -129,7 +129,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
                 />
               )}
               {!ctx.isGuest && mine && !mine.alive && (
-                <p className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-loss">Out in Week {mine.outWeek}</p>
+                <p className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-loss">Eliminated in Week {mine.outWeek}</p>
               )}
               {canPick && !myPick && (
                 <Link
@@ -262,7 +262,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
       } as SvPrior;
     });
 
-  const statusText = outAlready || !row.alive ? `Out · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
+  const statusText = outAlready || !row.alive ? `Eliminated · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
 
   return (
     <div>
@@ -292,6 +292,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         timezone={tz}
         prior={prior}
         status={{ text: statusText, alive: row.alive && !outAlready }}
+        outWeek={row.alive && !outAlready ? null : row.outWeek}
         backHref={qs(week.week)}
         historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}

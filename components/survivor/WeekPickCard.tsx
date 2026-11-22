@@ -42,7 +42,7 @@ export function WeekPickCard({
     return (
       <section className={`flex w-fit max-w-full items-center gap-2 rounded-xl border-2 border-accent bg-surface px-3 py-1.5 ${className}`} aria-label={`${weekLabel} pick`}>
         <span className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</span>
-        <span className="whitespace-nowrap text-sm font-semibold text-muted">{empty}</span>
+        <span className={`whitespace-nowrap text-sm font-semibold ${empty.startsWith("Eliminated") ? "text-loss" : "text-muted"}`}>{empty}</span>
       </section>
     );
   }
