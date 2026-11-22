@@ -127,7 +127,7 @@ export function SurvivorPicker({
 
   return (
     <div>
-      <ul className="grid gap-3 lg:grid-cols-2">
+      <ul className="grid gap-3 md:grid-cols-2">
         {games.map((g) => (
           <li key={g.id} className="rounded-2xl bg-surface p-3">
             <div className="mb-2 flex min-h-6 items-center gap-1.5 text-xs font-medium text-muted">

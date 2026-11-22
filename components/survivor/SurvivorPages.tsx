@@ -1,8 +1,10 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
+import { LinkSelect } from "@/components/LinkSelect";
 import { Empty, LinkButton, LiveDot, PageTitle, TeamLogo, chipClass } from "@/components/ui";
 import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
@@ -176,17 +178,23 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
 
   return (
     <>
-      <PageTitle sub={outAlready ? `Eliminated in Week ${row.outWeek}.` : undefined}>{title}</PageTitle>
-      <AutoRefresh active={anyLive([week])} />
-      {counted.length > 1 && (
-        <div className="-mx-4 mb-3 flex gap-1 overflow-x-auto px-4 py-1.5">
-          {[...counted].reverse().map((w) => (
-            <Link key={w.slateId} href={qs(w.week)} className={chipClass(w.slateId === week.slateId, "shrink-0", "sm")}>
-              {w.label}
-            </Link>
-          ))}
+      {/* The title, with the week dropdown on its right. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <PageTitle sub={outAlready ? `Eliminated in Week ${row.outWeek}.` : undefined}>{title}</PageTitle>
         </div>
-      )}
+        {counted.length > 1 && (
+          <div className="shrink-0 pt-1">
+            <LinkSelect
+              size="md"
+              ariaLabel="Choose a week"
+              value={qs(week.week)}
+              options={[...counted].reverse().map((w) => ({ href: qs(w.week), label: w.label }))}
+            />
+          </div>
+        )}
+      </div>
+      <AutoRefresh active={anyLive([week])} />
       {!canPick && !cell?.team && (
         <p className="mb-3 text-sm text-muted">
           {outAlready ? "This entry was already out this week." : cell?.state === "missed" ? "No pick was made this week, which counts as a loss." : "No pick this week."}
@@ -269,7 +277,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
 
   const cellOf = (c: SvCell) => {
-    const base = "h-11 min-w-14 border-b border-line px-0.5 text-center";
+    const base = "h-11 min-w-13 border-b border-line px-0.5 text-center md:min-w-0";
     if (c.state === "out" || c.state === "before") return <td key={c.slateId} className={base} />;
     if (c.state === "open") return <td key={c.slateId} className={`${base} text-faint`} title="No pick showing yet">·</td>;
     if (c.state === "missed") {
@@ -318,20 +326,34 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   };
 
   return (
-    <>
-      <PageTitle sub={`${alive} of ${rows.length} still alive. Each week's pick shows once its game kicks off; tap a pick for the game's play-by-play and box score.`}>Standings</PageTitle>
+    // Fills the screen under the header like the League Grid, so the grid's own scrollbars sit
+    // on screen; the week columns share the width on larger screens.
+    <div
+      data-fill-viewport
+      className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
+    >
+      <div className="mb-2 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Standings</h1>
+        <p className="text-sm text-muted tabular-nums">
+          <span className="font-semibold text-win">{alive} alive</span> of {rows.length}
+          <span className="max-sm:hidden"> · Tap a pick for the game&apos;s play-by-play and box score</span>
+        </p>
+      </div>
       <AutoRefresh active={anyLive(weeks)} />
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
-        <AxisLockScroll className="relative -mx-4 max-h-[max(24rem,calc(100dvh-14rem))] overflow-auto isolate sm:mx-0">
-          <table className="border-separate border-spacing-0 text-sm sm:w-full">
+        <AxisLockScroll className="relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0">
+          <table
+            className="border-separate border-spacing-0 text-sm md:w-full md:min-w-[var(--grid-min)] md:table-fixed"
+            style={{ "--grid-min": `${13 + counted.length * 3.75}rem` } as CSSProperties}
+          >
             <thead>
               <tr>
-                <th className={`${head} left-0 z-30 border-r px-4 text-left`}>
+                <th className={`${head} left-0 z-30 w-32 border-r px-3 text-left sm:px-4 md:w-52 lg:w-60`}>
                   <div className="flex items-end justify-between gap-3">
                     <span>Entry</span>
-                    <span>Status</span>
+                    <span className="max-sm:hidden">Status</span>
                   </div>
                 </th>
                 {counted.map((w) => {
@@ -349,11 +371,12 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
               {rows.map((r) => {
                 const mine = r.userId === ctx.entryUserId;
                 const cells = [...r.cells].sort((a, b) => (order.get(a.slateId) ?? 0) - (order.get(b.slateId) ?? 0));
+                const status = r.alive ? (settings.lives > 1 ? `${r.livesLeft} of ${settings.lives}` : "Alive") : `Out · Wk ${r.outWeek}`;
                 return (
                   <tr key={r.userId} className="[&:last-child>*]:border-b-0">
-                    <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-4 py-0.5 text-left text-[13px] font-medium lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <span className={`w-28 min-w-0 sm:w-40 ${mine ? "text-accent" : r.alive ? "" : "text-muted"}`}>
+                    <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-3 py-0.5 text-left text-[13px] font-medium sm:px-4 lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-muted"}`}>
                           {ctx.isCommissioner ? (
                             <Link href={`/p/${slug}/picks?for=${r.userId}`} className="block hover:underline" title="Make or fix this entry's pick">
                               <FitText min={9}>{r.name}</FitText>
@@ -361,9 +384,11 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                           ) : (
                             <FitText min={9}>{r.name}</FitText>
                           )}
+                          {/* Phones: the status under the name, so the column stays narrow. */}
+                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-normal text-muted"}`}>{status}</span>
                         </span>
-                        <span className={`shrink-0 whitespace-nowrap text-right text-xs font-semibold tabular-nums ${r.alive ? "text-win" : "font-normal text-muted"}`}>
-                          {r.alive ? (settings.lives > 1 ? `${r.livesLeft} of ${settings.lives}` : "Alive") : `Out · Wk ${r.outWeek}`}
+                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-normal text-muted"}`}>
+                          {status}
                         </span>
                       </div>
                     </th>
@@ -375,6 +400,6 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
           </table>
         </AxisLockScroll>
       )}
-    </>
+    </div>
   );
 }
