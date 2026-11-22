@@ -356,13 +356,10 @@ export function PickBoard({
       {top}
       {days.map((day) => (
         <section key={day.key} className="mb-5 lg:mb-4">
-          {/* Each day opens with a shaded band (accent bar, the date, how many games) that stays
+          {/* Each day opens with a shaded band (accent bar and the date) that stays
               pinned while its games scroll, so it's always clear which day a game is on. */}
           <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
             <span>{day.label}</span>
-            <span className="ml-auto text-xs font-medium text-muted tabular-nums">
-              {day.games.length} game{day.games.length === 1 ? "" : "s"}
-            </span>
           </h3>
           {/* Desktop: compact cards, two a line, three from 1280px, four from 1600px, five from 2000px. */}
           {/* Smaller desktops: as many columns as fit with each game at least 18.5rem wide (2 at 1024px,
@@ -698,12 +695,13 @@ export function GameRow({
               {team.espn_id && records[team.espn_id] && (
                 <span className="ml-1.5 text-[0.8em] font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
               )}
-              {sideNote?.[side] && <span className="ml-1.5 text-[0.75em] font-medium text-muted">{sideNote[side]}</span>}
             </FitText>
             {/* Which side is home, right after the name (a neutral-site game shows its city in the line above instead). */}
             {!g.neutral && (
               <span className="-ml-1 shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
             )}
+            {/* Survivor: "Used · Wk 3" in red, after Home/Away: this team can't be picked again. */}
+            {sideNote?.[side] && <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-loss lg:text-[10px]">{sideNote[side]}</span>}
           </>
         );
         return (
@@ -711,10 +709,7 @@ export function GameRow({
           // CSS subgrid: browsers without subgrid (older Chrome, e.g. some Chromebooks) stacked them.
           <div
             key={side}
-            // Survivor: a team that can't be picked (already used) is greyed out.
-            className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"} ${
-              sideDisabled?.[side] ? "opacity-35 grayscale" : ""
-            }`}
+            className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"}`}
           >
             {team.espn_id ? (
               <button
@@ -756,7 +751,8 @@ export function GameRow({
                 selected={selected}
                 disabled={disabled || Boolean(sideDisabled?.[side])}
                 compact
-                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !sideDisabled?.[side] && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
+                // Survivor: a team already used keeps its name and score; only its pick button greys out.
+                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${sideDisabled?.[side] ? "opacity-30" : ""} ${!disabled && !sideDisabled?.[side] && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
               />
             </button>
           </div>
