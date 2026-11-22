@@ -1,6 +1,8 @@
 import "server-only";
 import { getBenchedIds } from "./bench";
 import { hasStarted } from "./locks";
+import { espnDate, fetchLiveDetails, orientLive } from "./liveClock";
+import { getTeamRecords } from "./teamRecords";
 import { getPublishedSlates, type PoolBase } from "./pool";
 import { survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek } from "./survivor";
 
@@ -9,7 +11,7 @@ import { survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek 
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
-const TEAM = "id, name, short_name, abbreviation, logo_url";
+const TEAM = "id, espn_id, name, short_name, abbreviation, logo_url";
 
 /**
  * `revealFor`: the entry the commissioner is picking for. The commissioner can read every pick
@@ -27,7 +29,7 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
           .from("slate_games")
           .select(
             `slate_id, voided, override_home_score, override_away_score,
-             game:games!inner ( id, start_at, time_tbd, status, home_score, away_score,
+             game:games!inner ( id, espn_id, start_at, time_tbd, status, home_score, away_score, tv_network,
                home:teams!games_home_team_id_fkey ( ${TEAM} ), away:teams!games_away_team_id_fkey ( ${TEAM} ) )`,
           )
           .in("slate_id", ids)
@@ -51,6 +53,10 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
       awayScore: r.override_away_score ?? g.away_score,
       home: g.home,
       away: g.away,
+      espnId: g.espn_id,
+      tv: g.tv_network,
+      timeTbd: g.time_tbd,
+      clock: null,
     };
     bySlate.set(r.slate_id, [...(bySlate.get(r.slate_id) ?? []), game]);
   }
@@ -70,4 +76,47 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
     .filter((m) => !benched.has(m.user_id))
     .map((m) => ({ userId: m.user_id, name: m.profile.display_name, joinedAt: m.joined_at }));
   return { settings, weeks, picks, members };
+}
+
+/**
+ * Games in progress with ESPN's latest score and clock laid over the stored ones (the stored
+ * score trails by up to a minute). Anything ESPN can't answer keeps what's stored.
+ */
+export async function withLiveScores(weeks: SvWeek[]): Promise<SvWeek[]> {
+  const live = weeks.flatMap((w) => w.games).filter((g) => g.started && !g.final && !g.voided && g.espnId && !g.espnId.startsWith("demo-"));
+  if (!live.length) return weeks;
+  const found = await fetchLiveDetails("nfl", live.map((g) => espnDate(g.startAt)));
+  return weeks.map((w) => ({
+    ...w,
+    games: w.games.map((g) => {
+      const raw = g.espnId && g.started && !g.final ? found.get(g.espnId) : undefined;
+      if (!raw) return g;
+      const f = orientLive(raw, g.home.espn_id);
+      return { ...g, clock: f.clock, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };
+    }),
+  }));
+}
+
+/** Any game under way: the pages refresh themselves while this is true. */
+export const anyLive = (weeks: SvWeek[]) => weeks.some((w) => w.games.some((g) => g.started && !g.final && !g.voided));
+
+/**
+ * What My Pick shows beside each team: the current point spread (home team's, from the pool's
+ * sportsbook, else any) and every team's record (ESPN team id → "7-3").
+ */
+export async function getWeekExtras(ctx: PoolBase, week: SvWeek) {
+  const ids = week.games.map((g) => g.id);
+  const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const book = (ctx.pool.settings as { lines?: { bookmaker?: string } } | null)?.lines?.bookmaker;
+  const [{ data: lines }, records] = await Promise.all([
+    ids.length
+      ? db.from("latest_game_lines").select("game_id, bookmaker, home_spread").in("game_id", ids).not("home_spread", "is", null)
+      : Promise.resolve({ data: [] }),
+    getTeamRecords("nfl", week.games.map((g) => g.startAt)),
+  ]);
+  const spreads = new Map<string, number>();
+  for (const l of (lines ?? []) as Row[]) {
+    if (!spreads.has(l.game_id) || l.bookmaker === book) spreads.set(l.game_id, Number(l.home_spread));
+  }
+  return { spreads, records };
 }

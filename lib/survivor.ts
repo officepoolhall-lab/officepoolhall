@@ -46,7 +46,7 @@ export function survivorRules(s: SurvivorSettings): string[] {
   ];
 }
 
-export type SvTeam = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null };
+export type SvTeam = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null; espn_id?: string | null };
 export type SvGame = {
   id: string;
   startAt: string;
@@ -57,6 +57,12 @@ export type SvGame = {
   awayScore: number | null;
   home: SvTeam;
   away: SvTeam;
+  /** For the pages: ESPN's game id (live scores, the box score) and where to watch. */
+  espnId?: string | null;
+  tv?: string | null;
+  timeTbd?: boolean;
+  /** A game in progress: ESPN's clock and period ("8:44 2nd"), with the scores above live too. */
+  clock?: string | null;
 };
 export type SvWeek = { slateId: string; week: number; label: string; games: SvGame[] };
 export type SvPick = { slateId: string; userId: string; gameId: string; teamId: string };
@@ -83,6 +89,8 @@ export type SvCell = {
   week: number;
   slateId: string;
   team: SvTeam | null;
+  /** The picked game, for its score and box score. */
+  gameId?: string;
   /**
    * win/loss/pending/void: a pick. missed: the week closed with no pick (a loss). open: no pick
    * showing yet (the week is still open; other players' picks show at kickoff). out: already
@@ -133,7 +141,7 @@ export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvM
         losses++;
         if (losses >= s.lives) outWeek = w.week;
       }
-      return { ...base, team, state };
+      return { ...base, team, gameId: p.gameId, state };
     });
     return { userId: m.userId, name: m.name, cells, losses, livesLeft: Math.max(0, s.lives - losses), alive: outWeek === null, outWeek, used, rank: 0 };
   });

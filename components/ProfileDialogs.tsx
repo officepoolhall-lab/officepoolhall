@@ -219,6 +219,65 @@ export function TeamHistoryDialog({
   );
 }
 
+type MatchupTeam = { espnId: string; name: string; logo: string | null };
+
+/** One side of the matchup pop-up: the team's record and its recent results. */
+function MatchupSide({ sport, team, timezone }: { sport: Sport; team: MatchupTeam; timezone: string }) {
+  const data = useJson<TeamHistory>(`/api/espn/team?sport=${sport}&id=${team.espnId}`);
+  const t = typeof data === "object" ? data : null;
+  return (
+    <div className="min-w-0">
+      <TeamHistoryHeader t={t} name={team.name} logo={team.logo} ats={false} />
+      {data === "loading" ? (
+        <Note>Loading…</Note>
+      ) : data === "failed" || !t ? (
+        <Note>ESPN doesn&apos;t have this team&apos;s results right now.</Note>
+      ) : (
+        <TeamHistoryBody t={t} ats={false} timezone={timezone} maxGames={8} />
+      )}
+    </div>
+  );
+}
+
+/** A game's "More info": both teams' records and recent results, side by side. */
+export function MatchupHistoryDialog({
+  sport,
+  away,
+  home,
+  detail,
+  timezone,
+  onClose,
+}: {
+  sport: Sport;
+  away: MatchupTeam;
+  home: MatchupTeam;
+  /** The line under the title: kickoff, TV, the spread. */
+  detail?: string;
+  timezone: string;
+  onClose: () => void;
+}) {
+  return (
+    <Shell
+      label={`${away.name} at ${home.name}: recent games`}
+      onClose={onClose}
+      size="wide"
+      header={
+        <>
+          <h2 className="text-lg font-bold">
+            {away.name} <span className="font-normal text-muted">at</span> {home.name}
+          </h2>
+          {detail && <p className="text-xs text-muted">{detail}</p>}
+        </>
+      }
+    >
+      <div className="mt-4 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+        <MatchupSide sport={sport} team={away} timezone={timezone} />
+        <MatchupSide sport={sport} team={home} timezone={timezone} />
+      </div>
+    </Shell>
+  );
+}
+
 /** The team pop-up's heading: logo, name, overall record and (ATS pools) record against the spread. */
 export function TeamHistoryHeader({ t, name, logo, ats }: { t: TeamHistory | null; name: string; logo: string | null; ats: boolean }) {
   const overall = t?.ats.find((s) => s.name === "atsOverall") ?? t?.ats[0];
