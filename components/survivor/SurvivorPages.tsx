@@ -285,17 +285,23 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     const home = Boolean(g && c.team && c.team.id === g.home.id);
     const opp = g ? (home ? g.away : g.home) : null;
     const abbr = (t: SvTeam | null | undefined) => t?.abbreviation ?? t?.short_name ?? t?.name ?? "";
-    const mine = home ? g?.homeScore : g?.awayScore;
-    const theirs = home ? g?.awayScore : g?.homeScore;
+    // Away team on top, home team below; the team ahead (the winner, once final) in bold.
+    const hs = g?.homeScore ?? null;
+    const as = g?.awayScore ?? null;
+    const lead: "home" | "away" | null = hs !== null && as !== null && hs !== as ? (hs > as ? "home" : "away") : null;
+    const line = (t: SvTeam, score: number | null, side: "home" | "away") => (
+      <>
+        <span className={lead === side ? "font-extrabold" : "font-normal opacity-70"}>{abbr(t)}</span>
+        <span className={`text-right ${lead === side ? "font-extrabold" : "font-normal opacity-70"}`}>{score ?? ""}</span>
+      </>
+    );
     const inner =
       g && g.started && opp ? (
-        // Under way or over: the opponent's score on top, the pick's below, the pick's logo on the right.
+        // Under way or over: the score, away above home; the pick's logo on the right.
         <span className="flex items-center justify-center gap-1.5">
           <span className="grid grid-cols-[auto_auto] items-baseline gap-x-1.5 text-left text-[11px] leading-[1.15] tabular-nums">
-            <span className="font-medium opacity-75">{abbr(opp)}</span>
-            <span className="text-right font-medium opacity-75">{theirs ?? ""}</span>
-            <span className="font-bold">{abbr(c.team)}</span>
-            <span className="text-right font-bold">{mine ?? ""}</span>
+            {line(g.away, as, "away")}
+            {line(g.home, hs, "home")}
           </span>
           <span className="relative">
             <TeamLogo src={c.team?.logo_url} abbr={c.team?.abbreviation} className="size-6 shrink-0" />
