@@ -700,8 +700,8 @@ export function GameRow({
             {!g.neutral && (
               <span className="-ml-1 shrink-0 text-[9px] font-medium uppercase tracking-wide text-faint lg:text-[8px]">{side === "home" ? "Home" : "Away"}</span>
             )}
-            {/* Survivor: "Used · Wk 3", after Home/Away. */}
-            {sideNote?.[side] && <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-muted lg:text-[10px]">{sideNote[side]}</span>}
+            {/* Survivor: "Used · Wk 3" in red, after Home/Away: this team can't be picked again. */}
+            {sideNote?.[side] && <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-loss lg:text-[10px]">{sideNote[side]}</span>}
           </>
         );
         return (
@@ -709,10 +709,7 @@ export function GameRow({
           // CSS subgrid: browsers without subgrid (older Chrome, e.g. some Chromebooks) stacked them.
           <div
             key={side}
-            // Survivor: a team that can't be picked (already used) is greyed out.
-            className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"} ${
-              sideDisabled?.[side] ? "opacity-35 grayscale" : ""
-            }`}
+            className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"}`}
           >
             {team.espn_id ? (
               <button
@@ -754,7 +751,8 @@ export function GameRow({
                 selected={selected}
                 disabled={disabled || Boolean(sideDisabled?.[side])}
                 compact
-                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !sideDisabled?.[side] && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
+                // Survivor: a team already used keeps its name and score; only its pick button greys out.
+                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${sideDisabled?.[side] ? "opacity-30" : ""} ${!disabled && !sideDisabled?.[side] && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
               />
             </button>
           </div>

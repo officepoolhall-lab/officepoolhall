@@ -182,17 +182,11 @@ export function SurvivorBoard({
               </ul>
             )}
           </section>
-          {/* Earlier weeks' games and box scores are on the Scoreboard. */}
-          <div className="-mt-2 mb-5 flex flex-wrap gap-2 lg:mt-3 lg:mb-1">
-            {historyHref && (
-              <Link href={historyHref} className={chipClass(false, "", "sm")}>
-                View Standings <ChevronIcon className="size-3.5" />
-              </Link>
-            )}
-            <Link href={`/p/${slug}/scoreboard`} className={chipClass(false, "", "sm")}>
-              Scoreboard <ChevronIcon className="size-3.5" />
+          {historyHref && (
+            <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3 lg:mb-1 lg:self-start", "sm")}>
+              View Standings <ChevronIcon className="size-3.5" />
             </Link>
-          </div>
+          )}
         </div>
       </aside>
 
