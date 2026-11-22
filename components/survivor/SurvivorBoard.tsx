@@ -1,0 +1,295 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { GameRow, useNow, type BoardSettings } from "@/app/p/[slug]/picks/PickBoard";
+import { PickSummaryRow } from "@/components/PickSummaryRow";
+import { TeamHistoryDialog } from "@/components/ProfileDialogs";
+import { useLiveGames } from "@/components/useLiveGames";
+import { CheckIcon, ChevronIcon, LiveDot, LockIcon, TeamLogo, chipClass } from "@/components/ui";
+import { dayKey, dayLabel, formatDuration, formatSpread, shortGameTime } from "@/lib/format";
+import { hasStarted } from "@/lib/locks";
+import type { SlateGame } from "@/lib/pool";
+
+type Side = "home" | "away";
+export type SvPrior = { week: number; label: string; href: string; game: SlateGame | null; side: Side | null; result: "win" | "loss" | "pending" | "void" | "missed" };
+
+const teamName = (t: SlateGame["home"]) => t.short_name ?? t.name;
+
+/**
+ * Survivor's My Picks, laid out like every other pool's: the season's picks in the left column,
+ * this week's pick across the top, and the week's games on the right in the same cards (tap a
+ * team to pick it, its name for recent results, Box Score once it starts). One pick a week,
+ * saved the moment it's tapped; teams already used can't be picked.
+ */
+export function SurvivorBoard({
+  slug,
+  weekLabel,
+  games: serverGames,
+  initialPick,
+  used,
+  canPick,
+  behalf,
+  records,
+  spreads,
+  timezone,
+  prior,
+  status,
+  backHref,
+  historyHref,
+  save,
+}: {
+  slug: string;
+  weekLabel: string;
+  games: SlateGame[];
+  initialPick: { gameId: string; teamId: string } | null;
+  /** Team id → "Wk 3": teams this entry has already used (can't be picked again). */
+  used: Record<string, string>;
+  /** Picking is open for this entry this week (alive, not a guest, games left). */
+  canPick: boolean;
+  /** The commissioner picking for someone: started games can be chosen too. */
+  behalf: boolean;
+  records: Record<string, string>;
+  /** Game id → the home team's spread. */
+  spreads: Record<string, number>;
+  timezone: string;
+  prior: SvPrior[];
+  /** "Alive", "2 of 3 lives left", "Out · Week 6". */
+  status: { text: string; alive: boolean };
+  /** Where the game pop-up goes back to. */
+  backHref: string;
+  historyHref?: string;
+  save: (gameId: string, teamId: string) => Promise<{ error?: string }>;
+}) {
+  const router = useRouter();
+  const now = useNow(serverGames, null);
+  const games = useLiveGames(serverGames, now, "nfl");
+  const [pick, setPick] = useState(initialPick);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const [history, setHistory] = useState<SlateGame["home"] | null>(null);
+
+  const pickGame = pick ? games.find((g) => g.id === pick.gameId) : undefined;
+  const pickSide: Side | null = pickGame && pick ? (pick.teamId === pickGame.home.id ? "home" : "away") : null;
+  const pickLocked = Boolean(pickGame && hasStarted(pickGame, now)) && !behalf;
+  const pickTeam = pickGame && pickSide ? pickGame[pickSide] : null;
+
+  const settings: BoardSettings = {
+    pickType: "straight_up",
+    picksPerSlate: 1,
+    tiers: null,
+    minusPoints: false,
+    maxUpsetBonus: null,
+    timezone,
+    poolTimezone: timezone,
+    bookmaker: "",
+    lockMode: "per_game",
+    fullCard: false,
+  };
+
+  const choose = (g: SlateGame, side: Side) => {
+    const team = g[side];
+    if (pending || pick?.teamId === team.id) return;
+    const before = pick;
+    setPick({ gameId: g.id, teamId: team.id });
+    setError(null);
+    start(async () => {
+      const r = await save(g.id, team.id).catch(() => ({ error: "That didn't save. Try again." }));
+      if (r.error) {
+        setPick(before);
+        setError(r.error);
+      } else router.refresh();
+    });
+  };
+
+  const days = useMemo(() => {
+    const out: { key: string; label: string; games: SlateGame[] }[] = [];
+    for (const g of games.filter((x) => !x.voided)) {
+      const key = dayKey(g.startAt, timezone);
+      const day = out.find((d) => d.key === key);
+      if (day) day.games.push(g);
+      else out.push({ key, label: dayLabel(g.startAt, timezone), games: [g] });
+    }
+    return out;
+  }, [games, timezone]);
+
+  const open = games.filter((g) => !g.voided && !hasStarted(g, now));
+  const nextKick = open.length ? Math.min(...open.map((g) => new Date(g.startAt).getTime())) : null;
+  const spreadLabel = (g: SlateGame) => {
+    const sp = spreads[g.id];
+    if (sp === undefined) return null;
+    if (sp === 0) return "Pick 'em";
+    const fav = sp < 0 ? g.home : g.away;
+    return `${fav.abbreviation ?? teamName(fav)} ${formatSpread(-Math.abs(sp))}`;
+  };
+  const resultOf = (g: SlateGame | undefined, side: Side | null): "win" | "loss" | null => {
+    if (!g || !side || g.voided || !(g.status === "final" || g.overridden) || g.homeScore === null || g.awayScore === null) return null;
+    const m = g.homeScore - g.awayScore;
+    if (m === 0) return "loss";
+    return (m > 0) === (side === "home") ? "win" : "loss";
+  };
+  const thisResult = resultOf(pickGame, pickSide);
+  const live = pickGame && hasStarted(pickGame, now) && !(pickGame.status === "final" || pickGame.overridden);
+
+  return (
+    <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
+      {/* This week's pick, across the top. */}
+        <section className="mb-5 rounded-xl border border-line bg-bg p-4 lg:col-span-2 lg:mb-2">
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-lg font-extrabold tracking-[-0.03em]">{weekLabel} pick</h2>
+            <span className="ml-auto flex items-center gap-1.5 text-sm text-muted">
+              {pickLocked && <LockIcon />}
+              {pickLocked ? "Locked" : canPick && nextKick ? <>Next kickoff in <strong className="font-semibold tabular-nums text-ink">{formatDuration(nextKick - now)}</strong></> : null}
+            </span>
+          </div>
+          {pickTeam && pickGame ? (
+            <div className="mt-2 flex items-center gap-3">
+              <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-9" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[17px] font-bold">{teamName(pickTeam)}</div>
+                <div className="truncate text-sm text-muted">
+                  {pickSide === "away" && !pickGame.neutral ? "@" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)} ·{" "}
+                  {live ? <LiveDot>{pickGame.clock ?? "Live"}</LiveDot> : pickGame.status === "final" || pickGame.overridden ? "Final" : shortGameTime(pickGame.startAt, timezone, pickGame.timeTbd)}
+                  {pickGame.tv && !(pickGame.status === "final") && <> · {pickGame.tv}</>}
+                </div>
+              </div>
+              {hasStarted(pickGame, now) && pickGame.homeScore !== null && pickGame.awayScore !== null && (
+                <span className="text-lg font-bold tabular-nums">
+                  {pickSide === "home" ? `${pickGame.homeScore}–${pickGame.awayScore}` : `${pickGame.awayScore}–${pickGame.homeScore}`}
+                </span>
+              )}
+              {thisResult && <span className={`text-sm font-semibold ${thisResult === "win" ? "text-win" : "text-loss"}`}>{thisResult === "win" ? "Win" : "Loss"}</span>}
+            </div>
+          ) : (
+            <p className="mt-1 text-sm text-muted">
+              {canPick ? "No pick yet. Tap a team below to pick it to win. A week without a pick counts as a loss." : status.alive ? "No pick this week." : "This entry is out."}
+            </p>
+          )}
+        </section>
+
+      {/* The season so far, pinned in the left column on desktop; above the games on phones. */}
+      <aside className="lg:self-stretch">
+        <div className="lg:sticky lg:top-[calc(3rem+3px+1rem+env(safe-area-inset-top))]">
+          <section className="mb-5 lg:mb-0" aria-labelledby="my-picks">
+            <div className="mb-1 flex items-baseline justify-between gap-3">
+              <h2 id="my-picks" className="text-lg font-extrabold tracking-[-0.03em]">{behalf ? "Their picks" : "My Picks"}</h2>
+              <span className={`text-xs font-semibold tabular-nums ${status.alive ? "text-win" : "text-muted"}`}>{status.text}</span>
+            </div>
+            {prior.length === 0 ? (
+              <p className="border-y border-line py-3 text-sm text-muted">Each week&apos;s pick shows up here.</p>
+            ) : (
+              <ul className="divide-y divide-line border-y border-line">
+                {prior.map((p) =>
+                  p.game && p.side ? (
+                    // The whole row opens that week (its games and box scores).
+                    <li key={p.week} className="relative flex items-center gap-2 hover:bg-hover">
+                      <Link href={p.href} aria-label={`${p.label}: see that week's games`} className="absolute inset-0 z-[1]" />
+                      <span className="w-9 shrink-0 text-xs font-medium tabular-nums text-muted">Wk {p.week}</span>
+                      <ul className="min-w-0 flex-1">
+                        <PickSummaryRow
+                          game={p.game}
+                          side={p.side}
+                          confidence={null}
+                          result={p.result === "win" || p.result === "loss" ? p.result : null}
+                          locked={false}
+                          now={now}
+                          pickType="straight_up"
+                          timezone={timezone}
+                          dense
+                        />
+                      </ul>
+                    </li>
+                  ) : (
+                    <li key={p.week} className="flex min-h-9 items-center gap-2 py-1 text-sm">
+                      <span className="w-9 shrink-0 text-xs font-medium tabular-nums text-muted">Wk {p.week}</span>
+                      <span className="flex-1 text-muted">No pick</span>
+                      <span className="text-xs font-semibold text-loss">Loss</span>
+                    </li>
+                  ),
+                )}
+              </ul>
+            )}
+          </section>
+          {historyHref && (
+            <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3 lg:mb-1 lg:self-start", "sm")}>
+              View Standings <ChevronIcon className="size-3.5" />
+            </Link>
+          )}
+        </div>
+      </aside>
+
+      <div className="min-w-0">
+        {days.map((day) => (
+          <section key={day.key} className="mb-5 lg:mb-4">
+            <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
+              <span>{day.label}</span>
+              <span className="ml-auto text-xs font-medium text-muted tabular-nums">
+                {day.games.length} game{day.games.length === 1 ? "" : "s"}
+              </span>
+            </h3>
+            <ul className="lg:grid lg:grid-cols-[repeat(auto-fill,minmax(18.5rem,1fr))] lg:gap-x-5 min-[1600px]:grid-cols-4 min-[2000px]:grid-cols-5">
+              {day.games.map((g) => {
+                const started = hasStarted(g, now);
+                const editable = canPick && !pickLocked && (behalf || !started);
+                const usedNote = (side: Side) => (used[g[side].id] && pick?.teamId !== g[side].id ? `Used · ${used[g[side].id]}` : null);
+                const side = pick?.gameId === g.id ? pickSide : null;
+                return (
+                  <GameRow
+                    key={g.id}
+                    game={g}
+                    draft={side ? { side, confidence: null } : undefined}
+                    graded={undefined}
+                    locked={started && !behalf}
+                    editable={editable}
+                    edited={false}
+                    now={now}
+                    settings={settings}
+                    onTeam={(s) => choose(g, s)}
+                    onHistory={(s) => setHistory(s === "home" ? g.home : g.away)}
+                    records={records}
+                    onPoints={() => undefined}
+                    gameHref={`/p/${slug}/game/${g.id}?back=${encodeURIComponent(backHref)}`}
+                    sideDisabled={{ home: Boolean(usedNote("home")), away: Boolean(usedNote("away")) }}
+                    sideNote={{ home: usedNote("home"), away: usedNote("away") }}
+                    extraMeta={spreadLabel(g)}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+        {error && <div aria-hidden className="h-12" />}
+      </div>
+
+      {history?.espn_id && (
+        <TeamHistoryDialog sport="nfl" espnId={history.espn_id} name={teamName(history)} logo={history.logo_url} ats={false} timezone={timezone} onClose={() => setHistory(null)} />
+      )}
+
+      {/* The tracker, as on every pool's My Picks: what's picked and whether it saved. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="mx-auto max-w-5xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:max-w-none">
+          {error && <p className="mb-1.5 text-sm text-loss" role="alert">{error}</p>}
+          <div className="flex items-center gap-3">
+            <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm text-muted">
+              {(pickLocked || !canPick) && <LockIcon className="size-3.5 shrink-0" />}
+              {pickTeam ? (
+                <span className="truncate">
+                  {weekLabel}: <span className="font-semibold text-ink">{teamName(pickTeam)}</span>
+                </span>
+              ) : (
+                <span className="truncate">{canPick ? "Tap a team to make your pick" : `No pick in ${weekLabel}`}</span>
+              )}
+            </p>
+            <span className="shrink-0 text-right text-[15px] font-semibold tabular-nums">
+              {pickTeam ? 1 : 0}/1
+              <span role="status" aria-live="polite" className={`flex items-center justify-end gap-1 text-xs font-normal ${error ? "text-loss" : "text-muted"}`}>
+                {pending ? "Saving…" : error ? "Not saved" : pickTeam ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : "picked"}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

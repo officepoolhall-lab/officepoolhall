@@ -17,11 +17,12 @@ import { FootballIcon } from "@/components/FootballIcon";
 import { TeamHistoryDialog } from "@/components/ProfileDialogs";
 
 type Side = "home" | "away";
-type Draft = { side: Side | null; confidence: number | null };
+export type Draft = { side: Side | null; confidence: number | null };
 /** Server-graded result for one of the player's picks (picks.result / points / bonus). */
 type Graded = { result: string; points: number; bonus: number };
 /** The player's official total for the week (slate_scores). */
 type Score = { points: number; wins: number; losses: number; pushes: number };
+export type BoardSettings = Settings;
 type Settings = {
   pickType: "straight_up" | "ats";
   picksPerSlate: number;
@@ -513,7 +514,7 @@ export function PickBoard({
   );
 }
 
-function GameRow({
+export function GameRow({
   game: g,
   draft,
   graded,
@@ -527,6 +528,9 @@ function GameRow({
   onPoints,
   records,
   gameHref,
+  sideDisabled,
+  sideNote,
+  extraMeta,
 }: {
   game: SlateGame;
   draft: Draft | undefined;
@@ -544,6 +548,12 @@ function GameRow({
   records: Record<string, string>;
   /** Play-by-play and box score, for a live or final game. */
   gameHref: string;
+  /** Survivor: a side that can't be picked (a team already used). */
+  sideDisabled?: Partial<Record<Side, boolean>>;
+  /** Survivor: a short note after a team's name ("Used · Wk 3"). */
+  sideNote?: Partial<Record<Side, string | null>>;
+  /** Added to the status line after the conference or venue (Survivor: the spread). */
+  extraMeta?: string | null;
 }) {
   // A TBD game's start is ESPN's placeholder; it stays pickable past it until its deadline.
   const started = hasStarted(g, now);
@@ -575,7 +585,7 @@ function GameRow({
   // The conference ("SEC") for a conference game, "NC" for nonconference.
   const conf = shortConferenceLabel(g.away.conference, g.home.conference);
   // Neutral site: the away team is listed first and the city stands in for "Home".
-  const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
+  const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null, extraMeta].filter(Boolean).join(" · ");
 
   // The lock countdown (last three hours) sits on the status line above the pick buttons.
   const countdown = !result && !locked && !disabled && msToLock < 3 * 3_600_000;
@@ -688,6 +698,7 @@ function GameRow({
               {team.espn_id && records[team.espn_id] && (
                 <span className="ml-1.5 text-[0.8em] font-normal tabular-nums text-muted">{records[team.espn_id].replace(/-/g, "–")}</span>
               )}
+              {sideNote?.[side] && <span className="ml-1.5 text-[0.75em] font-medium text-muted">{sideNote[side]}</span>}
             </FitText>
             {/* Which side is home, right after the name (a neutral-site game shows its city in the line above instead). */}
             {!g.neutral && (
@@ -713,7 +724,7 @@ function GameRow({
             )}
             <button
               type="button"
-              disabled={disabled}
+              disabled={disabled || Boolean(sideDisabled?.[side])}
               onClick={() => onTeam(side)}
               aria-pressed={selected}
               aria-label={`Pick ${team.short_name ?? team.name}${settings.pickType === "ats" ? ` ${formatSpread(spread)}` : ""}`}
@@ -737,9 +748,9 @@ function GameRow({
                   )
                 }
                 selected={selected}
-                disabled={disabled}
+                disabled={disabled || Boolean(sideDisabled?.[side])}
                 compact
-                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
+                className={`lg:min-h-6 lg:[&>span]:text-[13px] ${!disabled && !sideDisabled?.[side] && !selected ? "group-hover:bg-hover group-active:scale-[0.98]" : ""}`}
               />
             </button>
           </div>
@@ -887,7 +898,7 @@ function nextLockInfo(
  * the weekly deadline passes), so rows lock and go live without a reload. The server
  * re-checks with its own clock.
  */
-function useNow(games: SlateGame[], lockAt: string | null) {
+export function useNow(games: SlateGame[], lockAt: string | null) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     // A TBD placeholder isn't a tip, so it's not a boundary.
