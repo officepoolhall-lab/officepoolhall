@@ -262,6 +262,11 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
       } as SvPrior;
     });
 
+  // The pick that knocked this entry out, for the red card at the top.
+  const outCell = row.outWeek !== null ? row.cells.find((c) => c.week === row.outWeek) : undefined;
+  const outSvGame = outCell?.gameId ? weeks.find((w) => w.slateId === outCell.slateId)?.games.find((g) => g.id === outCell.gameId) : undefined;
+  const outPick =
+    outSvGame && outCell?.team ? { game: asSlateGame(outSvGame), side: (outCell.team.id === outSvGame.home.id ? "home" : "away") as "home" | "away" } : null;
   const statusText = outAlready || !row.alive ? `Eliminated · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
 
   return (
@@ -293,6 +298,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         prior={prior}
         status={{ text: statusText, alive: row.alive && !outAlready }}
         outWeek={row.alive && !outAlready ? null : row.outWeek}
+        outPick={outPick}
         backHref={qs(week.week)}
         historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
