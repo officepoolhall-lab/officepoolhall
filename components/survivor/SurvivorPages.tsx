@@ -184,7 +184,10 @@ async function weekSlateGames(ctx: PoolBase, week: SvWeek, now: number): Promise
   const sv = new Map(week.games.map((g) => [g.id, g]));
   const stored = (await getSlateGames(ctx as unknown as PoolContext, week.slateId)).map((g) => {
     const d = sv.get(g.id);
-    if (!d || !d.clock || d.final) return g;
+    if (!d) return g;
+    // A demo final (settings.demo_results) on a game that isn't over for real.
+    if (d.final && g.status !== "final") return { ...g, status: "final", homeScore: d.homeScore, awayScore: d.awayScore, clock: null, lastPlay: null, situation: null, possession: null };
+    if (!d.clock || d.final) return g;
     return { ...g, status: "in_progress", homeScore: d.homeScore, awayScore: d.awayScore, clock: d.clock };
   });
   return withLiveClocks("nfl", stored, now);

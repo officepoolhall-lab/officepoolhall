@@ -20,6 +20,12 @@ export type SurvivorSettings = {
    * progress with made-up scores.
    */
   demo_live_week?: number | null;
+  /**
+   * Demo pools only (set in the database): made-up final scores, game id → [home, away], for
+   * games not over yet, so a demo can be moved ahead to a later week. The real game records
+   * (shared with every pool) are never changed.
+   */
+  demo_results?: Record<string, [number, number]> | null;
 };
 
 export const SURVIVOR_DEFAULT: SurvivorSettings = { lives: 1, tie: "loss", reuse: false, start_week: 1 };
@@ -32,7 +38,30 @@ export function survivorSettings(settings: unknown): SurvivorSettings {
     reuse: s.reuse === true,
     start_week: int(s.start_week, 1, 30) ?? 1,
     demo_live_week: int(s.demo_live_week, 1, 30) ?? null,
+    demo_results: demoResults(s.demo_results),
   };
+}
+
+function demoResults(v: unknown): Record<string, [number, number]> | null {
+  if (!v || typeof v !== "object") return null;
+  const out: Record<string, [number, number]> = {};
+  for (const [id, r] of Object.entries(v as Record<string, unknown>)) {
+    if (Array.isArray(r) && r.length === 2 && r.every((n) => Number.isInteger(n) && (n as number) >= 0)) out[id] = [r[0] as number, r[1] as number];
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** A demo pool's made-up finals (settings.demo_results) laid over its games. */
+export function applyDemoResults(weeks: SvWeek[], results: Record<string, [number, number]> | null | undefined): SvWeek[] {
+  if (!results) return weeks;
+  return weeks.map((w) => ({
+    ...w,
+    games: w.games.map((g) => {
+      const r = results[g.id];
+      if (!r || g.final || g.voided) return g;
+      return { ...g, started: true, final: true, homeScore: r[0], awayScore: r[1], clock: null };
+    }),
+  }));
 }
 
 export function survivorSettingsError(s: SurvivorSettings): string | null {
