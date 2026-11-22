@@ -166,26 +166,6 @@ export function SurvivorSummary({
         </section>
       )}
 
-      {!reuse && survivors.length > 0 && (
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Teams left for the survivors</h3>
-          <p className="mt-0.5 text-xs text-muted">How many of the {survivors.length} entries still alive haven&apos;t used each team yet.</p>
-          <ul className="mt-2 grid grid-cols-4 gap-1.5">
-            {left.map((t) => (
-              <li
-                key={t.team.id}
-                title={`${name(t.team)}: ${t.n} of ${survivors.length} can still pick them`}
-                className={`flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs tabular-nums ring-1 ring-line ${t.n === 0 ? "opacity-40" : "bg-surface"}`}
-              >
-                <TeamLogo src={t.team.logo_url} abbr={t.team.abbreviation} className="size-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate font-medium">{t.team.abbreviation ?? name(t.team)}</span>
-                <span className="font-bold">{t.n}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       {outWeeks.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Eliminated each week</h3>
@@ -195,6 +175,26 @@ export function SurvivorSummary({
                 <span className="w-14 shrink-0 text-muted">Week {w}</span>
                 <span className="h-3 rounded-sm bg-[var(--loss-fill)] ring-1 ring-loss/40" style={{ width: `${Math.max(4, (n / maxOut) * 100)}%` }} />
                 <span className="shrink-0 font-semibold">{n}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {!reuse && survivors.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Teams left for the survivors</h3>
+          <p className="mt-0.5 text-xs text-muted">How many of the {survivors.length} entries still alive haven&apos;t used each team yet.</p>
+          <ul className="mt-2 grid grid-cols-4 gap-1.5">
+            {left.map((t) => (
+              <li
+                key={t.team.id}
+                title={`${name(t.team)}: ${t.n} of ${survivors.length} can still pick them`}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-1.5 py-1 text-sm tabular-nums ring-1 ring-line ${t.n === 0 ? "opacity-40" : "bg-surface"}`}
+              >
+                <TeamLogo src={t.team.logo_url} abbr={t.team.abbreviation} className="size-6 shrink-0" />
+                <span className="sr-only">{name(t.team)}:</span>
+                <span className="font-bold">{t.n}</span>
               </li>
             ))}
           </ul>
