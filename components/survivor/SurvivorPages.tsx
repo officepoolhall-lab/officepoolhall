@@ -4,6 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
+import { FillColumn } from "@/components/FillColumn";
 import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
@@ -57,13 +58,13 @@ function Cell({ c }: { c: SvCell }) {
 /** The pool's rules as label / value rows (Home's Pool Rules). */
 function ruleRows(s: SurvivorSettings): [string, string][] {
   return [
-    ["Each week", "Pick one team to win, straight up"],
-    ["Teams", s.reuse ? "Can be picked more than once" : "Each team once per season"],
-    ["Out after", s.lives === 1 ? "One loss" : `${s.lives} losses`],
-    ["Ties", s.tie === "loss" ? "Count as a loss" : "Count as a win"],
-    ["No pick", "Counts as a loss"],
-    ["Picks lock", "When that game kicks off"],
-    ["Picks shown", "Once that game kicks off"],
+    ["Each week", "Pick 1 winner"],
+    ["Teams", s.reuse ? "Reuse allowed" : "Once per season"],
+    ["Out after", s.lives === 1 ? "1 loss" : `${s.lives} losses`],
+    ["Ties", s.tie === "loss" ? "Loss" : "Win"],
+    ["No pick", "Loss"],
+    ["Picks lock", "At kickoff"],
+    ["Picks shown", "At kickoff"],
     ...(s.start_week > 1 ? ([["Starts", `Week ${s.start_week}`]] as [string, string][]) : []),
   ];
 }
@@ -97,8 +98,9 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
       {games.length > 0 && <LiveTicker games={games} now={now} timezone={tzOf(ctx)} />}
       <AutoRefresh active={anyLive(weeks)} />
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
-        {/* This week, then who's left and what the pool picked. */}
-        <div className="space-y-6 lg:pr-6">
+        {/* This week, then who's left and what the pool picked. On desktop the left and middle
+            columns end level with the right one (FillColumn trims this week's picks and the news). */}
+        <FillColumn className="space-y-6 lg:pr-6">
           {week ? (
             <section className="border-b border-line pb-4">
               <div className="whitespace-nowrap text-lg font-bold text-ink">{week.label}</div>
@@ -112,7 +114,10 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
                       ) : !mine.alive ? (
                         <span className="text-loss">Out · Wk {mine.outWeek}</span>
                       ) : myCell?.team ? (
-                        <span className={myCell.state === "win" ? "text-win" : myCell.state === "loss" ? "text-loss" : ""}>{teamName(myCell.team)}</span>
+                        <span className={`inline-flex items-center gap-2 ${myCell.state === "win" ? "text-win" : myCell.state === "loss" ? "text-loss" : ""}`}>
+                          <TeamLogo src={myCell.team.logo_url} abbr={myCell.team.abbreviation} className="size-[1.1em] shrink-0" />
+                          {teamName(myCell.team)}
+                        </span>
                       ) : (
                         <span className="text-muted">None yet</span>
                       )}
@@ -150,25 +155,28 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
             </Empty>
           )}
           {rows.length > 0 && <SurvivorSummary {...summary} only={["remaining", "picks"]} />}
-        </div>
+        </FillColumn>
 
         {/* Top stories, as on every pool's Home. */}
-        <div className="order-last lg:order-none lg:px-6">
+        <FillColumn className="order-last lg:order-none lg:px-6">
           <Suspense fallback={<p className="text-sm text-muted">Loading the news…</p>}>
             <SurvivorNews now={now} />
           </Suspense>
-        </div>
+        </FillColumn>
 
         {/* The season so far, then the rules. */}
         <div className="space-y-6 lg:pl-6">
           {rows.length > 0 && <SurvivorSummary {...summary} only={["teams", "eliminated"]} />}
           <section>
-            <SectionLabel className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
-            <dl className="mt-2 divide-y divide-line border-y border-line text-sm">
+            <SectionLabel fit className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
+            {/* Short tiles, two across: each rule's name over its answer, one line apiece. */}
+            <dl className="mt-2 grid grid-cols-2 gap-2">
               {ruleRows(settings).map(([k, v]) => (
-                <div key={k} className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2 py-2">
-                  <dt className="text-muted">{k}</dt>
-                  <dd className="font-medium text-ink">{v}</dd>
+                <div key={k} className="min-w-0 rounded-xl bg-surface px-3 py-2">
+                  <dt className="truncate text-[11px] font-medium uppercase tracking-wide text-muted">{k}</dt>
+                  <dd className="mt-0.5 min-w-0 text-sm font-semibold text-ink">
+                    <FitText min={10}>{v}</FitText>
+                  </dd>
                 </div>
               ))}
             </dl>
