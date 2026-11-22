@@ -45,6 +45,11 @@ export type PfScoring = {
 };
 
 export type PfSettings = {
+  /**
+   * Demo pools only (set in the database, not on Settings): before the real playoff field is
+   * set, use the teams that would be in if the season ended today.
+   */
+  demo_projected?: boolean;
   /** When lineups lock (the first Wild Card kickoff), ISO; null until the commissioner sets it. */
   lock_at: string | null;
   roster: Record<Position, number>;
@@ -88,6 +93,7 @@ export function pfSettings(settings: unknown): PfSettings {
   const d = PF_DEFAULT.scoring;
   const n = (k: keyof PfScoring, lo: number, hi: number) => num(sc[k], lo, hi) ?? (d[k] as number);
   return {
+    demo_projected: s.demo_projected === true,
     lock_at: typeof s.lock_at === "string" && !Number.isNaN(Date.parse(s.lock_at)) ? s.lock_at : null,
     roster: Object.fromEntries(POSITIONS.map((p) => [p, int(r[p], 0, 10) ?? PF_DEFAULT.roster[p]])) as Record<Position, number>,
     scoring: {
