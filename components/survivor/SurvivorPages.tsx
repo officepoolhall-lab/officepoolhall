@@ -444,7 +444,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                       <div className="flex items-center justify-between gap-2">
                         <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-loss"}`}>
                           {ctx.isCommissioner ? (
-                            <Link href={`/p/${slug}/picks?for=${r.userId}`} className="block hover:underline" title="Make or fix this entry's pick">
+                            <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1.5 -my-0.5 block rounded-md px-1.5 py-0.5 transition hover:bg-hover" title="Make or fix this entry's pick">
                               <FitText min={9}>{r.name}</FitText>
                             </Link>
                           ) : (
