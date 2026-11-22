@@ -41,6 +41,7 @@ export function SurvivorBoard({
   historyHref,
   save,
   clear,
+  outWeek = null,
   fixedNow,
 }: {
   slug: string;
@@ -58,12 +59,14 @@ export function SurvivorBoard({
   spreads: Record<string, number>;
   timezone: string;
   prior: SvPrior[];
-  /** "Alive", "2 of 3 lives left", "Out · Week 6". */
+  /** "Alive", "2 of 3 lives left", "Eliminated · Week 6". */
   status: { text: string; alive: boolean };
   /** Where the game pop-up goes back to. */
   backHref: string;
   historyHref?: string;
   save: (gameId: string, teamId: string) => Promise<{ error?: string }>;
+  /** The week this entry was eliminated (null while alive): the pick card says so. */
+  outWeek?: number | null;
   /** Removes this week's pick (tapping the picked team again). */
   clear: () => Promise<{ error?: string }>;
   /** A demo pool shown as of an earlier moment: that moment, instead of the clock. */
@@ -144,7 +147,7 @@ export function SurvivorBoard({
         started={pickStarted}
         locked={pickLocked}
         timezone={timezone}
-        empty={canPick ? "No pick yet" : "No pick"}
+        empty={outWeek ? `Eliminated in Week ${outWeek}` : canPick ? "No pick yet" : "No pick"}
         className="mb-5 max-w-2xl lg:col-span-2"
       />
 
