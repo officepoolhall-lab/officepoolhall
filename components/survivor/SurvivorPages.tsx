@@ -4,14 +4,19 @@ import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
-import { Empty, LinkButton, LiveDot, PageTitle, TeamLogo, chipClass } from "@/components/ui";
+import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { survivorRules, survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek } from "@/lib/survivor";
+import { survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
 import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
 import { SurvivorSummary } from "./SurvivorSummary";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
+import { Suspense } from "react";
+import { Countdown } from "@/components/Countdown";
+import { NewsList } from "@/components/NewsList";
+import { getNews } from "@/lib/news";
+import { NEWS_TITLE } from "@/lib/sports";
 import { LiveTicker } from "@/components/LiveTicker";
 import { getSlateGames, type PoolContext, type SlateGame } from "@/lib/pool";
 import { withLiveClocks } from "@/lib/liveClock";
@@ -19,7 +24,6 @@ import { withLiveClocks } from "@/lib/liveClock";
 // The pages of an NFL Survivor pool: Home, My Pick and Standings. The pool routes reach these
 // when settings.format is "survivor".
 
-const card = "rounded-2xl bg-surface p-4 sm:p-5";
 const tzOf = (ctx: PoolBase) => ((ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago");
 const teamName = (t: SvTeam) => t.short_name ?? t.name;
 
@@ -50,107 +54,148 @@ function Cell({ c }: { c: SvCell }) {
   );
 }
 
+/** The pool's rules as label / value rows (Home's Pool Rules). */
+function ruleRows(s: SurvivorSettings): [string, string][] {
+  return [
+    ["Each week", "Pick one team to win, straight up"],
+    ["Teams", s.reuse ? "Can be picked more than once" : "Each team once per season"],
+    ["Out after", s.lives === 1 ? "One loss" : `${s.lives} losses`],
+    ["Ties", s.tie === "loss" ? "Count as a loss" : "Count as a win"],
+    ["No pick", "Counts as a loss"],
+    ["Picks lock", "When that game kicks off"],
+    ["Picks shown", "Once that game kicks off"],
+    ...(s.start_week > 1 ? ([["Starts", `Week ${s.start_week}`]] as [string, string][]) : []),
+  ];
+}
+
+/**
+ * Home, laid out like every other pool's: this week's games across the top; this week and
+ * the pool's numbers on the left, the news in the middle, the season so far and the rules on
+ * the right, split by the same thin blue lines.
+ */
 export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const loaded = await getSurvivor(ctx);
   const { settings, picks, members } = loaded;
   const weeks = await withLiveScores(loaded.weeks);
   const rows = survivorStandings(weeks, picks, members, settings);
-  const mine = rows.find((r) => r.userId === ctx.entryUserId);
+  const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
   const week = currentWeek(weeks, settings.start_week);
   const myCell = week && mine ? mine.cells.find((c) => c.slateId === week.slateId) : undefined;
-  // This week's pick can't move once its game has kicked off.
   const myPick = week ? picks.find((p) => p.slateId === week.slateId && p.userId === ctx.entryUserId) : undefined;
-  const pickLocked = Boolean(myPick && week?.games.find((g) => g.id === myPick.gameId)?.started);
-  const alive = rows.filter((r) => r.alive);
+  const pickGame = myPick ? week?.games.find((g) => g.id === myPick.gameId) : undefined;
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
+  const now = Date.now();
+  const games = week ? await weekSlateGames(ctx, week, now) : [];
+  const nextKick = week?.games.filter((g) => !g.voided && !g.started).map((g) => g.startAt).sort()[0] ?? null;
+  const canPick = Boolean(mine?.alive && week && !weekClosed(week) && !pickGame?.started);
+  const counted = weeks.filter((w) => w.week >= settings.start_week);
+  const entryFee = Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0);
+  const summary = { rows, weeks: counted, reuse: settings.reuse, entryFee, page: true } as const;
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+    <div data-wide className="space-y-6">
+      {games.length > 0 && <LiveTicker games={games} now={now} timezone={tzOf(ctx)} />}
       <AutoRefresh active={anyLive(weeks)} />
-      <div className="space-y-4">
-        <section className={card}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-accent">{week ? week.label : "Survivor"}</div>
-          {!week ? (
-            <p className="mt-1 text-sm text-muted">No week is open yet. The commissioner publishes each week&apos;s games before the first kickoff.</p>
-          ) : !mine ? (
-            <p className="mt-1 text-sm text-muted">You&apos;re following this pool without an entry.</p>
-          ) : !mine.alive ? (
-            <>
-              <div className="mt-1 text-lg font-bold">Eliminated in Week {mine.outWeek}</div>
-              <p className="text-sm text-muted">You can still follow who&apos;s left on Standings.</p>
-            </>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        {/* This week, then who's left and what the pool picked. */}
+        <div className="space-y-6 lg:pr-6">
+          {week ? (
+            <section className="border-b border-line pb-4">
+              <div className="whitespace-nowrap text-lg font-bold text-ink">{week.label}</div>
+              <div className="mt-2 grid grid-cols-2 gap-4 [&>*]:min-w-0">
+                {!ctx.isGuest && (
+                  <div className="min-w-0">
+                    <FitText min={9} className="text-xs text-muted">My Pick</FitText>
+                    <FitText min={16} className="mt-0.5 text-3xl font-extrabold tracking-[-0.03em]">
+                      {!mine ? (
+                        <span className="text-muted">No entry</span>
+                      ) : !mine.alive ? (
+                        <span className="text-loss">Out · Wk {mine.outWeek}</span>
+                      ) : myCell?.team ? (
+                        <span className={myCell.state === "win" ? "text-win" : myCell.state === "loss" ? "text-loss" : ""}>{teamName(myCell.team)}</span>
+                      ) : (
+                        <span className="text-muted">None yet</span>
+                      )}
+                    </FitText>
+                  </div>
+                )}
+                {nextKick && (
+                  <div className="min-w-0">
+                    <FitText min={9} className="text-xs text-muted">Next Game Locks</FitText>
+                    <FitText min={16} className="mt-0.5 text-3xl font-extrabold tracking-[-0.03em] tabular-nums">
+                      <Countdown to={nextKick} done="locked" />
+                    </FitText>
+                  </div>
+                )}
+              </div>
+              {canPick && !myCell?.team && (
+                <Link
+                  href={`/p/${slug}/picks`}
+                  className="mt-3 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95"
+                >
+                  <span className="whitespace-nowrap">Make {week.label} Pick <span aria-hidden>→</span></span>
+                </Link>
+              )}
+              <div className="mt-3 flex gap-1.5 whitespace-nowrap">
+                {!ctx.isGuest && <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Pick</Link>}
+                <Link href={`/p/${slug}/standings`} className={chipClass(ctx.isGuest, "", "sm")}>Everyone&apos;s picks</Link>
+              </div>
+            </section>
           ) : (
-            <>
-              <div className="mt-1 text-lg font-bold">{settings.lives > 1 ? `You're alive: ${mine.livesLeft} of ${settings.lives} lives left` : "You're still alive"}</div>
-              {myCell?.team ? (
-                <p className="mt-1 flex items-center gap-2 text-sm">
-                  <TeamLogo src={myCell.team.logo_url} abbr={myCell.team.abbreviation} className="size-6" />
-                  <span>
-                    This week: <span className="font-semibold">{teamName(myCell.team)}</span>
-                    {myCell.state === "win" ? " · won" : myCell.state === "loss" ? " · lost" : ""}
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm text-muted">{weekClosed(week) ? "This week's games are under way." : "No pick yet this week. A week without a pick counts as a loss."}</p>
+            <Empty>
+              No week is published yet.
+              {ctx.isCommissioner && (
+                <> <Link className="text-accent" href={`/p/${slug}/admin/slate`}>Set up the first week</Link>.</>
               )}
-              {!ctx.isGuest && !weekClosed(week) && !pickLocked && (
-                <LinkButton href={`/p/${slug}/picks`} kind="accent" className="mt-3 w-full">
-                  {myCell?.team ? "Change my pick" : "Make my pick"}
-                </LinkButton>
-              )}
-            </>
+            </Empty>
           )}
-        </section>
-        {/* The same Pool Summary as the tab on Standings. */}
-        {rows.length > 0 && (
-          <section className={card}>
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-base font-bold">Pool Summary</h2>
-              <Link href={`/p/${slug}/standings`} className="rounded-full px-2 py-1 text-sm font-semibold text-accent hover:bg-hover">Standings</Link>
-            </div>
-            <SurvivorSummary
-              rows={rows}
-              weeks={weeks.filter((w) => w.week >= settings.start_week)}
-              reuse={settings.reuse}
-              entryFee={Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0)}
-              onSurface
-            />
-          </section>
-        )}
-        <section className={card}>
-          <h2 className="text-base font-bold">How it works</h2>
-          <ul className="mt-1 space-y-1 text-sm text-ink">
-            {survivorRules(settings).map((l) => (
-              <li key={l}>{l}</li>
-            ))}
-          </ul>
-        </section>
-      </div>
-      <section className={card}>
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-base font-bold">
-            Still alive <span className="text-sm font-normal text-muted tabular-nums">· {alive.length} of {rows.length}</span>
-          </h2>
-          <Link href={`/p/${slug}/standings`} className="rounded-full px-2 py-1 text-sm font-semibold text-accent hover:bg-hover">Standings</Link>
+          {rows.length > 0 && <SurvivorSummary {...summary} only={["remaining", "picks"]} />}
         </div>
-        {rows.length === 0 ? (
-          <Empty>No entries yet.</Empty>
-        ) : (
-          <ul className="mt-1 divide-y divide-line">
-            {(alive.length ? alive : rows).slice(0, 12).map((r) => {
-              const c = week ? r.cells.find((x) => x.slateId === week.slateId) : undefined;
-              return (
-                <li key={r.userId} className={`flex items-center gap-3 py-2.5 ${r.userId === ctx.entryUserId ? "-mx-2 rounded-xl bg-accent/10 px-2" : ""}`}>
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{r.name}</span>
-                  <span className="text-xs text-muted tabular-nums">{lives(r, settings.lives)}</span>
-                  <span className="w-14">{c && <Cell c={c} />}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {alive.length > 12 && <p className="pt-2 text-sm text-muted">+ {alive.length - 12} more on Standings</p>}
-      </section>
+
+        {/* Top stories, as on every pool's Home. */}
+        <div className="order-last lg:order-none lg:px-6">
+          <Suspense fallback={<p className="text-sm text-muted">Loading the news…</p>}>
+            <SurvivorNews now={now} />
+          </Suspense>
+        </div>
+
+        {/* The season so far, then the rules. */}
+        <div className="space-y-6 lg:pl-6">
+          {rows.length > 0 && <SurvivorSummary {...summary} only={["teams", "eliminated"]} />}
+          <section>
+            <SectionLabel className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
+            <dl className="mt-2 divide-y divide-line border-y border-line text-sm">
+              {ruleRows(settings).map(([k, v]) => (
+                <div key={k} className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2 py-2">
+                  <dt className="text-muted">{k}</dt>
+                  <dd className="font-medium text-ink">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </div>
+      </div>
     </div>
   );
+}
+
+/** NFL top stories; streams in after the rest of the page. */
+async function SurvivorNews({ now }: { now: number }) {
+  return <NewsList stories={await getNews("nfl", 10)} now={now} title={NEWS_TITLE.nfl} />;
+}
+
+/**
+ * A week's games with everything the other pools' cards and ticker show (TV, live clock and
+ * last play). A demo pool's made-up live scores (settings.demo_live_week) are laid over them.
+ */
+async function weekSlateGames(ctx: PoolBase, week: SvWeek, now: number): Promise<SlateGame[]> {
+  const sv = new Map(week.games.map((g) => [g.id, g]));
+  const stored = (await getSlateGames(ctx as unknown as PoolContext, week.slateId)).map((g) => {
+    const d = sv.get(g.id);
+    if (!d || !d.clock || d.final) return g;
+    return { ...g, status: "in_progress", homeScore: d.homeScore, awayScore: d.awayScore, clock: d.clock };
+  });
+  return withLiveClocks("nfl", stored, now);
 }
 
 /** A Survivor game in the shape the shared pick rows use (for the weeks before this one). */
@@ -185,15 +230,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
   const now = Date.now();
-  // This week's games with everything the other pools' cards show (TV, live clock and last
-  // play). A demo pool's made-up live scores (settings.demo_live_week) are laid over them.
-  const sv = new Map(week.games.map((g) => [g.id, g]));
-  const stored = (await getSlateGames(ctx as unknown as PoolContext, week.slateId)).map((g) => {
-    const d = sv.get(g.id);
-    if (!d || !d.clock || d.final) return g;
-    return { ...g, status: "in_progress", homeScore: d.homeScore, awayScore: d.awayScore, clock: d.clock };
-  });
-  const [games, { spreads, records }] = await Promise.all([withLiveClocks("nfl", stored, now), getWeekExtras(ctx, week)]);
+  const [games, { spreads, records }] = await Promise.all([weekSlateGames(ctx, week, now), getWeekExtras(ctx, week)]);
 
   const pick = picks.find((p) => p.slateId === week.slateId && p.userId === target) ?? null;
   const cell = row.cells.find((c) => c.slateId === week.slateId);
