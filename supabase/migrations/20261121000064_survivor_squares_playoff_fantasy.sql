@@ -168,7 +168,8 @@ grant execute on function submit_survivor_pick(uuid, uuid, uuid, uuid) to authen
 --   entry:   'commissioner' (default: the commissioner types a name into each square)
 --          | 'players' (anyone in the pool takes squares and types the name on them),
 --   max_per_entry: int|null (players mode: the most squares one player can take),
---   numbers: 'random' (default: drawn at random) | 'ordered' (0-9 in order) | 'manual' (typed in)
+--   numbers: 'random' (default: drawn at random) | 'manual' (typed in)
+--          | 'ordered' (0-9 in order: only for a board whose names were placed at random)
 -- }
 -- Squares are numbered 0-99: row * 10 + column. Columns are the home team's digit, rows the
 -- away team's. Squares can be filled and cleared until the numbers are set; after that the
@@ -189,6 +190,11 @@ create table if not exists squares_boards (
   -- Scores typed in by the commissioner, used ahead of ESPN's: {"1": [home, away], … "4": [home, away]},
   -- each the score at the end of that quarter (4 = the final score).
   scores jsonb not null default '{}',
+  -- Anyone with this in a link (/board/<token>) can look at the board without signing in.
+  share_token uuid not null default gen_random_uuid() unique,
+  -- Every name on the board was placed by the random fill (and none changed by hand since):
+  -- what makes numbers in 0-9 order fair.
+  random_filled boolean not null default false,
   updated_at timestamptz not null default now()
 );
 alter table squares_boards enable row level security;
@@ -242,6 +248,9 @@ begin
   end if;
   if char_length(coalesce(v_label, '')) > 24 then raise exception 'Keep the name to 24 characters'; end if;
 
+  -- A square changed by hand: the board is no longer a purely random one.
+  update squares_boards set random_filled = false where pool_id = p_pool_id and random_filled;
+
   if v_commish then
     if v_label is null then raise exception 'Type the name for the square'; end if;
     insert into squares_claims (pool_id, idx, label, user_id) values (p_pool_id, p_idx, v_label, null)
@@ -287,6 +296,50 @@ begin
     raise exception 'The numbers are set, so the board is locked';
   end if;
   delete from squares_claims where pool_id = p_pool_id and idx = p_idx;
+  update squares_boards set random_filled = false where pool_id = p_pool_id and random_filled;
+end;
+$$;
+
+/**
+ * Fill the board at random: each name gets its number of squares, on squares chosen by chance.
+ * Replaces whatever was on the board. Commissioner only, until the numbers are set.
+ */
+create or replace function squares_fill_random(p_pool_id uuid, p_names text[], p_counts int[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_total int;
+begin
+  if not is_commissioner(p_pool_id) then raise exception 'Only the commissioner can fill the board'; end if;
+  if not exists (select 1 from pools where id = p_pool_id and settings->>'format' = 'squares') then
+    raise exception 'This isn''t a Squares pool';
+  end if;
+  if exists (select 1 from squares_boards where pool_id = p_pool_id and drawn_at is not null) then
+    raise exception 'The numbers are set, so the board is locked';
+  end if;
+  if coalesce(array_length(p_names, 1), 0) = 0 or array_length(p_names, 1) is distinct from array_length(p_counts, 1) then
+    raise exception 'Enter each name with its number of squares';
+  end if;
+  if exists (select 1 from unnest(p_names) n where char_length(btrim(coalesce(n, ''))) not between 1 and 24) then
+    raise exception 'Each name has to be 1 to 24 characters';
+  end if;
+  if exists (select 1 from unnest(p_counts) c where c is null or c < 1) then
+    raise exception 'Each name needs at least 1 square';
+  end if;
+  select sum(c) into v_total from unnest(p_counts) c;
+  if v_total > 100 then raise exception 'That''s % squares; the board has 100', v_total; end if;
+
+  delete from squares_claims where pool_id = p_pool_id;
+  -- One row per square owed, matched to the board's squares in a random order.
+  insert into squares_claims (pool_id, idx, label, user_id)
+  select p_pool_id, spot.idx, owed.label, null
+  from (
+    select btrim(n.name) as label, row_number() over (order by n.ord, g) as rn
+    from unnest(p_names, p_counts) with ordinality as n(name, cnt, ord), generate_series(1, n.cnt) g
+  ) owed
+  join (select i as idx, row_number() over (order by random()) as rn from generate_series(0, 99) i) spot using (rn);
+
+  insert into squares_boards (pool_id, random_filled) values (p_pool_id, true)
+  on conflict (pool_id) do update set random_filled = true, updated_at = now();
 end;
 $$;
 
@@ -319,6 +372,10 @@ begin
     return;
   end if;
   select coalesce(settings->'squares'->>'numbers', 'random') = 'ordered' into v_ordered from pools where id = p_pool_id;
+  -- In order is only fair when chance decided who sits where.
+  if v_ordered and not (select random_filled from squares_boards where pool_id = p_pool_id) then
+    raise exception 'Numbers in 0-9 order are only for a board filled at random. Fill the board at random, or switch the pool to a random draw.';
+  end if;
   update squares_boards set
     col_digits = case when v_ordered then v_all else (select array_agg(d order by random()) from generate_series(0, 9) d) end,
     row_digits = case when v_ordered then v_all else (select array_agg(d order by random()) from generate_series(0, 9) d) end,
@@ -330,6 +387,8 @@ $$;
 revoke execute on function claim_square(uuid, int, text) from public, anon;
 revoke execute on function release_square(uuid, int) from public, anon;
 revoke execute on function squares_draw(uuid, boolean, int[], int[]) from public, anon;
+revoke execute on function squares_fill_random(uuid, text[], int[]) from public, anon;
+grant execute on function squares_fill_random(uuid, text[], int[]) to authenticated;
 grant execute on function claim_square(uuid, int, text) to authenticated;
 grant execute on function release_square(uuid, int) to authenticated;
 grant execute on function squares_draw(uuid, boolean, int[], int[]) to authenticated;

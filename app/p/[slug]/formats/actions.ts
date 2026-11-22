@@ -93,6 +93,36 @@ export async function releaseSquare(slug: string, idx: number): Promise<{ error?
   return error ? { error: error.message } : {};
 }
 
+/**
+ * Fill the board at random from a list: one name per line with its number of squares
+ * ("Dad, 5" or "Dad 5"; a name alone gets one). Replaces what's on the board.
+ */
+export async function fillSquaresRandom(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requirePoolCommissioner(slug);
+  const names: string[] = [];
+  const counts: number[] = [];
+  for (const raw of String(form.get("lines") ?? "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    // The number is whatever comes last: after a comma, a tab, an "x", or just a space.
+    const m = line.match(/^(.*?)(?:\s*[,;:\t]\s*|\s+[x×]\s*|\s+)(\d{1,3})\s*(?:squares?)?$/i);
+    const name = (m ? m[1] : line).replace(/[\s,;:-]+$/, "").trim();
+    const n = m ? Number(m[2]) : 1;
+    if (!name) return { error: `"${line}" needs a name before the number.` };
+    if (name.length > 24) return { error: `"${name}" is too long. Keep names to 24 characters.` };
+    if (n < 1) return { error: `${name} needs at least 1 square.` };
+    names.push(name);
+    counts.push(n);
+  }
+  if (!names.length) return { error: "Enter at least one name, one per line, with its number of squares." };
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (total > 100) return { error: `That adds up to ${total} squares. The board has 100.` };
+  const { error } = await dbOf(ctx).rpc("squares_fill_random", { p_pool_id: ctx.pool.id, p_names: names, p_counts: counts });
+  if (error) return { error: error.message };
+  refresh(slug);
+  return { ok: `Placed ${total} squares at random for ${names.length} name${names.length === 1 ? "" : "s"}.${total < 100 ? ` ${100 - total} squares are still open.` : ""}` };
+}
+
 /** Set the numbers the pool's way (a random draw, or 0-9 in order), which locks the board; or clear them to reopen it. */
 export async function drawSquares(slug: string, clear: boolean): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);

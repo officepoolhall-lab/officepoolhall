@@ -12,7 +12,11 @@ export type SquaresSettings = {
   entry: "commissioner" | "players";
   /** Players filling the board: the most squares one player can take; null = no limit. */
   max_per_entry: number | null;
-  /** How the numbers along the top and side are set: drawn at random (the default), 0-9 in order, or typed in. */
+  /**
+   * How the numbers along the top and side are set: drawn at random (the default), typed in,
+   * or 0-9 in order. In order is only for a board whose names were placed at random (the
+   * commissioner's random fill); otherwise people could choose their numbers.
+   */
   numbers: "random" | "ordered" | "manual";
   /** The pot's split, in percent: end of the 1st quarter, halftime, end of the 3rd, final. */
   payouts: [number, number, number, number];
@@ -43,6 +47,7 @@ export function squaresSettings(settings: unknown): SquaresSettings {
 
 export function squaresSettingsError(s: SquaresSettings): string | null {
   if (s.price < 0) return "The price per square can't be negative.";
+  if (s.numbers === "ordered" && s.entry === "players") return "Numbers in 0-9 order are only for a board the commissioner fills at random. Choose a random draw, or have the commissioner fill the board.";
   const total = s.payouts.reduce((a, b) => a + b, 0);
   if (Math.abs(total - 100) > 0.01) return `The payouts add up to ${total}%. They have to add up to 100%.`;
   return null;
@@ -61,7 +66,7 @@ export function squaresRules(s: SquaresSettings): string[] {
     s.numbers === "random"
       ? "Once the board is ready, the numbers along the top and side are drawn at random and the board locks."
       : s.numbers === "ordered"
-        ? "The numbers along the top and side run 0 to 9 in order. Once they're set, the board locks."
+        ? "Names are placed on the board at random, and the numbers along the top and side run 0 to 9 in order."
         : "The commissioner sets the numbers along the top and side, and then the board locks.",
     "At the end of each quarter, the square where the last digit of each team's score meets wins.",
     `Payouts: ${paid.map((x) => `${x.q} ${x.pct}%`).join(" · ")}.`,

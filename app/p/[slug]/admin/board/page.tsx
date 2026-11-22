@@ -9,7 +9,8 @@ import { getThisWeeksGames } from "@/lib/nflPlayoffs";
 import { requireCommissioner } from "@/lib/pool";
 import { QUARTERS } from "@/lib/squares";
 import { getSquares } from "@/lib/squaresData";
-import { drawSquares, saveSquaresBoard, typeSquaresNumbers } from "../../formats/actions";
+import { CopyButton } from "@/components/CopyButton";
+import { drawSquares, fillSquaresRandom, saveSquaresBoard, typeSquaresNumbers } from "../../formats/actions";
 
 export const metadata: Metadata = { title: "Board" };
 
@@ -21,7 +22,19 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
   const { slug } = await params;
   const ctx = await requireCommissioner(slug);
   if (poolFormat(ctx.pool.settings) !== "squares") notFound();
-  const [{ settings, board, squares, scores }, games] = await Promise.all([getSquares(ctx), getThisWeeksGames()]);
+  const source = { supabase: ctx.supabase, pool: ctx.pool, userId: ctx.user.id };
+  const games = await getThisWeeksGames();
+  let data = await getSquares(source);
+  // The board's row (and with it the share link) is made the first time the commissioner opens this page.
+  if (!data.board.shareToken) {
+    await (ctx.supabase as unknown as { from: (t: string) => any }).from("squares_boards").upsert({ pool_id: ctx.pool.id }, { onConflict: "pool_id", ignoreDuplicates: true }); // eslint-disable-line @typescript-eslint/no-explicit-any
+    data = await getSquares(source);
+  }
+  const { settings, board, squares, scores } = data;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const shareLink = board.shareToken ? `${appUrl}/board/${board.shareToken}` : null;
+  // Numbers in order are only for a board filled at random.
+  const orderedBlocked = settings.numbers === "ordered" && !board.randomFilled;
   const taken = squares.size;
   const num = `${settingInput} w-20 text-center tabular-nums`;
   const digitInput = "h-10 w-full rounded-lg bg-bg text-center text-[15px] font-semibold tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent";
@@ -45,6 +58,39 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
           <span className="text-sm text-muted tabular-nums">{taken} of 100 squares filled</span>
           <Link href={`/p/${slug}/admin/settings`} className="text-sm font-semibold text-accent hover:underline">Change who fills it</Link>
         </div>
+        {/* Names and how many squares each, placed on the board by chance. */}
+        {!board.drawn && settings.entry !== "players" && (
+          <details className="py-3" open={settings.numbers === "ordered"}>
+            <summary className="cursor-pointer text-[15px] font-semibold text-accent">Or fill the board at random from a list</summary>
+            <ActionForm action={fillSquaresRandom.bind(null, slug)} className="mt-3 space-y-2">
+              <p className="text-sm text-muted">
+                One name per line with its number of squares, like <span className="font-mono text-xs text-ink">Dad, 5</span>. Each name&apos;s squares land on the board by chance.
+                {taken > 0 ? " This replaces the names on the board now." : ""}
+              </p>
+              <textarea
+                name="lines" rows={8} required aria-label="Names and squares"
+                className="w-full max-w-md rounded-[10px] bg-bg p-3 font-mono text-sm outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
+                placeholder={"Dad, 5\nMom, 5\nUncle Bob, 10\nJordan M., 2"}
+              />
+              <div>
+                <SubmitButton kind="primary" pending="Placing…">Place these names at random</SubmitButton>
+              </div>
+            </ActionForm>
+          </details>
+        )}
+      </SettingsSection>
+
+      <SettingsSection title="Share the board" description="Anyone with this link can look at the board, the winners and the pot. No account, and nothing they can change.">
+        <div className="flex flex-wrap items-center gap-2 py-3">
+          {shareLink ? (
+            <>
+              <code className="min-w-0 flex-1 truncate rounded-[10px] bg-bg px-3 py-2.5 font-sans text-sm text-muted ring-1 ring-line">{shareLink}</code>
+              <CopyButton text={shareLink} />
+            </>
+          ) : (
+            <p className="text-sm text-muted">The link shows here once the board is set up (after the database update).</p>
+          )}
+        </div>
       </SettingsSection>
 
       <SettingsSection
@@ -55,7 +101,9 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
             : settings.numbers === "random"
               ? "When the board is ready, draw the numbers at random. That locks the board."
               : settings.numbers === "ordered"
-                ? "This pool's numbers run 0 to 9 in order. Setting them locks the board."
+                ? orderedBlocked
+                  ? "This pool's numbers run 0 to 9 in order, which is only for a board filled at random. Fill the board at random from a list (step 1), or switch the pool to a random draw on Settings."
+                  : "The names were placed at random, so the numbers run 0 to 9 in order. Setting them locks the board."
                 : "Type in the numbers for the top and side. Setting them locks the board."
         }
       >
@@ -87,7 +135,7 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
             ))}
             <SubmitButton kind="accent" pending="Setting…">Set these numbers</SubmitButton>
           </ActionForm>
-        ) : (
+        ) : orderedBlocked ? null : (
           <div className="py-3">
             <ActionButton action={drawSquares.bind(null, slug, false)} kind="accent" pendingLabel="Setting…">
               {settings.numbers === "random" ? "Draw the numbers" : "Set the numbers 0 to 9"}

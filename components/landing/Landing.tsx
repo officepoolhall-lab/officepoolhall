@@ -151,7 +151,8 @@ export function Landing() {
               ))}
             </div>
             <p className="mt-5 text-sm text-muted">
-              Preliminary pricing, per pool. For example, a 50-entry pool is $20 + 25 × $1 = $45. Every pool type and every feature is included at every size. Questions?{" "}
+              Preliminary pricing, per pool. For example, a 50-entry pool is $20 + 25 × $1 = $45. <span className="font-semibold text-ink">Super Bowl Squares is a flat $10 per board</span>, however many
+              people are on it. Every feature is included at every size. Questions?{" "}
               <a href="#support" className="font-semibold text-accent hover:underline">
                 Reach out to our creators directly
               </a>

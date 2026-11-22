@@ -156,7 +156,9 @@ const squares: Omit<Guide, "tiebreakers"> = {
   scoring: ["Four winning squares: end of the 1st quarter, halftime, end of the 3rd quarter, and the final score (overtime included).", "The board shows the pot and what each quarter pays."],
   options: [
     "Who fills the board: the commissioner types the names (no accounts needed for anyone else), or players take their own squares.",
-    "The numbers: drawn at random, 0 to 9 in order, or typed in from a board drawn somewhere else.",
+    "Fill the board at random from a list of names and how many squares each.",
+    "The numbers: drawn at random, typed in from a board drawn somewhere else, or (on a board filled at random) 0 to 9 in order.",
+    "A link to share: anyone with it can look at the board without an account.",
     "The price of a square, and a limit on squares per player.",
     "How the pot is split: even quarters, a bigger final, halftime and final, final only, or your own percentages.",
     "A different game than the Super Bowl, chosen from the week's schedule.",

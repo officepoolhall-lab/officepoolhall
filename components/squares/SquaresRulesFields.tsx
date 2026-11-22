@@ -33,12 +33,13 @@ export function SquaresRulesFields({ initial }: { initial: SquaresSettings }) {
           <OptionCards
             ariaLabel="Who fills the board"
             value={s.entry}
-            onChange={(v) => setS((p) => ({ ...p, entry: v }))}
+            onChange={(v) => setS((p) => ({ ...p, entry: v, numbers: v === "players" && p.numbers === "ordered" ? "random" : p.numbers }))}
             options={[
               { value: "commissioner", label: "The commissioner", text: "You type each name into its square. Nobody else needs an account; share the board for people to watch." },
               { value: "players", label: "The players", text: "Share the pool's invite link. Each person joins and puts a name on the squares they want." },
             ]}
           />
+          {s.entry === "commissioner" && <p className="mt-2 text-xs text-muted">You can also give a list of names with how many squares each, and have the board filled at random (Commissioner → Board).</p>}
         </SettingRow>
         {s.entry === "players" && (
           <SettingRow label="Limit squares per player" hint={s.max_per_entry ? `Each player can take up to ${s.max_per_entry}.` : "Anyone can take as many as they like."}>
@@ -74,8 +75,10 @@ export function SquaresRulesFields({ initial }: { initial: SquaresSettings }) {
             onChange={(v) => setS((p) => ({ ...p, numbers: v }))}
             options={[
               { value: "random", label: "Drawn at random", text: "The usual way: nobody knows their numbers until the board is full." },
-              { value: "ordered", label: "In order, 0 to 9", text: "Everyone can see which numbers a square has when they choose it." },
               { value: "manual", label: "Typed in by you", text: "For numbers drawn somewhere else, like a board on the wall." },
+              ...(s.entry === "commissioner"
+                ? [{ value: "ordered" as const, label: "In order, 0 to 9", text: "Only when you fill the board at random from a list (names and how many squares each), so chance decides who gets which numbers." }]
+                : []),
             ]}
           />
         </SettingRow>

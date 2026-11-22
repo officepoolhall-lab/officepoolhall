@@ -7,48 +7,69 @@ import { getSquares } from "@/lib/squaresData";
 import { SquaresGrid, type GridCell } from "./SquaresGrid";
 
 // A Super Bowl Squares pool is one page: the board, with the quarter winners, the pot and who
-// has how many squares beside it. The pool routes reach this when settings.format is "squares".
+// has how many squares beside it. The pool routes reach this when settings.format is "squares";
+// the same view, read-only, is what the board's public link shows (app/board/[token]).
 
 const card = "rounded-2xl bg-surface p-4 sm:p-5";
 const WON = ["Q1", "Half", "Q3", "Final"];
 const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
 export async function SquaresHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
-  const { settings, board, squares, scores, winners, live, myName } = await getSquares(ctx);
+  const data = await getSquares({ supabase: ctx.supabase, pool: ctx.pool, userId: ctx.user.id });
+  return <SquaresBoardView data={data} slug={slug} viewer={{ userId: ctx.user.id, isCommissioner: ctx.isCommissioner, isGuest: ctx.isGuest }} />;
+}
+
+/** The board and its side panels. `viewer` null: someone looking through the public link, who can't change anything. */
+export function SquaresBoardView({
+  data,
+  slug,
+  viewer,
+  title,
+}: {
+  data: Awaited<ReturnType<typeof getSquares>>;
+  slug: string;
+  viewer: { userId: string; isCommissioner: boolean; isGuest: boolean } | null;
+  /** Shown above the matchup on the public page (the pool's name). */
+  title?: string;
+}) {
+  const { settings, board, squares, scores, winners, live, myName } = data;
+  const me = viewer?.userId ?? null;
   const taken = squares.size;
-  const mineCount = [...squares.values()].filter((s) => s.userId === ctx.user.id).length;
+  const mineCount = me ? [...squares.values()].filter((s) => s.userId === me).length : 0;
   const pot = settings.price * taken;
   const cells: GridCell[] = Array.from({ length: 100 }, (_, idx) => {
     const sq = squares.get(idx);
     const won = winners.map((w, q) => (w === idx ? WON[q] : null)).filter(Boolean).join("·") || null;
-    return { name: sq?.label ?? null, short: sq ? initials(sq.label) : null, mine: Boolean(sq?.userId && sq.userId === ctx.user.id), won };
+    return { name: sq?.label ?? null, short: sq ? initials(sq.label) : null, mine: Boolean(me && sq?.userId === me), won };
   });
   // Who can fill the board while it's open: the commissioner always; players when the pool lets them.
   const players = settings.entry === "players";
   const full = players && settings.max_per_entry !== null && mineCount >= settings.max_per_entry;
-  const edit = board.drawn
-    ? null
-    : ctx.isCommissioner
-      ? { defaultName: "", all: true, note: "Type a name, then tap every square it goes on. Tap a filled square to clear it (or, with a different name typed, to rename it)." }
-      : players && !ctx.isGuest
-        ? {
-            defaultName: myName,
-            all: false,
-            note: full
-              ? `You have your ${settings.max_per_entry} squares. Tap one of yours to give it back.`
-              : `Tap an open square to put this name on it${settings.max_per_entry ? ` (${mineCount} of ${settings.max_per_entry} taken)` : ""}. Tap one of yours to give it back.`,
-          }
-        : null;
+  const edit =
+    board.drawn || !viewer
+      ? null
+      : viewer.isCommissioner
+        ? { defaultName: "", all: true, note: "Type a name, then tap every square it goes on. Tap a filled square to clear it (or, with a different name typed, to rename it)." }
+        : players && !viewer.isGuest
+          ? {
+              defaultName: myName,
+              all: false,
+              note: full
+                ? `You have your ${settings.max_per_entry} squares. Tap one of yours to give it back.`
+                : `Tap an open square to put this name on it${settings.max_per_entry ? ` (${mineCount} of ${settings.max_per_entry} taken)` : ""}. Tap one of yours to give it back.`,
+            }
+          : null;
   // Squares per name (however it's capitalized).
   const tally = [...squares.values()].reduce((m, s) => {
     const k = s.label.trim().toLowerCase();
-    m.set(k, { name: m.get(k)?.name ?? s.label, n: (m.get(k)?.n ?? 0) + 1, mine: (m.get(k)?.mine ?? false) || s.userId === ctx.user.id });
+    m.set(k, { name: m.get(k)?.name ?? s.label, n: (m.get(k)?.n ?? 0) + 1, mine: (m.get(k)?.mine ?? false) || Boolean(me && s.userId === me) });
     return m;
   }, new Map<string, { name: string; n: number; mine: boolean }>());
   const names = [...tally.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
 
   return (
     <>
+      {title && <div className="text-xs font-semibold uppercase tracking-wide text-accent">{title}</div>}
       <PageTitle
         sub={
           board.drawn
@@ -58,7 +79,8 @@ export async function SquaresHome({ ctx, slug }: { ctx: PoolBase; slug: string }
       >
         {board.awayName} vs {board.homeName}
       </PageTitle>
-      {live && <AutoRefresh active />}
+      {/* Live during the game; the public page also refreshes while the board is still filling. */}
+      {(live || (!viewer && !board.drawn)) && <AutoRefresh active />}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <section className={`${card} !p-3 sm:!p-5`}>
           <SquaresGrid
