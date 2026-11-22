@@ -422,7 +422,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
       {/* The Pool Summary tab on the screen's edge, as on the League Grid. */}
       {rows.length > 0 && (
         <GridPanelDrawer>
-          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} />
+          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} me={ctx.isGuest ? null : ctx.entryUserId} reuse={settings.reuse} />
         </GridPanelDrawer>
       )}
     </div>

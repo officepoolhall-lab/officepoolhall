@@ -8,7 +8,21 @@ import type { SvGame, SvRow, SvTeam, SvWeek } from "@/lib/survivor";
 const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 1000) / 10}%` : "—");
 const name = (t: SvTeam) => t.short_name ?? t.name;
 
-export function SurvivorSummary({ rows, weeks, lives }: { rows: SvRow[]; weeks: SvWeek[]; lives: number }) {
+export function SurvivorSummary({
+  rows,
+  weeks,
+  lives,
+  me,
+  reuse,
+}: {
+  rows: SvRow[];
+  weeks: SvWeek[];
+  lives: number;
+  /** The viewer's entry, or null (a guest or someone following without an entry). */
+  me: string | null;
+  /** The pool lets a team be picked more than once: "teams left" doesn't apply. */
+  reuse: boolean;
+}) {
   const total = rows.length;
   const alive = rows.filter((r) => r.alive).length;
   // The week to sum up: the latest one with a game under way or over.
@@ -47,9 +61,22 @@ export function SurvivorSummary({ rows, weeks, lives }: { rows: SvRow[]; weeks: 
   for (const r of rows) if (r.outWeek !== null) outBy.set(r.outWeek, (outBy.get(r.outWeek) ?? 0) + 1);
   const outWeeks = [...outBy.entries()].sort((a, b) => a[0] - b[0]);
   const maxOut = Math.max(1, ...outWeeks.map(([, n]) => n));
-  const season = new Map<string, { team: SvTeam; n: number }>();
-  for (const r of rows) for (const c of r.cells) if (c.team) season.set(c.team.id, { team: c.team, n: (season.get(c.team.id)?.n ?? 0) + 1 });
-  const top = [...season.values()].sort((a, b) => b.n - a.n).slice(0, 5);
+
+  // Your status: alive or out, this week's pick and how many others are on the same team.
+  const mine = me ? rows.find((r) => r.userId === me) : undefined;
+  const myCell = mine && shown ? mine.cells.find((c) => c.slateId === shown.slateId) : undefined;
+  const sameTeam = myCell?.team ? (teams.get(myCell.team.id)?.n ?? 1) - 1 : 0;
+  const weeksSurvived = (r: SvRow) => r.cells.filter((c) => c.state === "win" || (c.state === "loss" && r.outWeek !== c.week)).length;
+  const lastedLonger = mine && !mine.alive ? rows.filter((r) => r.alive || (r.outWeek ?? 0) > (mine.outWeek ?? 0)).length : 0;
+
+  // Teams left for the survivors: for every team, how many entries still alive haven't used it.
+  const allTeams = new Map<string, SvTeam>();
+  for (const w of weeks) for (const g of w.games) for (const t of [g.home, g.away]) allTeams.set(t.id, t);
+  const survivors = rows.filter((r) => r.alive);
+  const left = [...allTeams.values()]
+    .map((t) => ({ team: t, n: survivors.filter((r) => !r.used.has(t.id)).length }))
+    .sort((a, b) => b.n - a.n || (a.team.abbreviation ?? "").localeCompare(b.team.abbreviation ?? ""));
+  const myLeft = mine?.alive ? [...allTeams.values()].filter((t) => !mine.used.has(t.id)).length : null;
 
   const scoreOf = (t: TeamRow) => {
     const g = t.game;
@@ -66,8 +93,38 @@ export function SurvivorSummary({ rows, weeks, lives }: { rows: SvRow[]; weeks: 
           <span className="text-3xl font-extrabold text-win">{alive}</span> <span className="text-muted">of {total}</span>
           <span className="ml-2 text-sm font-semibold text-ink">{pct(alive, total)}</span>
         </p>
-        <p className="text-sm text-muted tabular-nums">{total - alive} eliminated ({pct(total - alive, total)})</p>
+        <p className="text-sm text-muted tabular-nums">{total - alive} eliminated</p>
       </section>
+
+      {mine && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Your status</h3>
+          {mine.alive ? (
+            <p className="mt-1 text-lg font-bold text-win">
+              Alive{lives > 1 ? ` · ${mine.livesLeft} of ${lives} lives left` : ""}
+              <span className="ml-1 text-sm font-medium text-muted">· one of {alive} left</span>
+            </p>
+          ) : (
+            <p className="mt-1 text-lg font-bold text-loss">
+              Out in Week {mine.outWeek}
+              <span className="ml-1 text-sm font-medium text-muted">· {lastedLonger} lasted longer</span>
+            </p>
+          )}
+          <ul className="mt-1 space-y-0.5 text-sm text-muted tabular-nums">
+            {myCell?.team && shown && (
+              <li className="flex items-center gap-1.5">
+                <TeamLogo src={myCell.team.logo_url} abbr={myCell.team.abbreviation} className="size-5 shrink-0" />
+                <span>
+                  {shown.label}: <span className="font-semibold text-ink">{name(myCell.team)}</span>
+                  {sameTeam > 0 ? ` · ${sameTeam} other${sameTeam === 1 ? "" : "s"} picked them too (${pct(sameTeam + 1, inThisWeek)})` : " · nobody else picked them"}
+                </span>
+              </li>
+            )}
+            <li>Weeks survived: <span className="font-semibold text-ink">{weeksSurvived(mine)}</span></li>
+            {!reuse && myLeft !== null && <li>Teams you can still pick: <span className="font-semibold text-ink">{myLeft}</span></li>}
+          </ul>
+        </section>
+      )}
 
       {shown && (
         <section>
@@ -123,6 +180,26 @@ export function SurvivorSummary({ rows, weeks, lives }: { rows: SvRow[]; weeks: 
         </section>
       )}
 
+      {!reuse && survivors.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Teams left for the survivors</h3>
+          <p className="mt-0.5 text-xs text-muted">How many of the {survivors.length} entries still alive haven&apos;t used each team yet.</p>
+          <ul className="mt-2 grid grid-cols-4 gap-1.5">
+            {left.map((t) => (
+              <li
+                key={t.team.id}
+                title={`${name(t.team)}: ${t.n} of ${survivors.length} can still pick them`}
+                className={`flex items-center gap-1 rounded-lg px-1.5 py-1 text-xs tabular-nums ring-1 ring-line ${t.n === 0 ? "opacity-40" : "bg-surface"}`}
+              >
+                <TeamLogo src={t.team.logo_url} abbr={t.team.abbreviation} className="size-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate font-medium">{t.team.abbreviation ?? name(t.team)}</span>
+                <span className="font-bold">{t.n}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {outWeeks.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Eliminated each week</h3>
@@ -138,20 +215,6 @@ export function SurvivorSummary({ rows, weeks, lives }: { rows: SvRow[]; weeks: 
         </section>
       )}
 
-      {top.length > 0 && (
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Most picked this season</h3>
-          <ul className="mt-1 divide-y divide-line border-y border-line">
-            {top.map((t) => (
-              <li key={t.team.id} className="flex min-h-9 items-center gap-2 py-1 text-sm">
-                <TeamLogo src={t.team.logo_url} abbr={t.team.abbreviation} className="size-5 shrink-0" />
-                <span className="min-w-0 flex-1 truncate font-medium">{name(t.team)}</span>
-                <span className="font-semibold tabular-nums">{t.n}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
