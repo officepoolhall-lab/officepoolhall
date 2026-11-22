@@ -40,6 +40,7 @@ export function SurvivorBoard({
   backHref,
   historyHref,
   save,
+  clear,
   fixedNow,
 }: {
   slug: string;
@@ -63,6 +64,8 @@ export function SurvivorBoard({
   backHref: string;
   historyHref?: string;
   save: (gameId: string, teamId: string) => Promise<{ error?: string }>;
+  /** Removes this week's pick (tapping the picked team again). */
+  clear: () => Promise<{ error?: string }>;
   /** A demo pool shown as of an earlier moment: that moment, instead of the clock. */
   fixedNow?: number;
 }) {
@@ -94,14 +97,17 @@ export function SurvivorBoard({
     fullCard: false,
   };
 
+  // Tap a team to pick it; tap the picked team again (before it locks) to take the pick back.
   const choose = (g: SlateGame, side: Side) => {
     const team = g[side];
-    if (pending || pick?.teamId === team.id) return;
+    if (pending) return;
     const before = pick;
-    setPick({ gameId: g.id, teamId: team.id });
+    const removing = pick?.teamId === team.id;
+    if (removing && pickLocked) return;
+    setPick(removing ? null : { gameId: g.id, teamId: team.id });
     setError(null);
     start(async () => {
-      const r = await save(g.id, team.id).catch(() => ({ error: "That didn't save. Try again." }));
+      const r = await (removing ? clear() : save(g.id, team.id)).catch(() => ({ error: "That didn't save. Try again." }));
       if (r.error) {
         setPick(before);
         setError(r.error);

@@ -76,6 +76,15 @@ export async function saveSurvivorPick(slug: string, slateId: string, forUserId:
   return {};
 }
 
+/** Take back this week's pick before its game kicks off (the database checks the lock). */
+export async function clearSurvivorPick(slug: string, slateId: string, forUserId: string | null): Promise<{ error?: string }> {
+  const ctx = await getPoolBase(slug);
+  const { error } = await dbOf(ctx).rpc("clear_survivor_pick", { p_slate_id: slateId, p_user_id: forUserId ?? ctx.entryUserId });
+  if (error) return { error: error.message };
+  refresh(slug);
+  return {};
+}
+
 // ---------- Squares ----------
 
 /** Put a name on a square (the database checks who may, the limit and the lock). */
