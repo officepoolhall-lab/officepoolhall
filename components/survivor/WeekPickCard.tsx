@@ -37,6 +37,15 @@ export function WeekPickCard({
   const final = Boolean(game && (game.status === "final" || game.overridden));
   const mine = game && side ? (side === "home" ? game.homeScore : game.awayScore) : null;
   const theirs = game && side ? (side === "home" ? game.awayScore : game.homeScore) : null;
+  // No pick yet: just a small tag, not the full card.
+  if (!team || !game || !side) {
+    return (
+      <section className={`flex w-fit max-w-full items-center gap-2 rounded-xl border-2 border-accent bg-surface px-3 py-1.5 ${className}`} aria-label={`${weekLabel} pick`}>
+        <span className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</span>
+        <span className="whitespace-nowrap text-sm font-semibold text-muted">{empty}</span>
+      </section>
+    );
+  }
   return (
     <section className={`rounded-2xl border-2 border-accent bg-surface px-4 py-3 ${className}`} aria-label={`${weekLabel} pick`}>
       <div className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</div>
