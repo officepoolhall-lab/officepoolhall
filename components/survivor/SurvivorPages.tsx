@@ -6,11 +6,11 @@ import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
-import { clearSurvivorPick, saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
+import { clearSurvivorPick, saveSurvivorPick, toggleSurvivorSplit } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { survivorStandings, survivorWinners, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
-import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
+import { SurvivorBoard, type SplitState, type SvPrior } from "./SurvivorBoard";
 import { SurvivorSummary } from "./SurvivorSummary";
 import { WeekPickCard, WinnerCard } from "./WeekPickCard";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
@@ -96,8 +96,8 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   const canPick = Boolean(mine?.alive && week && !weekClosed(week) && !pickGame?.started);
   const counted = weeks.filter((w) => w.week >= settings.start_week);
   const entryFee = feeOf(ctx);
-  const won = survivorWinners(rows, counted);
-  const summary = { rows, weeks: counted, reuse: settings.reuse, entryFee, page: true } as const;
+  const won = survivorWinners(rows, counted, loaded.split);
+  const summary = { rows, weeks: counted, reuse: settings.reuse, entryFee, page: true, split: loaded.split } as const;
 
   return (
     <div data-wide className="space-y-6">
@@ -129,6 +129,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
                   mine={won.userIds.includes(ctx.entryUserId)}
                   prize={prizeOf(ctx, rows.length, won.userIds.length)}
                   compact
+                  split={won.split}
                   className="mt-2"
                 />
               )}
@@ -149,7 +150,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
               {!won && !ctx.isGuest && mine && !mine.alive && (
                 <p className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-loss">Eliminated in Week {mine.outWeek}</p>
               )}
-              {canPick && !myPick && (
+              {canPick && !won && !myPick && (
                 <Link
                   href={`/p/${slug}/picks`}
                   className="mt-3 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95"
@@ -236,7 +237,7 @@ function asSlateGame(g: SvGame): SlateGame {
  */
 export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { ctx: PoolBase; slug: string; forUserId?: string; weekParam?: string }) {
   const behalf = Boolean(forUserId && ctx.isCommissioner && forUserId !== ctx.user.id);
-  const { settings, picks, members, weeks } = await getSurvivor(ctx, behalf ? forUserId : undefined);
+  const { settings, picks, members, weeks, splitRequests, split: agreed } = await getSurvivor(ctx, behalf ? forUserId : undefined);
   const tz = (ctx as { displayTz?: string }).displayTz ?? tzOf(ctx);
   const target = behalf ? forUserId! : ctx.entryUserId;
   const rows = survivorStandings(weeks, picks, members, settings);
@@ -257,7 +258,36 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
   const pick = picks.find((p) => p.slateId === week.slateId && p.userId === target) ?? null;
   const cell = row.cells.find((c) => c.slateId === week.slateId);
   const outAlready = cell?.state === "out";
-  const canPick = !ctx.isGuest && (behalf || (!outAlready && !weekClosed(week)));
+  const canPick = !agreed && !ctx.isGuest && (behalf || (!outAlready && !weekClosed(week)));
+
+  // Request to Split: every entry still alive can ask, for this week. The window opens once every
+  // earlier week is final and closes when the first game a remaining entry picked kicks off
+  // (games nobody picked don't close it). When they all have asked, the pot is split.
+  const aliveRows = rows.filter((r) => r.alive);
+  const aliveIds = new Set(aliveRows.map((r) => r.userId));
+  const meAlive = row.alive && !outAlready;
+  const pot = feeOf(ctx) * rows.length;
+  const splitN = agreed ? agreed.userIds.length : aliveRows.length;
+  // What each entry gets: the whole pot over the entries left to split it.
+  const each = pot > 0 && splitN > 0 ? `${money(pot / splitN)} per entry` : null;
+  const earlierOpen = counted.find((w) => w.week < week.week && w.games.some((g) => !g.voided && !g.final));
+  const weekGames = new Map(week.games.map((g) => [g.id, g]));
+  const pickKicked = picks.some((p) => p.slateId === week.slateId && aliveIds.has(p.userId) && weekGames.get(p.gameId)?.started);
+  const splitClosed = earlierOpen ? `Splitting opens once ${earlierOpen.label} is final` : pickKicked ? `Splitting is closed for ${week.label}: a pick has kicked off` : null;
+  const askedIds = aliveRows.filter((r) => splitRequests.get(r.userId) === week.slateId).map((r) => r.userId);
+  const split: SplitState | null = agreed
+    ? { alive: agreed.userIds.length, asked: agreed.userIds.length, mine: agreed.userIds.includes(target), done: true, each }
+    : !ctx.isGuest && meAlive && aliveRows.length >= 2
+      ? {
+          alive: aliveRows.length,
+          asked: askedIds.length,
+          mine: askedIds.includes(target),
+          done: false,
+          each,
+          closed: splitClosed,
+          toggle: splitClosed ? undefined : toggleSurvivorSplit.bind(null, slug, week.slateId, behalf ? target : null, aliveRows.map((r) => r.userId)),
+        }
+      : null;
   const qs = (w: number) => `/p/${slug}/picks?week=${w}${behalf ? `&for=${target}` : ""}`;
 
   // Teams already used in other weeks (each team once, unless the pool allows repeats).
@@ -323,6 +353,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
         clear={clearSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
         fixedNow={demoNow ?? undefined}
+        split={split}
       />
     </div>
   );

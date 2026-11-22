@@ -156,6 +156,7 @@ export function WinnerCard({
   mine,
   prize,
   compact = false,
+  split = false,
   className = "",
 }: {
   names: string[];
@@ -166,21 +167,24 @@ export function WinnerCard({
   /** "$9,450", or "$4,725 each" when shared; omitted without an entry fee. */
   prize?: string | null;
   compact?: boolean;
+  /** Ended by agreement: every remaining entry asked to split the pot. */
+  split?: boolean;
   className?: string;
 }) {
   const shared = names.length > 1;
+  const list = names.length > 2 ? `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}` : names.join(" & ");
   return (
     <section className={`rounded-2xl border-2 border-accent bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg))] px-4 py-3 ${className}`} aria-label="Pool winner">
       <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
         <TrophyIcon className="size-3.5" />
-        {shared ? "Pool winners" : "Pool winner"}
+        {split ? "Pot split" : shared ? "Pool winners" : "Pool winner"}
       </div>
-      <div className={`mt-1 font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>
-        {mine && !shared ? "You won the pool!" : names.join(" & ")}
+      <div className={`mt-1 font-extrabold leading-tight tracking-[-0.02em] text-ink ${split && names.length > 2 ? "text-lg" : compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>
+        {mine && !shared ? "You won the pool!" : list}
       </div>
       {(shared || prize) && (
         <div className="mt-0.5 text-sm text-muted">
-          {shared && "Shared"}
+          {split ? "Everyone left agreed to split" : shared && "Shared"}
           {shared && prize ? " · " : null}
           {prize ? <span className="font-semibold text-win">{prize}</span> : null}
         </div>

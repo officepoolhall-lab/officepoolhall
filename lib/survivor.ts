@@ -244,7 +244,11 @@ export function demoLive(weeks: SvWeek[], liveWeek: number): SvWeek[] {
  * goes out in the same week, all of them (they share it). Decided means the week that left
  * one (or none) standing is over: every game in it final. Undecided: null.
  */
-export function survivorWinners(rows: SvRow[], weeks: SvWeek[]): { userIds: string[]; week: number } | null {
+/** An agreed split: every entry still alive asked to end the pool and share the pot (migration 067). */
+export type SvSplit = { userIds: string[]; week: number | null };
+
+export function survivorWinners(rows: SvRow[], weeks: SvWeek[], split?: SvSplit | null): { userIds: string[]; week: number; split?: boolean } | null {
+  if (split?.userIds.length) return { userIds: split.userIds, week: split.week ?? 0, split: true };
   if (rows.length < 2) return null;
   const alive = rows.filter((r) => r.alive);
   if (alive.length > 1) return null;

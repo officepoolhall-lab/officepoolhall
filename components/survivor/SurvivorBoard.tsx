@@ -14,6 +14,20 @@ import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
 type Side = "home" | "away";
+export type SplitState = {
+  /** Entries still alive, and how many of them have asked to split. */
+  alive: number;
+  asked: number;
+  /** This entry has asked. */
+  mine: boolean;
+  /** Everyone left agreed: the pool is over. */
+  done: boolean;
+  /** "$1,180 each" once split (or what each would get), omitted without an entry fee. */
+  each?: string | null;
+  /** Why splitting isn't open right now (a pick's game kicked off, or last week isn't final). */
+  closed?: string | null;
+  toggle?: (on: boolean) => Promise<{ error?: string }>;
+};
 export type SvPrior = { week: number; label: string; href: string; game: SlateGame | null; side: Side | null; result: "win" | "loss" | "pending" | "void" | "missed" };
 
 const teamName = (t: SlateGame["home"]) => t.short_name ?? t.name;
@@ -44,6 +58,7 @@ export function SurvivorBoard({
   outWeek = null,
   outPick = null,
   fixedNow,
+  split = null,
 }: {
   slug: string;
   weekLabel: string;
@@ -74,6 +89,8 @@ export function SurvivorBoard({
   clear: () => Promise<{ error?: string }>;
   /** A demo pool shown as of an earlier moment: that moment, instead of the clock. */
   fixedNow?: number;
+  /** Request to Split: shown while this entry is alive with others left, or once the pot is split. */
+  split?: SplitState | null;
 }) {
   const router = useRouter();
   const clock = useNow(serverGames, null);
@@ -209,6 +226,7 @@ export function SurvivorBoard({
       </aside>
 
       <div className="min-w-0">
+        {split && <SplitBar split={split} />}
         {days.map((day) => (
           <section key={day.key} className="mb-5 lg:mb-4">
             <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
@@ -276,6 +294,87 @@ export function SurvivorBoard({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Request to Split, on the right above the games: every entry still alive can ask to end the
+ * pool and share the pot, until the first game anyone left picked this week kicks off. When the
+ * last one asks, the pool is over (they confirm first).
+ */
+function SplitBar({ split }: { split: SplitState }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const last = !split.mine && split.asked === split.alive - 1;
+
+  const send = (on: boolean) => {
+    setConfirming(false);
+    setError(null);
+    start(async () => {
+      const r = await (split.toggle ? split.toggle(on) : Promise.resolve<{ error?: string }>({})).catch(() => ({ error: "That didn't save. Try again." }));
+      if (r.error) setError(r.error);
+      else router.refresh();
+    });
+  };
+
+  if (split.done) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm" role="status">
+        <span className="font-semibold text-win">Pot split · the pool is over</span>
+        <span className="text-muted">
+          All {split.alive} remaining entries agreed{split.each ? <> · <span className="font-semibold text-ink">{split.each}</span></> : null}
+        </span>
+      </div>
+    );
+  }
+
+  if (split.closed) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted">
+        <LockIcon className="size-3.5 shrink-0" />
+        <span>{split.closed}</span>
+      </div>
+    );
+  }
+
+  const btn =
+    "inline-flex h-9 items-center justify-center rounded-lg px-3.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
+  return (
+    <div className="mb-4 flex flex-col items-end gap-1">
+      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+        <span className="text-sm text-muted tabular-nums">
+          <span className="font-semibold text-ink">{split.asked}</span> of {split.alive} remaining want to split
+          {split.each ? <> · {split.each}</> : null}
+        </span>
+        {confirming ? (
+          <span className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-ink">You&apos;re the last one. End the pool and split the pot?</span>
+            <button type="button" className={`${btn} bg-accent text-white hover:brightness-110`} disabled={pending} onClick={() => send(true)}>
+              Split now
+            </button>
+            <button type="button" className={`${btn} border border-line text-ink hover:bg-surface`} disabled={pending} onClick={() => setConfirming(false)}>
+              Not yet
+            </button>
+          </span>
+        ) : split.mine ? (
+          <button type="button" className={`${btn} border border-line text-ink hover:bg-surface`} disabled={pending} onClick={() => send(false)}>
+            {pending ? "Saving…" : (<><CheckIcon className="mr-1 size-3.5 text-win" /> Requested · Cancel</>)}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={`${btn} bg-accent text-white shadow-sm hover:brightness-110 active:brightness-95`}
+            disabled={pending}
+            onClick={() => (last ? setConfirming(true) : send(true))}
+          >
+            {pending ? "Saving…" : "Request to Split"}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-sm text-loss" role="alert">{error}</p>}
     </div>
   );
 }

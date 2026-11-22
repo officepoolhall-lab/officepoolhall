@@ -4,7 +4,7 @@ import { hasStarted } from "./locks";
 import { espnDate, fetchLiveDetails, orientLive } from "./liveClock";
 import { getTeamRecords } from "./teamRecords";
 import { getPublishedSlates, type PoolBase } from "./pool";
-import { applyDemoNow, applyDemoResults, demoLive, survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek } from "./survivor";
+import { applyDemoNow, applyDemoResults, demoLive, survivorSettings, type SvGame, type SvMember, type SvPick, type SvSplit, type SvWeek } from "./survivor";
 
 // A Survivor pool's season in one load: its published weeks with their games, the picks the
 // viewer can see (their own always; everyone's once each game kicks off) and the entries.
@@ -23,7 +23,7 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
   const slates = (await getPublishedSlates(ctx)) as Row[];
   const ids = slates.map((s) => s.id as string);
   const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [{ data: gameRows }, { data: pickRows }, { data: memberRows }, benched] = await Promise.all([
+  const [{ data: gameRows }, { data: pickRows }, { data: memberRows }, benched, { data: reqRows }, { data: splitRows }] = await Promise.all([
     ids.length
       ? db
           .from("slate_games")
@@ -37,6 +37,9 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
     db.from("survivor_picks").select("slate_id, user_id, game_id, team_id").eq("pool_id", ctx.pool.id),
     db.from("pool_members").select("user_id, joined_at, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
     getBenchedIds(ctx.supabase, ctx.pool.id),
+    // Split requests and an agreed split (migration 067; empty before it's run).
+    db.from("survivor_split_requests").select("user_id, slate_id").eq("pool_id", ctx.pool.id),
+    db.from("survivor_splits").select("user_ids, week").eq("pool_id", ctx.pool.id),
   ]);
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games have started
   const now = Date.now();
@@ -78,7 +81,11 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
   const members: SvMember[] = ((memberRows ?? []) as Row[])
     .filter((m) => !benched.has(m.user_id))
     .map((m) => ({ userId: m.user_id, name: m.profile.display_name, joinedAt: m.joined_at }));
-  return { settings, weeks, picks, members };
+  // Who has asked to split, and for which week (requests don't carry over).
+  const splitRequests = new Map(((reqRows ?? []) as Row[]).map((r) => [r.user_id as string, r.slate_id as string | null]));
+  const s0 = ((splitRows ?? []) as Row[])[0];
+  const split: SvSplit | null = s0 ? { userIds: s0.user_ids as string[], week: (s0.week as number | null) ?? null } : null;
+  return { settings, weeks, picks, members, splitRequests, split };
 }
 
 /**
