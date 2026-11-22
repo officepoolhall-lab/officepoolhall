@@ -6,7 +6,7 @@ import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
-import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
+import { clearSurvivorPick, saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
@@ -295,6 +295,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         backHref={qs(week.week)}
         historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
+        clear={clearSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
         fixedNow={demoNow ?? undefined}
       />
     </div>
