@@ -12,14 +12,11 @@ export function SurvivorSummary({
   rows,
   weeks,
   lives,
-  me,
   reuse,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
   lives: number;
-  /** The viewer's entry, or null (a guest or someone following without an entry). */
-  me: string | null;
   /** The pool lets a team be picked more than once: "teams left" doesn't apply. */
   reuse: boolean;
 }) {
@@ -62,13 +59,6 @@ export function SurvivorSummary({
   const outWeeks = [...outBy.entries()].sort((a, b) => a[0] - b[0]);
   const maxOut = Math.max(1, ...outWeeks.map(([, n]) => n));
 
-  // Your status: alive or out, this week's pick and how many others are on the same team.
-  const mine = me ? rows.find((r) => r.userId === me) : undefined;
-  const myCell = mine && shown ? mine.cells.find((c) => c.slateId === shown.slateId) : undefined;
-  const sameTeam = myCell?.team ? (teams.get(myCell.team.id)?.n ?? 1) - 1 : 0;
-  const weeksSurvived = (r: SvRow) => r.cells.filter((c) => c.state === "win" || (c.state === "loss" && r.outWeek !== c.week)).length;
-  const lastedLonger = mine && !mine.alive ? rows.filter((r) => r.alive || (r.outWeek ?? 0) > (mine.outWeek ?? 0)).length : 0;
-
   // Teams left for the survivors: for every team, how many entries still alive haven't used it.
   const allTeams = new Map<string, SvTeam>();
   for (const w of weeks) for (const g of w.games) for (const t of [g.home, g.away]) allTeams.set(t.id, t);
@@ -76,7 +66,6 @@ export function SurvivorSummary({
   const left = [...allTeams.values()]
     .map((t) => ({ team: t, n: survivors.filter((r) => !r.used.has(t.id)).length }))
     .sort((a, b) => b.n - a.n || (a.team.abbreviation ?? "").localeCompare(b.team.abbreviation ?? ""));
-  const myLeft = mine?.alive ? [...allTeams.values()].filter((t) => !mine.used.has(t.id)).length : null;
 
   const scoreOf = (t: TeamRow) => {
     const g = t.game;
@@ -95,36 +84,6 @@ export function SurvivorSummary({
         </p>
         <p className="text-sm text-muted tabular-nums">{total - alive} eliminated</p>
       </section>
-
-      {mine && (
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Your status</h3>
-          {mine.alive ? (
-            <p className="mt-1 text-lg font-bold text-win">
-              Alive{lives > 1 ? ` · ${mine.livesLeft} of ${lives} lives left` : ""}
-              <span className="ml-1 text-sm font-medium text-muted">· one of {alive} left</span>
-            </p>
-          ) : (
-            <p className="mt-1 text-lg font-bold text-loss">
-              Out in Week {mine.outWeek}
-              <span className="ml-1 text-sm font-medium text-muted">· {lastedLonger} lasted longer</span>
-            </p>
-          )}
-          <ul className="mt-1 space-y-0.5 text-sm text-muted tabular-nums">
-            {myCell?.team && shown && (
-              <li className="flex items-center gap-1.5">
-                <TeamLogo src={myCell.team.logo_url} abbr={myCell.team.abbreviation} className="size-5 shrink-0" />
-                <span>
-                  {shown.label}: <span className="font-semibold text-ink">{name(myCell.team)}</span>
-                  {sameTeam > 0 ? ` · ${sameTeam} other${sameTeam === 1 ? "" : "s"} picked them too (${pct(sameTeam + 1, inThisWeek)})` : " · nobody else picked them"}
-                </span>
-              </li>
-            )}
-            <li>Weeks survived: <span className="font-semibold text-ink">{weeksSurvived(mine)}</span></li>
-            {!reuse && myLeft !== null && <li>Teams you can still pick: <span className="font-semibold text-ink">{myLeft}</span></li>}
-          </ul>
-        </section>
-      )}
 
       {shown && (
         <section>
