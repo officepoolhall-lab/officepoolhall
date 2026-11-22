@@ -5,14 +5,14 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
-import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
+import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, TrophyIcon, chipClass } from "@/components/ui";
 import { clearSurvivorPick, saveSurvivorPick, toggleSurvivorSplit } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { survivorStandings, survivorWinners, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
 import { SurvivorBoard, type SplitState, type SvPrior } from "./SurvivorBoard";
 import { SurvivorSummary } from "./SurvivorSummary";
-import { WeekPickCard, WinnerCard } from "./WeekPickCard";
+import { SplitCard, WeekPickCard, WinnerCard } from "./WeekPickCard";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
@@ -78,7 +78,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   const loaded = await getSurvivor(ctx);
   const { settings, picks, members } = loaded;
   const weeks = await withLiveScores(loaded.weeks);
-  const rows = survivorStandings(weeks, picks, members, settings);
+  const rows = survivorStandings(weeks, picks, members, settings, loaded.split);
   const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
   const week = currentWeek(weeks, settings.start_week);
   const myPick = week ? picks.find((p) => p.slateId === week.slateId && p.userId === ctx.entryUserId) : undefined;
@@ -112,7 +112,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
               {/* The week, and when the next game locks, on one line. */}
               <div className="flex items-baseline justify-between gap-3">
                 <div className="whitespace-nowrap text-lg font-bold text-ink">{week.label}</div>
-                {nextKick && (
+                {nextKick && !won && (
                   <div className="min-w-0 truncate text-sm text-muted">
                     Next game locks in{" "}
                     <span className="font-semibold tabular-nums text-ink">
@@ -122,7 +122,18 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
                 )}
               </div>
               {/* The pool is over: who won. */}
-              {won && (
+              {won?.split && (
+                <SplitCard
+                  names={rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name)}
+                  week={won.week || undefined}
+                  mine={won.userIds.includes(ctx.entryUserId)}
+                  you={mine?.name}
+                  each={prizeOf(ctx, rows.length, won.userIds.length)}
+                  compact
+                  className="mt-2"
+                />
+              )}
+              {won && !won.split && (
                 <WinnerCard
                   names={rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name)}
                   week={won.week}
@@ -240,7 +251,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
   const { settings, picks, members, weeks, splitRequests, split: agreed } = await getSurvivor(ctx, behalf ? forUserId : undefined);
   const tz = (ctx as { displayTz?: string }).displayTz ?? tzOf(ctx);
   const target = behalf ? forUserId! : ctx.entryUserId;
-  const rows = survivorStandings(weeks, picks, members, settings);
+  const rows = survivorStandings(weeks, picks, members, settings, agreed);
   const row = rows.find((r) => r.userId === target);
   const counted = weeks.filter((w) => w.week >= settings.start_week);
   const week = (weekParam ? counted.find((w) => w.week === Number(weekParam)) : null) ?? currentWeek(weeks, settings.start_week);
@@ -276,7 +287,16 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
   const splitClosed = earlierOpen ? `Splitting opens once ${earlierOpen.label} is final` : pickKicked ? `Splitting is closed for ${week.label}: a pick has kicked off` : null;
   const askedIds = aliveRows.filter((r) => splitRequests.get(r.userId) === week.slateId).map((r) => r.userId);
   const split: SplitState | null = agreed
-    ? { alive: agreed.userIds.length, asked: agreed.userIds.length, mine: agreed.userIds.includes(target), done: true, each }
+    ? {
+        alive: agreed.userIds.length,
+        asked: agreed.userIds.length,
+        mine: agreed.userIds.includes(target),
+        done: true,
+        each,
+        names: rows.filter((r) => agreed.userIds.includes(r.userId)).map((r) => r.name),
+        week: agreed.week ?? undefined,
+        you: row?.name,
+      }
     : !ctx.isGuest && meAlive && aliveRows.length >= 2
       ? {
           alive: aliveRows.length,
@@ -375,7 +395,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const loaded = await getSurvivor(ctx);
   const { settings, picks, members } = loaded;
   const weeks = await withLiveScores(loaded.weeks);
-  const rows = survivorStandings(weeks, picks, members, settings);
+  const rows = survivorStandings(weeks, picks, members, settings, loaded.split);
   const counted = weeks.filter((w) => w.week >= settings.start_week).sort((a, b) => a.week - b.week);
   const order = new Map(counted.map((w, i) => [w.slateId, i]));
   const games = new Map(weeks.flatMap((w) => w.games).map((g) => [g.id, g]));
@@ -385,9 +405,24 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   // A thin line between weeks.
   const weekLine = "border-r border-line last:border-r-0";
 
+  // Split: what each entry that shared the pot took home.
+  const splitEach = loaded.split ? prizeOf(ctx, rows.length, loaded.split.userIds.length)?.replace(/ each$/, "") ?? null : null;
+
   const cellOf = (c: SvCell) => {
     const base = `h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0 ${weekLine}`;
     if (c.state === "out" || c.state === "before") return <td key={c.slateId} className={base} />;
+    if (c.state === "split") {
+      return (
+        <td key={c.slateId} className={`${base} bg-[var(--win-fill)]`} title={`Pool split${splitEach ? `: ${splitEach}` : ""}`}>
+          <span className="flex flex-col items-center justify-center gap-0.5 leading-none">
+            <span className="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide text-win">
+              <TrophyIcon className="size-3" /> Pool split
+            </span>
+            {splitEach && <span className="text-[13px] font-extrabold tabular-nums text-ink">{splitEach}</span>}
+          </span>
+        </td>
+      );
+    }
     if (c.state === "open") return <td key={c.slateId} className={`${base} text-faint`} title="No pick showing yet">·</td>;
     if (c.state === "missed") {
       return (
@@ -534,7 +569,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
       {/* The Pool Summary tab on the screen's edge, as on the League Grid. */}
       {rows.length > 0 && (
         <GridPanelDrawer>
-          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} reuse={settings.reuse} noWinner entryFee={Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0)} />
+          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} reuse={settings.reuse} noWinner split={loaded.split} entryFee={Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0)} />
         </GridPanelDrawer>
       )}
     </div>

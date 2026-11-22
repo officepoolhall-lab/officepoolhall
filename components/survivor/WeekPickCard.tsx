@@ -209,6 +209,7 @@ export function EliminatedCard({
  */
 export function WinnerCard({
   names,
+  week,
   mine,
   prize,
   compact = false,
@@ -227,6 +228,7 @@ export function WinnerCard({
   split?: boolean;
   className?: string;
 }) {
+  if (split) return <SplitCard names={names} mine={mine} each={prize ?? null} week={week} compact={compact} className={className} />;
   const shared = names.length > 1;
   const list = names.length > 2 ? `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}` : names.join(" & ");
   return (
@@ -245,6 +247,66 @@ export function WinnerCard({
           {prize ? <span className="font-semibold text-win">{prize}</span> : null}
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * The pot was split: every entry left agreed to end the pool. Leads with that and what each
+ * entry gets; who shares it is a small list under it (the viewer's own name marked).
+ */
+export function SplitCard({
+  names,
+  each,
+  week,
+  you,
+  compact = false,
+  className = "",
+}: {
+  names: string[];
+  mine: boolean;
+  /** "$475 each"; omitted without an entry fee. */
+  each: string | null;
+  week?: number;
+  /** The viewer's own name, to mark in the list. */
+  you?: string;
+  compact?: boolean;
+  className?: string;
+}) {
+  const amount = each?.replace(/ (each|per entry)$/, "");
+  return (
+    <section
+      className={`rounded-2xl border-2 border-win/70 bg-[var(--win-fill)] ${compact ? "px-4 py-3" : "px-4 py-3.5 sm:px-5"} ${className}`}
+      aria-label="Pot split"
+    >
+      <div className={`flex gap-x-4 gap-y-2 ${compact ? "items-end justify-between" : "flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-x-6"}`}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-win">
+            <TrophyIcon className="size-3.5" />
+            Pool over{week ? ` · Week ${week}` : ""}
+          </div>
+          <div className={`mt-0.5 font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>
+            The pot was split
+          </div>
+          <div className="mt-0.5 text-sm text-muted">
+            All {names.length} remaining {compact ? "agreed" : "entries agreed"}
+          </div>
+        </div>
+        {amount && (
+          <div className={`shrink-0 ${compact ? "text-right" : "sm:text-right"}`}>
+            <div className={`font-extrabold leading-none tabular-nums text-win ${compact ? "text-[1.75rem]" : "text-3xl sm:text-4xl"}`}>{amount}</div>
+            <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">per entry</div>
+          </div>
+        )}
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-0.5 border-t border-win/30 pt-2 text-[13px] leading-snug text-ink">
+        {names.map((n, i) => (
+          <li key={n + i} className={n === you ? "font-semibold text-accent" : ""}>
+            {n}
+            {i < names.length - 1 && <span className="text-muted">,</span>}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

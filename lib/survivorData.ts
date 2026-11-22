@@ -85,6 +85,19 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
   const splitRequests = new Map(((reqRows ?? []) as Row[]).map((r) => [r.user_id as string, r.slate_id as string | null]));
   const s0 = ((splitRows ?? []) as Row[])[0];
   const split: SvSplit | null = s0 ? { userIds: s0.user_ids as string[], week: (s0.week as number | null) ?? null } : null;
+  // Once the pot is split the pool is over: nothing after that week, and no picks in it.
+  if (split?.week != null) {
+    const cut = split.week;
+    const weekOf = new Map(weeks.map((w) => [w.slateId, w.week]));
+    return {
+      settings,
+      weeks: weeks.filter((w) => w.week <= cut),
+      picks: picks.filter((p) => (weekOf.get(p.slateId) ?? 0) < cut),
+      members,
+      splitRequests,
+      split,
+    };
+  }
   return { settings, weeks, picks, members, splitRequests, split };
 }
 

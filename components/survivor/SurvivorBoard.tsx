@@ -9,7 +9,7 @@ import { TeamHistoryDialog } from "@/components/ProfileDialogs";
 import { useLiveGames } from "@/components/useLiveGames";
 import { CheckIcon, ChevronIcon, LockIcon, chipClass } from "@/components/ui";
 import { dayKey, dayLabel, formatSpread } from "@/lib/format";
-import { EliminatedCard, WeekPickCard } from "./WeekPickCard";
+import { EliminatedCard, SplitCard, WeekPickCard } from "./WeekPickCard";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
@@ -24,6 +24,10 @@ export type SplitState = {
   done: boolean;
   /** "$1,180 each" once split (or what each would get), omitted without an entry fee. */
   each?: string | null;
+  /** Once split: who shares the pot, the week, and the viewer's name (to mark it). */
+  names?: string[];
+  week?: number;
+  you?: string;
   /** Why splitting isn't open right now (a pick's game kicked off, or last week isn't final). */
   closed?: string | null;
   toggle?: (on: boolean) => Promise<{ error?: string }>;
@@ -161,6 +165,17 @@ export function SurvivorBoard({
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
       {/* Across the top: this week's pick (once out, the pick that did it) and, beside it on the
           right, Request to Split. */}
+      {split?.done ? (
+        // The pot was split: the pool is over, so that's all the top says (no pick).
+        <SplitCard
+          names={split.names ?? []}
+          mine={split.mine}
+          each={split.each ?? null}
+          week={split.week}
+          you={split.you}
+          className="mb-5 lg:col-span-2"
+        />
+      ) : (
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center lg:col-span-2">
         {outWeek ? (
           <EliminatedCard week={outWeek} game={outPick?.game ?? null} side={outPick?.side ?? null} className="min-w-0 sm:max-w-2xl sm:flex-1" />
@@ -179,6 +194,7 @@ export function SurvivorBoard({
         )}
         {split && <SplitBar split={split} />}
       </div>
+      )}
 
       {/* The season so far, pinned in the left column on desktop; above the games on phones. */}
       <aside className="lg:self-stretch">
@@ -273,7 +289,9 @@ export function SurvivorBoard({
         <TeamHistoryDialog sport="nfl" espnId={history.espn_id} name={teamName(history)} logo={history.logo_url} ats={false} timezone={timezone} onClose={() => setHistory(null)} />
       )}
 
-      {/* The tracker, as on every pool's My Picks: what's picked and whether it saved. */}
+      {/* The tracker, as on every pool's My Picks: what's picked and whether it saved (not once
+          the pot is split). */}
+      {!split?.done && (
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="mx-auto max-w-5xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:max-w-none">
           {error && <p className="mb-1.5 text-sm text-loss" role="alert">{error}</p>}
@@ -297,6 +315,7 @@ export function SurvivorBoard({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
