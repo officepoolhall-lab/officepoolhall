@@ -4,7 +4,7 @@ import { hasStarted } from "./locks";
 import { espnDate, fetchLiveDetails, orientLive } from "./liveClock";
 import { getTeamRecords } from "./teamRecords";
 import { getPublishedSlates, type PoolBase } from "./pool";
-import { demoLive, survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek } from "./survivor";
+import { applyDemoResults, demoLive, survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek } from "./survivor";
 
 // A Survivor pool's season in one load: its published weeks with their games, the picks the
 // viewer can see (their own always; everyone's once each game kicks off) and the entries.
@@ -69,7 +69,8 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
     }))
     .sort((a, b) => a.week - b.week);
   // A demo pool shown as if one week were being played now (lib/survivor.ts → demoLive).
-  const weeks = settings.demo_live_week ? demoLive(stored, settings.demo_live_week) : stored;
+  const withDemo = applyDemoResults(stored, settings.demo_results);
+  const weeks = settings.demo_live_week ? demoLive(withDemo, settings.demo_live_week) : withDemo;
   const started = new Set(weeks.flatMap((w) => w.games).filter((g) => g.started).map((g) => g.id));
   const picks: SvPick[] = ((pickRows ?? []) as Row[])
     .map((p) => ({ slateId: p.slate_id, userId: p.user_id, gameId: p.game_id, teamId: p.team_id }))
