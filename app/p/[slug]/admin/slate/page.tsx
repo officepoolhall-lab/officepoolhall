@@ -286,7 +286,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     let progress = allProgress;
     if (survivor && allProgress) {
       const sv = await getSurvivor(ctx);
-      const svRows = survivorStandings(sv.weeks, sv.picks, sv.members, sv.settings);
+      const svRows = survivorStandings(sv.weeks, sv.picks, sv.members, sv.settings, sv.split);
       const inWeek = new Set(
         svRows.filter((r) => r.cells.some((c) => c.slateId === slate.id && c.state !== "out" && c.state !== "before")).map((r) => r.userId),
       );

@@ -9,7 +9,8 @@ import { useEffect, useRef, type ReactNode } from "react";
  * until everything fits. If the viewer's own row ([data-fill-me]) gets hidden, the pinned copy
  * ([data-fill-pin], hidden on desktop by default) shows under the list instead, and the list
  * gives up a row or two more to make room. Phones and tablets are untouched: the server's own
- * row limits apply there.
+ * row limits apply there. If it still doesn't fit with every list down to three rows, the
+ * column takes its own height instead, so nothing is cut off.
  */
 export function FillColumn({ children, className = "" }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -26,7 +27,9 @@ export function FillColumn({ children, className = "" }: { children: ReactNode; 
       const lists = [...col.querySelectorAll<HTMLElement>("[data-fill-list]")];
       const rowsOf = (l: HTMLElement) => [...l.children].filter((c): c is HTMLElement => c instanceof HTMLElement && !c.hasAttribute("data-fill-pin"));
       const pins = [...col.querySelectorAll<HTMLElement>("[data-fill-pin]")];
-      // Start from everything the server sent.
+      // Start from everything the server sent, at the row's height.
+      col.style.height = "";
+      col.style.overflow = "";
       for (const l of lists) for (const r of rowsOf(l)) r.style.display = "";
       for (const p of pins) p.style.display = "";
       if (desktop.matches) {
@@ -42,6 +45,12 @@ export function FillColumn({ children, className = "" }: { children: ReactNode; 
             rows[i].style.display = "none";
             if (rows[i] === me) showPins(true);
           }
+        }
+        // Still too tall with the lists cut to three rows (a big card above them): grow the row
+        // rather than cut the column off at the bottom.
+        if (!fits()) {
+          col.style.height = "auto";
+          col.style.overflow = "visible";
         }
       }
       busy = false;

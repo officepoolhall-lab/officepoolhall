@@ -149,9 +149,10 @@ export type SvCell = {
   /**
    * win/loss/pending/void: a pick. missed: the week closed with no pick (a loss). open: no pick
    * showing yet (the week is still open; other players' picks show at kickoff). out: already
-   * eliminated. before: the week closed before this entry joined.
+   * eliminated. before: the week closed before this entry joined. split: the pot was split
+   * this week and this entry shares it.
    */
-  state: SvResult | "missed" | "open" | "out" | "before";
+  state: SvResult | "missed" | "open" | "out" | "before" | "split";
 };
 export type SvRow = {
   userId: string;
@@ -168,8 +169,10 @@ export type SvRow = {
 };
 
 /** Every entry's season: a cell per counted week, lives left, and who's still alive. */
-export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvMember[], s: SurvivorSettings): SvRow[] {
-  const counted = weeks.filter((w) => w.week >= s.start_week).sort((a, b) => a.week - b.week);
+export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvMember[], s: SurvivorSettings, split?: SvSplit | null): SvRow[] {
+  // A split pool ends in the week it was split.
+  const cut = split?.week ?? null;
+  const counted = weeks.filter((w) => w.week >= s.start_week && (cut === null || w.week <= cut)).sort((a, b) => a.week - b.week);
   const pickOf = new Map(picks.map((p) => [`${p.slateId}:${p.userId}`, p]));
   const rows = members.map((m): SvRow => {
     let losses = 0;
@@ -178,6 +181,7 @@ export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvM
     const cells = counted.map((w): SvCell => {
       const base = { week: w.week, slateId: w.slateId };
       if (outWeek !== null) return { ...base, team: null, state: "out" };
+      if (cut !== null && w.week >= cut) return { ...base, team: null, state: split?.userIds.includes(m.userId) ? "split" : "out" };
       const p = pickOf.get(`${w.slateId}:${m.userId}`);
       const live = w.games.filter((g) => !g.voided);
       const lastStart = live.map((g) => g.startAt).sort().pop() ?? null;
