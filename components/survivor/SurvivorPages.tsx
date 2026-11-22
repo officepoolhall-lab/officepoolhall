@@ -262,9 +262,11 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const alive = rows.filter((r) => r.alive).length;
   const back = encodeURIComponent(`/p/${slug}/standings`);
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
+  // A thin line between weeks.
+  const weekLine = "border-r border-line last:border-r-0";
 
   const cellOf = (c: SvCell) => {
-    const base = "h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0";
+    const base = `h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0 ${weekLine}`;
     if (c.state === "out" || c.state === "before") return <td key={c.slateId} className={base} />;
     if (c.state === "open") return <td key={c.slateId} className={`${base} text-faint`} title="No pick showing yet">·</td>;
     if (c.state === "missed") {
@@ -277,22 +279,29 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     const g = c.gameId ? games.get(c.gameId) : undefined;
     const live = Boolean(g && g.started && !g.final);
     const score = g && g.started && c.team ? cellScore(g, c.team.id) : null;
-    const fill = c.state === "win" ? "bg-[var(--win-fill)] text-win" : c.state === "loss" ? "bg-[var(--loss-fill)] text-loss" : "text-ink";
+    // The green or red fill gives the result; team names and scores stay black.
+    const fill = `text-ink ${c.state === "win" ? "bg-[var(--win-fill)]" : c.state === "loss" ? "bg-[var(--loss-fill)]" : ""}`;
     const label = `${c.team ? teamName(c.team) : ""}${c.state === "win" ? ", won" : c.state === "loss" ? ", lost" : c.state === "void" ? ", game didn't count" : live ? ", in progress" : ""}${score ? ` ${score}` : ""}`;
     const home = Boolean(g && c.team && c.team.id === g.home.id);
     const opp = g ? (home ? g.away : g.home) : null;
     const abbr = (t: SvTeam | null | undefined) => t?.abbreviation ?? t?.short_name ?? t?.name ?? "";
-    const mine = home ? g?.homeScore : g?.awayScore;
-    const theirs = home ? g?.awayScore : g?.homeScore;
+    // Away team on top, home team below; the team ahead (the winner, once final) in bold.
+    const hs = g?.homeScore ?? null;
+    const as = g?.awayScore ?? null;
+    const lead: "home" | "away" | null = hs !== null && as !== null && hs !== as ? (hs > as ? "home" : "away") : null;
+    const line = (t: SvTeam, score: number | null, side: "home" | "away") => (
+      <>
+        <span className={lead === side ? "font-extrabold" : "font-normal opacity-70"}>{abbr(t)}</span>
+        <span className={`text-right ${lead === side ? "font-extrabold" : "font-normal opacity-70"}`}>{score ?? ""}</span>
+      </>
+    );
     const inner =
       g && g.started && opp ? (
-        // Under way or over: the opponent's score on top, the pick's below, the pick's logo on the right.
+        // Under way or over: the score, away above home; the pick's logo on the right.
         <span className="flex items-center justify-center gap-1.5">
           <span className="grid grid-cols-[auto_auto] items-baseline gap-x-1.5 text-left text-[11px] leading-[1.15] tabular-nums">
-            <span className="font-medium opacity-75">{abbr(opp)}</span>
-            <span className="text-right font-medium opacity-75">{theirs ?? ""}</span>
-            <span className="font-bold">{abbr(c.team)}</span>
-            <span className="text-right font-bold">{mine ?? ""}</span>
+            {line(g.away, as, "away")}
+            {line(g.home, hs, "home")}
           </span>
           <span className="relative">
             <TeamLogo src={c.team?.logo_url} abbr={c.team?.abbreviation} className="size-6 shrink-0" />
@@ -367,9 +376,9 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                 {counted.map((w) => {
                   const live = w.games.some((g) => g.started && !g.final && !g.voided);
                   return (
-                    <th key={w.slateId} className={head} title={w.label}>
+                    <th key={w.slateId} className={`${head} ${weekLine}`} title={w.label}>
                       {live && <div className="mb-0.5 whitespace-nowrap text-[10px]"><LiveDot>Live</LiveDot></div>}
-                      <span className="whitespace-nowrap font-semibold text-ink">Wk {w.week}</span>
+                      <span className="whitespace-nowrap text-[13px] font-bold text-ink sm:text-sm">Week {w.week}</span>
                     </th>
                   );
                 })}
@@ -384,7 +393,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                   <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                     <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-3 py-0.5 text-left text-[13px] font-medium sm:px-4 lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-muted"}`}>
+                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-loss"}`}>
                           {ctx.isCommissioner ? (
                             <Link href={`/p/${slug}/picks?for=${r.userId}`} className="block hover:underline" title="Make or fix this entry's pick">
                               <FitText min={9}>{r.name}</FitText>
@@ -393,9 +402,9 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
                             <FitText min={9}>{r.name}</FitText>
                           )}
                           {/* Phones: the status under the name, so the column stays narrow. */}
-                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-normal text-muted"}`}>{status}</span>
+                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
                         </span>
-                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-normal text-muted"}`}>
+                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
                           {status}
                         </span>
                       </div>
