@@ -85,6 +85,24 @@ export async function clearSurvivorPick(slug: string, slateId: string, forUserId
   return {};
 }
 
+/**
+ * Request to Split (on) or take it back (off). When every entry still alive has asked, the pool
+ * is over and the pot is split (the database checks who's alive; a demo pool passes its list).
+ */
+export async function toggleSurvivorSplit(slug: string, forUserId: string | null, week: number | null, alive: string[], on: boolean): Promise<{ error?: string }> {
+  const ctx = await getPoolBase(slug);
+  const { error } = await dbOf(ctx).rpc("request_survivor_split", {
+    p_pool_id: ctx.pool.id,
+    p_on: on,
+    p_user_id: forUserId ?? ctx.entryUserId,
+    p_week: week,
+    p_alive: alive,
+  });
+  if (error) return { error: error.message };
+  refresh(slug);
+  return {};
+}
+
 // ---------- Squares ----------
 
 /** Put a name on a square (the database checks who may, the limit and the lock). */

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { FitText } from "@/components/FitText";
 import { SectionLabel, TeamLogo, TrophyIcon } from "@/components/ui";
-import { survivorWinners, type SvGame, type SvRow, type SvTeam, type SvWeek } from "@/lib/survivor";
+import { survivorWinners, type SvGame, type SvRow, type SvSplit, type SvTeam, type SvWeek } from "@/lib/survivor";
 
 // The Survivor Standings' Pool Summary (the pop-out tab, as on the League Grid): who's left,
 // what the pool picked this week and how it's going, and the season so far. Built from the
@@ -25,6 +25,7 @@ export function SurvivorSummary({
   page = false,
   hideWinner = false,
   noWinner = false,
+  split = null,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
@@ -44,6 +45,8 @@ export function SurvivorSummary({
   hideWinner?: boolean;
   /** Don't show the pool as won at all (the League Grid's pop-out: the winner is Home's). */
   noWinner?: boolean;
+  /** An agreed split (every remaining entry asked to split): the pool is over. */
+  split?: SvSplit | null;
 }) {
   const show = (p: SummaryPart) => !only || only.includes(p);
   const H = ({ children }: { children: ReactNode }) =>
@@ -52,7 +55,7 @@ export function SurvivorSummary({
   const box = onSurface ? "bg-bg" : "bg-surface";
   const total = rows.length;
   // The pool is over once one entry is left standing (or everyone left went out together).
-  const won = noWinner ? null : survivorWinners(rows, weeks);
+  const won = noWinner ? null : survivorWinners(rows, weeks, split);
   const winnerNames = won ? rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name) : [];
   const alive = rows.filter((r) => r.alive).length;
   // The week to sum up: the latest one with a game under way or over.
@@ -123,7 +126,7 @@ export function SurvivorSummary({
         </p>
         )}
         {!(won && hideWinner) && <p className="whitespace-nowrap text-sm text-muted tabular-nums">
-          {won ? (winnerNames.length > 1 ? "Shared" : "") : `${total - alive} eliminated`}
+          {won ? (won.split ? "Pot split" : winnerNames.length > 1 ? "Shared" : "") : `${total - alive} eliminated`}
         </p>}
         {/* The pot, and what each entry would take splitting it, counting everyone still in coming
             into the current week (it changes once a week is final, not game by game). */}
