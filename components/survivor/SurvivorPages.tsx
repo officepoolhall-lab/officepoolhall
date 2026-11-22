@@ -413,7 +413,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
       className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <div className="mb-2 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">League Grid</h1>
+        <h1 className="sr-only">League Grid</h1>
         <p className="text-base text-muted tabular-nums sm:text-lg">
           <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
         </p>

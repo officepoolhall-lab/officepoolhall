@@ -130,7 +130,8 @@ export function SurvivorBoard({
 
   return (
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
-      {/* This week's pick, across the top (the same card as on Home). */}
+      {/* This week's pick, across the top (the same card as on Home); nothing until one is made. */}
+      {pickGame && (
       <WeekPickCard
         weekLabel={weekLabel}
         game={pickGame ?? null}
@@ -138,9 +139,10 @@ export function SurvivorBoard({
         started={pickStarted}
         locked={pickLocked}
         timezone={timezone}
-        empty={canPick ? "No pick yet: tap a team below" : "No pick"}
+        empty=""
         className="mb-5 max-w-2xl lg:col-span-2"
       />
+      )}
 
 
       {/* The season so far, pinned in the left column on desktop; above the games on phones. */}

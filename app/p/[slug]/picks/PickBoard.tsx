@@ -582,7 +582,7 @@ export function GameRow({
   // The conference ("SEC") for a conference game, "NC" for nonconference.
   const conf = shortConferenceLabel(g.away.conference, g.home.conference);
   // Neutral site: the away team is listed first and the city stands in for "Home".
-  const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null, extraMeta].filter(Boolean).join(" · ");
+  const meta = [conf, g.neutral ? (g.venue ?? "Neutral site") : null].filter(Boolean).join(" · ");
 
   // The lock countdown (last three hours) sits on the status line above the pick buttons.
   const countdown = !result && !locked && !disabled && msToLock < 3 * 3_600_000;
@@ -644,6 +644,13 @@ export function GameRow({
           {/* Where to watch stays visible through the whole game; then conference or venue. */}
           {g.tv && <span className="font-normal"> · {g.tv}</span>}
           {meta && <span className="font-normal"> · {meta}</span>}
+          {/* Survivor: the spread, in blue so it stands out. */}
+          {extraMeta && (
+            <>
+              <span className="font-normal"> · </span>
+              <span className="font-semibold text-accent">{extraMeta}</span>
+            </>
+          )}
           {locked && <LockIcon className="ml-1.5 inline size-3 align-[-2px] text-muted" />}
         </FitText>
         {/* Live or final: play-by-play and box score. When the pick is locked, the link covers the
