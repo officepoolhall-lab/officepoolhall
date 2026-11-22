@@ -13,6 +13,7 @@ import { applyHalfPoint, parseSpread } from "@/lib/spread";
 import { prunePicks } from "@/lib/bracket";
 import { getBracket } from "@/lib/brackets";
 import { espnBracketResults, saveTitleTotal } from "@/lib/bracketSync";
+import { NFL_WEEKS, currentNflWeek, nflWeekLabel, nflWeekWindow } from "@/lib/nflWeeks";
 
 // Every action re-checks that the caller is this pool's commissioner; the database
 // checks again (RLS / security definer functions).
@@ -26,8 +27,64 @@ const done = (slug: string, ok?: string): ActionState => {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * NFL pools: the next NFL week, with its own dates and every NFL game that week. The week
+ * number is the NFL's (a pool started in Week 12 starts at Week 12), never chosen by hand.
+ */
+async function nextNflWeek(ctx: Awaited<ReturnType<typeof requireCommissioner>>): Promise<number | null> {
+  const { data: last } = await ctx.supabase
+    .from("slates").select("week").eq("pool_id", ctx.pool.id).order("week", { ascending: false }).limit(1).maybeSingle();
+  const from = Math.max((last?.week ?? 0) + 1, currentNflWeek(ctx.pool.season));
+  return NFL_WEEKS.find((w) => w >= from) ?? null;
+}
+
+/** Puts every NFL game in the slate's NFL week on it (only what's missing; lines as addGames). */
+async function fillNflSlate(slug: string, ctx: Awaited<ReturnType<typeof requireCommissioner>>, slateId: string, week: number): Promise<ActionState> {
+  const { start, end } = nflWeekWindow(ctx.pool.season, week);
+  const [{ data: games }, { data: have }] = await Promise.all([
+    ctx.supabase
+      .from("games").select("id").eq("sport", "nfl")
+      .gte("start_at", start.toISOString()).lt("start_at", end.toISOString())
+      .not("status", "in", "(postponed,cancelled)")
+      .order("start_at").limit(40),
+    ctx.supabase.from("slate_games").select("game_id").eq("slate_id", slateId),
+  ]);
+  const on = new Set((have ?? []).map((r) => r.game_id));
+  const add = (games ?? []).map((g) => g.id).filter((id) => !on.has(id));
+  if (!add.length) return null;
+  return addGames(slug, slateId, add);
+}
+
 export async function createSlate(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
+  if (ctx.pool.sport === "nfl") {
+    const week = await nextNflWeek(ctx);
+    if (week === null) return { error: "The NFL season is over." };
+    const { start, end } = nflWeekWindow(ctx.pool.season, week);
+    const { data: first } = await ctx.supabase
+      .from("games").select("start_at").eq("sport", "nfl")
+      .gte("start_at", start.toISOString()).lt("start_at", end.toISOString())
+      .order("start_at").limit(1).maybeSingle();
+    const { data: created, error } = await ctx.supabase
+      .from("slates")
+      .insert({
+        pool_id: ctx.pool.id,
+        week,
+        label: nflWeekLabel(week),
+        window_start: start.toISOString(),
+        window_end: end.toISOString(),
+        // Weekly-lock pools: the week's first kickoff. Per-game pools lock each game at kickoff.
+        lock_at: ctx.settings.lock.mode === "weekly" ? (first?.start_at ?? null) : null,
+        first_day_lock_at: null,
+      })
+      .select("id")
+      .single();
+    if (error) return { error: error.message };
+    const filled = await fillNflSlate(slug, ctx, created.id, week);
+    if (filled?.error) return filled;
+    revalidatePath(`/p/${slug}`, "layout");
+    redirect(`/p/${slug}/admin/slate?week=${week}`);
+  }
   const startDate = String(form.get("start_date") ?? "");
   if (!ISO_DATE.test(startDate)) return { error: "Pick the first day of the week." };
   // Blank last day = the pool's usual window length.
@@ -181,6 +238,7 @@ export async function addGames(slug: string, slateId: string, gameIds: string[],
 /** Add a scheduled game to a week that's already published, while the week is open. */
 export async function addOpenWeekGame(slug: string, slateId: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
+  if (ctx.pool.sport === "nfl") return { error: "NFL weeks hold every game of the week automatically." };
   const gameId = String(form.get("game") ?? "");
   if (!gameId) return { error: "Choose a game." };
   let spread: number | null = null;
@@ -196,6 +254,7 @@ export async function addOpenWeekGame(slug: string, slateId: string, _: ActionSt
 
 export async function removeGame(slug: string, slateId: string, gameId: string): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
+  if (ctx.pool.sport === "nfl") return { error: "NFL weeks hold every game of the week." };
   const { error } = await ctx.supabase.from("slate_games").delete().eq("slate_id", slateId).eq("game_id", gameId);
   if (error) return { error: error.message };
   return done(slug);
@@ -255,6 +314,14 @@ export async function syncSchedule(slug: string): Promise<ActionState> {
 
   const r = await invoke("sync-schedule", { sport: ctx.pool.sport, days });
   if ("error" in r) return { error: r.error };
+  // NFL drafts hold every game of their week: add any the sync just brought in.
+  if (ctx.pool.sport === "nfl") {
+    const { data: drafts } = await ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).eq("status", "draft");
+    for (const d of drafts ?? []) {
+      const f = await fillNflSlate(slug, ctx, d.id, d.week);
+      if (f?.error) return f;
+    }
+  }
   const s = r.data?.summary?.[ctx.pool.sport];
   return done(slug, `Schedule synced: ${s?.games ?? 0} games over the next ${days} days.`);
 }

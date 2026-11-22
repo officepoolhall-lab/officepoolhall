@@ -80,6 +80,7 @@ export function SlateEditor({
   defaultManualStart,
   records = {},
   showFilters = true,
+  fixed = false,
 }: {
   slug: string;
   slateId: string;
@@ -93,6 +94,8 @@ export function SlateEditor({
   /** Search, day, conference, Ranked and National TV filters (college). NFL pools list every
       game in the week with no filters, plus Select all. */
   showFilters?: boolean;
+  /** NFL pools: the week holds every NFL game that week. No adding or removing games. */
+  fixed?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [conference, setConference] = useState("");
@@ -175,7 +178,7 @@ export function SlateEditor({
           </span>
         </div>
         {onSlate.length === 0 ? (
-          <p className="py-6 text-sm text-muted">No games yet. Add some from the list below.</p>
+          <p className="py-6 text-sm text-muted">{fixed ? "No NFL games found for this week yet. Tap Sync ESPN schedule." : "No games yet. Add some from the list below."}</p>
         ) : (
           <ul className="divide-y divide-line">
             {onSlate.map((g) => (
@@ -200,9 +203,11 @@ export function SlateEditor({
                 {settings.pickType === "ats" && (
                   <SpreadInput slug={slug} slateId={slateId} gameId={g.id} value={g.spread} homeAbbr={g.home.abbreviation} />
                 )}
-                <ActionButton action={removeGame.bind(null, slug, slateId, g.id)} kind="ghost" className="!px-2 !text-sm hover:!text-loss" pendingLabel="…">
-                  Remove
-                </ActionButton>
+                {!fixed && (
+                  <ActionButton action={removeGame.bind(null, slug, slateId, g.id)} kind="ghost" className="!px-2 !text-sm hover:!text-loss" pendingLabel="…">
+                    Remove
+                  </ActionButton>
+                )}
               </li>
             ))}
           </ul>
@@ -235,6 +240,8 @@ export function SlateEditor({
         </div>
       </section>
 
+      {!fixed && (
+      <>
       <section className={`rounded-2xl bg-surface p-4 sm:p-5 ${selected.size > 0 ? (addResult?.error ? "mb-32" : "mb-20") : ""}`}>
         <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Add games</h2>
         <p className="mb-3 mt-0.5 text-sm text-muted">Tap games to select them, then add them to the week together.</p>
@@ -377,6 +384,8 @@ export function SlateEditor({
           <SubmitButton kind="primary" pending="Adding…" className="sm:col-start-2">Add to slate</SubmitButton>
         </ActionForm>
       </details>
+      </>
+      )}
     </div>
   );
 }
