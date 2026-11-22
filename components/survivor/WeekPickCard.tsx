@@ -41,10 +41,14 @@ export function WeekPickCard({
   if (!team || !game || !side) {
     const out = empty.startsWith("Eliminated");
     return (
-      <section className={`flex w-fit max-w-full items-center gap-2 rounded-xl border-2 border-accent bg-surface px-3 py-1.5 ${className}`} aria-label={`${weekLabel} pick`}>
-        {/* An eliminated entry has no pick to make: just "Eliminated in Week N". */}
-        {!out && <span className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</span>}
-        <span className={`whitespace-nowrap text-sm font-semibold ${out ? "text-loss" : "text-muted"}`}>{empty}</span>
+      <section
+        className={`flex w-fit max-w-full items-center rounded-xl border-2 border-accent bg-surface ${compact ? "gap-2 px-3 py-1.5" : "gap-3 px-4 py-2.5"} ${className}`}
+        aria-label={`${weekLabel} pick`}
+      >
+        {/* An eliminated entry has no pick to make: just "Eliminated in Week N". My Pick's is a
+            size up from Home's. */}
+        {!out && <span className={`truncate font-semibold uppercase tracking-wide text-accent ${compact ? "text-xs" : "text-sm"}`}>{weekLabel} Pick</span>}
+        <span className={`whitespace-nowrap font-semibold ${compact ? "text-sm" : "text-lg"} ${out ? "text-loss" : "text-muted"}`}>{empty}</span>
       </section>
     );
   }
