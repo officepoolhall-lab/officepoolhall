@@ -19,6 +19,7 @@ export function WeekPickCard({
   timezone,
   empty,
   compact = false,
+  bar = false,
   className = "",
 }: {
   weekLabel: string;
@@ -31,12 +32,63 @@ export function WeekPickCard({
   empty: string;
   /** A narrow column (Home): a little smaller. */
   compact?: boolean;
+  /** My Pick: one bar the same height with or without a pick (logo or a dashed "?"). */
+  bar?: boolean;
   className?: string;
 }) {
   const team = game && side ? game[side] : null;
   const final = Boolean(game && (game.status === "final" || game.overridden));
   const mine = game && side ? (side === "home" ? game.homeScore : game.awayScore) : null;
   const theirs = game && side ? (side === "home" ? game.awayScore : game.homeScore) : null;
+  if (bar) {
+    const out = empty.startsWith("Eliminated");
+    const when = game
+      ? started
+        ? final
+          ? "Final"
+          : null
+        : `${shortGameTime(game.startAt, timezone, game.timeTbd)}${game.tv ? ` · ${game.tv}` : ""}`
+      : null;
+    return (
+      <section className={`flex min-w-0 items-center gap-3 rounded-xl border-2 border-accent bg-surface px-3.5 py-2.5 ${className}`} aria-label={`${weekLabel} pick`}>
+        {team ? (
+          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-10 shrink-0" />
+        ) : (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-line text-lg font-bold text-muted" aria-hidden>
+            ?
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</div>
+          {team && game && side ? (
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="truncate text-xl font-extrabold leading-tight tracking-[-0.02em] sm:text-2xl">{teamName(team)}</span>
+              <span className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
+                <span className="truncate">
+                  {side === "away" && !game.neutral ? "at" : "vs"} {teamName(side === "home" ? game.away : game.home)}
+                  {when ? ` · ${when}` : null}
+                  {started && !final && <span className="text-live"> · Live{game.clock ? ` ${game.clock}` : ""}</span>}
+                </span>
+                {locked && <LockIcon className="size-3.5 shrink-0" />}
+              </span>
+            </div>
+          ) : (
+            <div className={`truncate text-xl font-bold leading-tight sm:text-2xl ${out ? "text-loss" : "text-muted"}`}>{empty}</div>
+          )}
+        </div>
+        {started && mine !== null && theirs !== null && (
+          <div className="shrink-0 text-right">
+            <div className="text-xl font-extrabold tabular-nums leading-tight">
+              {mine}–{theirs}
+            </div>
+            <div className={`text-xs font-semibold ${mine > theirs ? "text-win" : mine < theirs ? "text-loss" : "text-muted"}`}>
+              {final ? (mine > theirs ? "Won" : mine < theirs ? "Lost" : "Tied") : mine > theirs ? "Leading" : mine < theirs ? "Trailing" : "Tied"}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  }
   // No pick yet: just a small tag, not the full card.
   if (!team || !game || !side) {
     const out = empty.startsWith("Eliminated");

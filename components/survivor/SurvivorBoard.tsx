@@ -159,22 +159,26 @@ export function SurvivorBoard({
 
   return (
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
-      {/* This week's pick, across the top (the same card as on Home); once out, the pick that did it. */}
-      {outWeek ? (
-        <EliminatedCard week={outWeek} game={outPick?.game ?? null} side={outPick?.side ?? null} className="mb-5 max-w-2xl lg:col-span-2" />
-      ) : (
-      <WeekPickCard
-        weekLabel={weekLabel}
-        game={pickGame ?? null}
-        side={pickSide}
-        started={pickStarted}
-        locked={pickLocked}
-        timezone={timezone}
-        empty={canPick ? "No pick yet" : "No pick"}
-        className="mb-5 max-w-2xl lg:col-span-2"
-      />
-      )}
-
+      {/* Across the top: this week's pick (once out, the pick that did it) and, beside it on the
+          right, Request to Split. */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center lg:col-span-2">
+        {outWeek ? (
+          <EliminatedCard week={outWeek} game={outPick?.game ?? null} side={outPick?.side ?? null} className="min-w-0 sm:max-w-2xl sm:flex-1" />
+        ) : (
+          <WeekPickCard
+            weekLabel={weekLabel}
+            game={pickGame ?? null}
+            side={pickSide}
+            started={pickStarted}
+            locked={pickLocked}
+            timezone={timezone}
+            empty={canPick ? "No pick yet" : "No pick"}
+            bar
+            className="sm:max-w-2xl sm:flex-1"
+          />
+        )}
+        {split && <SplitBar split={split} />}
+      </div>
 
       {/* The season so far, pinned in the left column on desktop; above the games on phones. */}
       <aside className="lg:self-stretch">
@@ -226,7 +230,6 @@ export function SurvivorBoard({
       </aside>
 
       <div className="min-w-0">
-        {split && <SplitBar split={split} />}
         {days.map((day) => (
           <section key={day.key} className="mb-5 lg:mb-4">
             <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
@@ -322,7 +325,7 @@ function SplitBar({ split }: { split: SplitState }) {
 
   if (split.done) {
     return (
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm" role="status">
+      <div className="flex shrink-0 flex-col gap-0.5 text-sm sm:ml-auto sm:items-end sm:text-right" role="status">
         <span className="font-semibold text-win">Pot split · the pool is over</span>
         <span className="text-muted">
           All {split.alive} remaining entries agreed{split.each ? <> · <span className="font-semibold text-ink">{split.each}</span></> : null}
@@ -333,7 +336,7 @@ function SplitBar({ split }: { split: SplitState }) {
 
   if (split.closed) {
     return (
-      <div className="mb-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted">
+      <div className="flex shrink-0 items-center gap-1.5 text-sm text-muted sm:ml-auto sm:justify-end sm:text-right">
         <LockIcon className="size-3.5 shrink-0" />
         <span>{split.closed}</span>
       </div>
@@ -343,14 +346,14 @@ function SplitBar({ split }: { split: SplitState }) {
   const btn =
     "inline-flex h-9 items-center justify-center rounded-lg px-3.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
   return (
-    <div className="mb-4 flex flex-col items-end gap-1">
-      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+    <div className="flex shrink-0 flex-col gap-1.5 sm:ml-auto sm:items-end sm:text-right">
+      <div className="flex flex-col items-start gap-1.5 sm:items-end">
         <span className="text-sm text-muted tabular-nums">
           <span className="font-semibold text-ink">{split.asked}</span> of {split.alive} remaining want to split
           {split.each ? <> · {split.each}</> : null}
         </span>
         {confirming ? (
-          <span className="flex items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2 sm:justify-end">
             <span className="text-sm font-semibold text-ink">You&apos;re the last one. End the pool and split the pot?</span>
             <button type="button" className={`${btn} bg-accent text-white hover:brightness-110`} disabled={pending} onClick={() => send(true)}>
               Split now
