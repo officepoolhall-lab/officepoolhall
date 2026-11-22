@@ -8,7 +8,8 @@ import { gameDateZone, isGameLocked } from "@/lib/locks";
 import { getSlateGames, requireCommissioner } from "@/lib/pool";
 import { localDate, nextWindowStartDate } from "@/lib/slateWindow";
 import { getTeamRecords } from "@/lib/teamRecords";
-import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines, updateOpenDeadlines } from "../actions";
+import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines, syncSchedule, updateOpenDeadlines } from "../actions";
+import { ActionButton } from "@/components/ActionButton";
 import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
 import { Matchup } from "@/components/Matchup";
 import { teamSport } from "@/lib/sports";
@@ -83,9 +84,15 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
                 {windowLabel(nflWeekWindow(ctx.pool.season, nextNfl).start.toISOString(), nflWeekWindow(ctx.pool.season, nextNfl).end.toISOString(), tz)} · every NFL game that
                 week is added automatically. Players don&apos;t see it until you publish.
               </p>
-              <ActionForm action={createSlate.bind(null, slug)}>
-                <SubmitButton kind="accent" pending="Creating…">Create {nflWeekLabel(nextNfl)}</SubmitButton>
-              </ActionForm>
+              <div className="flex flex-wrap items-start gap-2">
+                <ActionForm action={createSlate.bind(null, slug)}>
+                  <SubmitButton kind="accent" pending="Creating…">Create {nflWeekLabel(nextNfl)}</SubmitButton>
+                </ActionForm>
+                {/* No games for that week yet: pull ESPN's schedule first. */}
+                <ActionButton action={syncSchedule.bind(null, slug)} pendingLabel="Syncing…" kind="secondary">
+                  Sync ESPN schedule
+                </ActionButton>
+              </div>
             </>
           )}
         </Panel>
@@ -347,7 +354,12 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <LinkButton href={`/p/${slug}/admin/results?week=${slate.week}`} kind="secondary" className="!bg-bg ring-1 ring-line">Fix a result</LinkButton>
-            <LinkButton href={`/p/${slug}/grid/${slate.week}`} kind="secondary" className="!bg-bg ring-1 ring-line">League Grid</LinkButton>
+            {/* Survivor's grid is its Standings page. */}
+            <LinkButton href={survivor ? `/p/${slug}/standings` : `/p/${slug}/grid/${slate.week}`} kind="secondary" className="!bg-bg ring-1 ring-line">League Grid</LinkButton>
+            {/* Pull new games and time changes from ESPN (also fills in NFL weeks not yet published). */}
+            <ActionButton action={syncSchedule.bind(null, slug)} pendingLabel="Syncing…" kind="secondary" className="!bg-bg ring-1 ring-line">
+              Sync ESPN schedule
+            </ActionButton>
           </div>
         </div>
         {slate.status === "open" && ctx.settings.lock.mode === "weekly" && slate.lock_at && (
