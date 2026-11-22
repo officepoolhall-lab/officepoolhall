@@ -303,14 +303,16 @@ async function invoke(name: string, body: Record<string, unknown>) {
   return { data };
 }
 
-/** Sync from today through the end of the latest draft week (at least 14 days, at most 30). */
+/** Sync from today: NFL the next 30 days; otherwise through the latest draft week (14 to 30 days). */
 export async function syncSchedule(slug: string): Promise<ActionState> {
   const ctx = await requireCommissioner(slug);
   const { data: draft } = await ctx.supabase
     .from("slates").select("window_end").eq("pool_id", ctx.pool.id).eq("status", "draft")
     .order("window_end", { ascending: false }).limit(1).maybeSingle();
   const untilDraftEnd = draft ? Math.ceil((new Date(draft.window_end).getTime() - Date.now()) / 86_400_000) : 0;
-  const days = Math.min(Math.max(14, untilDraftEnd), 30);
+  // NFL: always the next 30 days (the schedule is set weeks ahead, and NFL weeks are made
+  // automatically from it). Otherwise at least 14 days, through the latest draft week.
+  const days = ctx.pool.sport === "nfl" ? 30 : Math.min(Math.max(14, untilDraftEnd), 30);
 
   const r = await invoke("sync-schedule", { sport: ctx.pool.sport, days });
   if ("error" in r) return { error: r.error };
