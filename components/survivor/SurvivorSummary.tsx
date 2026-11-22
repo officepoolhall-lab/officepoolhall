@@ -73,6 +73,11 @@ export function SurvivorSummary({
     .map((t) => ({ team: t, n: survivors.filter((r) => !r.used.has(t.id)).length }))
     .sort((a, b) => b.n - a.n || (a.team.abbreviation ?? "").localeCompare(b.team.abbreviation ?? ""));
 
+  // The split only moves once a week is final: entries still in coming into the current week
+  // (the first week with a game not yet final; after the last week, everyone still alive).
+  const current = [...weeks].sort((a, b) => a.week - b.week).find((w) => w.games.some((g) => !g.final && !g.voided)) ?? null;
+  const splitWays = current ? rows.filter((r) => r.outWeek === null || r.outWeek >= current.week).length : alive;
+
   const scoreOf = (t: TeamRow) => {
     const g = t.game;
     if (!g || !g.started || g.homeScore === null || g.awayScore === null) return null;
@@ -89,8 +94,9 @@ export function SurvivorSummary({
           <span className="ml-2 text-sm font-semibold text-ink">{pct(alive, total)}</span>
         </p>
         <p className="text-sm text-muted tabular-nums">{total - alive} eliminated</p>
-        {/* The pot, and what each entry still alive would take if they split it right now. */}
-        {entryFee > 0 && alive > 0 && (
+        {/* The pot, and what each entry would take splitting it, counting everyone still in coming
+            into the current week (it changes once a week is final, not game by game). */}
+        {entryFee > 0 && splitWays > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-xl bg-surface px-2 py-2">
               <div className="text-[11px] font-medium text-muted">Pot</div>
@@ -98,9 +104,9 @@ export function SurvivorSummary({
               <div className="text-[11px] text-muted tabular-nums">{total} × {money(entryFee)}</div>
             </div>
             <div className="rounded-xl bg-surface px-2 py-2">
-              <div className="text-[11px] font-medium text-muted">Split today</div>
-              <div className="text-lg font-bold tabular-nums text-win">{money((entryFee * total) / alive)}</div>
-              <div className="text-[11px] text-muted tabular-nums">each, {alive} way{alive === 1 ? "" : "s"}</div>
+              <div className="text-[11px] font-medium text-muted">{current ? `Split into ${current.label}` : "Split"}</div>
+              <div className="text-lg font-bold tabular-nums text-win">{money((entryFee * total) / splitWays)}</div>
+              <div className="text-[11px] text-muted tabular-nums">each, {splitWays} way{splitWays === 1 ? "" : "s"}</div>
             </div>
           </div>
         )}
