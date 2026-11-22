@@ -40,6 +40,7 @@ export function SurvivorBoard({
   backHref,
   historyHref,
   save,
+  fixedNow,
 }: {
   slug: string;
   weekLabel: string;
@@ -62,9 +63,12 @@ export function SurvivorBoard({
   backHref: string;
   historyHref?: string;
   save: (gameId: string, teamId: string) => Promise<{ error?: string }>;
+  /** A demo pool shown as of an earlier moment: that moment, instead of the clock. */
+  fixedNow?: number;
 }) {
   const router = useRouter();
-  const now = useNow(serverGames, null);
+  const clock = useNow(serverGames, null);
+  const now = fixedNow ?? clock;
   const games = useLiveGames(serverGames, now, "nfl");
   const [pick, setPick] = useState(initialPick);
   const [error, setError] = useState<string | null>(null);
