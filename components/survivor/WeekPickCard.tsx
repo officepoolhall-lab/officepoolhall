@@ -94,3 +94,55 @@ export function WeekPickCard({
     </section>
   );
 }
+
+/**
+ * An eliminated entry's My Pick: the pick that knocked it out, laid out like the pick card, in
+ * red: "Eliminated · Week N", the team and its opponent, the final score and "Lost". Out on a
+ * missed week (no pick), just "Eliminated in Week N · No pick".
+ */
+export function EliminatedCard({
+  week,
+  game,
+  side,
+  className = "",
+}: {
+  week: number;
+  game: SlateGame | null;
+  side: Side | null;
+  className?: string;
+}) {
+  const team = game && side ? game[side] : null;
+  const box = `rounded-2xl border-2 border-loss/60 bg-[var(--loss-fill)] ${className}`;
+  if (!team || !game || !side) {
+    return (
+      <section className={`flex w-fit max-w-full items-center gap-2 px-3 py-1.5 ${box}`} aria-label={`Eliminated in Week ${week}`}>
+        <span className="whitespace-nowrap text-lg font-bold text-loss">Eliminated in Week {week}</span>
+        <span className="whitespace-nowrap text-sm text-muted">· No pick</span>
+      </section>
+    );
+  }
+  const mine = side === "home" ? game.homeScore : game.awayScore;
+  const theirs = side === "home" ? game.awayScore : game.homeScore;
+  return (
+    <section className={`px-4 py-3 ${box}`} aria-label={`Eliminated in Week ${week}`}>
+      <div className="truncate text-xs font-semibold uppercase tracking-wide text-loss">Eliminated · Week {week}</div>
+      <div className="mt-1.5 flex items-center gap-3">
+        <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-10 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xl font-extrabold leading-tight tracking-[-0.02em] text-ink">{teamName(team)}</div>
+          <div className="truncate text-sm text-muted">
+            {side === "away" && !game.neutral ? "at" : "vs"} {teamName(side === "home" ? game.away : game.home)}
+          </div>
+        </div>
+        {mine !== null && theirs !== null && (
+          <div className="shrink-0 text-right">
+            <div className="text-xl font-extrabold tabular-nums leading-tight text-ink">
+              {mine}–{theirs}
+            </div>
+            <div className="text-xs font-semibold text-loss">{mine === theirs ? "Tied" : "Lost"}</div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
