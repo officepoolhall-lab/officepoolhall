@@ -148,8 +148,9 @@ export async function typeSquaresNumbers(slug: string, _: ActionState, form: For
 export async function saveSquaresBoard(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
   if (poolFormat(ctx.pool.settings) !== "squares") return { error: "This isn't a Squares pool." };
-  const home = String(form.get("home_name") ?? "").trim().slice(0, 30) || "NFC";
-  const away = String(form.get("away_name") ?? "").trim().slice(0, 30) || "AFC";
+  const college = ctx.pool.sport !== "nfl";
+  const home = String(form.get("home_name") ?? "").trim().slice(0, 30) || (college ? "Home" : "NFC");
+  const away = String(form.get("away_name") ?? "").trim().slice(0, 30) || (college ? "Away" : "AFC");
   const game = String(form.get("game") ?? "").trim();
   if (game && !/^\d{6,}$/.test(game)) return { error: "Choose a game from the list." };
   const scores: Record<string, [number, number]> = {};

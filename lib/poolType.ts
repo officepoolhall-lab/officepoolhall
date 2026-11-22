@@ -23,7 +23,7 @@ export function poolTypeLabel(pool: { sport: string | null; settings: unknown })
     return `NCAA Pick ${typeof n === "number" ? n : "X"}`;
   }
   if (s.format === "survivor") return "NFL Survivor";
-  if (s.format === "squares") return "Super Bowl Squares";
+  if (s.format === "squares") return pool.sport === "nfl" ? "Super Bowl Squares" : "College Football Squares";
   if (s.format === "playoff_fantasy") return "NFL Playoff Fantasy";
   if (s.confidence) return `${league} Confidence Pool`;
   return s.pick_type === "straight_up" ? `${league} Pick'em` : `${league} Supercontest`;

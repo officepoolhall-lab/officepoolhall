@@ -124,10 +124,14 @@ export async function getPlayoffField(season: number): Promise<PlayoffField | nu
   return { teams: [...teams.values()], firstKickoff: dates[0] ?? null };
 }
 
-/** This week's NFL games on ESPN (for choosing a board's game without typing an id). Cached ten minutes; never rejects. */
-export async function getThisWeeksGames(): Promise<{ id: string; label: string; date: string | null }[]> {
+/**
+ * This week's games on ESPN, NFL or college football (FBS), for choosing a board's game
+ * without typing an id. Cached ten minutes; never rejects.
+ */
+export async function getThisWeeksGames(sport: "nfl" | "ncaaf" = "nfl"): Promise<{ id: string; label: string; date: string | null }[]> {
   try {
-    const res = await fetch(`${ESPN}/scoreboard`, { headers: HEADERS, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
+    const url = sport === "nfl" ? `${ESPN}/scoreboard` : "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300";
+    const res = await fetch(url, { headers: HEADERS, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
     const data = (await res.json()) as Row;
     return ((data?.events ?? []) as Row[])

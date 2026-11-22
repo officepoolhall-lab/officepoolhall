@@ -36,13 +36,13 @@ export function SquaresRulesFields({ initial }: { initial: SquaresSettings }) {
             onChange={(v) => setS((p) => ({ ...p, entry: v, numbers: v === "players" && p.numbers === "ordered" ? "random" : p.numbers }))}
             options={[
               { value: "commissioner", label: "The commissioner", text: "You type each name into its square. Nobody else needs an account; share the board for people to watch." },
-              { value: "players", label: "The players", text: "Share the pool's invite link. Each person joins and puts a name on the squares they want." },
+              { value: "players", label: "Anyone with the link", text: "Share the board's link. People tap the squares they want, type their name and save. No account needed, and a saved square can only be changed by you." },
             ]}
           />
           {s.entry === "commissioner" && <p className="mt-2 text-xs text-muted">You can also give a list of names with how many squares each, and have the board filled at random (Commissioner → Board).</p>}
         </SettingRow>
         {s.entry === "players" && (
-          <SettingRow label="Limit squares per player" hint={s.max_per_entry ? `Each player can take up to ${s.max_per_entry}.` : "Anyone can take as many as they like."}>
+          <SettingRow label="Limit squares per person" hint={s.max_per_entry ? `Each person can take up to ${s.max_per_entry} (counted per phone or computer).` : "Anyone can take as many as they like."}>
             <div className="flex items-center gap-2">
               {s.max_per_entry !== null && (
                 <input
@@ -67,7 +67,7 @@ export function SquaresRulesFields({ initial }: { initial: SquaresSettings }) {
         </SettingRow>
       </SettingsSection>
 
-      <SettingsSection title="The numbers" description="The digits 0-9 along the top and side. They're set on Commissioner → Board once the squares are filled, and that locks the board.">
+      <SettingsSection title="The numbers" description="The digits 0-9 along the top and side. They can only be set on Commissioner → Board once all 100 squares are filled, and that locks the board.">
         <SettingRow label="Numbers are" stack>
           <OptionCards
             ariaLabel="How the numbers are set"

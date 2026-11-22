@@ -56,7 +56,7 @@ export async function createPool(_: ActionState, form: FormData): Promise<Action
   // Survivor, Squares and Playoff Fantasy: an NFL pool with its own format and rules.
   const format = String(form.get("format") ?? "");
   if (format) {
-    if (sport !== "nfl") return { error: "That's an NFL pool." };
+    if (sport !== "nfl" && !(sport === "ncaaf" && format === "squares")) return { error: "That's an NFL pool." };
     let rules: unknown;
     try {
       rules = JSON.parse(String(form.get("rules")));

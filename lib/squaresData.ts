@@ -1,6 +1,7 @@
 import "server-only";
 import { getGameSummary } from "./gameSummary";
 import { getSuperBowl } from "./nflPlayoffs";
+import { teamSport } from "./sports";
 import { scoresFromLines, squaresSettings, winningSquare, type Score } from "./squares";
 
 // A Squares pool's board in one load: its settings, the game (the season's Super Bowl, found on
@@ -30,32 +31,37 @@ export type SquaresBoard = {
 };
 
 /** Where the board is read from: a signed-in viewer's own client, or (for the public link) the service role with no viewer. */
-export type SquaresSource = { supabase: unknown; pool: { id: string; season: number; settings: unknown }; userId: string | null };
-export type Square = { label: string; userId: string | null };
+export type SquaresSource = { supabase: unknown; pool: { id: string; season: number; sport: string | null; settings: unknown } };
+export type Square = { label: string };
 
 const asScore = (v: unknown): Score | null =>
   Array.isArray(v) && v.length === 2 && v.every((n) => Number.isInteger(n) && n >= 0) ? { home: v[0] as number, away: v[1] as number } : null;
+/** The stand-in team name: what the commissioner typed, else "Home"/"Away" for a college board (the saved default is the NFL's conferences). */
+const standIn = (saved: string | null | undefined, college: boolean, collegeDefault: string, nflDefault: string) =>
+  !saved || (college && /^(afc|nfc)$/i.test(saved)) ? (college ? collegeDefault : nflDefault) : saved;
 const placeholder = (name: string | null | undefined) => !name || /^(tbd|afc|nfc)$/i.test(name.trim());
 
 export async function getSquares(ctx: SquaresSource) {
   const settings = squaresSettings(ctx.pool.settings);
   const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [{ data: b }, { data: claimRows }, { data: me }] = await Promise.all([
+  const [{ data: b }, { data: claimRows }] = await Promise.all([
     db.from("squares_boards").select("*").eq("pool_id", ctx.pool.id).maybeSingle(),
-    db.from("squares_claims").select("idx, label, user_id").eq("pool_id", ctx.pool.id),
-    ctx.userId ? db.from("profiles").select("display_name").eq("id", ctx.userId).maybeSingle() : Promise.resolve({ data: null }),
+    db.from("squares_claims").select("idx, label").eq("pool_id", ctx.pool.id),
   ]);
   const row = (b ?? {}) as Row;
+  const sport = teamSport(ctx.pool.sport);
+  const college = sport !== "nfl";
   const chosen: string | null = row.game_espn_id ?? null;
-  // No game chosen: the season's Super Bowl, as soon as ESPN lists it.
-  const gameId = chosen ?? (await getSuperBowl(ctx.pool.season).catch(() => null))?.id ?? null;
+  // An NFL board with no game chosen follows the season's Super Bowl, as soon as ESPN lists it.
+  // A college board follows the game its commissioner chooses.
+  const gameId = chosen ?? (college ? null : (await getSuperBowl(ctx.pool.season).catch(() => null))?.id ?? null);
 
   // ESPN's teams and quarter scores for the game. A typed-in score wins over ESPN's.
   let espn: (Score | null)[] = [null, null, null, null];
   let live: string | null = null;
   let names: { home: string; away: string } | null = null;
   if (gameId) {
-    const sum = await getGameSummary("nfl", gameId, true).catch(() => null);
+    const sum = await getGameSummary(sport, gameId, true).catch(() => null);
     if (sum?.home && sum.away) {
       if (!placeholder(sum.home.name) && !placeholder(sum.away.name)) names = { home: sum.home.name, away: sum.away.name };
       if (sum.status.state && sum.status.state !== "pre") {
@@ -67,8 +73,8 @@ export async function getSquares(ctx: SquaresSource) {
   }
   const board: SquaresBoard = {
     // ESPN's home team runs across the top, so its scores line up with the columns.
-    homeName: names?.home ?? row.home_name ?? "NFC",
-    awayName: names?.away ?? row.away_name ?? "AFC",
+    homeName: names?.home ?? standIn(row.home_name, college, "Home", "NFC"),
+    awayName: names?.away ?? standIn(row.away_name, college, "Away", "AFC"),
     chosenGameId: chosen,
     gameEspnId: gameId,
     namesFromEspn: Boolean(names),
@@ -79,8 +85,8 @@ export async function getSquares(ctx: SquaresSource) {
     shareToken: row.share_token ?? null,
     randomFilled: row.random_filled === true,
   };
-  const squares = new Map<number, Square>(((claimRows ?? []) as Row[]).map((c) => [c.idx as number, { label: c.label as string, userId: (c.user_id as string | null) ?? null }]));
+  const squares = new Map<number, Square>(((claimRows ?? []) as Row[]).map((c) => [c.idx as number, { label: c.label as string }]));
   const scores = board.manual.map((m, i) => m ?? espn[i]);
   const winners = scores.map((s) => winningSquare(board.colDigits, board.rowDigits, s));
-  return { settings, board, squares, scores, winners, live, myName: ((me as Row | null)?.display_name as string | undefined) ?? "" };
+  return { settings, board, squares, scores, winners, live, college };
 }

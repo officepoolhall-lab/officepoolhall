@@ -9,7 +9,7 @@ import type { PresetKey } from "./poolSettings";
 
 export type GolfTemplate = "golf_tiers" | "golf_salary";
 /** NFL pools with their own format (settings.format): Survivor, Super Bowl Squares, Playoff Fantasy. */
-export type FormatTemplate = "nfl_survivor" | "nfl_squares" | "nfl_playoff_fantasy";
+export type FormatTemplate = "nfl_survivor" | "nfl_squares" | "nfl_playoff_fantasy" | "ncaaf_squares";
 /** NCAA Pick X (settings.format = "pick_x"). */
 export type PickXTemplate = "ncaab_pickx";
 export type Template = PresetKey | GolfTemplate | PickXTemplate | FormatTemplate;
@@ -42,6 +42,7 @@ export const LEAGUES: CatalogLeague[] = [
       { live: true, id: "supercontest", name: "Supercontest", template: "ncaaf_ats", text: "Pick a set number of games against the spread from each week's slate." },
       { live: true, id: "pickem", name: "Pick 'Em", template: "ncaaf_pickem", text: "Pick winners straight up from the week's biggest games." },
       { live: true, id: "confidence", name: "Confidence", template: "ncaaf_confidence", text: "Pick every game on the slate and rank them by how sure you are." },
+      { live: true, id: "squares", name: "Squares", template: "ncaaf_squares", text: "A 10-by-10 grid for any college football game: a rivalry game, a bowl, the national championship. Each quarter's score picks a winner." },
     ],
   },
   {
@@ -77,7 +78,10 @@ export const TEMPLATE_FORMAT: Record<FormatTemplate, "survivor" | "squares" | "p
   nfl_survivor: "survivor",
   nfl_squares: "squares",
   nfl_playoff_fantasy: "playoff_fantasy",
+  ncaaf_squares: "squares",
 };
+/** The sport each format template's pool is. */
+export const TEMPLATE_SPORT: Record<FormatTemplate, "nfl" | "ncaaf"> = { nfl_survivor: "nfl", nfl_squares: "nfl", nfl_playoff_fantasy: "nfl", ncaaf_squares: "ncaaf" };
 export const isFormatTemplate = (t: string | null | undefined): t is FormatTemplate => Boolean(t && t in TEMPLATE_FORMAT);
 
 /** The league and type a template belongs to (for opening Start a Pool on it). */

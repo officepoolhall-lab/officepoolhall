@@ -4,67 +4,51 @@ import { claimSquare, releaseSquare } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { QUARTERS, initials, squaresRules } from "@/lib/squares";
 import { getSquares } from "@/lib/squaresData";
-import { SquaresGrid, type GridCell } from "./SquaresGrid";
+import { CommissionerBoard, PlayerBoard, StaticBoard, type GridCell } from "./SquaresGrid";
 
-// A Super Bowl Squares pool is one page: the board, with the quarter winners, the pot and who
-// has how many squares beside it. The pool routes reach this when settings.format is "squares";
-// the same view, read-only, is what the board's public link shows (app/board/[token]).
+// A Squares pool is one page: the board, with the quarter winners, the pot and who has how
+// many squares beside it. The pool routes reach this when settings.format is "squares"; the
+// same view is what the board's link shows to people without an account (app/board/[token]),
+// where they can also fill in squares when the pool lets players do that.
 
 const card = "rounded-2xl bg-surface p-4 sm:p-5";
 const WON = ["Q1", "Half", "Q3", "Final"];
 const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
 export async function SquaresHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
-  const data = await getSquares({ supabase: ctx.supabase, pool: ctx.pool, userId: ctx.user.id });
-  return <SquaresBoardView data={data} slug={slug} viewer={{ userId: ctx.user.id, isCommissioner: ctx.isCommissioner, isGuest: ctx.isGuest }} />;
+  const data = await getSquares({ supabase: ctx.supabase, pool: ctx.pool });
+  return <SquaresBoardView data={data} slug={slug} commissioner={ctx.isCommissioner} />;
 }
 
-/** The board and its side panels. `viewer` null: someone looking through the public link, who can't change anything. */
+/** The board and its side panels. `commissioner`: the signed-in commissioner, who can write on any square while the board is open. */
 export function SquaresBoardView({
   data,
   slug,
-  viewer,
+  commissioner = false,
   title,
 }: {
   data: Awaited<ReturnType<typeof getSquares>>;
   slug: string;
-  viewer: { userId: string; isCommissioner: boolean; isGuest: boolean } | null;
+  commissioner?: boolean;
   /** Shown above the matchup on the public page (the pool's name). */
   title?: string;
 }) {
-  const { settings, board, squares, scores, winners, live, myName } = data;
-  const me = viewer?.userId ?? null;
+  const { settings, board, squares, scores, winners, live } = data;
   const taken = squares.size;
-  const mineCount = me ? [...squares.values()].filter((s) => s.userId === me).length : 0;
   const pot = settings.price * taken;
+  const wonAt = (idx: number) => winners.map((w, q) => (w === idx ? WON[q] : null)).filter(Boolean).join("·") || null;
   const cells: GridCell[] = Array.from({ length: 100 }, (_, idx) => {
     const sq = squares.get(idx);
-    const won = winners.map((w, q) => (w === idx ? WON[q] : null)).filter(Boolean).join("·") || null;
-    return { name: sq?.label ?? null, short: sq ? initials(sq.label) : null, mine: Boolean(me && sq?.userId === me), won };
+    return { name: sq?.label ?? null, short: sq ? initials(sq.label) : null, mine: false, won: wonAt(idx) };
   });
-  // Who can fill the board while it's open: the commissioner always; players when the pool lets them.
   const players = settings.entry === "players";
-  const full = players && settings.max_per_entry !== null && mineCount >= settings.max_per_entry;
-  const edit =
-    board.drawn || !viewer
-      ? null
-      : viewer.isCommissioner
-        ? { defaultName: "", all: true, note: "Type a name, then tap every square it goes on. Tap a filled square to clear it (or, with a different name typed, to rename it)." }
-        : players && !viewer.isGuest
-          ? {
-              defaultName: myName,
-              all: false,
-              note: full
-                ? `You have your ${settings.max_per_entry} squares. Tap one of yours to give it back.`
-                : `Tap an open square to put this name on it${settings.max_per_entry ? ` (${mineCount} of ${settings.max_per_entry} taken)` : ""}. Tap one of yours to give it back.`,
-            }
-          : null;
+  const common = { homeName: board.homeName, awayName: board.awayName, colDigits: board.colDigits, rowDigits: board.rowDigits };
   // Squares per name (however it's capitalized).
   const tally = [...squares.values()].reduce((m, s) => {
     const k = s.label.trim().toLowerCase();
-    m.set(k, { name: m.get(k)?.name ?? s.label, n: (m.get(k)?.n ?? 0) + 1, mine: (m.get(k)?.mine ?? false) || Boolean(me && s.userId === me) });
+    m.set(k, { name: m.get(k)?.name ?? s.label, n: (m.get(k)?.n ?? 0) + 1 });
     return m;
-  }, new Map<string, { name: string; n: number; mine: boolean }>());
+  }, new Map<string, { name: string; n: number }>());
   const names = [...tally.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
 
   return (
@@ -74,25 +58,24 @@ export function SquaresBoardView({
         sub={
           board.drawn
             ? "The numbers are set and the board is locked."
-            : `${taken} of 100 squares filled. ${players ? "Players put their own names on squares" : "The commissioner fills in the names"}; the numbers come once the board is ready.`
+            : `${taken} of 100 squares filled. ${players ? "Anyone with the board's link can put their name on squares" : "The commissioner fills in the names"}; the numbers go on once the board is full.`
         }
       >
         {board.awayName} vs {board.homeName}
       </PageTitle>
-      {/* Live during the game; the public page also refreshes while the board is still filling. */}
-      {(live || (!viewer && !board.drawn)) && <AutoRefresh active />}
+      {/* Live during the game, and while the board is still filling. */}
+      {(live || !board.drawn) && <AutoRefresh active seconds={live ? 60 : 20} />}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <section className={`${card} !p-3 sm:!p-5`}>
-          <SquaresGrid
-            cells={cells}
-            homeName={board.homeName}
-            awayName={board.awayName}
-            colDigits={board.colDigits}
-            rowDigits={board.rowDigits}
-            edit={edit}
-            claim={claimSquare.bind(null, slug)}
-            release={releaseSquare.bind(null, slug)}
-          />
+          {board.drawn ? (
+            <StaticBoard {...common} cells={cells} />
+          ) : commissioner ? (
+            <CommissionerBoard {...common} cells={cells} claim={claimSquare.bind(null, slug)} release={releaseSquare.bind(null, slug)} />
+          ) : players && board.shareToken ? (
+            <PlayerBoard {...common} token={board.shareToken} cells={cells} max={settings.max_per_entry} won={{}} />
+          ) : (
+            <StaticBoard {...common} cells={cells} />
+          )}
           <p className="mt-3 text-xs text-muted">
             Columns are the last digit of the {board.homeName} score; rows, the {board.awayName} score.
           </p>
@@ -156,7 +139,7 @@ export function SquaresBoardView({
             ) : (
               <ul className="mt-1 divide-y divide-line">
                 {names.map((m) => (
-                  <li key={m.name} className={`flex items-center gap-2 py-2 text-sm ${m.mine ? "font-semibold text-accent" : ""}`}>
+                  <li key={m.name} className="flex items-center gap-2 py-2 text-sm">
                     <span className="min-w-0 flex-1 truncate">{m.name}</span>
                     <span className="tabular-nums text-muted">{m.n}</span>
                     {settings.price > 0 && <span className="w-14 text-right tabular-nums text-muted">{money(m.n * settings.price)}</span>}

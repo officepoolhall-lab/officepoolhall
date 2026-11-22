@@ -61,13 +61,13 @@ export function squaresRules(s: SquaresSettings): string[] {
   const cost = s.price > 0 ? ` Squares are ${money(s.price)} each.` : "";
   return [
     s.entry === "players"
-      ? `Tap an open square to put your name on it${s.max_per_entry ? `, up to ${s.max_per_entry} squares each` : ""}.${cost}`
+      ? `Tap the open squares you want, type your name and save${s.max_per_entry ? `, up to ${s.max_per_entry} squares each` : ""}. A saved square can only be changed by the commissioner.${cost}`
       : `The commissioner writes a name on each square.${cost}`,
     s.numbers === "random"
-      ? "Once the board is ready, the numbers along the top and side are drawn at random and the board locks."
+      ? "Once every square is filled, the numbers along the top and side are drawn at random and the board locks."
       : s.numbers === "ordered"
         ? "Names are placed on the board at random, and the numbers along the top and side run 0 to 9 in order."
-        : "The commissioner sets the numbers along the top and side, and then the board locks.",
+        : "Once every square is filled, the commissioner sets the numbers along the top and side and the board locks.",
     "At the end of each quarter, the square where the last digit of each team's score meets wins.",
     `Payouts: ${paid.map((x) => `${x.q} ${x.pct}%`).join(" · ")}.`,
   ];

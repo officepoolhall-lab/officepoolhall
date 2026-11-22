@@ -22,8 +22,9 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
   const { slug } = await params;
   const ctx = await requireCommissioner(slug);
   if (poolFormat(ctx.pool.settings) !== "squares") notFound();
-  const source = { supabase: ctx.supabase, pool: ctx.pool, userId: ctx.user.id };
-  const games = await getThisWeeksGames();
+  const source = { supabase: ctx.supabase, pool: ctx.pool };
+  const college = ctx.pool.sport !== "nfl";
+  const games = await getThisWeeksGames(college ? "ncaaf" : "nfl");
   let data = await getSquares(source);
   // The board's row (and with it the share link) is made the first time the commissioner opens this page.
   if (!data.board.shareToken) {
@@ -35,6 +36,8 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
   const shareLink = board.shareToken ? `${appUrl}/board/${board.shareToken}` : null;
   // Numbers in order are only for a board filled at random.
   const orderedBlocked = settings.numbers === "ordered" && !board.randomFilled;
+  // The numbers only go on a full board.
+  const open = 100 - squares.size;
   const taken = squares.size;
   const num = `${settingInput} w-20 text-center tabular-nums`;
   const digitInput = "h-10 w-full rounded-lg bg-bg text-center text-[15px] font-semibold tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent";
@@ -47,7 +50,7 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
         title="1. Fill the board"
         description={
           settings.entry === "players"
-            ? "Players put their own names on squares. Share the invite link from the Roster tab. You can add, rename or clear any square yourself."
+            ? "Send the board's link below. Anyone with it can tap squares, type their name and save, with no account. A saved square can only be changed by you: open the board to add, rename or clear any square."
             : "You write the names: open the board, type a name, and tap each square it goes on."
         }
       >
@@ -80,7 +83,14 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
         )}
       </SettingsSection>
 
-      <SettingsSection title="Share the board" description="Anyone with this link can look at the board, the winners and the pot. No account, and nothing they can change.">
+      <SettingsSection
+        title="Share the board"
+        description={
+          settings.entry === "players" && !board.drawn
+            ? "Anyone with this link can fill in squares (no account needed) and watch the board. Once the numbers are set it's for watching only."
+            : "Anyone with this link can look at the board, the winners and the pot. No account, and nothing they can change."
+        }
+      >
         <div className="flex flex-wrap items-center gap-2 py-3">
           {shareLink ? (
             <>
@@ -91,6 +101,14 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
             <p className="text-sm text-muted">The link shows here once the board is set up (after the database update).</p>
           )}
         </div>
+        {shareLink && (
+          <div className="flex flex-wrap items-center gap-3 py-3">
+            <a href={`/board/${board.shareToken}/pdf`} className="inline-flex h-11 items-center rounded-full bg-bg px-5 text-[15px] font-semibold text-ink ring-1 ring-line hover:bg-hover">
+              Download the board as a PDF
+            </a>
+            <span className="text-sm text-muted">One page, ready to email or print for anyone without the link. Download it again after the game for the winners.</span>
+          </div>
+        )}
       </SettingsSection>
 
       <SettingsSection
@@ -107,7 +125,11 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
                 : "Type in the numbers for the top and side. Setting them locks the board."
         }
       >
-        {board.drawn ? (
+        {!board.drawn && open > 0 ? (
+          <p className="py-3 text-sm font-semibold text-ink">
+            {open} square{open === 1 ? " is" : "s are"} still open. The numbers can be set once all 100 squares are filled.
+          </p>
+        ) : board.drawn ? (
           <div className="flex flex-wrap items-center gap-3 py-3">
             <span className="text-sm text-muted tabular-nums">
               Top ({board.homeName}): {board.colDigits?.join(" ")} · Side ({board.awayName}): {board.rowDigits?.join(" ")}
@@ -142,7 +164,6 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
             </ActionButton>
           </div>
         )}
-        {!board.drawn && taken < 100 && <p className="pb-3 text-xs text-muted">{100 - taken} squares are still open. You can set the numbers anyway; an open square that wins pays nobody.</p>}
         {!board.drawn && (
           <p className="pb-3 text-xs text-muted">
             Random draw, in order or typed in is a pool setting. <Link href={`/p/${slug}/admin/settings`} className="font-semibold text-accent hover:underline">Change it on Settings</Link>
@@ -151,10 +172,28 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
       </SettingsSection>
 
       <ActionForm action={saveSquaresBoard.bind(null, slug)} className="space-y-4">
-        <SettingsSection title="The game" description="Nothing to set for the Super Bowl: the site finds it, shows the two teams once they're known, and fills in each quarter's score and winner.">
-          <SettingRow label="Game" hint={board.gameEspnId ? (board.namesFromEspn ? `Following ${board.awayName} at ${board.homeName}.` : "Following the Super Bowl; the teams show once they're set.") : "The Super Bowl isn't on the schedule yet; it'll be picked up when it is."}>
+        <SettingsSection
+          title="The game"
+          description={
+            college
+              ? "Choose the game from this week's college football schedule. The site then shows the two teams and fills in each quarter's score and winner. For a later game (a bowl, the title game), come back the week it's played."
+              : "Nothing to set for the Super Bowl: the site finds it, shows the two teams once they're known, and fills in each quarter's score and winner."
+          }
+        >
+          <SettingRow
+            label="Game"
+            hint={
+              board.gameEspnId
+                ? board.namesFromEspn
+                  ? `Following ${board.awayName} at ${board.homeName}.`
+                  : "Following the Super Bowl; the teams show once they're set."
+                : college
+                  ? "No game chosen yet. Until one is, type scores in below."
+                  : "The Super Bowl isn't on the schedule yet; it'll be picked up when it is."
+            }
+          >
             <select name="game" aria-label="Game" defaultValue={board.chosenGameId ?? ""} className={`${settingInput} w-full sm:w-72`}>
-              <option value="">The Super Bowl (found automatically)</option>
+              <option value="">{college ? "Not chosen yet" : "The Super Bowl (found automatically)"}</option>
               {options.map((g) => (
                 <option key={g.id} value={g.id}>{g.label}</option>
               ))}
