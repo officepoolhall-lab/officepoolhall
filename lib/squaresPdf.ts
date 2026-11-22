@@ -86,17 +86,41 @@ export function squaresPdf(b: PdfBoard): Uint8Array {
       box(x, y, cw, ch, w ? 0.86 : null);
       const name = b.names[idx];
       if (name) {
-        // Two lines when the name has a space and doesn't fit on one.
+        // The whole name: one line if it fits, else split over two (or three) lines at spaces,
+        // shrinking the type (down to 5pt) rather than cutting anything off.
         const t = latin(name);
-        const size = 8;
+        const bold = Boolean(w);
         const words = t.split(" ");
-        if (width(t, size, Boolean(w)) <= cw - 6 || words.length === 1) {
-          text(fit(t, cw - 6, size, Boolean(w)), x + cw / 2, y + ch / 2 - 3, size, { bold: Boolean(w), align: "center" });
-        } else {
-          const half = Math.ceil(words.length / 2);
-          text(fit(words.slice(0, half).join(" "), cw - 6, size, Boolean(w)), x + cw / 2, y + ch / 2 + 2, size, { bold: Boolean(w), align: "center" });
-          text(fit(words.slice(half).join(" "), cw - 6, size, Boolean(w)), x + cw / 2, y + ch / 2 - 8, size, { bold: Boolean(w), align: "center" });
+        const splits = (n: number): string[] => {
+          if (n === 1 || words.length < n) return [t];
+          // Balance the lines by length.
+          const per = t.length / n;
+          const lines: string[] = [];
+          let cur = "";
+          for (const word of words) {
+            if (cur && (cur + " " + word).length > per * 1.15 && lines.length < n - 1) {
+              lines.push(cur);
+              cur = word;
+            } else cur = cur ? `${cur} ${word}` : word;
+          }
+          lines.push(cur);
+          return lines;
+        };
+        let lines = [t];
+        let size = 8;
+        for (const n of [1, 2, 3]) {
+          const ls = splits(n);
+          const longest = Math.max(...ls.map((l) => width(l, 8, bold)));
+          const s8 = Math.min(8, (8 * (cw - 6)) / longest, (ch - 6) / (ls.length * 1.15));
+          if (s8 >= 7 || n === 3 || words.length <= n) {
+            lines = ls;
+            size = Math.max(5, Math.floor(s8 * 4) / 4);
+            break;
+          }
         }
+        const lead = size * 1.15;
+        const top = y + ch / 2 + ((lines.length - 1) * lead) / 2 - size * 0.35;
+        lines.forEach((l, i) => text(fit(l, cw - 4, size, bold), x + cw / 2, top - i * lead, size, { bold, align: "center" }));
       }
       if (w) text(w, x + cw - 3, y + ch - 8, 6, { bold: true, gray: 0.25, align: "right" });
     }

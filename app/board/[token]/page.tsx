@@ -29,13 +29,13 @@ export default async function SharedBoardPage({ params }: PageProps<"/board/[tok
   return (
     <div className="flex min-h-full flex-col">
       <header className="border-b border-line bg-bg pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center px-4">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center px-4 xl:max-w-6xl 2xl:max-w-7xl">
           <Link href="/" className="flex h-11 items-center text-ink">
             <Wordmark className="text-[19px]" />
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="mx-auto w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl flex-1 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <SquaresBoardView data={data} slug={pool.slug} title={pool.name} />
       </main>
     </div>

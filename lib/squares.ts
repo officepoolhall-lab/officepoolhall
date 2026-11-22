@@ -104,7 +104,14 @@ export function scoresFromLines(homeLines: string[], awayLines: string[], over: 
   return [at(1), at(2), at(3), final];
 }
 
-/** "JD" for "Jordan Davis": what fits in a square on a phone. */
+/** "Jordan D." for "Jordan Davis": the name in a square on a phone (a single name stays whole). */
+export const shortName = (name: string) => {
+  const w = name.trim().split(/\s+/).filter(Boolean);
+  if (w.length < 2) return w[0] ?? "?";
+  return `${w[0]} ${w[w.length - 1]![0]!.toUpperCase()}.`;
+};
+
+/** "JD" for "Jordan Davis". */
 export const initials = (name: string) =>
   name
     .split(/\s+/)

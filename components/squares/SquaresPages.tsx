@@ -2,7 +2,7 @@ import { Empty, PageTitle } from "@/components/ui";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { claimSquare, releaseSquare } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { QUARTERS, initials, squaresRules } from "@/lib/squares";
+import { QUARTERS, shortName, squaresRules } from "@/lib/squares";
 import { getSquares } from "@/lib/squaresData";
 import { CommissionerBoard, PlayerBoard, StaticBoard, type GridCell } from "./SquaresGrid";
 
@@ -39,7 +39,7 @@ export function SquaresBoardView({
   const wonAt = (idx: number) => winners.map((w, q) => (w === idx ? WON[q] : null)).filter(Boolean).join("·") || null;
   const cells: GridCell[] = Array.from({ length: 100 }, (_, idx) => {
     const sq = squares.get(idx);
-    return { name: sq?.label ?? null, short: sq ? initials(sq.label) : null, mine: false, won: wonAt(idx) };
+    return { name: sq?.label ?? null, short: sq ? shortName(sq.label) : null, mine: false, won: wonAt(idx) };
   });
   const players = settings.entry === "players";
   const common = { homeName: board.homeName, awayName: board.awayName, colDigits: board.colDigits, rowDigits: board.rowDigits };

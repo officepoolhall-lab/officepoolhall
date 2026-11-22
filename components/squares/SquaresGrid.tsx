@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { holdSquare, saveHeldSquares, unholdSquare } from "@/app/board/actions";
 import { buttonClass } from "@/components/ui";
-import { initials } from "@/lib/squares";
+import { shortName } from "@/lib/squares";
+import { SquareName } from "./SquareName";
 
 export type GridCell = {
   name: string | null;
@@ -23,7 +24,9 @@ type Common = { homeName: string; awayName: string; colDigits: number[] | null; 
 function Grid({ cells, homeName, awayName, colDigits, rowDigits, canTap, onTap, busy }: Common & { cells: GridCell[]; canTap?: (c: GridCell) => boolean; onTap?: (idx: number, c: GridCell) => void; busy?: number | null }) {
   const digit = "flex aspect-square items-center justify-center rounded-md bg-ink text-xs font-bold tabular-nums text-bg sm:text-sm";
   return (
-    <>
+    // Phones: the board keeps squares big enough to read a name and scrolls sideways.
+    <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+     <div className="min-w-[34rem] sm:min-w-0">
       {/* The home team across the top, the away team down the side. */}
       <div className="mb-1 pl-7 text-center text-sm font-bold sm:pl-9">{homeName}</div>
       <div className="flex gap-1">
@@ -64,11 +67,20 @@ function Grid({ cells, homeName, awayName, colDigits, rowDigits, canTap, onTap, 
                               : `bg-surface text-ink ring-line ${tappable ? "hover:ring-2 hover:ring-accent" : ""}`
                   } ${busy === idx ? "opacity-50" : ""}`}
                 >
-                  <span className="truncate px-0.5 sm:hidden">{cell.short ?? (cell.held === "me" ? "✓" : cell.held === "other" ? "…" : "")}</span>
-                  {/* A long name shows its first word; the whole name is in the hover text and the list beside the board. */}
-                  <span className="hidden truncate px-1 sm:block">
-                    {cell.name ? (cell.name.length > 9 ? cell.name.split(" ")[0] : cell.name) : cell.held === "me" ? "Yours" : cell.held === "other" ? "…" : ""}
-                  </span>
+                  {cell.name ? (
+                    <>
+                      {/* Phones: first name and last initial; larger screens: the full name. Either
+                          way the whole of it shows, shrinking to fit the square. */}
+                      <span className="sm:hidden">
+                        <SquareName name={cell.short ?? cell.name} className="text-[10px]" />
+                      </span>
+                      <span className="max-sm:hidden">
+                        <SquareName name={cell.name} className="text-[11px] lg:text-xs" />
+                      </span>
+                    </>
+                  ) : (
+                    <span className="px-0.5">{cell.held === "me" ? (<><span className="sm:hidden">✓</span><span className="max-sm:hidden">Yours</span></>) : cell.held === "other" ? "…" : ""}</span>
+                  )}
                   {/* Which quarter it won (the green outline alone on phones, where there's no room). */}
                   {cell.won && <span className="absolute right-0 top-0 hidden rounded-bl bg-win px-0.5 text-[9px] font-bold text-white sm:block">{cell.won}</span>}
                 </button>
@@ -77,7 +89,8 @@ function Grid({ cells, homeName, awayName, colDigits, rowDigits, canTap, onTap, 
           ])}
         </div>
       </div>
-    </>
+     </div>
+    </div>
   );
 }
 
@@ -195,7 +208,7 @@ export function PlayerBoard({ token, cells, max, won, ...common }: Common & { to
     ? Array.from({ length: 100 }, (_, i) => {
         const s = live.squares.find((x) => x.i === i);
         const h = live.holds.find((x) => x.i === i);
-        return { name: s?.n ?? null, short: s ? initials(s.n) : null, mine: Boolean(s?.m), held: s ? null : h ? (h.m ? "me" : "other") : null, won: won[i] ?? null };
+        return { name: s?.n ?? null, short: s ? shortName(s.n) : null, mine: Boolean(s?.m), held: s ? null : h ? (h.m ? "me" : "other") : null, won: won[i] ?? null };
       })
     : cells;
   const held = view.filter((c) => c.held === "me").length;
