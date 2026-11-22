@@ -1,4 +1,4 @@
-import { LockIcon, TeamLogo } from "@/components/ui";
+import { LockIcon, TeamLogo, TrophyIcon } from "@/components/ui";
 import { shortGameTime } from "@/lib/format";
 import type { SlateGame } from "@/lib/pool";
 
@@ -142,6 +142,50 @@ export function EliminatedCard({
             <div className="text-xs font-semibold text-loss">{mine === theirs ? "Tied" : "Lost"}</div>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The pool is over: who won. "You won the pool!" for the winner; everyone else sees the
+ * winner's name. Shared when everyone left went out in the same week.
+ */
+export function WinnerCard({
+  names,
+  week,
+  mine,
+  prize,
+  compact = false,
+  className = "",
+}: {
+  names: string[];
+  week: number;
+  /** The viewer is (one of) the winner(s). */
+  mine: boolean;
+  /** "$9,450", or "$4,725 each" when shared; omitted without an entry fee. */
+  prize?: string | null;
+  compact?: boolean;
+  className?: string;
+}) {
+  const shared = names.length > 1;
+  return (
+    <section className={`rounded-2xl border-2 border-accent bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg))] px-4 py-3 ${className}`} aria-label="Pool winner">
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-accent">
+        <TrophyIcon className="size-3.5" />
+        {shared ? "Pool winners" : "Pool winner"}
+      </div>
+      <div className={`mt-1 font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>
+        {mine && !shared ? "You won the pool!" : names.join(" & ")}
+      </div>
+      <div className="mt-0.5 text-sm text-muted">
+        {shared ? `Everyone left went out in Week ${week}: they share it` : `Last one standing after Week ${week}`}
+        {prize ? (
+          <>
+            {" · "}
+            <span className="font-semibold text-win">{prize}</span>
+          </>
+        ) : null}
       </div>
     </section>
   );

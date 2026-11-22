@@ -76,7 +76,8 @@ export function applyDemoResults(weeks: SvWeek[], results: Record<string, [numbe
     ...w,
     games: w.games.map((g) => {
       const r = results[g.id];
-      if (!r || g.final || g.voided) return g;
+      // Listed games keep their made-up final even after the real game ends, so a demo stays as set.
+      if (!r || g.voided) return g;
       return { ...g, started: true, final: true, homeScore: r[0], awayScore: r[1], clock: null };
     }),
   }));
@@ -236,4 +237,21 @@ export function demoLive(weeks: SvWeek[], liveWeek: number): SvWeek[] {
         }),
       };
     });
+}
+
+/**
+ * Who has won the pool, once it's decided: the last entry standing; or, when everyone left
+ * goes out in the same week, all of them (they share it). Decided means the week that left
+ * one (or none) standing is over: every game in it final. Undecided: null.
+ */
+export function survivorWinners(rows: SvRow[], weeks: SvWeek[]): { userIds: string[]; week: number } | null {
+  if (rows.length < 2) return null;
+  const alive = rows.filter((r) => r.alive);
+  if (alive.length > 1) return null;
+  const lastOut = Math.max(0, ...rows.map((r) => r.outWeek ?? 0));
+  if (!lastOut) return null;
+  const week = weeks.find((w) => w.week === lastOut);
+  if (!week || !week.games.filter((g) => !g.voided).every((g) => g.final)) return null;
+  const userIds = alive.length === 1 ? [alive[0].userId] : rows.filter((r) => r.outWeek === lastOut).map((r) => r.userId);
+  return { userIds, week: lastOut };
 }

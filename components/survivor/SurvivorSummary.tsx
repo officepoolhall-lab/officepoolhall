@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { FitText } from "@/components/FitText";
-import { SectionLabel, TeamLogo } from "@/components/ui";
-import type { SvGame, SvRow, SvTeam, SvWeek } from "@/lib/survivor";
+import { SectionLabel, TeamLogo, TrophyIcon } from "@/components/ui";
+import { survivorWinners, type SvGame, type SvRow, type SvTeam, type SvWeek } from "@/lib/survivor";
 
 // The Survivor Standings' Pool Summary (the pop-out tab, as on the League Grid): who's left,
 // what the pool picked this week and how it's going, and the season so far. Built from the
@@ -23,6 +23,7 @@ export function SurvivorSummary({
   onSurface = false,
   only,
   page = false,
+  hideWinner = false,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
@@ -38,6 +39,8 @@ export function SurvivorSummary({
   only?: SummaryPart[];
   /** Headings in the page style (Home) rather than the panel's small grey labels. */
   page?: boolean;
+  /** The page already shows the winner (Home's winner card): just the prize here. */
+  hideWinner?: boolean;
 }) {
   const show = (p: SummaryPart) => !only || only.includes(p);
   const H = ({ children }: { children: ReactNode }) =>
@@ -45,6 +48,9 @@ export function SurvivorSummary({
     page ? <SectionLabel fit className="!text-sm lg:!text-base">{children}</SectionLabel> : <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{children}</h3>;
   const box = onSurface ? "bg-bg" : "bg-surface";
   const total = rows.length;
+  // The pool is over once one entry is left standing (or everyone left went out together).
+  const won = survivorWinners(rows, weeks);
+  const winnerNames = won ? rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name) : [];
   const alive = rows.filter((r) => r.alive).length;
   // The week to sum up: the latest one with a game under way or over.
   const shown = [...weeks].sort((a, b) => b.week - a.week).find((w) => w.games.some((g) => g.started)) ?? null;
@@ -101,12 +107,21 @@ export function SurvivorSummary({
     <div className="space-y-6">
       {show("remaining") && (
       <section>
-        <H>Entries remaining</H>
-        <p className="mt-1 tabular-nums">
+        {!(won && hideWinner) && <H>{won ? (winnerNames.length > 1 ? "Pool winners" : "Pool winner") : "Entries remaining"}</H>}
+{won ? (hideWinner ? null : (
+          <p className="mt-1 flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em] text-ink">
+            <TrophyIcon className="size-5 shrink-0 text-accent" />
+            <span className="min-w-0">{winnerNames.join(" & ")}</span>
+          </p>
+        )) : (
+                <p className="mt-1 tabular-nums">
           <span className="text-3xl font-extrabold text-win">{alive}</span> <span className="text-muted">of {total}</span>
           <span className="ml-2 text-sm font-semibold text-ink">({pct(alive, total)})</span>
         </p>
-        <p className="whitespace-nowrap text-sm text-muted tabular-nums">{total - alive} eliminated</p>
+        )}
+        {!(won && hideWinner) && <p className="whitespace-nowrap text-sm text-muted tabular-nums">
+          {won ? (winnerNames.length > 1 ? `Won together in Week ${won.week}` : `Last one standing after Week ${won.week}`) : `${total - alive} eliminated`}
+        </p>}
         {/* The pot, and what each entry would take splitting it, counting everyone still in coming
             into the current week (it changes once a week is final, not game by game). */}
         {entryFee > 0 && splitWays > 0 && (
@@ -116,10 +131,22 @@ export function SurvivorSummary({
               <div className="text-[11px] font-medium text-muted">Pot</div>
             </div>
             <div className={`rounded-xl px-2 py-2 ${box}`}>
-              <div className="text-lg font-bold tabular-nums text-win">
-                {money((entryFee * total) / splitWays)} <span className="text-sm font-semibold">/ entry</span>
-              </div>
-              <div className="text-[11px] font-medium text-muted">If Split Today</div>
+              {won ? (
+                <>
+                  <div className="text-lg font-bold tabular-nums text-win">
+                    {money((entryFee * total) / won.userIds.length)}
+                    {won.userIds.length > 1 && <span className="text-sm font-semibold"> each</span>}
+                  </div>
+                  <div className="text-[11px] font-medium text-muted">{won.userIds.length > 1 ? "Winners take" : "Winner takes"}</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-lg font-bold tabular-nums text-win">
+                    {money((entryFee * total) / splitWays)} <span className="text-sm font-semibold">/ entry</span>
+                  </div>
+                  <div className="text-[11px] font-medium text-muted">If Split Today</div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -194,7 +221,7 @@ export function SurvivorSummary({
         </section>
       )}
 
-      {show("teams") && !reuse && survivors.length > 0 && (
+      {show("teams") && !reuse && !won && survivors.length > 0 && (
         <section>
           <H>Teams left for the survivors</H>
           <FitText min={8} className="mt-0.5 text-xs text-muted">Alive entries that haven&apos;t used each team yet</FitText>
