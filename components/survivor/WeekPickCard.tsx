@@ -153,14 +153,14 @@ export function EliminatedCard({
  */
 export function WinnerCard({
   names,
-  week,
   mine,
   prize,
   compact = false,
   className = "",
 }: {
   names: string[];
-  week: number;
+  /** The week it was decided (kept for callers). */
+  week?: number;
   /** The viewer is (one of) the winner(s). */
   mine: boolean;
   /** "$9,450", or "$4,725 each" when shared; omitted without an entry fee. */
@@ -178,15 +178,13 @@ export function WinnerCard({
       <div className={`mt-1 font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>
         {mine && !shared ? "You won the pool!" : names.join(" & ")}
       </div>
-      <div className="mt-0.5 text-sm text-muted">
-        {shared ? `Everyone left went out in Week ${week}: they share it` : `Last one standing after Week ${week}`}
-        {prize ? (
-          <>
-            {" · "}
-            <span className="font-semibold text-win">{prize}</span>
-          </>
-        ) : null}
-      </div>
+      {(shared || prize) && (
+        <div className="mt-0.5 text-sm text-muted">
+          {shared && "Shared"}
+          {shared && prize ? " · " : null}
+          {prize ? <span className="font-semibold text-win">{prize}</span> : null}
+        </div>
+      )}
     </section>
   );
 }

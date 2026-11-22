@@ -9,7 +9,7 @@ import { TeamHistoryDialog } from "@/components/ProfileDialogs";
 import { useLiveGames } from "@/components/useLiveGames";
 import { CheckIcon, ChevronIcon, LockIcon, chipClass } from "@/components/ui";
 import { dayKey, dayLabel, formatSpread } from "@/lib/format";
-import { EliminatedCard, WeekPickCard, WinnerCard } from "./WeekPickCard";
+import { EliminatedCard, WeekPickCard } from "./WeekPickCard";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
@@ -43,7 +43,6 @@ export function SurvivorBoard({
   clear,
   outWeek = null,
   outPick = null,
-  winner = null,
   fixedNow,
 }: {
   slug: string;
@@ -71,8 +70,6 @@ export function SurvivorBoard({
   outWeek?: number | null;
   /** The pick that eliminated this entry (null: out on a missed week). */
   outPick?: { game: SlateGame; side: Side } | null;
-  /** The pool is over: who won (replaces the pick card). */
-  winner?: { names: string[]; week: number; mine: boolean; prize: string | null } | null;
   /** Removes this week's pick (tapping the picked team again). */
   clear: () => Promise<{ error?: string }>;
   /** A demo pool shown as of an earlier moment: that moment, instead of the clock. */
@@ -146,9 +143,7 @@ export function SurvivorBoard({
   return (
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
       {/* This week's pick, across the top (the same card as on Home); once out, the pick that did it. */}
-      {winner ? (
-        <WinnerCard {...winner} className="mb-5 max-w-2xl lg:col-span-2" />
-      ) : outWeek ? (
+      {outWeek ? (
         <EliminatedCard week={outWeek} game={outPick?.game ?? null} side={outPick?.side ?? null} className="mb-5 max-w-2xl lg:col-span-2" />
       ) : (
       <WeekPickCard
