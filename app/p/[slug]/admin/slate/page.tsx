@@ -12,6 +12,7 @@ import { addOpenWeekGame, createSlate, resolveTeamMatch, saveDeadlines, updateOp
 import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEditor";
 import { Matchup } from "@/components/Matchup";
 import { teamSport } from "@/lib/sports";
+import { NFL_WEEKS, currentNflWeek, nflWeekLabel, nflWeekWindow } from "@/lib/nflWeeks";
 
 export const metadata: Metadata = { title: "Slate editor" };
 
@@ -41,6 +42,9 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
     ? null
     : (slates?.find((s) => s.week === Number(sp.week)) ?? slates?.find((s) => s.status === "draft") ?? slates?.[0] ?? null);
 
+  // NFL pools: weeks are the league's (dates and games set automatically); the next one to add.
+  const nfl = ctx.pool.sport === "nfl";
+  const nextNfl = nfl ? (NFL_WEEKS.find((w) => w >= Math.max((slates?.[0]?.week ?? 0) + 1, currentNflWeek(ctx.pool.season))) ?? null) : null;
   // Suggest the window after the latest slate, or the next one from today.
   const after = slates?.[0] ? new Date(slates[0].window_end) : new Date();
   const suggestedStart = nextWindowStartDate(new Date(after.getTime() - 1), ctx.settings);
@@ -65,7 +69,24 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         </Link>
       </div>
 
-      {wantNew || !slate ? (
+      {(wantNew || !slate) && nfl ? (
+        <Panel className="p-4 sm:p-5">
+          {nextNfl === null ? (
+            <p className="text-sm text-muted">The NFL season is over.</p>
+          ) : (
+            <>
+              <h2 className="text-base font-bold tracking-[-0.01em] text-ink">{nflWeekLabel(nextNfl)}</h2>
+              <p className="mb-4 mt-0.5 text-sm text-muted">
+                {windowLabel(nflWeekWindow(ctx.pool.season, nextNfl).start.toISOString(), nflWeekWindow(ctx.pool.season, nextNfl).end.toISOString(), tz)} · every NFL game that
+                week is added automatically. Players don&apos;t see it until you publish.
+              </p>
+              <ActionForm action={createSlate.bind(null, slug)}>
+                <SubmitButton kind="accent" pending="Creating…">Create {nflWeekLabel(nextNfl)}</SubmitButton>
+              </ActionForm>
+            </>
+          )}
+        </Panel>
+      ) : wantNew || !slate ? (
         <Panel className="p-4 sm:p-5">
           <h2 className="text-base font-bold tracking-[-0.01em] text-ink">New week</h2>
           <p className="mb-4 mt-0.5 text-sm text-muted">Pick the week&apos;s dates, then add games to the draft. Players don&apos;t see it until you publish.</p>
@@ -203,6 +224,8 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
           candidates={candidates}
           records={records}
           showFilters={ctx.pool.sport !== "nfl"}
+          // NFL weeks hold every game of the week: nothing to add or remove.
+          fixed={nfl}
           teams={teams ?? []}
           settings={{
             pickType: ctx.settings.pick_type,
@@ -281,7 +304,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         .filter((g) => !taken.has(g.id))
         .map((g) => ({ id: g.id, label: `${g.away.name} @ ${g.home.name} · ${gameTime(g.start_at, tz)}` }));
     }
-    const addable = slate.status === "open" ? await addableGames() : [];
+    const addable = slate.status === "open" && !nfl ? await addableGames() : [];
     return (
       <div className="space-y-4">
         <div className="rounded-2xl bg-surface p-4 sm:p-5">
@@ -337,7 +360,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
             </ActionForm>
           </section>
         )}
-        {slate.status === "open" && (
+        {slate.status === "open" && !nfl && (
           <section className="rounded-2xl bg-surface p-4 sm:p-5">
             <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Add a game to this week</h2>
             <p className="mt-0.5 text-sm text-muted">Players can pick it until its deadline. Picks already in stay as they are.</p>

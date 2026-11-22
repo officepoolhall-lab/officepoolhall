@@ -10,6 +10,7 @@ import { gameDateZone } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, type SlateGame } from "@/lib/pool";
 import { Scoreboard } from "./Scoreboard";
 import { teamSport } from "@/lib/sports";
+import { NFL_WEEKS, currentNflWeek, nflWeekLabel, nflWeekWindow } from "@/lib/nflWeeks";
 
 export const metadata: Metadata = { title: "Scoreboard" };
 
@@ -30,17 +31,27 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   const ctx = await getPoolContext(slug);
   const tz = ctx.displayTz;
   const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
-  const slate = typeof weekParam === "string" ? slates.find((s) => s.week === Number(weekParam)) ?? current : current;
-
-  // The week's days in the viewer's time zone (the slate's window, or this Monday–Sunday).
+  const sport = teamSport(ctx.pool.sport);
+  const nfl = sport === "nfl";
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of today and live games
   const now = Date.now();
+  // The NFL: the league's own weeks (every game ESPN lists that week), the same for every NFL
+  // pool and never set by the commissioner; this week unless ?week=. College: the pool's weeks.
+  const thisNflWeek = nfl ? currentNflWeek(ctx.pool.season, now) : 0;
+  const nflWeek = nfl ? (typeof weekParam === "string" && NFL_WEEKS.includes(Number(weekParam)) ? Number(weekParam) : thisNflWeek) : 0;
+  const nflWindow = nfl ? nflWeekWindow(ctx.pool.season, nflWeek) : null;
+  const slate = nfl
+    ? (slates.find((s) => s.week === nflWeek) ?? null)
+    : typeof weekParam === "string" ? (slates.find((s) => s.week === Number(weekParam)) ?? current) : current;
+
+  // The week's days in the viewer's time zone (the NFL week, the slate's window, or this Monday–Sunday).
   const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
-  const first = slate ? formatInTimeZone(slate.window_start, tz, "yyyy-MM-dd") : today;
-  const last = slate ? formatInTimeZone(new Date(new Date(slate.window_end).getTime() - 1), tz, "yyyy-MM-dd") : plusDays(today, 6);
+  const first = nflWindow ? formatInTimeZone(nflWindow.start, tz, "yyyy-MM-dd") : slate ? formatInTimeZone(slate.window_start, tz, "yyyy-MM-dd") : today;
+  const last = nflWindow
+    ? formatInTimeZone(new Date(nflWindow.end.getTime() - 1), tz, "yyyy-MM-dd")
+    : slate ? formatInTimeZone(new Date(new Date(slate.window_end).getTime() - 1), tz, "yyyy-MM-dd") : plusDays(today, 6);
   const allDays: string[] = [];
   for (let d = first; d <= last && allDays.length < 14; d = plusDays(d, 1)) allDays.push(d);
-  const sport = teamSport(ctx.pool.sport);
   // College: one day at a time (buttons for each day of the week). The NFL: the whole week.
   const days = allDays;
   const day = typeof dayParam === "string" && ISO_DATE.test(dayParam) && days.includes(dayParam) ? dayParam : days.includes(today) ? today : days[0];
@@ -51,7 +62,6 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
   // The NFL shows the whole week at once: each of its days (plus the day after, for late games
   // ESPN files under it), one request a day like the college days. ESPN's date-range form
   // returned nothing for the NFL.
-  const nfl = sport === "nfl";
   const [dayLists, slateGames] = await Promise.all([
     Promise.all(
       nfl
@@ -65,6 +75,8 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
     // Same day rule the cards use (a TBD time counts in Eastern), so nothing from the next day slips in.
     const key = dayKey(g.startAt, gameDateZone(g.timeTbd, tz));
     if (seen.has(g.id) || (nfl ? !allDays.includes(key) : key !== day)) return false;
+    // The NFL week's exact edges (Tuesday morning Eastern), so Monday night stays in its week.
+    if (nflWindow && !g.timeTbd && (Date.parse(g.startAt) < nflWindow.start.getTime() || Date.parse(g.startAt) >= nflWindow.end.getTime())) return false;
     seen.add(g.id);
     return true;
   });
@@ -78,15 +90,31 @@ export default async function ScoreboardPage({ params, searchParams }: PageProps
     if (g.away.espn_id && g.records.away) records[g.away.espn_id] = g.records.away;
   }
   const anyLive = games.some((g) => isLive(g, now));
-  const week = slate?.week ?? 0;
+  const week = nfl ? nflWeek : (slate?.week ?? 0);
+  // The NFL week's dates: its first and last games ("Thu Nov 19 – Mon Nov 23").
+  const kicks = games.map((g) => g.startAt).sort();
+  const nflDates = kicks.length ? `${formatInTimeZone(kicks[0], tz, "EEE MMM d")} – ${formatInTimeZone(kicks[kicks.length - 1], tz, "EEE MMM d")}` : undefined;
   const label = (d: string) => formatInTimeZone(fromZonedTime(`${d}T12:00:00`, tz), tz, "EEE M/d");
 
   return (
     <div data-wide>
-      <PageTitle sub={slate ? windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone) : undefined}>
-        Scoreboard{slate && <span className="text-muted"> · {slate.label ?? `Week ${slate.week}`}</span>}
+      <PageTitle
+        sub={nflWindow ? nflDates : slate ? windowLabel(slate.window_start, slate.window_end, ctx.settings.timezone) : undefined}
+      >
+        Scoreboard
+        {nfl ? <span className="text-muted"> · {nflWeekLabel(nflWeek)}</span> : slate && <span className="text-muted"> · {slate.label ?? `Week ${slate.week}`}</span>}
       </PageTitle>
-      {slates.length > 1 && (
+      {/* The NFL: every week so far, this week last. */}
+      {nfl && (
+        <div className="-mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1.5">
+          {NFL_WEEKS.filter((w) => w <= Math.max(thisNflWeek, nflWeek)).map((w) => (
+            <Link key={w} href={`/p/${slug}/scoreboard?week=${w}`} aria-current={w === nflWeek ? "page" : undefined} className={chipClass(w === nflWeek, "shrink-0", "sm")}>
+              {nflWeekLabel(w)}
+            </Link>
+          ))}
+        </div>
+      )}
+      {!nfl && slates.length > 1 && (
         <div className="-mx-4 mb-1 flex gap-1 overflow-x-auto px-4 py-1.5">
           {[...slates].reverse().map((s) => (
             <Link key={s.id} href={`/p/${slug}/scoreboard?week=${s.week}`} aria-current={s.id === slate?.id ? "page" : undefined} className={chipClass(s.id === slate?.id, "", "sm")}>
