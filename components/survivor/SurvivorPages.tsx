@@ -10,7 +10,10 @@ import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { survivorRules, survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
-import { SurvivorPicker, type PickerTeam } from "./SurvivorPicker";
+import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
+import { LiveTicker } from "@/components/LiveTicker";
+import { getSlateGames, type PoolContext, type SlateGame } from "@/lib/pool";
+import { withLiveClocks } from "@/lib/liveClock";
 
 // The pages of an NFL Survivor pool: Home, My Pick and Standings. The pool routes reach these
 // when settings.format is "survivor".
@@ -130,11 +133,25 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   );
 }
 
+/** A Survivor game in the shape the shared pick rows use (for the weeks before this one). */
+function asSlateGame(g: SvGame): SlateGame {
+  const team = (t: SvTeam) => ({ id: t.id, espn_id: t.espn_id ?? null, name: t.name, short_name: t.short_name, abbreviation: t.abbreviation, logo_url: t.logo_url, conference: null });
+  return {
+    id: g.id, startAt: g.startAt, timeTbd: Boolean(g.timeTbd), manualTime: false, lockAt: null, effectiveLockAt: g.startAt,
+    status: g.final ? "final" : g.started ? "in_progress" : "scheduled",
+    homeScore: g.homeScore, awayScore: g.awayScore, overridden: false, neutral: false, venue: null, tv: g.tv ?? null,
+    homeRank: null, awayRank: null, spread: null, voided: g.voided, espnId: g.espnId ?? null,
+    clock: g.clock ?? null, lastPlay: null, situation: null, possession: null, home: team(g.home), away: team(g.away),
+  } as unknown as SlateGame;
+}
+
+/**
+ * My Pick, laid out like every other pool's My Picks: the season's picks on the left, this
+ * week's pick across the top, the week's games on the right (SurvivorBoard).
+ */
 export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { ctx: PoolBase; slug: string; forUserId?: string; weekParam?: string }) {
   const behalf = Boolean(forUserId && ctx.isCommissioner && forUserId !== ctx.user.id);
-  const loaded = await getSurvivor(ctx, behalf ? forUserId : undefined);
-  const { settings, picks, members } = loaded;
-  const weeks = await withLiveScores(loaded.weeks);
+  const { settings, picks, members, weeks } = await getSurvivor(ctx, behalf ? forUserId : undefined);
   const tz = (ctx as { displayTz?: string }).displayTz ?? tzOf(ctx);
   const target = behalf ? forUserId! : ctx.entryUserId;
   const rows = survivorStandings(weeks, picks, members, settings);
@@ -146,109 +163,84 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
   if (!week) return (<><PageTitle>{title}</PageTitle><Empty>No week is open yet. The commissioner publishes each week&apos;s games before the first kickoff.</Empty></>);
   if (!row) return (<><PageTitle>{title}</PageTitle><Empty>{ctx.isGuest ? "Guests can't make picks." : "This entry isn't playing."}</Empty></>);
 
-  const { spreads, records } = await getWeekExtras(ctx, week);
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
+  const now = Date.now();
+  // This week's games with everything the other pools' cards show (TV, live clock and last
+  // play). A demo pool's made-up live scores (settings.demo_live_week) are laid over them.
+  const sv = new Map(week.games.map((g) => [g.id, g]));
+  const stored = (await getSlateGames(ctx as unknown as PoolContext, week.slateId)).map((g) => {
+    const d = sv.get(g.id);
+    if (!d || !d.clock || d.final) return g;
+    return { ...g, status: "in_progress", homeScore: d.homeScore, awayScore: d.awayScore, clock: d.clock };
+  });
+  const [games, { spreads, records }] = await Promise.all([withLiveClocks("nfl", stored, now), getWeekExtras(ctx, week)]);
+
   const pick = picks.find((p) => p.slateId === week.slateId && p.userId === target) ?? null;
-  const pickGame = pick ? week.games.find((g) => g.id === pick.gameId) : undefined;
-  // Out before this week: nothing to pick (the commissioner can still fix a pick).
   const cell = row.cells.find((c) => c.slateId === week.slateId);
   const outAlready = cell?.state === "out";
   const canPick = !ctx.isGuest && (behalf || (!outAlready && !weekClosed(week)));
-  const usedLabel = (t: SvTeam): string | null => {
-    if (settings.reuse) return null;
-    const w = row.used.get(t.id);
-    return w !== undefined && w !== week.week ? `Used · Week ${w}` : null;
-  };
-  const asTeam = (g: SvGame, side: "home" | "away"): PickerTeam => {
-    const t = side === "home" ? g.home : g.away;
-    const spread = spreads.get(g.id);
-    const record = t.espn_id ? records[t.espn_id] : undefined;
-    return {
-      id: t.id,
-      name: teamName(t),
-      abbreviation: t.abbreviation,
-      logo_url: t.logo_url,
-      espnId: t.espn_id ?? null,
-      record: record ? record.replace(/-/g, "–") : null,
-      spread: spread === undefined ? null : side === "home" ? spread : -spread,
-      score: g.started ? (side === "home" ? g.homeScore : g.awayScore) : null,
-      used: usedLabel(t),
-    };
-  };
   const qs = (w: number) => `/p/${slug}/picks?week=${w}${behalf ? `&for=${target}` : ""}`;
 
+  // Teams already used in other weeks (each team once, unless the pool allows repeats).
+  const used: Record<string, string> = {};
+  if (!settings.reuse) for (const [teamId, w] of row.used) if (w !== week.week) used[teamId] = `Wk ${w}`;
+
+  // The season so far: every counted week before the one on screen, Week 1 first.
+  const prior: SvPrior[] = row.cells
+    .filter((c) => c.week < week.week && c.state !== "out" && c.state !== "before" && c.state !== "open")
+    .map((c) => {
+      const w = weeks.find((x) => x.slateId === c.slateId);
+      const g = c.gameId ? w?.games.find((x) => x.id === c.gameId) : undefined;
+      const side = g && c.team ? (c.team.id === g.home.id ? "home" : "away") : null;
+      return {
+        week: c.week,
+        label: w?.label ?? `Week ${c.week}`,
+        href: qs(c.week),
+        game: g ? asSlateGame(g) : null,
+        side,
+        result: c.state === "win" || c.state === "loss" || c.state === "void" || c.state === "missed" ? c.state : "pending",
+      } as SvPrior;
+    });
+
+  const statusText = outAlready || !row.alive ? `Out · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
+
   return (
-    <>
-      {/* The title, with the week dropdown on its right. */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <PageTitle sub={outAlready ? `Eliminated in Week ${row.outWeek}.` : undefined}>{title}</PageTitle>
+    <div>
+      {/* The week (with the week dropdown) on the left; live scores fill the space to their right. */}
+      <div className="sm:flex sm:items-start sm:gap-6">
+        <div className="flex shrink-0 items-start gap-3">
+          <PageTitle>
+            {week.label}
+            {behalf ? <span className="text-accent"> for {row.name}</span> : null}
+          </PageTitle>
+          {counted.length > 1 && (
+            <div className="pt-1">
+              <LinkSelect size="md" ariaLabel="Choose a week" value={qs(week.week)} options={[...counted].reverse().map((w) => ({ href: qs(w.week), label: w.label }))} />
+            </div>
+          )}
         </div>
-        {counted.length > 1 && (
-          <div className="shrink-0 pt-1">
-            <LinkSelect
-              size="md"
-              ariaLabel="Choose a week"
-              value={qs(week.week)}
-              options={[...counted].reverse().map((w) => ({ href: qs(w.week), label: w.label }))}
-            />
-          </div>
-        )}
+        <LiveTicker games={games} now={now} timezone={tz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
       </div>
       <AutoRefresh active={anyLive([week])} />
-      {!canPick && !cell?.team && (
-        <p className="mb-3 text-sm text-muted">
-          {outAlready ? "This entry was already out this week." : cell?.state === "missed" ? "No pick was made this week, which counts as a loss." : "No pick this week."}
-        </p>
-      )}
-      <SurvivorPicker
-        key={`${week.slateId}:${target}:${pick?.teamId ?? ""}`}
-        games={week.games
-          .filter((g) => !g.voided)
-          .map((g) => ({
-            id: g.id,
-            when: g.timeTbd ? formatInTimeZone(g.startAt, tz, "EEE, MMM d") + " · TBD" : formatInTimeZone(g.startAt, tz, "EEE, MMM d · h:mm a"),
-            tv: g.tv ?? null,
-            state: g.final ? ("final" as const) : g.started ? ("live" as const) : ("upcoming" as const),
-            clock: g.clock ?? null,
-            // The commissioner can set a pick on a game that's started.
-            locked: g.started && !behalf,
-            href: g.started && g.espnId ? `/p/${slug}/game/${g.id}?back=${encodeURIComponent(qs(week.week))}` : null,
-            home: asTeam(g, "home"),
-            away: asTeam(g, "away"),
-          }))}
-        pick={pick ? { gameId: pick.gameId, teamId: pick.teamId } : null}
-        pickLocked={Boolean(pickGame?.started) && !behalf}
-        readOnly={!canPick}
+      <SurvivorBoard
+        key={`${week.slateId}:${target}`}
+        slug={slug}
         weekLabel={week.label}
+        games={games}
+        initialPick={pick ? { gameId: pick.gameId, teamId: pick.teamId } : null}
+        used={used}
+        canPick={canPick}
+        behalf={behalf}
+        records={records}
+        spreads={Object.fromEntries(spreads)}
         timezone={tz}
+        prior={prior}
+        status={{ text: statusText, alive: row.alive && !outAlready }}
+        backHref={qs(week.week)}
+        historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
       />
-
-      <section className={`${card} mt-4`}>
-        <h2 className="text-base font-bold">Picks so far</h2>
-        <ul className="mt-1 divide-y divide-line">
-          {row.cells.filter((c) => c.state !== "out" && c.state !== "before" && c.state !== "open").length === 0 && <li className="py-2.5 text-sm text-muted">Nothing yet.</li>}
-          {row.cells
-            .filter((c) => c.state !== "out" && c.state !== "before" && c.state !== "open")
-            .map((c) => (
-              <li key={c.slateId} className="flex items-center gap-3 py-2.5 text-sm">
-                <span className="w-16 text-muted">Week {c.week}</span>
-                {c.team ? (
-                  <>
-                    <TeamLogo src={c.team.logo_url} abbr={c.team.abbreviation} className="size-5" />
-                    <span className="min-w-0 flex-1 truncate font-semibold">{teamName(c.team)}</span>
-                  </>
-                ) : (
-                  <span className="min-w-0 flex-1 text-muted">No pick</span>
-                )}
-                <span className={`font-semibold ${c.state === "win" ? "text-win" : c.state === "loss" || c.state === "missed" ? "text-loss" : "text-muted"}`}>
-                  {c.state === "win" ? "Won" : c.state === "loss" || c.state === "missed" ? "Lost" : c.state === "void" ? "No result" : "Pending"}
-                </span>
-              </li>
-            ))}
-        </ul>
-      </section>
-    </>
+    </div>
   );
 }
 
