@@ -1,5 +1,7 @@
 "use client";
 
+import { TrophyIcon } from "@/components/ui";
+
 import { useEffect, useRef, useState } from "react";
 import { AxisLockScroll } from "./AxisLockScroll";
 import { LiveDot, LockIcon } from "./ui";
@@ -25,14 +27,7 @@ const short$ = (n: number) =>
   n >= 1_000_000 ? `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M` : n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${n}`;
 const lastName = (n: string) => n.split(" ").slice(-1)[0];
 
-/** A small trophy, for a golfer who won the tournament. */
-export function TrophyIcon({ className = "size-3" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
-      <path d="M4 1h8v1.5h2.5V5a3 3 0 0 1-3 3h-.1A4 4 0 0 1 8.75 10.4V12H11v1.5H5V12h2.25v-1.6A4 4 0 0 1 4.6 8h-.1a3 3 0 0 1-3-3V2.5H4V1Zm0 3H3v1a1.5 1.5 0 0 0 1 1.4V4Zm8 0v2.4A1.5 1.5 0 0 0 13 5V4h-1ZM4 14.5h8V16H4v-1.5Z" />
-    </svg>
-  );
-}
+export { TrophyIcon };
 
 /**
  * The golf League Grid, styled like the football and basketball grids: entries down the left,

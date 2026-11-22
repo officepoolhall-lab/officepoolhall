@@ -21,6 +21,15 @@ export function CheckIcon({ className = "size-4" }: { className?: string }) {
   );
 }
 
+/** A small trophy, for a winner (a golfer who won the tournament, a Survivor pool's last one standing). */
+export function TrophyIcon({ className = "size-3" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className={className}>
+      <path d="M4 1h8v1.5h2.5V5a3 3 0 0 1-3 3h-.1A4 4 0 0 1 8.75 10.4V12H11v1.5H5V12h2.25v-1.6A4 4 0 0 1 4.6 8h-.1a3 3 0 0 1-3-3V2.5H4V1Zm0 3H3v1a1.5 1.5 0 0 0 1 1.4V4Zm8 0v2.4A1.5 1.5 0 0 0 13 5V4h-1ZM4 14.5h8V16H4v-1.5Z" />
+    </svg>
+  );
+}
+
 export function ChevronIcon({ className = "size-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className={className}>

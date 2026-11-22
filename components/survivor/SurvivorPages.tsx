@@ -5,14 +5,14 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
-import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
+import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, TrophyIcon, chipClass } from "@/components/ui";
 import { clearSurvivorPick, saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
+import { survivorStandings, survivorWinners, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
 import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
 import { SurvivorSummary } from "./SurvivorSummary";
-import { WeekPickCard } from "./WeekPickCard";
+import { WeekPickCard, WinnerCard } from "./WeekPickCard";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
@@ -28,6 +28,12 @@ import { withLiveClocks } from "@/lib/liveClock";
 
 const tzOf = (ctx: PoolBase) => ((ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago");
 const teamName = (t: SvTeam) => t.short_name ?? t.name;
+const money = (v: number) =>
+  v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2, maximumFractionDigits: 2 });
+const feeOf = (ctx: PoolBase) => Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0);
+/** "$9,450", or "$4,725 each" when shared; null without an entry fee. */
+const prizeOf = (ctx: PoolBase, entries: number, winners: number) =>
+  feeOf(ctx) > 0 ? `${money((feeOf(ctx) * entries) / winners)}${winners > 1 ? " each" : ""}` : null;
 
 /** The week players should be looking at: the first one that's still open, else the latest. */
 const currentWeek = (weeks: SvWeek[], startWeek: number) => {
@@ -89,7 +95,8 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   const nextKick = firstKick && demoNow ? new Date(realNow + (Date.parse(firstKick) - demoNow)).toISOString() : firstKick;
   const canPick = Boolean(mine?.alive && week && !weekClosed(week) && !pickGame?.started);
   const counted = weeks.filter((w) => w.week >= settings.start_week);
-  const entryFee = Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0);
+  const entryFee = feeOf(ctx);
+  const won = survivorWinners(rows, counted);
   const summary = { rows, weeks: counted, reuse: settings.reuse, entryFee, page: true } as const;
 
   return (
@@ -114,8 +121,19 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
                   </div>
                 )}
               </div>
+              {/* The pool is over: who won. */}
+              {won && (
+                <WinnerCard
+                  names={rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name)}
+                  week={won.week}
+                  mine={won.userIds.includes(ctx.entryUserId)}
+                  prize={prizeOf(ctx, rows.length, won.userIds.length)}
+                  compact
+                  className="mt-2"
+                />
+              )}
               {/* This week's pick: the same card as on My Pick. */}
-              {!ctx.isGuest && mine && mine.alive && (
+              {!won && !ctx.isGuest && mine && mine.alive && (
                 <WeekPickCard
                   weekLabel={week.label}
                   game={myGame}
@@ -128,7 +146,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
                   className="mt-2"
                 />
               )}
-              {!ctx.isGuest && mine && !mine.alive && (
+              {!won && !ctx.isGuest && mine && !mine.alive && (
                 <p className="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-loss">Eliminated in Week {mine.outWeek}</p>
               )}
               {canPick && !myPick && (
@@ -192,7 +210,8 @@ async function weekSlateGames(ctx: PoolBase, week: SvWeek, now: number): Promise
     // A demo pool shown as of an earlier moment (settings.demo_now): this game hasn't started.
     if (!d.started && g.status !== "scheduled") return { ...g, status: "scheduled", homeScore: null, awayScore: null, clock: null, lastPlay: null, situation: null, possession: null };
     // A demo final (settings.demo_results) on a game that isn't over for real.
-    if (d.final && g.status !== "final") return { ...g, status: "final", homeScore: d.homeScore, awayScore: d.awayScore, clock: null, lastPlay: null, situation: null, possession: null };
+    if (d.final && (g.status !== "final" || g.homeScore !== d.homeScore || g.awayScore !== d.awayScore))
+      return { ...g, status: "final", homeScore: d.homeScore, awayScore: d.awayScore, clock: null, lastPlay: null, situation: null, possession: null };
     if (!d.clock || d.final) return g;
     return { ...g, status: "in_progress", homeScore: d.homeScore, awayScore: d.awayScore, clock: d.clock };
   });
@@ -262,12 +281,14 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
       } as SvPrior;
     });
 
+  // The pool is over: the winner's card replaces the pick card.
+  const won = survivorWinners(rows, counted);
   // The pick that knocked this entry out, for the red card at the top.
   const outCell = row.outWeek !== null ? row.cells.find((c) => c.week === row.outWeek) : undefined;
   const outSvGame = outCell?.gameId ? weeks.find((w) => w.slateId === outCell.slateId)?.games.find((g) => g.id === outCell.gameId) : undefined;
   const outPick =
     outSvGame && outCell?.team ? { game: asSlateGame(outSvGame), side: (outCell.team.id === outSvGame.home.id ? "home" : "away") as "home" | "away" } : null;
-  const statusText = outAlready || !row.alive ? `Eliminated · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
+  const statusText = won?.userIds.includes(target) ? "Winner" : outAlready || !row.alive ? `Eliminated · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
 
   return (
     <div>
@@ -299,6 +320,16 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         status={{ text: statusText, alive: row.alive && !outAlready }}
         outWeek={row.alive && !outAlready ? null : row.outWeek}
         outPick={outPick}
+        winner={
+          won
+            ? {
+                names: rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name),
+                week: won.week,
+                mine: won.userIds.includes(target),
+                prize: prizeOf(ctx, rows.length, won.userIds.length),
+              }
+            : null
+        }
         backHref={qs(week.week)}
         historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
@@ -330,6 +361,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const order = new Map(counted.map((w, i) => [w.slateId, i]));
   const games = new Map(weeks.flatMap((w) => w.games).map((g) => [g.id, g]));
   const alive = rows.filter((r) => r.alive).length;
+  const won = survivorWinners(rows, counted);
   const back = encodeURIComponent(`/p/${slug}/standings`);
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
   // A thin line between weeks.
@@ -422,9 +454,19 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     >
       <div className="mb-2 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
         <h1 className="sr-only">League Grid</h1>
-        <p className="text-base text-muted tabular-nums sm:text-lg">
-          <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
-        </p>
+        {won ? (
+          <p className="flex min-w-0 items-center gap-2 text-base text-muted sm:text-lg">
+            <TrophyIcon className="size-6 shrink-0 text-accent" />
+            <span className="min-w-0 truncate">
+              <span className="text-2xl font-extrabold text-ink sm:text-3xl">{rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name).join(" & ")}</span>{" "}
+              {won.userIds.length > 1 ? `share the pool · Week ${won.week}` : `wins the pool · Week ${won.week}`}
+            </span>
+          </p>
+        ) : (
+          <p className="text-base text-muted tabular-nums sm:text-lg">
+            <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
+          </p>
+        )}
       </div>
       <AutoRefresh active={anyLive(weeks)} />
       {rows.length === 0 ? (
@@ -458,17 +500,19 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
               {rows.map((r) => {
                 const mine = r.userId === ctx.entryUserId;
                 const cells = [...r.cells].sort((a, b) => (order.get(a.slateId) ?? 0) - (order.get(b.slateId) ?? 0));
-                const status = r.alive ? (settings.lives > 1 ? `${r.livesLeft} of ${settings.lives}` : "Alive") : `Out · Wk ${r.outWeek}`;
+                const winner = Boolean(won?.userIds.includes(r.userId));
+                const status = winner ? "Winner" : r.alive ? (settings.lives > 1 ? `${r.livesLeft} of ${settings.lives}` : "Alive") : `Out · Wk ${r.outWeek}`;
                 return (
                   <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                     <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-3 py-0.5 text-left text-[13px] font-medium sm:px-4 lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-loss"}`}>
+                        <span className={`min-w-0 flex-1 ${winner ? "font-bold" : ""} ${mine ? "text-accent" : winner || r.alive ? "" : "text-loss"}`}>
                           <FitText min={9}>{r.name}</FitText>
                           {/* Phones: the status under the name, so the column stays narrow. */}
-                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
+                          <span className={`block text-[10px] leading-tight sm:hidden ${winner ? "font-bold text-accent" : r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
                         </span>
-                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
+                        <span className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${winner ? "font-bold text-accent" : r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
+                          {winner && <TrophyIcon className="size-3.5" />}
                           {status}
                         </span>
                       </div>
