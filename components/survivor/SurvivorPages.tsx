@@ -260,23 +260,32 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
   const outAlready = cell?.state === "out";
   const canPick = !agreed && !ctx.isGuest && (behalf || (!outAlready && !weekClosed(week)));
 
-  // Request to Split: every entry still alive can ask; when they all have, the pot is split.
+  // Request to Split: every entry still alive can ask, for this week. The window opens once every
+  // earlier week is final and closes when the first game a remaining entry picked kicks off
+  // (games nobody picked don't close it). When they all have asked, the pot is split.
   const aliveRows = rows.filter((r) => r.alive);
+  const aliveIds = new Set(aliveRows.map((r) => r.userId));
   const meAlive = row.alive && !outAlready;
-  const fee = feeOf(ctx);
-  const pot = fee * rows.length;
+  const pot = feeOf(ctx) * rows.length;
   const splitN = agreed ? agreed.userIds.length : aliveRows.length;
-  const each = pot > 0 && splitN > 0 ? `${money(pot / splitN)} each` : null;
+  // What each entry gets: the whole pot over the entries left to split it.
+  const each = pot > 0 && splitN > 0 ? `${money(pot / splitN)} per entry` : null;
+  const earlierOpen = counted.find((w) => w.week < week.week && w.games.some((g) => !g.voided && !g.final));
+  const weekGames = new Map(week.games.map((g) => [g.id, g]));
+  const pickKicked = picks.some((p) => p.slateId === week.slateId && aliveIds.has(p.userId) && weekGames.get(p.gameId)?.started);
+  const splitClosed = earlierOpen ? `Splitting opens once ${earlierOpen.label} is final` : pickKicked ? `Splitting is closed for ${week.label}: a pick has kicked off` : null;
+  const askedIds = aliveRows.filter((r) => splitRequests.get(r.userId) === week.slateId).map((r) => r.userId);
   const split: SplitState | null = agreed
     ? { alive: agreed.userIds.length, asked: agreed.userIds.length, mine: agreed.userIds.includes(target), done: true, each }
     : !ctx.isGuest && meAlive && aliveRows.length >= 2
       ? {
           alive: aliveRows.length,
-          asked: aliveRows.filter((r) => splitRequests.has(r.userId)).length,
-          mine: splitRequests.has(target),
+          asked: askedIds.length,
+          mine: askedIds.includes(target),
           done: false,
           each,
-          toggle: toggleSurvivorSplit.bind(null, slug, behalf ? target : null, week.week, aliveRows.map((r) => r.userId)),
+          closed: splitClosed,
+          toggle: splitClosed ? undefined : toggleSurvivorSplit.bind(null, slug, week.slateId, behalf ? target : null, aliveRows.map((r) => r.userId)),
         }
       : null;
   const qs = (w: number) => `/p/${slug}/picks?week=${w}${behalf ? `&for=${target}` : ""}`;

@@ -38,7 +38,7 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
     db.from("pool_members").select("user_id, joined_at, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
     getBenchedIds(ctx.supabase, ctx.pool.id),
     // Split requests and an agreed split (migration 067; empty before it's run).
-    db.from("survivor_split_requests").select("user_id").eq("pool_id", ctx.pool.id),
+    db.from("survivor_split_requests").select("user_id, slate_id").eq("pool_id", ctx.pool.id),
     db.from("survivor_splits").select("user_ids, week").eq("pool_id", ctx.pool.id),
   ]);
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games have started
@@ -81,7 +81,8 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
   const members: SvMember[] = ((memberRows ?? []) as Row[])
     .filter((m) => !benched.has(m.user_id))
     .map((m) => ({ userId: m.user_id, name: m.profile.display_name, joinedAt: m.joined_at }));
-  const splitRequests = new Set(((reqRows ?? []) as Row[]).map((r) => r.user_id as string));
+  // Who has asked to split, and for which week (requests don't carry over).
+  const splitRequests = new Map(((reqRows ?? []) as Row[]).map((r) => [r.user_id as string, r.slate_id as string | null]));
   const s0 = ((splitRows ?? []) as Row[])[0];
   const split: SvSplit | null = s0 ? { userIds: s0.user_ids as string[], week: (s0.week as number | null) ?? null } : null;
   return { settings, weeks, picks, members, splitRequests, split };

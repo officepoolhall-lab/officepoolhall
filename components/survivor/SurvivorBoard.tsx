@@ -24,6 +24,8 @@ export type SplitState = {
   done: boolean;
   /** "$1,180 each" once split (or what each would get), omitted without an entry fee. */
   each?: string | null;
+  /** Why splitting isn't open right now (a pick's game kicked off, or last week isn't final). */
+  closed?: string | null;
   toggle?: (on: boolean) => Promise<{ error?: string }>;
 };
 export type SvPrior = { week: number; label: string; href: string; game: SlateGame | null; side: Side | null; result: "win" | "loss" | "pending" | "void" | "missed" };
@@ -298,7 +300,8 @@ export function SurvivorBoard({
 
 /**
  * Request to Split, on the right above the games: every entry still alive can ask to end the
- * pool and share the pot. When the last one asks, the pool is over (they confirm first).
+ * pool and share the pot, until the first game anyone left picked this week kicks off. When the
+ * last one asks, the pool is over (they confirm first).
  */
 function SplitBar({ split }: { split: SplitState }) {
   const router = useRouter();
@@ -324,6 +327,15 @@ function SplitBar({ split }: { split: SplitState }) {
         <span className="text-muted">
           All {split.alive} remaining entries agreed{split.each ? <> · <span className="font-semibold text-ink">{split.each}</span></> : null}
         </span>
+      </div>
+    );
+  }
+
+  if (split.closed) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-sm text-muted">
+        <LockIcon className="size-3.5 shrink-0" />
+        <span>{split.closed}</span>
       </div>
     );
   }
