@@ -155,9 +155,7 @@ export function SurvivorBoard({
               <ul className="divide-y divide-line border-y border-line">
                 {prior.map((p) =>
                   p.game && p.side ? (
-                    // The whole row opens that week (its games and box scores).
-                    <li key={p.week} className="relative flex items-center gap-2 hover:bg-hover">
-                      <Link href={p.href} aria-label={`${p.label}: see that week's games`} className="absolute inset-0 z-[1]" />
+                    <li key={p.week} className="flex items-center gap-2">
                       <span className="w-9 shrink-0 text-xs font-medium tabular-nums text-muted">Wk {p.week}</span>
                       <ul className="min-w-0 flex-1">
                         <PickSummaryRow
@@ -184,11 +182,17 @@ export function SurvivorBoard({
               </ul>
             )}
           </section>
-          {historyHref && (
-            <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3 lg:mb-1 lg:self-start", "sm")}>
-              View Standings <ChevronIcon className="size-3.5" />
+          {/* Earlier weeks' games and box scores are on the Scoreboard. */}
+          <div className="-mt-2 mb-5 flex flex-wrap gap-2 lg:mt-3 lg:mb-1">
+            {historyHref && (
+              <Link href={historyHref} className={chipClass(false, "", "sm")}>
+                View Standings <ChevronIcon className="size-3.5" />
+              </Link>
+            )}
+            <Link href={`/p/${slug}/scoreboard`} className={chipClass(false, "", "sm")}>
+              Scoreboard <ChevronIcon className="size-3.5" />
             </Link>
-          )}
+          </div>
         </div>
       </aside>
 
@@ -197,9 +201,6 @@ export function SurvivorBoard({
           <section key={day.key} className="mb-5 lg:mb-4">
             <h3 className="sticky top-[calc(5.75rem+4px+env(safe-area-inset-top))] sm:top-[calc(3rem+3px+env(safe-area-inset-top))] z-10 -mx-4 flex items-baseline gap-2 border-l-4 border-accent bg-surface px-3 py-2 text-base font-bold text-ink lg:mx-0 lg:mb-1 lg:rounded-r-md lg:py-1.5 lg:text-sm">
               <span>{day.label}</span>
-              <span className="ml-auto text-xs font-medium text-muted tabular-nums">
-                {day.games.length} game{day.games.length === 1 ? "" : "s"}
-              </span>
             </h3>
             <ul className="lg:grid lg:grid-cols-[repeat(auto-fill,minmax(18.5rem,1fr))] lg:gap-x-5 min-[1600px]:grid-cols-4 min-[2000px]:grid-cols-5">
               {day.games.map((g) => {

@@ -4,7 +4,6 @@ import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
-import { LinkSelect } from "@/components/LinkSelect";
 import { Empty, LinkButton, LiveDot, PageTitle, TeamLogo, chipClass } from "@/components/ui";
 import { saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
@@ -206,18 +205,14 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
 
   return (
     <div>
-      {/* The week (with the week dropdown) on the left; live scores fill the space to their right. */}
+      {/* The week on the left; live scores fill the space to their right. Earlier weeks' picks
+          are in the left column; their games are on the Scores page. */}
       <div className="sm:flex sm:items-start sm:gap-6">
-        <div className="flex shrink-0 items-start gap-3">
+        <div className="shrink-0">
           <PageTitle>
             {week.label}
             {behalf ? <span className="text-accent"> for {row.name}</span> : null}
           </PageTitle>
-          {counted.length > 1 && (
-            <div className="pt-1">
-              <LinkSelect size="md" ariaLabel="Choose a week" value={qs(week.week)} options={[...counted].reverse().map((w) => ({ href: qs(w.week), label: w.label }))} />
-            </div>
-          )}
         </div>
         <LiveTicker games={games} now={now} timezone={tz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
       </div>
