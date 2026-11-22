@@ -212,7 +212,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
                 <div className="pb-3 pl-10">
                   {r.playerIds.length ? <RosterTable ids={r.playerIds} players={players} teams={teams} pts={pts} /> : <p className="py-2 text-sm text-muted">No roster was set.</p>}
                   {ctx.isCommissioner && (
-                    <Link href={`/p/${slug}/picks?for=${r.userId}`} className="text-xs font-semibold text-accent hover:underline">Fix this roster</Link>
+                    <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold text-accent transition hover:bg-hover">Fix this roster</Link>
                   )}
                 </div>
               </details>

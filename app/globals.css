@@ -148,3 +148,13 @@ textarea {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+
+/* Anything that can be tapped shows the pointing hand (Tailwind 4 leaves buttons on the arrow). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary,
+select:not(:disabled),
+label:has(> input[type="checkbox"]:not(:disabled)),
+label:has(> input[type="radio"]:not(:disabled)) {
+  cursor: pointer;
+}

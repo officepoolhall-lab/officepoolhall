@@ -32,7 +32,10 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false, for
         { href: base, label: format === "squares" ? "Board" : "Home", phone: "main", match: (p) => p === base },
         ...(format === "squares" ? [] : [
           { href: `${base}/picks`, label: format === "survivor" ? "My Pick" : format === "playoff_fantasy" ? "My Team" : "My Picks", short: format === "survivor" ? "Pick" : format === "playoff_fantasy" ? "Team" : "Picks", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/picks`) },
-          { href: `${base}/standings`, label: "Standings", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) },
+          // Survivor's standings are its grid of everyone's weekly picks: named like the other pools' grid.
+          format === "survivor"
+            ? { href: `${base}/standings`, label: "League Grid", short: "Grid", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) }
+            : { href: `${base}/standings`, label: "Standings", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) },
         ]),
         // Weekly pools: the Grid and the Scoreboard. Pools with their own format show everyone's
         // picks on Standings instead; Survivor keeps the Scoreboard (it runs on weekly games).

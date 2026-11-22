@@ -1,4 +1,6 @@
-import { TeamLogo } from "@/components/ui";
+import type { ReactNode } from "react";
+import { FitText } from "@/components/FitText";
+import { SectionLabel, TeamLogo } from "@/components/ui";
 import type { SvGame, SvRow, SvTeam, SvWeek } from "@/lib/survivor";
 
 // The Survivor Standings' Pool Summary (the pop-out tab, as on the League Grid): who's left,
@@ -11,12 +13,16 @@ const name = (t: SvTeam) => t.short_name ?? t.name;
 const money = (v: number) =>
   v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2, maximumFractionDigits: 2 });
 
+export type SummaryPart = "remaining" | "picks" | "eliminated" | "teams";
+
 export function SurvivorSummary({
   rows,
   weeks,
   reuse,
   entryFee,
   onSurface = false,
+  only,
+  page = false,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
@@ -28,7 +34,15 @@ export function SurvivorSummary({
   entryFee: number;
   /** Shown inside a shaded card (Home): inner boxes take the page color to stand out. */
   onSurface?: boolean;
+  /** Just these parts (Home spreads them over its columns); default all, in order. */
+  only?: SummaryPart[];
+  /** Headings in the page style (Home) rather than the panel's small grey labels. */
+  page?: boolean;
 }) {
+  const show = (p: SummaryPart) => !only || only.includes(p);
+  const H = ({ children }: { children: ReactNode }) =>
+    // Page headings shrink to stay on one line in a narrow column.
+    page ? <SectionLabel fit className="!text-sm lg:!text-base">{children}</SectionLabel> : <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{children}</h3>;
   const box = onSurface ? "bg-bg" : "bg-surface";
   const total = rows.length;
   const alive = rows.filter((r) => r.alive).length;
@@ -69,7 +83,7 @@ export function SurvivorSummary({
   const survivors = rows.filter((r) => r.alive);
   const left = [...allTeams.values()]
     .map((t) => ({ team: t, n: survivors.filter((r) => !r.used.has(t.id)).length }))
-    .sort((a, b) => b.n - a.n || (a.team.abbreviation ?? "").localeCompare(b.team.abbreviation ?? ""));
+    .sort((a, b) => a.n - b.n || (a.team.abbreviation ?? "").localeCompare(b.team.abbreviation ?? ""));
 
   // The split only moves once a week is final: entries still in coming into the current week
   // (the first week with a game not yet final; after the last week, everyone still alive).
@@ -85,13 +99,14 @@ export function SurvivorSummary({
 
   return (
     <div className="space-y-6">
+      {show("remaining") && (
       <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Entries remaining</h3>
+        <H>Entries remaining</H>
         <p className="mt-1 tabular-nums">
           <span className="text-3xl font-extrabold text-win">{alive}</span> <span className="text-muted">of {total}</span>
           <span className="ml-2 text-sm font-semibold text-ink">({pct(alive, total)})</span>
         </p>
-        <p className="text-sm text-muted tabular-nums">{total - alive} eliminated</p>
+        <p className="whitespace-nowrap text-sm text-muted tabular-nums">{total - alive} eliminated</p>
         {/* The pot, and what each entry would take splitting it, counting everyone still in coming
             into the current week (it changes once a week is final, not game by game). */}
         {entryFee > 0 && splitWays > 0 && (
@@ -109,14 +124,16 @@ export function SurvivorSummary({
           </div>
         )}
       </section>
+      )}
 
-      {shown && (
+      {show("picks") && shown && (
         <section>
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">{shown.label} picks</h3>
-            <span className="text-xs text-muted tabular-nums">{inThisWeek} entries in</span>
+            <H>{shown.label} picks</H>
+            <span className="shrink-0 whitespace-nowrap text-xs text-muted tabular-nums">{inThisWeek} entries in</span>
           </div>
-          <ul className="mt-1 divide-y divide-line border-y border-line">
+          {/* data-fill-list: on Home's desktop column, as many teams as fit beside the others. */}
+          <ul className="mt-1 divide-y divide-line border-y border-line" data-fill-list={page ? "" : undefined}>
             {list.map((t) => {
               const score = scoreOf(t);
               const live = Boolean(t.game?.started && !t.game.final);
@@ -162,9 +179,9 @@ export function SurvivorSummary({
         </section>
       )}
 
-      {outWeeks.length > 0 && (
+      {show("eliminated") && outWeeks.length > 0 && (
         <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Eliminated each week</h3>
+          <H>Eliminated each week</H>
           <ul className="mt-2 space-y-1">
             {outWeeks.map(([w, n]) => (
               <li key={w} className="flex items-center gap-2 text-xs tabular-nums">
@@ -177,10 +194,10 @@ export function SurvivorSummary({
         </section>
       )}
 
-      {!reuse && survivors.length > 0 && (
+      {show("teams") && !reuse && survivors.length > 0 && (
         <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Teams left for the survivors</h3>
-          <p className="mt-0.5 text-xs text-muted">Alive entries that haven&apos;t used each team yet</p>
+          <H>Teams left for the survivors</H>
+          <FitText min={8} className="mt-0.5 text-xs text-muted">Alive entries that haven&apos;t used each team yet</FitText>
           <ul className="mt-2 grid grid-cols-4 gap-1.5">
             {left.map((t) => (
               <li

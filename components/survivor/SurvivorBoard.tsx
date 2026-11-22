@@ -8,7 +8,7 @@ import { PickSummaryRow } from "@/components/PickSummaryRow";
 import { TeamHistoryDialog } from "@/components/ProfileDialogs";
 import { useLiveGames } from "@/components/useLiveGames";
 import { CheckIcon, ChevronIcon, LockIcon, TeamLogo, chipClass } from "@/components/ui";
-import { dayKey, dayLabel, formatSpread } from "@/lib/format";
+import { dayKey, dayLabel, formatSpread, shortGameTime } from "@/lib/format";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
@@ -74,6 +74,10 @@ export function SurvivorBoard({
   const pickSide: Side | null = pickGame && pick ? (pick.teamId === pickGame.home.id ? "home" : "away") : null;
   const pickLocked = Boolean(pickGame && hasStarted(pickGame, now)) && !behalf;
   const pickTeam = pickGame && pickSide ? pickGame[pickSide] : null;
+  const pickStarted = Boolean(pickGame && hasStarted(pickGame, now));
+  const pickFinal = Boolean(pickGame && (pickGame.status === "final" || pickGame.overridden));
+  const myScore = pickGame && pickSide ? (pickSide === "home" ? pickGame.homeScore : pickGame.awayScore) : null;
+  const theirScore = pickGame && pickSide ? (pickSide === "home" ? pickGame.awayScore : pickGame.homeScore) : null;
 
   const settings: BoardSettings = {
     pickType: "straight_up",
@@ -124,22 +128,51 @@ export function SurvivorBoard({
 
   return (
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
-      {/* This week's pick, across the top: the team and who they're playing. */}
-      <h2 className="mb-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-lg font-extrabold tracking-[-0.03em] lg:col-span-2">
-        <span>{weekLabel} Pick:</span>
+      {/* This week's pick, across the top: a small label, the team's logo and name large, the
+          opponent and kickoff (or live clock) under it, and the score on the right once it starts. */}
+      <section className="mb-5 max-w-2xl rounded-2xl bg-surface px-4 py-3 lg:col-span-2" aria-label={`${weekLabel} pick`}>
+        <div className="text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</div>
         {pickTeam && pickGame ? (
-          <span className="flex min-w-0 items-center gap-2">
-            <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-7" />
-            <span className="truncate">{teamName(pickTeam)}</span>
-            <span className="truncate font-medium text-muted">
-              {pickSide === "away" && !pickGame.neutral ? "at" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)}
-            </span>
-            {pickLocked && <LockIcon className="size-4 shrink-0 text-muted" />}
-          </span>
+          <div className="mt-1.5 flex items-center gap-3">
+            <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-12 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-2xl font-extrabold leading-tight tracking-[-0.02em] sm:text-3xl">{teamName(pickTeam)}</div>
+              <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted">
+                <span className="truncate">
+                  {pickSide === "away" && !pickGame.neutral ? "at" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)}
+                  {pickStarted ? (
+                    pickFinal ? (
+                      " · Final"
+                    ) : (
+                      <span className="text-live"> · Live{pickGame.clock ? ` ${pickGame.clock}` : ""}</span>
+                    )
+                  ) : (
+                    <>
+                      {" · "}
+                      {shortGameTime(pickGame.startAt, timezone, pickGame.timeTbd)}
+                      {pickGame.tv ? ` · ${pickGame.tv}` : ""}
+                    </>
+                  )}
+                </span>
+                {pickLocked && <LockIcon className="size-3.5 shrink-0" />}
+              </div>
+            </div>
+            {pickStarted && myScore !== null && theirScore !== null && (
+              <div className="shrink-0 text-right">
+                <div className="text-2xl font-extrabold tabular-nums leading-tight">
+                  {myScore}–{theirScore}
+                </div>
+                <div className={`text-xs font-semibold ${myScore > theirScore ? "text-win" : myScore < theirScore ? "text-loss" : "text-muted"}`}>
+                  {pickFinal ? (myScore > theirScore ? "Won" : "Lost") : myScore > theirScore ? "Leading" : myScore < theirScore ? "Trailing" : "Tied"}
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
-          <span className="font-medium text-muted">{canPick ? "None yet" : "None"}</span>
+          <p className="mt-1 text-base font-semibold text-muted">{canPick ? "No pick yet: tap a team below" : "No pick"}</p>
         )}
-      </h2>
+      </section>
+
 
       {/* The season so far, pinned in the left column on desktop; above the games on phones. */}
       <aside className="lg:self-stretch">
@@ -184,7 +217,7 @@ export function SurvivorBoard({
           </section>
           {historyHref && (
             <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3 lg:mb-1 lg:self-start", "sm")}>
-              View Standings <ChevronIcon className="size-3.5" />
+              View League Grid <ChevronIcon className="size-3.5" />
             </Link>
           )}
         </div>
