@@ -246,11 +246,13 @@ async function Rankings({ timezone }: { timezone: string }) {
           {owgr.golfers.map((g) => {
             const move = g.previous === null ? null : g.previous - g.rank;
             return (
-              <li key={`${g.rank}-${g.name}`} className="flex min-h-9 items-center gap-2.5 py-1.5 text-sm">
+              <li key={`${g.rank}-${g.name}`} className="flex min-h-9 items-center gap-2 py-1.5 text-sm">
                 <span className="w-6 text-right tabular-nums text-muted">{g.rank}</span>
-                <FitName name={g.name} min={10} className="flex-1 font-medium" />
+                {/* The full name; if it can't fit even a little smaller, the first initial and last name. */}
+                <FitName name={g.name} min={11} className="min-w-0 flex-1 font-medium" />
                 {g.country && <span className="text-xs text-muted">{g.country}</span>}
-                {g.points !== null && <span className="w-12 text-right text-xs tabular-nums text-muted">{g.points.toFixed(2)}</span>}
+                {/* Points only where there's room (phones, the widest desktops), so the names get the space. */}
+                {g.points !== null && <span className="w-12 text-right text-xs tabular-nums text-muted lg:max-2xl:hidden">{g.points.toFixed(2)}</span>}
                 <span
                   className={`w-9 text-right text-xs font-semibold tabular-nums ${
                     move === null ? "text-faint" : move > 0 ? "text-win" : move < 0 ? "text-loss" : "text-faint"
