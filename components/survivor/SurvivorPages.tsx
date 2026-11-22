@@ -10,6 +10,8 @@ import type { PoolBase } from "@/lib/pool";
 import { survivorRules, survivorStandings, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek } from "@/lib/survivor";
 import { anyLive, getSurvivor, getWeekExtras, withLiveScores } from "@/lib/survivorData";
 import { SurvivorBoard, type SvPrior } from "./SurvivorBoard";
+import { SurvivorSummary } from "./SurvivorSummary";
+import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { LiveTicker } from "@/components/LiveTicker";
 import { getSlateGames, type PoolContext, type SlateGame } from "@/lib/pool";
 import { withLiveClocks } from "@/lib/liveClock";
@@ -416,6 +418,12 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
             </tbody>
           </table>
         </AxisLockScroll>
+      )}
+      {/* The Pool Summary tab on the screen's edge, as on the League Grid. */}
+      {rows.length > 0 && (
+        <GridPanelDrawer>
+          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} />
+        </GridPanelDrawer>
       )}
     </div>
   );
