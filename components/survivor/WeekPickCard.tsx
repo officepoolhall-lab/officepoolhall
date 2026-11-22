@@ -44,7 +44,7 @@ export function WeekPickCard({
       <section className={`flex w-fit max-w-full items-center gap-2 rounded-xl border-2 border-accent bg-surface px-3 py-1.5 ${className}`} aria-label={`${weekLabel} pick`}>
         {/* An eliminated entry has no pick to make: just "Eliminated in Week N". */}
         {!out && <span className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</span>}
-        <span className={`whitespace-nowrap text-sm font-semibold ${out ? "text-loss" : "text-muted"}`}>{empty}</span>
+        <span className={`whitespace-nowrap font-semibold ${out ? "text-lg font-bold text-loss" : "text-sm text-muted"}`}>{empty}</span>
       </section>
     );
   }
