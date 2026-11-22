@@ -16,6 +16,7 @@ export function SurvivorSummary({
   weeks,
   reuse,
   entryFee,
+  onSurface = false,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
@@ -25,7 +26,10 @@ export function SurvivorSummary({
   reuse: boolean;
   /** The pool's entry fee (pools.entry_fee); 0 hides the pot. */
   entryFee: number;
+  /** Shown inside a shaded card (Home): inner boxes take the page color to stand out. */
+  onSurface?: boolean;
 }) {
+  const box = onSurface ? "bg-bg" : "bg-surface";
   const total = rows.length;
   const alive = rows.filter((r) => r.alive).length;
   // The week to sum up: the latest one with a game under way or over.
@@ -92,11 +96,11 @@ export function SurvivorSummary({
             into the current week (it changes once a week is final, not game by game). */}
         {entryFee > 0 && splitWays > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-            <div className="rounded-xl bg-surface px-2 py-2">
+            <div className={`rounded-xl px-2 py-2 ${box}`}>
               <div className="text-lg font-bold tabular-nums">{money(entryFee * total)}</div>
               <div className="text-[11px] font-medium text-muted">Pot</div>
             </div>
-            <div className="rounded-xl bg-surface px-2 py-2">
+            <div className={`rounded-xl px-2 py-2 ${box}`}>
               <div className="text-lg font-bold tabular-nums text-win">
                 {money((entryFee * total) / splitWays)} <span className="text-sm font-semibold">/ entry</span>
               </div>
@@ -182,7 +186,7 @@ export function SurvivorSummary({
               <li
                 key={t.team.id}
                 title={`${name(t.team)}: ${t.n} of ${survivors.length} can still pick them`}
-                className={`flex items-center justify-center gap-1.5 rounded-lg px-1.5 py-1 text-sm tabular-nums ring-1 ring-line ${t.n === 0 ? "opacity-40" : "bg-surface"}`}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-1.5 py-1 text-sm tabular-nums ring-1 ring-line ${t.n === 0 ? "opacity-40" : box}`}
               >
                 <TeamLogo src={t.team.logo_url} abbr={t.team.abbreviation} className="size-6 shrink-0" />
                 <span className="sr-only">{name(t.team)}:</span>
