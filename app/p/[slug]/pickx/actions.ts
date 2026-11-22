@@ -19,6 +19,19 @@ export async function savePickXPicks(slug: string, forUserId: string | null, tea
   return {};
 }
 
+/** An entry's tiebreaker guess: the championship game's total points. */
+export async function savePickXTiebreak(slug: string, forUserId: string | null, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await getPoolBase(slug);
+  if (!isPickX(ctx.pool.settings)) return { error: "This isn't a Pick X pool." };
+  const raw = String(form.get("tiebreak") ?? "").trim();
+  if (raw && !/^\d{1,3}$/.test(raw)) return { error: "Enter the total as a whole number, like 141." };
+  const { error } = await (ctx.supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => any }) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .rpc("submit_pickx_tiebreak", { p_pool_id: ctx.pool.id, p_tiebreak: raw ? Number(raw) : null, p_user_id: forUserId ?? ctx.entryUserId });
+  if (error) return { error: error.message };
+  revalidatePath(`/p/${slug}`, "layout");
+  return { ok: "Tiebreaker saved." };
+}
+
 /** The commissioner's Pick X rules: how many teams, the scoring and the limits. */
 export async function savePickXSettings(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);

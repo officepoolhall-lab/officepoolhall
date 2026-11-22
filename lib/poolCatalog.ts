@@ -8,9 +8,11 @@ import type { PresetKey } from "./poolSettings";
 // from Start a Pool.
 
 export type GolfTemplate = "golf_tiers" | "golf_salary";
+/** NFL pools with their own format (settings.format): Survivor, Super Bowl Squares, Playoff Fantasy. */
+export type FormatTemplate = "nfl_survivor" | "nfl_squares" | "nfl_playoff_fantasy" | "ncaaf_squares";
 /** NCAA Pick X (settings.format = "pick_x"). */
 export type PickXTemplate = "ncaab_pickx";
-export type Template = PresetKey | GolfTemplate | PickXTemplate;
+export type Template = PresetKey | GolfTemplate | PickXTemplate | FormatTemplate;
 
 export type CatalogType = { id: string; name: string; text: string; live: boolean; template?: Template };
 export type CatalogLeague = { id: "nfl" | "ncaaf" | "ncaab" | "pga"; label: string; full: string; kind: PoolKind; types: CatalogType[] };
@@ -22,13 +24,13 @@ export const LEAGUES: CatalogLeague[] = [
     full: "NFL",
     kind: "football",
     types: [
-      { live: false, id: "survivor", name: "Survivor", text: "Pick one team to win each week. Lose and you're out, and you can't use a team twice." },
+      { live: true, id: "survivor", name: "Survivor", template: "nfl_survivor", text: "Pick one team to win each week. Lose and you're out, and you can't use a team twice." },
       { live: true, id: "supercontest", name: "Supercontest", template: "nfl_ats", text: "Pick a set number of games against the spread each week. Lines lock when the week is published." },
       { live: true, id: "pickem", name: "Pick 'Em", template: "nfl_pickem", text: "Pick the winner of every game straight up, no spreads. Easy for anyone to jump into." },
       { live: true, id: "confidence", name: "Confidence", template: "nfl_confidence", text: "Pick every game and rank them. Your surest pick is worth the most points." },
-      { live: false, id: "squares", name: "Super Bowl Squares", text: "A 10-by-10 grid for the big game. Numbers are drawn at random, and each quarter's score picks a winner." },
+      { live: true, id: "squares", name: "Super Bowl Squares", template: "nfl_squares", text: "A 10-by-10 grid for the big game. Numbers are drawn at random, and each quarter's score picks a winner." },
       { live: false, id: "guillotine", name: "Guillotine Fantasy", text: "A fantasy league where the lowest-scoring team each week is cut, and its players go back up for grabs." },
-      { live: false, id: "playoff-fantasy", name: "Playoff Fantasy", text: "Pick a roster of players for the playoffs and ride them all postseason. Points for every yard and touchdown." },
+      { live: true, id: "playoff-fantasy", name: "Playoff Fantasy", template: "nfl_playoff_fantasy", text: "Build one roster with a player from every playoff team and ride it all postseason. Most fantasy points wins." },
     ],
   },
   {
@@ -40,6 +42,7 @@ export const LEAGUES: CatalogLeague[] = [
       { live: true, id: "supercontest", name: "Supercontest", template: "ncaaf_ats", text: "Pick a set number of games against the spread from each week's slate." },
       { live: true, id: "pickem", name: "Pick 'Em", template: "ncaaf_pickem", text: "Pick winners straight up from the week's biggest games." },
       { live: true, id: "confidence", name: "Confidence", template: "ncaaf_confidence", text: "Pick every game on the slate and rank them by how sure you are." },
+      { live: true, id: "squares", name: "Squares", template: "ncaaf_squares", text: "A 10-by-10 grid for any college football game: a rivalry game, a bowl, the national championship. Each quarter's score picks a winner." },
     ],
   },
   {
@@ -69,6 +72,17 @@ export const LEAGUES: CatalogLeague[] = [
     ],
   },
 ];
+
+/** Each format template's settings.format (and the name of its rules block). */
+export const TEMPLATE_FORMAT: Record<FormatTemplate, "survivor" | "squares" | "playoff_fantasy"> = {
+  nfl_survivor: "survivor",
+  nfl_squares: "squares",
+  nfl_playoff_fantasy: "playoff_fantasy",
+  ncaaf_squares: "squares",
+};
+/** The sport each format template's pool is. */
+export const TEMPLATE_SPORT: Record<FormatTemplate, "nfl" | "ncaaf"> = { nfl_survivor: "nfl", nfl_squares: "nfl", nfl_playoff_fantasy: "nfl", ncaaf_squares: "ncaaf" };
+export const isFormatTemplate = (t: string | null | undefined): t is FormatTemplate => Boolean(t && t in TEMPLATE_FORMAT);
 
 /** The league and type a template belongs to (for opening Start a Pool on it). */
 export function findTemplate(t: string | undefined): { league: CatalogLeague; type: CatalogType } | null {

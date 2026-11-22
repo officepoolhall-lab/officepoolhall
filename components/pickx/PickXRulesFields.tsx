@@ -97,6 +97,29 @@ export function PickXRulesFields({ initial, locked = false }: { initial: PickXSe
         </SettingRow>
       </SettingsSection>
 
+      <SettingsSection title="Tiebreaker" description="What happens when entries finish with the same points.">
+        <SettingRow label="Break ties with" stack>
+          <OptionCards
+            ariaLabel="Tiebreaker"
+            value={s.tiebreaker}
+            onChange={(v) => setS((p) => ({ ...p, tiebreaker: v }))}
+            options={[
+              { value: "none", label: "No tiebreaker", text: "Entries with the same points share the place." },
+              { value: "title_total", label: "Championship total points", text: "Everyone guesses the title game's combined score with their picks. Closest guess wins a tie." },
+            ]}
+          />
+        </SettingRow>
+        {s.tiebreaker === "title_total" && (
+          <SettingRow label="Championship game total" hint="Both teams' points added together. Fills in from ESPN after the game; type it here to set it yourself.">
+            <input
+              type="number" min={0} max={999} aria-label="Championship game total points" value={s.title_total ?? ""} placeholder="After the game"
+              onChange={(e) => setS((p) => ({ ...p, title_total: e.target.value === "" ? null : Math.max(0, Math.min(999, Math.round(Number(e.target.value) || 0))) }))}
+              className={`${settingInput} w-36 text-center tabular-nums`}
+            />
+          </SettingRow>
+        )}
+      </SettingsSection>
+
       <SettingsSection title="Limits" description="Optional rules on which teams an entry can pick.">
         <SettingRow label="One team per seed line" hint="No two teams with the same seed." locked={locked}>
           <Toggle label="One team per seed line" checked={s.limits.one_per_seed} onChange={(v) => setLimits({ one_per_seed: v })} />

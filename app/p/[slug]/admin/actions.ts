@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { applyHalfPoint, parseSpread } from "@/lib/spread";
 import { prunePicks } from "@/lib/bracket";
 import { getBracket } from "@/lib/brackets";
+import { espnBracketResults, saveTitleTotal } from "@/lib/bracketSync";
 
 // Every action re-checks that the caller is this pool's commissioner; the database
 // checks again (RLS / security definer functions).
@@ -573,6 +574,22 @@ export async function saveBracketResults(slug: string, id: string, _: ActionStat
   const { error } = await ctx.supabase.rpc("set_bracket_results", { p_id: id, p_results: clean });
   if (error) return { error: error.message };
   return done(slug, "Results saved; every bracket re-scored.");
+}
+
+/** Fill in winners from ESPN's finished games (never changes one already set). Also runs by itself every 15 minutes during the tournament. */
+export async function syncBracketResults(slug: string, id: string): Promise<ActionState> {
+  const ctx = await requireCommissioner(slug);
+  const bracket = await getBracket(ctx);
+  if (!bracket || bracket.id !== id) return { error: "Bracket not found." };
+  const sync = await espnBracketResults(bracket);
+  if (sync.added) {
+    const { error } = await ctx.supabase.rpc("set_bracket_results", { p_id: id, p_results: sync.results });
+    if (error) return { error: error.message };
+  }
+  // Pick X's tiebreaker: the title game's total, once it's final.
+  const total = await saveTitleTotal(ctx.supabase, ctx.pool, sync.titleTotal);
+  if (!sync.added && !total) return { ok: "Nothing new from ESPN: no finished games are waiting for a winner." };
+  return done(slug, `${sync.added} winner${sync.added === 1 ? "" : "s"} added from ESPN${total ? "; the title game's total is in" : ""}. Everything re-scored.`);
 }
 
 // ---------- Imported entries: real names and emails ----------

@@ -5,10 +5,16 @@ import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { SettingsFields } from "@/components/SettingsFields";
 import { OptionCards, SettingRow, SettingsSection, settingInput } from "@/components/SettingsUI";
 import { SportIcon } from "@/components/SportIcon";
-import { LEAGUES, findTemplate, type CatalogLeague, type Template } from "@/lib/poolCatalog";
+import { LEAGUES, TEMPLATE_FORMAT, TEMPLATE_SPORT, findTemplate, isFormatTemplate, type CatalogLeague, type Template } from "@/lib/poolCatalog";
 import { PRESETS, type PoolSettings, type PresetKey } from "@/lib/poolSettings";
 import { PickXRulesFields } from "@/components/pickx/PickXRulesFields";
 import { PICKX_DEFAULT } from "@/lib/pickx";
+import { SurvivorRulesFields } from "@/components/survivor/SurvivorRulesFields";
+import { SquaresRulesFields } from "@/components/squares/SquaresRulesFields";
+import { PfRulesFields } from "@/components/playoff/PfRulesFields";
+import { SURVIVOR_DEFAULT } from "@/lib/survivor";
+import { SQUARES_DEFAULT } from "@/lib/squares";
+import { PF_DEFAULT } from "@/lib/playoffFantasy";
 import { createPool } from "./actions";
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -45,6 +51,8 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
   const type = league?.types.find((t) => t.template === template) ?? null;
   const golf = template === "golf_tiers" || template === "golf_salary";
   const pickX = template === "ncaab_pickx";
+  // Survivor, Squares and Playoff Fantasy: NFL pools with their own rules.
+  const format = isFormatTemplate(template) ? TEMPLATE_FORMAT[template] : null;
   const year = new Date().getFullYear();
 
   return (
@@ -118,7 +126,7 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
       {type && (
         <>
           <Step n={3} title="Name your pool">
-            <input type="hidden" name="sport" value={golf ? "pga" : pickX ? "ncaab" : isPreset(template) ? PRESETS[template].sport : ""} />
+            <input type="hidden" name="sport" value={golf ? "pga" : pickX ? "ncaab" : format && isFormatTemplate(template) ? TEMPLATE_SPORT[template] : isPreset(template) ? PRESETS[template].sport : ""} />
             <SettingsSection title="Pool details" description="You can rename the pool and change the entry fee any time.">
               <SettingRow label="Pool name">
                 <input
@@ -159,6 +167,28 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
                 <input type="hidden" name="settings" value={JSON.stringify(PRESETS.ncaab_pickem.settings)} />
                 <PickXRulesFields initial={PICKX_DEFAULT} />
                 <p className="mt-3 text-sm text-muted">After creating the pool, set the tournament field and the lock time on Commissioner → Bracket.</p>
+              </>
+            ) : format ? (
+              <>
+                {/* The weekly rules don't apply, but every football pool carries them (Survivor's weeks use them for its slates). */}
+                <input type="hidden" name="settings" value={JSON.stringify((template === "ncaaf_squares" ? PRESETS.ncaaf_pickem : PRESETS.nfl_pickem).settings)} />
+                <input type="hidden" name="format" value={format} />
+                {format === "survivor" ? (
+                  <SurvivorRulesFields initial={SURVIVOR_DEFAULT} />
+                ) : format === "squares" ? (
+                  <SquaresRulesFields initial={SQUARES_DEFAULT} />
+                ) : (
+                  <PfRulesFields initial={PF_DEFAULT} />
+                )}
+                <p className="mt-3 text-sm text-muted">
+                  {format === "survivor"
+                    ? "After creating the pool, publish each week's games on Commissioner → Slate."
+                    : format === "squares"
+                      ? (template === "ncaaf_squares"
+                        ? "After creating the pool, choose the game and fill in the board from Commissioner → Board."
+                        : "After creating the pool, fill in the board and set the numbers from Commissioner → Board. The Super Bowl is found by itself.")
+                      : "Nothing else to set up: the playoff teams and their players load by themselves when the regular season ends, and rosters lock at the first Wild Card kickoff."}
+                </p>
               </>
             ) : isPreset(template) ? (
               <SettingsFields key={template} initial={PRESETS[template].settings as PoolSettings} />

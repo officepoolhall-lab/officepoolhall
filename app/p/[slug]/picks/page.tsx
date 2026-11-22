@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { isPickX } from "@/lib/pickx";
 import { PickXPicksPage } from "@/components/pickx/PickXPages";
+import { redirect } from "next/navigation";
+import { poolFormat } from "@/lib/formats";
+import { SurvivorPicksPage } from "@/components/survivor/SurvivorPages";
+import { PfPicksPage } from "@/components/playoff/PfPages";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LiveTicker } from "@/components/LiveTicker";
@@ -25,6 +29,11 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   const { for: forParam, week: weekParam } = await searchParams;
   const ctx = await getPoolContext(slug);
   if (isPickX(ctx.pool.settings)) return <PickXPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} />;
+  const format = poolFormat(ctx.pool.settings);
+  if (format === "survivor") return <SurvivorPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} weekParam={typeof weekParam === "string" ? weekParam : undefined} />;
+  if (format === "playoff_fantasy") return <PfPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} />;
+  // Squares are taken on the board itself.
+  if (format === "squares") redirect(`/p/${slug}`);
   const [slates, current, upcoming] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
 
   if (!current) {

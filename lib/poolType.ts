@@ -7,7 +7,7 @@ export function poolKind(sport: string | null | undefined): PoolKind {
   return sport === "pga" || sport === "golf" ? "golf" : sport === "ncaab" ? "basketball" : "football";
 }
 
-/** "NFL Supercontest", "NCAA Confidence Pool", "PGA One-and-Done", "PGA Majors Pool". */
+/** "NFL Supercontest", "NCAA Confidence Pool", "NFL Survivor", "PGA One-and-Done", "PGA Majors Pool". */
 export function poolTypeLabel(pool: { sport: string | null; settings: unknown }): string {
   const s = (pool.settings ?? {}) as Record<string, unknown>;
   if (poolKind(pool.sport) === "golf") {
@@ -22,6 +22,9 @@ export function poolTypeLabel(pool: { sport: string | null; settings: unknown })
     const n = (s.pick_x as { picks?: unknown } | undefined)?.picks;
     return `NCAA Pick ${typeof n === "number" ? n : "X"}`;
   }
+  if (s.format === "survivor") return "NFL Survivor";
+  if (s.format === "squares") return pool.sport === "nfl" ? "Super Bowl Squares" : "College Football Squares";
+  if (s.format === "playoff_fantasy") return "NFL Playoff Fantasy";
   if (s.confidence) return `${league} Confidence Pool`;
   return s.pick_type === "straight_up" ? `${league} Pick'em` : `${league} Supercontest`;
 }

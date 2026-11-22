@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { Empty, LinkButton, PageTitle, TeamLogo } from "@/components/ui";
-import { savePickXPicks } from "@/app/p/[slug]/pickx/actions";
+import { savePickXPicks, savePickXTiebreak } from "@/app/p/[slug]/pickx/actions";
+import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import type { PoolBase } from "@/lib/pool";
 import { ROUNDS } from "@/lib/bracket";
 import { rulesSummary, seedAt } from "@/lib/pickx";
@@ -33,7 +34,7 @@ function TeamChip({ t, team }: { t: PickXRow["teams"][number]; team?: { short_na
   );
 }
 
-function StandingsList({ rows, me, field, locked, picks, limit }: { rows: PickXRow[]; me: string; field: Map<string, BracketTeam>; locked: boolean; picks: number; limit?: number }) {
+function StandingsList({ rows, me, field, locked, picks, limit, tiebreak = false }: { rows: PickXRow[]; me: string; field: Map<string, BracketTeam>; locked: boolean; picks: number; limit?: number; /** Show each entry's tiebreaker guess. */ tiebreak?: boolean }) {
   const shown = limit ? rows.slice(0, limit) : rows;
   return (
     <ul className="divide-y divide-line">
@@ -46,6 +47,7 @@ function StandingsList({ rows, me, field, locked, picks, limit }: { rows: PickXR
               <>
                 <span className="hidden text-xs text-muted tabular-nums sm:inline">
                   {r.alive} alive · up to +{r.upside}
+                  {tiebreak && r.tiebreak !== null ? ` · TB ${r.tiebreak}` : ""}
                 </span>
                 <span className="w-12 text-right text-[15px] font-bold tabular-nums">{r.points}</span>
               </>
@@ -173,6 +175,22 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
         {forName ? <>Picks <span className="text-accent">for {forName}</span></> : "My Picks"}
       </PageTitle>
       {filled < 64 && <p className="mb-4 rounded-xl bg-surface px-3 py-2 text-sm text-muted">{64 - filled} spots in the field aren&apos;t set yet (First Four games, or the commissioner is still filling the bracket).</p>}
+      {/* The tiebreaker guess, saved on its own (same lock as the picks). */}
+      {!ctx.isGuest && settings.tiebreaker === "title_total" && (
+        <ActionForm action={savePickXTiebreak.bind(null, slug, forUserId && ctx.isCommissioner ? forUserId : null)} className={`${card} mb-4`}>
+          <label className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold">Tiebreaker</span>
+              <span className="block text-sm text-muted">Total points in the championship game (both teams added together). Closest guess wins a tie.</span>
+            </span>
+            <input
+              name="tiebreak" type="number" min={0} max={999} inputMode="numeric" placeholder="141" aria-label="Tiebreaker: championship game total points" defaultValue={entry?.tiebreak ?? ""}
+              className="h-10 w-24 rounded-[10px] bg-bg px-3 text-center text-[15px] tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
+            />
+            <SubmitButton kind="secondary" className="!h-10 !px-4 !text-sm">Save</SubmitButton>
+          </label>
+        </ActionForm>
+      )}
       {ctx.isGuest ? (
         <Empty>Guests can&apos;t make picks.</Empty>
       ) : (
@@ -200,10 +218,20 @@ export async function PickXStandingsPage({ ctx }: { ctx: PoolBase }) {
   const slotOf = new Map<string, number>((bracket?.field ?? []).map((t, i) => [t?.id ?? "", i]));
   return (
     <>
-      <PageTitle sub={locked ? "Points from every win by each entry's teams. Struck-through teams are out." : "Everyone's teams show once picks lock."}>Standings</PageTitle>
+      <PageTitle
+        sub={
+          locked
+            ? `Points from every win by each entry's teams. Struck-through teams are out.${
+                settings.tiebreaker === "title_total" ? (settings.title_total !== null ? ` Tiebreaker: the title game totaled ${settings.title_total} (TB is each entry's guess).` : " Ties are broken by the closest guess (TB) of the title game's total points.") : ""
+              }`
+            : "Everyone's teams show once picks lock."
+        }
+      >
+        Standings
+      </PageTitle>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <section className={card}>
-          {rows.length ? <StandingsList rows={rows} me={ctx.entryUserId} field={field} locked={locked} picks={settings.picks} /> : <Empty>No entries yet.</Empty>}
+          {rows.length ? <StandingsList rows={rows} me={ctx.entryUserId} field={field} locked={locked} picks={settings.picks} tiebreak={settings.tiebreaker === "title_total"} /> : <Empty>No entries yet.</Empty>}
         </section>
         {locked && popular.length > 0 && (
           <section className={card}>

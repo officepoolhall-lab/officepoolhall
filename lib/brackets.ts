@@ -4,7 +4,7 @@ import type { PoolContext } from "./pool";
 
 // Loads the pool's NCAA Tournament bracket (see lib/bracket.ts for the shape).
 
-export type BracketTeam = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null };
+export type BracketTeam = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null; /** ESPN's team id, for reading results from ESPN. */ espn_id?: string | null };
 
 export type Bracket = {
   id: string;
@@ -25,7 +25,7 @@ const asPicks = (v: unknown): Picks => (v && typeof v === "object" ? (v as Picks
 export async function getBracket(ctx: PoolContext): Promise<Bracket | null> {
   const { data } = await ctx.supabase
     .from("brackets")
-    .select("id, name, week, lock_at, regions, bracket_teams ( slot, team:teams ( id, name, short_name, abbreviation, logo_url ) ), bracket_results ( results )")
+    .select("id, name, week, lock_at, regions, bracket_teams ( slot, team:teams ( id, name, short_name, abbreviation, logo_url, espn_id ) ), bracket_results ( results )")
     .eq("pool_id", ctx.pool.id)
     .order("created_at", { ascending: false })
     .limit(1)

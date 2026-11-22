@@ -8,7 +8,7 @@ import { PoolPresence } from "@/components/PoolPresence";
 import { PoolSwitcher } from "@/components/PoolSwitcher";
 import { PoolTitle } from "@/components/PoolTitle";
 import { getGridWeek, getPoolBase } from "@/lib/pool";
-import { isPickX } from "@/lib/pickx";
+import { poolFormat } from "@/lib/formats";
 import { getBenchedIds } from "@/lib/bench";
 
 export default async function PoolLayout({ children, modal, params }: LayoutProps<"/p/[slug]">) {
@@ -41,7 +41,7 @@ export default async function PoolLayout({ children, modal, params }: LayoutProp
         </div>
       </AppHeader>
       <PoolTitle slug={slug} name={ctx.pool.name} kind={poolKind(ctx.pool.sport)} type={poolTypeLabel(ctx.pool)} />
-      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={gridWeek ?? undefined} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} pickX={isPickX(ctx.pool.settings)} />
+      <PoolNav slug={slug} sport={ctx.pool.sport} isCommissioner={ctx.isCommissioner} week={gridWeek ?? undefined} majors={(ctx.pool.settings as Record<string, unknown> | null)?.golf_format === "majors"} format={poolFormat(ctx.pool.settings)} />
       {/* Bottom padding clears the picks tracker and the home indicator (less on pages that
           fill the viewport, which have no tracker); side padding clears the notch in landscape.
           Pages that fill the viewport (the Grid) and wide pages (Picks) use the full screen width on desktop. */}

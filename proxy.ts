@@ -7,7 +7,8 @@ import { forgetsSession, REMEMBER_COOKIE, sessionOnly } from "./lib/remember";
 
 // Invite links render for signed-out visitors (which pool, then sign in) so texts and group
 // chats can show a preview; the share-preview images are public too.
-const PUBLIC_PATHS = ["/login", "/auth", "/join/", "/formats", "/opengraph-image", "/twitter-image"];
+// The cron endpoints are called by Vercel with no session (they check CRON_SECRET themselves).
+const PUBLIC_PATHS = ["/login", "/auth", "/join/", "/formats", "/board/", "/opengraph-image", "/twitter-image", "/api/golf/warm", "/api/brackets/sync"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

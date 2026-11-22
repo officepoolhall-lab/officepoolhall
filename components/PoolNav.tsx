@@ -11,7 +11,7 @@ type Tab = { href: string; label: string; short?: string; phone: "main" | "more"
  * Tabs under the header. Phones: a sticky row of the four main tabs plus "More" (Scoreboard,
  * Message Board, Commissioner) so each tab gets room and readable text. Wider screens: every tab as a pill.
  */
-export function PoolNav({ slug, sport, isCommissioner, week, majors = false, pickX = false }: { slug: string; sport: string; isCommissioner: boolean; week?: number; majors?: boolean; pickX?: boolean }) {
+export function PoolNav({ slug, sport, isCommissioner, week, majors = false, format = null }: { slug: string; sport: string; isCommissioner: boolean; week?: number; majors?: boolean; /** settings.format: pools with their own pages (lib/formats.ts). */ format?: string | null }) {
   const pathname = usePathname();
   const base = `/p/${slug}`;
   // Golf pools have their own pages under /golf; the message board is shared.
@@ -28,14 +28,20 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false, pic
         ...(isCommissioner ? [{ href: `${g}/admin`, label: "Commissioner", phone: "more" as const, match: (p: string) => p.startsWith(`${g}/admin`) }] : []),
       ]
     : [
-        { href: base, label: "Home", phone: "main", match: (p) => p === base },
-        { href: `${base}/picks`, label: "My Picks", short: "Picks", phone: "main", match: (p) => p.startsWith(`${base}/picks`) },
-        { href: `${base}/standings`, label: "Standings", phone: "main", match: (p) => p.startsWith(`${base}/standings`) },
-        // Pick X: Standings shows every entry's teams, so no Grid; no weekly Scoreboard either.
-        ...(pickX ? [] : [
-          { href: `${base}/grid/${week ?? 1}`, label: "League Grid", short: "Grid", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/grid`) },
-          { href: `${base}/scoreboard`, label: "Scoreboard", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/scoreboard`) },
+        // A Squares pool is its board: no picks or standings pages.
+        { href: base, label: format === "squares" ? "Board" : "Home", phone: "main", match: (p) => p === base },
+        ...(format === "squares" ? [] : [
+          { href: `${base}/picks`, label: format === "survivor" ? "My Pick" : format === "playoff_fantasy" ? "My Team" : "My Picks", short: format === "survivor" ? "Pick" : format === "playoff_fantasy" ? "Team" : "Picks", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/picks`) },
+          { href: `${base}/standings`, label: "Standings", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) },
         ]),
+        // Weekly pools: the Grid and the Scoreboard. Pools with their own format show everyone's
+        // picks on Standings instead; Survivor keeps the Scoreboard (it runs on weekly games).
+        ...(format ? [] : [
+          { href: `${base}/grid/${week ?? 1}`, label: "League Grid", short: "Grid", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/grid`) },
+        ]),
+        ...(!format || format === "survivor" ? [
+          { href: `${base}/scoreboard`, label: "Scoreboard", phone: (format ? "main" : "more") as "main" | "more", match: (p: string) => p.startsWith(`${base}/scoreboard`) },
+        ] : []),
         { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
         ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Commissioner", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/admin`) }] : []),
       ];

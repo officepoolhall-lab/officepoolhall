@@ -1,6 +1,10 @@
 import { FitText } from "@/components/FitText";
 import { isPickX } from "@/lib/pickx";
 import { PickXHome } from "@/components/pickx/PickXPages";
+import { poolFormat } from "@/lib/formats";
+import { SurvivorHome } from "@/components/survivor/SurvivorPages";
+import { SquaresHome } from "@/components/squares/SquaresPages";
+import { PfHome } from "@/components/playoff/PfPages";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ApPollList } from "@/components/ApPollList";
@@ -33,6 +37,11 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const ctx = await getPoolContext(slug);
   // An NCAA Pick X pool has its own Home.
   if (isPickX(ctx.pool.settings)) return <PickXHome ctx={ctx} slug={slug} />;
+  // So do Survivor, Squares (its board) and Playoff Fantasy.
+  const format = poolFormat(ctx.pool.settings);
+  if (format === "survivor") return <SurvivorHome ctx={ctx} slug={slug} />;
+  if (format === "squares") return <SquaresHome ctx={ctx} slug={slug} />;
+  if (format === "playoff_fantasy") return <PfHome ctx={ctx} slug={slug} />;
   const [slate, upcoming] = await Promise.all([getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
   const sport = teamSport(ctx.pool.sport);
   // Everything the pool's own data needs, in one round: the standings (one load of the
