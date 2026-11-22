@@ -26,6 +26,11 @@ export type SurvivorSettings = {
    * (shared with every pool) are never changed.
    */
   demo_results?: Record<string, [number, number]> | null;
+  /**
+   * Demo pools only (set in the database): show the pool as of this moment (ISO time). Games
+   * after it look not started (no score), and picks lock against it (migration 065).
+   */
+  demo_now?: string | null;
 };
 
 export const SURVIVOR_DEFAULT: SurvivorSettings = { lives: 1, tie: "loss", reuse: false, start_week: 1 };
@@ -39,6 +44,7 @@ export function survivorSettings(settings: unknown): SurvivorSettings {
     start_week: int(s.start_week, 1, 30) ?? 1,
     demo_live_week: int(s.demo_live_week, 1, 30) ?? null,
     demo_results: demoResults(s.demo_results),
+    demo_now: typeof s.demo_now === "string" && !Number.isNaN(Date.parse(s.demo_now)) ? s.demo_now : null,
   };
 }
 
@@ -49,6 +55,18 @@ function demoResults(v: unknown): Record<string, [number, number]> | null {
     if (Array.isArray(r) && r.length === 2 && r.every((n) => Number.isInteger(n) && (n as number) >= 0)) out[id] = [r[0] as number, r[1] as number];
   }
   return Object.keys(out).length ? out : null;
+}
+
+/** A demo pool shown as of an earlier moment (settings.demo_now): later games not started. */
+export function applyDemoNow(weeks: SvWeek[], demoNow: string | null | undefined): SvWeek[] {
+  if (!demoNow) return weeks;
+  const at = Date.parse(demoNow);
+  return weeks.map((w) => ({
+    ...w,
+    games: w.games.map((g) =>
+      Date.parse(g.startAt) > at ? { ...g, started: false, final: false, homeScore: null, awayScore: null, clock: null } : g,
+    ),
+  }));
 }
 
 /** A demo pool's made-up finals (settings.demo_results) laid over its games. */

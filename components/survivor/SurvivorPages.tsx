@@ -77,12 +77,16 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   const week = currentWeek(weeks, settings.start_week);
   const myPick = week ? picks.find((p) => p.slateId === week.slateId && p.userId === ctx.entryUserId) : undefined;
   const pickGame = myPick ? week?.games.find((g) => g.id === myPick.gameId) : undefined;
+  const demoNow = settings.demo_now ? Date.parse(settings.demo_now) : null;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
-  const now = Date.now();
+  const realNow = Date.now();
+  const now = demoNow ?? realNow;
   const games = week ? await weekSlateGames(ctx, week, now) : [];
   const myGame = myPick ? (games.find((g) => g.id === myPick.gameId) ?? null) : null;
   const mySide: "home" | "away" | null = myGame && myPick ? (myPick.teamId === myGame.home.id ? "home" : "away") : null;
-  const nextKick = week?.games.filter((g) => !g.voided && !g.started).map((g) => g.startAt).sort()[0] ?? null;
+  const firstKick = week?.games.filter((g) => !g.voided && !g.started).map((g) => g.startAt).sort()[0] ?? null;
+  // A demo pool counts down from its "as of" moment, not the clock.
+  const nextKick = firstKick && demoNow ? new Date(realNow + (Date.parse(firstKick) - demoNow)).toISOString() : firstKick;
   const canPick = Boolean(mine?.alive && week && !weekClosed(week) && !pickGame?.started);
   const counted = weeks.filter((w) => w.week >= settings.start_week);
   const entryFee = Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0);
@@ -185,6 +189,8 @@ async function weekSlateGames(ctx: PoolBase, week: SvWeek, now: number): Promise
   const stored = (await getSlateGames(ctx as unknown as PoolContext, week.slateId)).map((g) => {
     const d = sv.get(g.id);
     if (!d) return g;
+    // A demo pool shown as of an earlier moment (settings.demo_now): this game hasn't started.
+    if (!d.started && g.status !== "scheduled") return { ...g, status: "scheduled", homeScore: null, awayScore: null, clock: null, lastPlay: null, situation: null, possession: null };
     // A demo final (settings.demo_results) on a game that isn't over for real.
     if (d.final && g.status !== "final") return { ...g, status: "final", homeScore: d.homeScore, awayScore: d.awayScore, clock: null, lastPlay: null, situation: null, possession: null };
     if (!d.clock || d.final) return g;
@@ -223,8 +229,10 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
   if (!week) return (<><PageTitle>{title}</PageTitle><Empty>No week is open yet. The commissioner publishes each week&apos;s games before the first kickoff.</Empty></>);
   if (!row) return (<><PageTitle>{title}</PageTitle><Empty>{ctx.isGuest ? "Guests can't make picks." : "This entry isn't playing."}</Empty></>);
 
+  // A demo pool shown as of an earlier moment uses that moment as "now" (settings.demo_now).
+  const demoNow = settings.demo_now ? Date.parse(settings.demo_now) : null;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of which games are live
-  const now = Date.now();
+  const now = demoNow ?? Date.now();
   const [games, { spreads, records }] = await Promise.all([weekSlateGames(ctx, week, now), getWeekExtras(ctx, week)]);
 
   const pick = picks.find((p) => p.slateId === week.slateId && p.userId === target) ?? null;
@@ -287,6 +295,7 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         backHref={qs(week.week)}
         historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
+        fixedNow={demoNow ?? undefined}
       />
     </div>
   );
