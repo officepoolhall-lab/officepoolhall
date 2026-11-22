@@ -1,5 +1,8 @@
 "use server";
 
+import { after } from "next/server";
+import { syncNflSeason } from "@/lib/nflSchedule";
+
 import { revalidatePath } from "next/cache";
 
 import { redirect } from "next/navigation";
@@ -95,6 +98,8 @@ export async function createPool(_: ActionState, form: FormData): Promise<Action
   if (error) {
     return { error: error.code === "23505" ? "That URL name is taken; try another." : error.message };
   }
+  // A new NFL pool: make sure the whole season's schedule is loaded (after the page answers).
+  if (sport === "nfl") after(() => syncNflSeason(season).then(() => undefined));
   redirect(`/p/${slug}/admin/roster`);
 }
 

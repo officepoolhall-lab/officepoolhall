@@ -11,6 +11,10 @@
     {
       "path": "/api/brackets/sync",
       "schedule": "*/15 * * 3,4 *"
+    },
+    {
+      "path": "/api/nfl/schedule",
+      "schedule": "41 10 * * *"
     }
   ]
 }

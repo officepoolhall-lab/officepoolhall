@@ -14,6 +14,7 @@ import { prunePicks } from "@/lib/bracket";
 import { getBracket } from "@/lib/brackets";
 import { espnBracketResults, saveTitleTotal } from "@/lib/bracketSync";
 import { NFL_WEEKS, currentNflWeek, nflWeekLabel, nflWeekWindow } from "@/lib/nflWeeks";
+import { syncNflSeason } from "@/lib/nflSchedule";
 
 // Every action re-checks that the caller is this pool's commissioner; the database
 // checks again (RLS / security definer functions).
@@ -314,6 +315,17 @@ export async function syncSchedule(slug: string): Promise<ActionState> {
   // automatically from it). Otherwise at least 14 days, through the latest draft week.
   const days = ctx.pool.sport === "nfl" ? 30 : Math.min(Math.max(14, untilDraftEnd), 30);
 
+  // NFL: the whole season (shared by every NFL pool), not just the next few weeks.
+  if (ctx.pool.sport === "nfl") {
+    const season = await syncNflSeason(ctx.pool.season);
+    if (season.error) return { error: `ESPN: ${season.error}` };
+    const { data: drafts } = await ctx.supabase.from("slates").select("id, week").eq("pool_id", ctx.pool.id).eq("status", "draft");
+    for (const d of drafts ?? []) {
+      const f = await fillNflSlate(slug, ctx, d.id, d.week);
+      if (f?.error) return f;
+    }
+    return done(slug, `Schedule synced: all ${season.games} games of the ${ctx.pool.season} NFL season.`);
+  }
   const r = await invoke("sync-schedule", { sport: ctx.pool.sport, days });
   if ("error" in r) return { error: r.error };
   // NFL drafts hold every game of their week: add any the sync just brought in.
