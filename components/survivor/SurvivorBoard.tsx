@@ -131,7 +131,7 @@ export function SurvivorBoard({
           <span className="flex min-w-0 items-center gap-2">
             <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-7" />
             <span className="truncate">{teamName(pickTeam)}</span>
-            <span className="truncate font-medium text-muted">
+            <span className="truncate text-sm font-medium text-muted">
               {pickSide === "away" && !pickGame.neutral ? "at" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)}
             </span>
             {pickLocked && <LockIcon className="size-4 shrink-0 text-muted" />}
@@ -184,7 +184,7 @@ export function SurvivorBoard({
           </section>
           {historyHref && (
             <Link href={historyHref} className={chipClass(false, "-mt-2 mb-5 lg:mt-3 lg:mb-1 lg:self-start", "sm")}>
-              View Standings <ChevronIcon className="size-3.5" />
+              View League Grid <ChevronIcon className="size-3.5" />
             </Link>
           )}
         </div>

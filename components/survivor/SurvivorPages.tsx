@@ -55,17 +55,11 @@ function Cell({ c }: { c: SvCell }) {
   );
 }
 
-/** The pool's rules, a word or two each (Home's Pool Rules). */
-function ruleRows(s: SurvivorSettings): string[] {
-  return [
-    "1 pick weekly",
-    s.reuse ? "Repeats allowed" : "No repeats",
-    s.lives === 1 ? "1 loss: out" : `${s.lives} losses: out`,
-    s.tie === "loss" ? "Tie: loss" : "Tie: win",
-    "No pick: loss",
-    "Locks at kickoff",
-    ...(s.start_week > 1 ? [`Starts Week ${s.start_week}`] : []),
-  ];
+/** The pool's rules in a sentence or two (Home's Pool Rules). */
+function rulesSummary(s: SurvivorSettings): string {
+  const out = s.lives === 1 ? "One loss and you're out" : `You're out after ${s.lives} losses`;
+  const tie = s.tie === "loss" ? "a tie or a missed week counts as a loss" : "a tie counts as a win and a missed week as a loss";
+  return `Pick one team to win each week${s.reuse ? "" : ", and use each team only once"}${s.start_week > 1 ? `, starting in Week ${s.start_week}` : ""}. ${out}; ${tie}, and picks lock at kickoff.`;
 }
 
 /**
@@ -168,14 +162,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
           {rows.length > 0 && <SurvivorSummary {...summary} only={["teams", "eliminated"]} />}
           <section>
             <SectionLabel fit className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
-            {/* The rules in a word or two each. */}
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {ruleRows(settings).map((r) => (
-                <li key={r} className="whitespace-nowrap rounded-full bg-surface px-3 py-1 text-sm font-medium text-ink">
-                  {r}
-                </li>
-              ))}
-            </ul>
+            <p className="mt-2 text-sm leading-relaxed text-ink">{rulesSummary(settings)}</p>
           </section>
         </div>
       </div>
@@ -413,7 +400,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
       className="flex max-h-[max(24rem,calc(100dvh-7.75rem-4px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] flex-col sm:max-h-[max(24rem,calc(100dvh-8rem-3px-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]"
     >
       <div className="mb-2 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Standings</h1>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">League Grid</h1>
         <p className="text-base text-muted tabular-nums sm:text-lg">
           <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
         </p>
