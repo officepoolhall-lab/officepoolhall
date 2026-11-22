@@ -4,7 +4,7 @@ import { hasStarted } from "./locks";
 import { espnDate, fetchLiveDetails, orientLive } from "./liveClock";
 import { getTeamRecords } from "./teamRecords";
 import { getPublishedSlates, type PoolBase } from "./pool";
-import { survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek } from "./survivor";
+import { demoLive, survivorSettings, type SvGame, type SvMember, type SvPick, type SvWeek } from "./survivor";
 
 // A Survivor pool's season in one load: its published weeks with their games, the picks the
 // viewer can see (their own always; everyone's once each game kicks off) and the entries.
@@ -60,7 +60,7 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
     };
     bySlate.set(r.slate_id, [...(bySlate.get(r.slate_id) ?? []), game]);
   }
-  const weeks: SvWeek[] = slates
+  const stored: SvWeek[] = slates
     .map((s) => ({
       slateId: s.id as string,
       week: s.week as number,
@@ -68,7 +68,9 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
       games: (bySlate.get(s.id) ?? []).sort((a, b) => a.startAt.localeCompare(b.startAt) || a.id.localeCompare(b.id)),
     }))
     .sort((a, b) => a.week - b.week);
-  const started = new Set([...bySlate.values()].flat().filter((g) => g.started).map((g) => g.id));
+  // A demo pool shown as if one week were being played now (lib/survivor.ts → demoLive).
+  const weeks = settings.demo_live_week ? demoLive(stored, settings.demo_live_week) : stored;
+  const started = new Set(weeks.flatMap((w) => w.games).filter((g) => g.started).map((g) => g.id));
   const picks: SvPick[] = ((pickRows ?? []) as Row[])
     .map((p) => ({ slateId: p.slate_id, userId: p.user_id, gameId: p.game_id, teamId: p.team_id }))
     .filter((p) => p.userId === ctx.entryUserId || p.userId === revealFor || started.has(p.gameId));
@@ -89,7 +91,7 @@ export async function withLiveScores(weeks: SvWeek[]): Promise<SvWeek[]> {
   return weeks.map((w) => ({
     ...w,
     games: w.games.map((g) => {
-      const raw = g.espnId && g.started && !g.final ? found.get(g.espnId) : undefined;
+      const raw = g.espnId && g.started && !g.final && !g.clock ? found.get(g.espnId) : undefined;
       if (!raw) return g;
       const f = orientLive(raw, g.home.espn_id);
       return { ...g, clock: f.clock, homeScore: f.home ?? g.homeScore, awayScore: f.away ?? g.awayScore };

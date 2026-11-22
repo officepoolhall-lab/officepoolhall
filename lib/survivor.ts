@@ -14,6 +14,12 @@ export type SurvivorSettings = {
   reuse: boolean;
   /** The first of the pool's weeks that counts. */
   start_week: number;
+  /**
+   * Demo pools only (set in the database, not on Settings): show the season as if this week
+   * were being played right now. Later weeks are hidden and this week's games show as in
+   * progress with made-up scores.
+   */
+  demo_live_week?: number | null;
 };
 
 export const SURVIVOR_DEFAULT: SurvivorSettings = { lives: 1, tie: "loss", reuse: false, start_week: 1 };
@@ -25,6 +31,7 @@ export function survivorSettings(settings: unknown): SurvivorSettings {
     tie: s.tie === "win" ? "win" : "loss",
     reuse: s.reuse === true,
     start_week: int(s.start_week, 1, 30) ?? 1,
+    demo_live_week: int(s.demo_live_week, 1, 30) ?? null,
   };
 }
 
@@ -152,4 +159,34 @@ export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvM
     r.rank = i > 0 && key(rows[i - 1]) === key(r) ? rows[i - 1].rank : i + 1;
   });
   return rows;
+}
+
+const FOOTBALL_SCORES = [0, 3, 6, 7, 10, 13, 14, 17, 20, 21, 23, 24, 27, 28, 30, 31, 34, 35, 38, 41, 42, 45];
+const hash = (id: string) => Math.imul([...id].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7), 2654435761) >>> 8;
+
+/**
+ * A demo pool "live" in one week: weeks after it are dropped, and that week's games after its
+ * first day show as in progress, each part-way through with a made-up score and clock (the
+ * same every time the page loads). The first day's games (Thursday night) stay final.
+ */
+export function demoLive(weeks: SvWeek[], liveWeek: number): SvWeek[] {
+  return weeks
+    .filter((w) => w.week <= liveWeek)
+    .map((w) => {
+      if (w.week !== liveWeek) return w;
+      const firstDay = w.games.map((g) => g.startAt).sort()[0]?.slice(0, 10);
+      return {
+        ...w,
+        games: w.games.map((g): SvGame => {
+          if (g.voided || !g.final || g.homeScore === null || g.awayScore === null) return g;
+          if (g.startAt.slice(0, 10) <= (firstDay ?? "")) return g;
+          const h = hash(g.id);
+          const done = 0.3 + (h % 50) / 100; // 30% to 79% of the way through
+          const part = (final: number) => [...FOOTBALL_SCORES].reverse().find((v) => v <= final * done) ?? 0;
+          const quarter = done < 0.5 ? "2nd" : done < 0.75 ? "3rd" : "4th";
+          const clock = `${(h >> 6) % 15}:${String((h >> 11) % 60).padStart(2, "0")} ${quarter}`;
+          return { ...g, started: true, final: false, homeScore: part(g.homeScore), awayScore: part(g.awayScore), clock };
+        }),
+      };
+    });
 }

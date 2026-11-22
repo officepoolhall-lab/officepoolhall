@@ -252,8 +252,8 @@ function cellScore(g: SvGame, teamId: string) {
 }
 
 /**
- * Standings, laid out like the League Grid: entries down the side, a column per week (newest
- * first), each cell the team picked with its game's score, live or final, filled green or red.
+ * Standings, laid out like the League Grid: entries down the side, a column per week (Week 1
+ * on the left), each cell the team picked with its game's score, live or final, filled green or red.
  * A cell opens that game's play-by-play and box score.
  */
 export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
@@ -261,7 +261,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const { settings, picks, members } = loaded;
   const weeks = await withLiveScores(loaded.weeks);
   const rows = survivorStandings(weeks, picks, members, settings);
-  const counted = weeks.filter((w) => w.week >= settings.start_week).sort((a, b) => b.week - a.week);
+  const counted = weeks.filter((w) => w.week >= settings.start_week).sort((a, b) => a.week - b.week);
   const order = new Map(counted.map((w, i) => [w.slateId, i]));
   const games = new Map(weeks.flatMap((w) => w.games).map((g) => [g.id, g]));
   const alive = rows.filter((r) => r.alive).length;
