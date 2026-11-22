@@ -14,13 +14,13 @@ const money = (v: number) =>
 export function SurvivorSummary({
   rows,
   weeks,
-  lives,
   reuse,
   entryFee,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
-  lives: number;
+  /** Lives per entry (kept for callers; not shown). */
+  lives?: number;
   /** The pool lets a team be picked more than once: "teams left" doesn't apply. */
   reuse: boolean;
   /** The pool's entry fee (pools.entry_fee); 0 hides the pot. */
@@ -52,12 +52,6 @@ export function SurvivorSummary({
   const picked = [...teams.values()].reduce((s, t) => s + t.n, 0);
   const hidden = Math.max(0, inThisWeek - picked - noPick);
   const list = [...teams.values()].sort((a, b) => b.n - a.n || name(a.team).localeCompare(name(b.team)));
-  // Entries whose last life rides on a pick that's lost or still being played.
-  const atRisk = (t: TeamRow) =>
-    rows.filter((r) => {
-      const c = shown ? r.cells.find((x) => x.slateId === shown.slateId) : undefined;
-      return c?.team?.id === t.team.id && r.losses + (c.state === "loss" ? 0 : 1) >= lives;
-    }).length;
 
   // The season: how many went out each week, and the most-picked teams.
   const outBy = new Map<number, number>();
@@ -91,7 +85,7 @@ export function SurvivorSummary({
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Entries remaining</h3>
         <p className="mt-1 tabular-nums">
           <span className="text-3xl font-extrabold text-win">{alive}</span> <span className="text-muted">of {total}</span>
-          <span className="ml-2 text-sm font-semibold text-ink">{pct(alive, total)}</span>
+          <span className="ml-2 text-sm font-semibold text-ink">({pct(alive, total)})</span>
         </p>
         <p className="text-sm text-muted tabular-nums">{total - alive} eliminated</p>
         {/* The pot, and what each entry would take splitting it, counting everyone still in coming
@@ -99,14 +93,14 @@ export function SurvivorSummary({
         {entryFee > 0 && splitWays > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2 text-center">
             <div className="rounded-xl bg-surface px-2 py-2">
-              <div className="text-[11px] font-medium text-muted">Pot</div>
               <div className="text-lg font-bold tabular-nums">{money(entryFee * total)}</div>
-              <div className="text-[11px] text-muted tabular-nums">{total} × {money(entryFee)}</div>
+              <div className="text-[11px] font-medium text-muted">Pot</div>
             </div>
             <div className="rounded-xl bg-surface px-2 py-2">
-              <div className="text-[11px] font-medium text-muted">{current ? `Split into ${current.label}` : "Split"}</div>
-              <div className="text-lg font-bold tabular-nums text-win">{money((entryFee * total) / splitWays)}</div>
-              <div className="text-[11px] text-muted tabular-nums">each, {splitWays} way{splitWays === 1 ? "" : "s"}</div>
+              <div className="text-lg font-bold tabular-nums text-win">
+                {money((entryFee * total) / splitWays)} <span className="text-sm font-semibold">/ entry</span>
+              </div>
+              <div className="text-[11px] font-medium text-muted">If Split Today</div>
             </div>
           </div>
         )}
@@ -122,7 +116,6 @@ export function SurvivorSummary({
             {list.map((t) => {
               const score = scoreOf(t);
               const live = Boolean(t.game?.started && !t.game.final);
-              const risk = t.state === "win" ? 0 : atRisk(t);
               return (
                 <li key={t.team.id} className="flex min-h-10 items-center gap-2 py-1.5 text-sm">
                   <TeamLogo src={t.team.logo_url} abbr={t.team.abbreviation} className="size-6 shrink-0" />
@@ -133,7 +126,6 @@ export function SurvivorSummary({
                     >
                       {t.state === "win" ? "Won" : t.state === "loss" ? "Lost" : live ? "Live" : "Not started"}
                       {score && ` ${score}`}
-                      {t.state !== "win" && t.state !== "loss" && risk > 0 && <span className="text-muted"> · {risk} out if they lose</span>}
                       {t.state === "loss" && <span className="text-muted"> · {t.n} out</span>}
                     </span>
                   </span>
@@ -173,7 +165,7 @@ export function SurvivorSummary({
             {outWeeks.map(([w, n]) => (
               <li key={w} className="flex items-center gap-2 text-xs tabular-nums">
                 <span className="w-14 shrink-0 text-muted">Week {w}</span>
-                <span className="h-3 rounded-sm bg-[var(--loss-fill)] ring-1 ring-loss/40" style={{ width: `${Math.max(4, (n / maxOut) * 100)}%` }} />
+                <span className="h-3 rounded-sm bg-loss/30 ring-1 ring-loss/50" style={{ width: `${Math.max(4, (n / maxOut) * 100)}%` }} />
                 <span className="shrink-0 font-semibold">{n}</span>
               </li>
             ))}
@@ -184,7 +176,7 @@ export function SurvivorSummary({
       {!reuse && survivors.length > 0 && (
         <section>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Teams left for the survivors</h3>
-          <p className="mt-0.5 text-xs text-muted">How many of the {survivors.length} entries still alive haven&apos;t used each team yet.</p>
+          <p className="mt-0.5 text-xs text-muted">Alive entries that haven&apos;t used each team yet</p>
           <ul className="mt-2 grid grid-cols-4 gap-1.5">
             {left.map((t) => (
               <li
