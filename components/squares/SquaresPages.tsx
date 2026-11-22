@@ -13,38 +13,50 @@ const card = "rounded-2xl bg-surface p-4 sm:p-5";
 const WON = ["Q1", "Half", "Q3", "Final"];
 const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 
-export async function SquaresHome({ ctx, slug, forUserId }: { ctx: PoolBase; slug: string; forUserId?: string }) {
-  const { settings, board, claims, names, members, scores, winners, live } = await getSquares(ctx);
-  // The commissioner taking squares for a player: ?for=<user id>.
-  const behalf = Boolean(forUserId && ctx.isCommissioner && forUserId !== ctx.user.id && names.has(forUserId));
-  const target = behalf ? forUserId! : ctx.entryUserId;
-  const taken = claims.size;
-  const mineCount = [...claims.values()].filter((u) => u === target).length;
+export async function SquaresHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
+  const { settings, board, squares, scores, winners, live, myName } = await getSquares(ctx);
+  const taken = squares.size;
+  const mineCount = [...squares.values()].filter((s) => s.userId === ctx.user.id).length;
   const pot = settings.price * taken;
   const cells: GridCell[] = Array.from({ length: 100 }, (_, idx) => {
-    const owner = claims.get(idx) ?? null;
-    const name = owner ? names.get(owner) ?? "Player" : null;
+    const sq = squares.get(idx);
     const won = winners.map((w, q) => (w === idx ? WON[q] : null)).filter(Boolean).join("·") || null;
-    return { owner, name, short: name ? initials(name) : null, mine: owner === target, won };
+    return { name: sq?.label ?? null, short: sq ? initials(sq.label) : null, mine: Boolean(sq?.userId && sq.userId === ctx.user.id), won };
   });
-  const isMember = members.some((m) => m.userId === target);
-  const room = settings.max_per_entry === null || mineCount < settings.max_per_entry;
-  const canClaim = !board.drawn && !ctx.isGuest && isMember;
-  const tally = members
-    .map((m) => ({ ...m, n: [...claims.values()].filter((u) => u === m.userId).length }))
-    .filter((m) => m.n > 0)
-    .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  // Who can fill the board while it's open: the commissioner always; players when the pool lets them.
+  const players = settings.entry === "players";
+  const full = players && settings.max_per_entry !== null && mineCount >= settings.max_per_entry;
+  const edit = board.drawn
+    ? null
+    : ctx.isCommissioner
+      ? { defaultName: "", all: true, note: "Type a name, then tap every square it goes on. Tap a filled square to clear it (or, with a different name typed, to rename it)." }
+      : players && !ctx.isGuest
+        ? {
+            defaultName: myName,
+            all: false,
+            note: full
+              ? `You have your ${settings.max_per_entry} squares. Tap one of yours to give it back.`
+              : `Tap an open square to put this name on it${settings.max_per_entry ? ` (${mineCount} of ${settings.max_per_entry} taken)` : ""}. Tap one of yours to give it back.`,
+          }
+        : null;
+  // Squares per name (however it's capitalized).
+  const tally = [...squares.values()].reduce((m, s) => {
+    const k = s.label.trim().toLowerCase();
+    m.set(k, { name: m.get(k)?.name ?? s.label, n: (m.get(k)?.n ?? 0) + 1, mine: (m.get(k)?.mine ?? false) || s.userId === ctx.user.id });
+    return m;
+  }, new Map<string, { name: string; n: number; mine: boolean }>());
+  const names = [...tally.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
 
   return (
     <>
       <PageTitle
         sub={
           board.drawn
-            ? "The numbers are drawn and the board is locked."
-            : `${taken} of 100 squares taken. Tap an open square to take it${settings.max_per_entry ? ` (up to ${settings.max_per_entry} each)` : ""}; tap one of yours to give it back.`
+            ? "The numbers are set and the board is locked."
+            : `${taken} of 100 squares filled. ${players ? "Players put their own names on squares" : "The commissioner fills in the names"}; the numbers come once the board is ready.`
         }
       >
-        {behalf ? <>Squares <span className="text-accent">for {names.get(target)}</span></> : `${board.awayName} vs ${board.homeName}`}
+        {board.awayName} vs {board.homeName}
       </PageTitle>
       {live && <AutoRefresh active />}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
@@ -55,12 +67,12 @@ export async function SquaresHome({ ctx, slug, forUserId }: { ctx: PoolBase; slu
             awayName={board.awayName}
             colDigits={board.colDigits}
             rowDigits={board.rowDigits}
-            canClaim={canClaim && (room || mineCount > 0)}
-            claim={claimSquare.bind(null, slug, behalf ? target : null)}
+            edit={edit}
+            claim={claimSquare.bind(null, slug)}
             release={releaseSquare.bind(null, slug)}
           />
           <p className="mt-3 text-xs text-muted">
-            Columns are the last digit of the {board.homeName} score; rows, the {board.awayName} score.{board.drawn ? "" : " The numbers are drawn at random once the board is ready."}
+            Columns are the last digit of the {board.homeName} score; rows, the {board.awayName} score.
           </p>
         </section>
 
@@ -74,7 +86,7 @@ export async function SquaresHome({ ctx, slug, forUserId }: { ctx: PoolBase; slu
               {QUARTERS.map((q, i) => {
                 const s = scores[i];
                 const w = winners[i];
-                const owner = w !== null ? claims.get(w) : undefined;
+                const owner = w !== null ? squares.get(w) : undefined;
                 const share = settings.payouts[i];
                 return (
                   <li key={q} className="flex items-center gap-3 py-2.5 text-sm">
@@ -86,7 +98,7 @@ export async function SquaresHome({ ctx, slug, forUserId }: { ctx: PoolBase; slu
                       </span>
                     </span>
                     <span className={`max-w-32 truncate text-right font-semibold ${s && w !== null ? "text-win" : "text-faint"}`}>
-                      {!s ? "—" : !board.drawn ? "Numbers not drawn" : owner ? names.get(owner) ?? "Player" : "Open square"}
+                      {!s ? "—" : !board.drawn ? "Numbers not set" : owner ? owner.label : "Open square"}
                     </span>
                   </li>
                 );
@@ -98,7 +110,7 @@ export async function SquaresHome({ ctx, slug, forUserId }: { ctx: PoolBase; slu
             <h2 className="text-base font-bold">The pot</h2>
             <dl className="mt-1 grid grid-cols-3 gap-2 text-center">
               {[
-                ["Taken", `${taken}/100`],
+                ["Filled", `${taken}/100`],
                 ["Per square", settings.price > 0 ? money(settings.price) : "Free"],
                 ["Pot", settings.price > 0 ? money(pot) : "—"],
               ].map(([k, v]) => (
@@ -117,12 +129,12 @@ export async function SquaresHome({ ctx, slug, forUserId }: { ctx: PoolBase; slu
 
           <section className={card}>
             <h2 className="text-base font-bold">Who has squares</h2>
-            {tally.length === 0 ? (
-              <Empty>No squares taken yet.</Empty>
+            {names.length === 0 ? (
+              <Empty>No squares filled yet.</Empty>
             ) : (
               <ul className="mt-1 divide-y divide-line">
-                {tally.map((m) => (
-                  <li key={m.userId} className={`flex items-center gap-2 py-2 text-sm ${m.userId === ctx.entryUserId ? "font-semibold text-accent" : ""}`}>
+                {names.map((m) => (
+                  <li key={m.name} className={`flex items-center gap-2 py-2 text-sm ${m.mine ? "font-semibold text-accent" : ""}`}>
                     <span className="min-w-0 flex-1 truncate">{m.name}</span>
                     <span className="tabular-nums text-muted">{m.n}</span>
                     {settings.price > 0 && <span className="w-14 text-right tabular-nums text-muted">{money(m.n * settings.price)}</span>}

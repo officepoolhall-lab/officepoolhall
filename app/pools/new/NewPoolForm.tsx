@@ -184,8 +184,8 @@ export function NewPoolForm({ defaultSeason, initial }: { defaultSeason: number;
                   {format === "survivor"
                     ? "After creating the pool, publish each week's games on Commissioner → Slate."
                     : format === "squares"
-                      ? "After creating the pool, set the teams and draw the numbers on Commissioner → Board."
-                      : "After creating the pool, choose the playoff teams, load their players and set the lock time on the Commissioner pages."}
+                      ? "After creating the pool, fill in the board and set the numbers from Commissioner → Board. The Super Bowl is found by itself."
+                      : "Nothing else to set up: the playoff teams and their players load by themselves when the regular season ends, and rosters lock at the first Wild Card kickoff."}
                 </p>
               </>
             ) : isPreset(template) ? (

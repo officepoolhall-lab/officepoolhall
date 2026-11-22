@@ -5,7 +5,7 @@ import { Empty, LinkButton, PageTitle, TeamLogo } from "@/components/ui";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { POSITIONS, ROUNDS, pfRules, rosterSize } from "@/lib/playoffFantasy";
-import { getPf, getPfPoints, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
+import { NO_POINTS, getPf, getPfPoints, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 
 // The pages of an NFL Playoff Fantasy pool: Home, My Team and Standings. The pool routes reach
@@ -72,11 +72,11 @@ function StandingsList({ rows, me, locked, size, limit, progress = false }: { ro
   );
 }
 
-const NOT_READY = "The playoff teams and players aren't set yet. Rosters open once the commissioner sets them.";
+const NOT_READY = "Rosters open as soon as the playoff field is set, at the end of the regular season. The 14 teams and their players load here by themselves.";
 
 export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
-  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring) : { byPlayer: new Map(), out: new Set<string>(), live: false, roundsStarted: 0 };
+  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const mine = rows.find((r) => r.userId === ctx.entryUserId);
   const size = rosterSize(settings);
@@ -97,7 +97,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
           ) : (
             <>
               <div className="mt-1 text-lg font-bold tabular-nums">{mine ? `${mine.playerIds.length} of ${size} picked` : "Build your roster"}</div>
-              <p className="text-sm text-muted">{settings.lock_at ? `Rosters lock ${lockLabel(settings.lock_at, tz)}.` : "The commissioner hasn't set the lock time yet."}</p>
+              <p className="text-sm text-muted">{settings.lock_at ? `Rosters lock ${lockLabel(settings.lock_at, tz)}.` : "Rosters lock at the first Wild Card kickoff."}</p>
               {!ctx.isGuest && mine && (
                 <LinkButton href={`/p/${slug}/picks`} kind="accent" className="mt-3 w-full">
                   {mine.playerIds.length ? "Change my roster" : "Build my roster"}
@@ -137,7 +137,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
   if (!entry) return (<><PageTitle>{title}</PageTitle><Empty>{ctx.isGuest ? "Guests can't build a roster." : "This entry isn't playing."}</Empty></>);
 
   if (locked && !behalf) {
-    const pts = await getPfPoints(ctx.pool.season, settings.scoring);
+    const pts = await getPfPoints(ctx.pool.season, settings.scoring, players, teams);
     const row = pfStandings([entry], players, teams, pts)[0];
     return (
       <>
@@ -179,7 +179,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
 
 export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
-  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring) : { byPlayer: new Map(), out: new Set<string>(), live: false, roundsStarted: 0 };
+  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const size = rosterSize(settings);
   return (

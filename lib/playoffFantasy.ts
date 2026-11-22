@@ -27,14 +27,19 @@ export type PfScoring = {
   bonus_pass_300: number;
   bonus_rush_100: number;
   bonus_rec_100: number;
-  /** Kicker: each field goal and extra point made. */
+  /** Kicker: a field goal under 40 yards, from 40-49, and from 50 or more; and an extra point. */
   fg: number;
+  fg_40: number;
+  fg_50: number;
   xp: number;
+  /** A two-point conversion: to the passer, the receiver, or the runner. */
+  two_pt: number;
   /** Defense. */
   def_sack: number;
   def_int: number;
   def_fum_rec: number;
   def_td: number;
+  def_safety: number;
   /** Score the defense on points allowed (the usual 10 for a shutout down to -4 for 35+). */
   def_points_allowed: boolean;
 };
@@ -63,11 +68,15 @@ export const PF_DEFAULT: PfSettings = {
     bonus_rush_100: 0,
     bonus_rec_100: 0,
     fg: 3,
+    fg_40: 4,
+    fg_50: 5,
     xp: 1,
+    two_pt: 2,
     def_sack: 1,
     def_int: 2,
     def_fum_rec: 2,
     def_td: 6,
+    def_safety: 2,
     def_points_allowed: true,
   },
 };
@@ -94,11 +103,15 @@ export function pfSettings(settings: unknown): PfSettings {
       bonus_rush_100: n("bonus_rush_100", 0, 20),
       bonus_rec_100: n("bonus_rec_100", 0, 20),
       fg: n("fg", 0, 20),
+      fg_40: n("fg_40", 0, 20),
+      fg_50: n("fg_50", 0, 20),
       xp: n("xp", 0, 20),
+      two_pt: n("two_pt", 0, 20),
       def_sack: n("def_sack", 0, 20),
       def_int: n("def_int", 0, 20),
       def_fum_rec: n("def_fum_rec", 0, 20),
       def_td: n("def_td", 0, 20),
+      def_safety: n("def_safety", 0, 20),
       def_points_allowed: sc.def_points_allowed !== false,
     },
   };
@@ -133,6 +146,7 @@ export function pfRules(s: PfSettings): string[] {
     "Every player counts every week, from the Wild Card round through the Super Bowl. Most total points wins.",
     `Scoring: ${recLabel(sc.rec)}, ${sc.pass_td} per passing touchdown, ${sc.rush_td} per rushing or receiving touchdown, 1 point per ${sc.pass_yds_per_pt} passing yards and per ${sc.yds_per_pt} rushing or receiving yards.`,
     ...(bonuses.length ? [`Yardage bonuses: ${bonuses.join(", ")}.`] : []),
+    `Kickers: ${sc.fg} for a field goal under 40 yards, ${sc.fg_40} from 40-49, ${sc.fg_50} from 50 or more, ${sc.xp} per extra point. Two-point conversions: ${sc.two_pt}.`,
   ];
 }
 
@@ -141,11 +155,19 @@ export function pfRules(s: PfSettings): string[] {
 // ---------------------------------------------------------------------------------------------
 
 /** One player's line in one game. */
-export type PlayerLine = { passYds: number; passTd: number; passInt: number; rushYds: number; rushTd: number; rec: number; recYds: number; recTd: number; fumLost: number; fg: number; xp: number };
+export type PlayerLine = {
+  passYds: number; passTd: number; passInt: number; rushYds: number; rushTd: number; rec: number; recYds: number; recTd: number; fumLost: number;
+  /** Field goals made (the box score), and the distance of each one found in the scoring summary. */
+  fg: number;
+  fgYds: number[];
+  xp: number;
+  /** Two-point conversions thrown, caught or run in. */
+  twoPt: number;
+};
 /** One team defense's line in one game. */
-export type DefLine = { sacks: number; ints: number; fumRec: number; td: number; pointsAllowed: number };
+export type DefLine = { sacks: number; ints: number; fumRec: number; td: number; safeties: number; pointsAllowed: number };
 
-export const emptyLine = (): PlayerLine => ({ passYds: 0, passTd: 0, passInt: 0, rushYds: 0, rushTd: 0, rec: 0, recYds: 0, recTd: 0, fumLost: 0, fg: 0, xp: 0 });
+export const emptyLine = (): PlayerLine => ({ passYds: 0, passTd: 0, passInt: 0, rushYds: 0, rushTd: 0, rec: 0, recYds: 0, recTd: 0, fumLost: 0, fg: 0, fgYds: [], xp: 0, twoPt: 0 });
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -162,8 +184,11 @@ export function playerPoints(l: PlayerLine, sc: PfScoring): number {
       (l.passYds >= 300 ? sc.bonus_pass_300 : 0) +
       (l.rushYds >= 100 ? sc.bonus_rush_100 : 0) +
       (l.recYds >= 100 ? sc.bonus_rec_100 : 0) +
-      l.fg * sc.fg +
-      l.xp * sc.xp,
+      // Each field goal by its distance; one the scoring summary didn't list scores as a short one.
+      l.fgYds.reduce((t, y) => t + (y >= 50 ? sc.fg_50 : y >= 40 ? sc.fg_40 : sc.fg), 0) +
+      Math.max(0, l.fg - l.fgYds.length) * sc.fg +
+      l.xp * sc.xp +
+      l.twoPt * sc.two_pt,
   );
 }
 
@@ -171,7 +196,9 @@ export function playerPoints(l: PlayerLine, sc: PfScoring): number {
 export const pointsAllowedScore = (pa: number) => (pa === 0 ? 10 : pa <= 6 ? 7 : pa <= 13 ? 4 : pa <= 20 ? 1 : pa <= 27 ? 0 : pa <= 34 ? -1 : -4);
 
 export function defPoints(d: DefLine, sc: PfScoring): number {
-  return round2(d.sacks * sc.def_sack + d.ints * sc.def_int + d.fumRec * sc.def_fum_rec + d.td * sc.def_td + (sc.def_points_allowed ? pointsAllowedScore(d.pointsAllowed) : 0));
+  return round2(
+    d.sacks * sc.def_sack + d.ints * sc.def_int + d.fumRec * sc.def_fum_rec + d.td * sc.def_td + d.safeties * sc.def_safety + (sc.def_points_allowed ? pointsAllowedScore(d.pointsAllowed) : 0),
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -236,7 +263,7 @@ export function playerLines(team: BoxTeam): Map<string, PlayerLine> {
 }
 
 /** A team defense's line: its own sacks, interceptions and return touchdowns, the other side's lost fumbles and points. */
-export function defLine(team: BoxTeam, opponent: BoxTeam | undefined, opponentScore: number): DefLine {
+export function defLine(team: BoxTeam, opponent: BoxTeam | undefined, opponentScore: number, safeties = 0): DefLine {
   const sum = (t: ReturnType<typeof table>, label: string) => (t ? t.rows.reduce((a, r) => a + t.get(r, label), 0) : 0);
   const def = table(team, /defensive/i);
   const ints = table(team, /interceptions/i);
@@ -249,16 +276,97 @@ export function defLine(team: BoxTeam, opponent: BoxTeam | undefined, opponentSc
     fumRec: sum(oppFum, "LOST"),
     // The defensive table's TD column covers interception and fumble returns; add kick and punt returns.
     td: sum(def, "TD") + sum(kr, "TD") + sum(pr, "TD"),
+    safeties,
     pointsAllowed: opponentScore,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// What the box score leaves out, from ESPN's scoring summary
+// ---------------------------------------------------------------------------------------------
+// Field goal distances, two-point conversions and safeties aren't in the box score's tables,
+// but every scoring play is listed in words: "Harrison Butker 48 Yd Field Goal", "Isiah Pacheco
+// 1 Yd Run (Patrick Mahomes Pass to Travis Kelce for Two-Point Conversion)", "Safety".
+
+export type ScoringPlay = { teamId: string; type: string; text: string };
+export type ScoringExtras = {
+  fieldGoals: { teamId: string; kicker: string; yards: number }[];
+  /** The players in each successful conversion: passer and receiver, or the runner. */
+  twoPoint: { teamId: string; names: string[] }[];
+  /** The team credited with each safety (its defense scores). */
+  safeties: string[];
+};
+
+export function scoringExtras(plays: ScoringPlay[]): ScoringExtras {
+  const out: ScoringExtras = { fieldGoals: [], twoPoint: [], safeties: [] };
+  for (const p of plays) {
+    const fg = p.text.match(/^(.*?)\s+(\d{1,2})\s*(?:yd|yds|yard|yards)\.?\s+field goal/i);
+    if (fg && !/missed|no good|blocked/i.test(p.text)) out.fieldGoals.push({ teamId: p.teamId, kicker: fg[1].trim(), yards: Number(fg[2]) });
+    for (const m of p.text.matchAll(/\(([^()]*two-point[^()]*)\)/gi)) {
+      const t = m[1];
+      if (/fail|no good|incomplete|unsuccessful/i.test(t)) continue;
+      const pass = t.match(/^(.+?)\s+pass to\s+(.+?)\s+for\s+two-point/i);
+      const run = t.match(/^(.+?)\s+(?:run|rush)\s+for\s+two-point/i);
+      if (pass) out.twoPoint.push({ teamId: p.teamId, names: [pass[1].trim(), pass[2].trim()] });
+      else if (run) out.twoPoint.push({ teamId: p.teamId, names: [run[1].trim()] });
+    }
+    if (/safety/i.test(p.type) || /^safety\b/i.test(p.text.trim())) out.safeties.push(p.teamId);
+  }
+  return out;
+}
+
+/** A name with case, punctuation and "Jr."/"III" dropped, so "A.J. Brown" and "AJ Brown" match. */
+export const nameKey = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[.'’,]/g, "")
+    .replace(/\s+(jr|sr|ii|iii|iv|v)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * Add what the scoring summary says to one team's lines: each field goal's distance to its
+ * kicker, and two-point conversions to the players named. `idByName` finds a player's id from
+ * his full name (the pool's player list); the box score's own short names ("P. Mahomes") are
+ * the fallback.
+ */
+export function applyExtras(team: BoxTeam, lines: Map<string, PlayerLine>, extras: ScoringExtras, idByName: (name: string) => string | undefined): void {
+  // "P. Mahomes" for "Patrick Mahomes": how the box score lists players.
+  const short = (full: string) => {
+    const parts = nameKey(full).split(" ");
+    return parts.length > 1 ? `${parts[0][0]} ${parts.slice(1).join(" ")}` : parts[0];
+  };
+  const boxId = new Map<string, string>();
+  for (const g of team.groups) for (const r of g.rows) if (r.id) boxId.set(nameKey(r.name), r.id);
+  const find = (name: string) => idByName(name) ?? boxId.get(nameKey(name)) ?? boxId.get(short(name));
+  const line = (id: string) => {
+    if (!lines.has(id)) lines.set(id, emptyLine());
+    return lines.get(id)!;
+  };
+
+  const kickers = (team.groups.find((g) => /kicking/i.test(g.name))?.rows ?? []).filter((r) => r.id && lines.get(r.id)?.fg);
+  for (const fg of extras.fieldGoals.filter((f) => f.teamId === team.teamId)) {
+    // One kicker made this team's field goals (nearly always): they're his. Otherwise by name.
+    const id = kickers.length === 1 ? kickers[0].id! : find(fg.kicker);
+    if (id) line(id).fgYds.push(fg.yards);
+  }
+  // Never more distances than field goals the box score says he made.
+  for (const l of lines.values()) if (l.fgYds.length > l.fg) l.fgYds.length = l.fg;
+
+  for (const tp of extras.twoPoint.filter((t) => t.teamId === team.teamId)) {
+    for (const name of tp.names) {
+      const id = find(name);
+      if (id) line(id).twoPt++;
+    }
+  }
 }
 
 /** A team defense's id in the player list. */
 export const defId = (teamEspnId: string) => `DEF-${teamEspnId}`;
 
 export const ROUNDS = [
-  { week: 1, name: "Wild Card", short: "WC" },
-  { week: 2, name: "Divisional", short: "DIV" },
-  { week: 3, name: "Conference", short: "CONF" },
-  { week: 5, name: "Super Bowl", short: "SB" },
+  { name: "Wild Card", short: "WC" },
+  { name: "Divisional", short: "DIV" },
+  { name: "Conference", short: "CONF" },
+  { name: "Super Bowl", short: "SB" },
 ] as const;

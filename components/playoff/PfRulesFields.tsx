@@ -22,12 +22,15 @@ const VALUES: { group: string; rows: [keyof PfScoring, string, number][] }[] = [
       ["rec_td", "Receiving touchdown", 1],
       ["rec", "Each catch", 0.5],
       ["fum_lost", "Fumble lost", 1],
+      ["two_pt", "Two-point conversion (pass, catch or run)", 1],
     ],
   },
   {
     group: "Kicker",
     rows: [
-      ["fg", "Field goal", 1],
+      ["fg", "Field goal under 40 yards", 1],
+      ["fg_40", "Field goal, 40-49 yards", 1],
+      ["fg_50", "Field goal, 50 yards or more", 1],
       ["xp", "Extra point", 1],
     ],
   },
@@ -38,6 +41,7 @@ const VALUES: { group: string; rows: [keyof PfScoring, string, number][] }[] = [
       ["def_int", "Interception", 1],
       ["def_fum_rec", "Fumble recovered", 1],
       ["def_td", "Touchdown (defense or return)", 1],
+      ["def_safety", "Safety", 1],
     ],
   },
 ];
@@ -73,7 +77,7 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
 
       {lockLocal !== undefined && (
         <SettingsSection title="Lock" description="Rosters can be changed until this moment, then everyone's roster shows.">
-          <SettingRow label="Rosters lock" hint="The first Wild Card kickoff (pool time).">
+          <SettingRow label="Rosters lock" hint="Set by itself to the first Wild Card kickoff when the playoff field loads. Change it here if you want another time (pool time).">
             <input name="lock_at_local" type="datetime-local" aria-label="Rosters lock" defaultValue={lockLocal} className={`${settingInput} tabular-nums`} />
           </SettingRow>
         </SettingsSection>

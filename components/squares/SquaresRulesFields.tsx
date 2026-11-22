@@ -28,8 +28,33 @@ export function SquaresRulesFields({ initial }: { initial: SquaresSettings }) {
         {problem && <p className="mt-2 text-sm font-semibold text-loss">{problem}</p>}
       </div>
 
-      <SettingsSection title="Squares" description="The board has 100 squares. The site shows the pot; it doesn't collect money.">
-        <SettingRow label="Price per square" hint={s.price > 0 ? `A full board is a $${full.toLocaleString("en-US")} pot.` : "Free squares: no pot is shown."}>
+      <SettingsSection title="Filling the board" description="Who writes the names on the 100 squares.">
+        <SettingRow label="Names are entered by" stack>
+          <OptionCards
+            ariaLabel="Who fills the board"
+            value={s.entry}
+            onChange={(v) => setS((p) => ({ ...p, entry: v }))}
+            options={[
+              { value: "commissioner", label: "The commissioner", text: "You type each name into its square. Nobody else needs an account; share the board for people to watch." },
+              { value: "players", label: "The players", text: "Share the pool's invite link. Each person joins and puts a name on the squares they want." },
+            ]}
+          />
+        </SettingRow>
+        {s.entry === "players" && (
+          <SettingRow label="Limit squares per player" hint={s.max_per_entry ? `Each player can take up to ${s.max_per_entry}.` : "Anyone can take as many as they like."}>
+            <div className="flex items-center gap-2">
+              {s.max_per_entry !== null && (
+                <input
+                  type="number" min={1} max={100} aria-label="Most squares per player" value={s.max_per_entry}
+                  onChange={(e) => setS((p) => ({ ...p, max_per_entry: Math.max(1, Math.min(100, Number(e.target.value) || 1)) }))}
+                  className={`${settingInput} w-20 text-center tabular-nums`}
+                />
+              )}
+              <Toggle label="Limit squares per player" checked={s.max_per_entry !== null} onChange={(v) => setS((p) => ({ ...p, max_per_entry: v ? 5 : null }))} />
+            </div>
+          </SettingRow>
+        )}
+        <SettingRow label="Price per square" hint={s.price > 0 ? `A full board is a $${full.toLocaleString("en-US")} pot. The site shows the pot; it doesn't collect money.` : "Free squares: no pot is shown."}>
           <div className="flex items-center gap-1.5">
             <span className="text-muted">$</span>
             <input
@@ -39,17 +64,20 @@ export function SquaresRulesFields({ initial }: { initial: SquaresSettings }) {
             />
           </div>
         </SettingRow>
-        <SettingRow label="Limit squares per entry" hint={s.max_per_entry ? `Each entry can take up to ${s.max_per_entry}.` : "Anyone can take as many as they like."}>
-          <div className="flex items-center gap-2">
-            {s.max_per_entry !== null && (
-              <input
-                type="number" min={1} max={100} aria-label="Most squares per entry" value={s.max_per_entry}
-                onChange={(e) => setS((p) => ({ ...p, max_per_entry: Math.max(1, Math.min(100, Number(e.target.value) || 1)) }))}
-                className={`${settingInput} w-20 text-center tabular-nums`}
-              />
-            )}
-            <Toggle label="Limit squares per entry" checked={s.max_per_entry !== null} onChange={(v) => setS((p) => ({ ...p, max_per_entry: v ? 5 : null }))} />
-          </div>
+      </SettingsSection>
+
+      <SettingsSection title="The numbers" description="The digits 0-9 along the top and side. They're set on Commissioner → Board once the squares are filled, and that locks the board.">
+        <SettingRow label="Numbers are" stack>
+          <OptionCards
+            ariaLabel="How the numbers are set"
+            value={s.numbers}
+            onChange={(v) => setS((p) => ({ ...p, numbers: v }))}
+            options={[
+              { value: "random", label: "Drawn at random", text: "The usual way: nobody knows their numbers until the board is full." },
+              { value: "ordered", label: "In order, 0 to 9", text: "Everyone can see which numbers a square has when they choose it." },
+              { value: "manual", label: "Typed in by you", text: "For numbers drawn somewhere else, like a board on the wall." },
+            ]}
+          />
         </SettingRow>
       </SettingsSection>
 

@@ -8,13 +8,17 @@ import { block, int, num } from "./formats";
 export type SquaresSettings = {
   /** What a square costs (for the pot shown on the board; the site doesn't collect money). */
   price: number;
-  /** The most squares one entry can take; null = no limit. */
+  /** Who fills the board: the commissioner types a name into each square (the default), or players take their own. */
+  entry: "commissioner" | "players";
+  /** Players filling the board: the most squares one player can take; null = no limit. */
   max_per_entry: number | null;
+  /** How the numbers along the top and side are set: drawn at random (the default), 0-9 in order, or typed in. */
+  numbers: "random" | "ordered" | "manual";
   /** The pot's split, in percent: end of the 1st quarter, halftime, end of the 3rd, final. */
   payouts: [number, number, number, number];
 };
 
-export const SQUARES_DEFAULT: SquaresSettings = { price: 10, max_per_entry: null, payouts: [25, 25, 25, 25] };
+export const SQUARES_DEFAULT: SquaresSettings = { price: 10, entry: "commissioner", max_per_entry: null, numbers: "random", payouts: [25, 25, 25, 25] };
 
 export const PAYOUT_PRESETS: { id: string; label: string; text: string; payouts: SquaresSettings["payouts"] }[] = [
   { id: "even", label: "Even quarters", text: "25% at the end of each quarter.", payouts: [25, 25, 25, 25] },
@@ -28,7 +32,13 @@ export const QUARTERS = ["1st quarter", "Halftime", "3rd quarter", "Final"] as c
 export function squaresSettings(settings: unknown): SquaresSettings {
   const s = block(settings, "squares");
   const p = Array.isArray(s.payouts) && s.payouts.length === 4 && s.payouts.every((n: unknown) => num(n, 0, 100) !== null) ? (s.payouts as SquaresSettings["payouts"]) : SQUARES_DEFAULT.payouts;
-  return { price: num(s.price, 0, 100000) ?? SQUARES_DEFAULT.price, max_per_entry: int(s.max_per_entry, 1, 100), payouts: p };
+  return {
+    price: num(s.price, 0, 100000) ?? SQUARES_DEFAULT.price,
+    entry: s.entry === "players" ? "players" : "commissioner",
+    max_per_entry: int(s.max_per_entry, 1, 100),
+    numbers: s.numbers === "ordered" || s.numbers === "manual" ? s.numbers : "random",
+    payouts: p,
+  };
 }
 
 export function squaresSettingsError(s: SquaresSettings): string | null {
@@ -43,9 +53,16 @@ const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
 /** The rules in plain words, for the board and the settings summary. */
 export function squaresRules(s: SquaresSettings): string[] {
   const paid = QUARTERS.map((q, i) => ({ q, pct: s.payouts[i] })).filter((x) => x.pct > 0);
+  const cost = s.price > 0 ? ` Squares are ${money(s.price)} each.` : "";
   return [
-    `Take squares on the board${s.price > 0 ? ` at ${money(s.price)} each` : ""}${s.max_per_entry ? `, up to ${s.max_per_entry} per entry` : ""}.`,
-    "Once the board is ready, the commissioner draws the numbers at random and the board locks.",
+    s.entry === "players"
+      ? `Tap an open square to put your name on it${s.max_per_entry ? `, up to ${s.max_per_entry} squares each` : ""}.${cost}`
+      : `The commissioner writes a name on each square.${cost}`,
+    s.numbers === "random"
+      ? "Once the board is ready, the numbers along the top and side are drawn at random and the board locks."
+      : s.numbers === "ordered"
+        ? "The numbers along the top and side run 0 to 9 in order. Once they're set, the board locks."
+        : "The commissioner sets the numbers along the top and side, and then the board locks.",
     "At the end of each quarter, the square where the last digit of each team's score meets wins.",
     `Payouts: ${paid.map((x) => `${x.q} ${x.pct}%`).join(" · ")}.`,
   ];

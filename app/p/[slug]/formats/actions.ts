@@ -5,7 +5,7 @@ import { fromZonedTime } from "date-fns-tz";
 import type { ActionState } from "@/components/ActionForm";
 import { poolFormat } from "@/lib/formats";
 import { pfSettings, pfSettingsError, rosterSize } from "@/lib/playoffFantasy";
-import { espnRoster, getPf } from "@/lib/playoffFantasyData";
+import { setupFromEspn } from "@/lib/playoffFantasyData";
 import { getPoolBase, requireCommissioner, requirePoolCommissioner } from "@/lib/pool";
 import { squaresSettings, squaresSettingsError } from "@/lib/squares";
 import { survivorSettings, survivorSettingsError } from "@/lib/survivor";
@@ -78,9 +78,10 @@ export async function saveSurvivorPick(slug: string, slateId: string, forUserId:
 
 // ---------- Squares ----------
 
-export async function claimSquare(slug: string, forUserId: string | null, idx: number): Promise<{ error?: string }> {
+/** Put a name on a square (the database checks who may, the limit and the lock). */
+export async function claimSquare(slug: string, idx: number, name: string): Promise<{ error?: string }> {
   const ctx = await getPoolBase(slug);
-  const { error } = await dbOf(ctx).rpc("claim_square", { p_pool_id: ctx.pool.id, p_idx: idx, p_user_id: forUserId ?? ctx.entryUserId });
+  const { error } = await dbOf(ctx).rpc("claim_square", { p_pool_id: ctx.pool.id, p_idx: idx, p_label: name });
   refresh(slug);
   return error ? { error: error.message } : {};
 }
@@ -92,25 +93,35 @@ export async function releaseSquare(slug: string, idx: number): Promise<{ error?
   return error ? { error: error.message } : {};
 }
 
-/** Draw the numbers (locks the board), or clear them to reopen it. */
+/** Set the numbers the pool's way (a random draw, or 0-9 in order), which locks the board; or clear them to reopen it. */
 export async function drawSquares(slug: string, clear: boolean): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
   const { error } = await dbOf(ctx).rpc("squares_draw", { p_pool_id: ctx.pool.id, p_clear: clear });
   if (error) return { error: error.message };
   refresh(slug);
-  return { ok: clear ? "Numbers cleared. The board is open again." : "Numbers drawn. The board is locked." };
+  return { ok: clear ? "Numbers cleared. The board is open again." : "Numbers set. The board is locked." };
 }
 
-/** The board's teams, its ESPN game and any scores typed in by hand. */
+/** Numbers typed in by the commissioner: the form's col_0…col_9 and row_0…row_9. */
+export async function typeSquaresNumbers(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
+  const ctx = await requirePoolCommissioner(slug);
+  const read = (side: string) => Array.from({ length: 10 }, (_, i) => String(form.get(`${side}_${i}`) ?? "").trim());
+  const [cols, rows] = [read("col"), read("row")];
+  if ([...cols, ...rows].some((v) => !/^\d$/.test(v))) return { error: "Fill in all 20 boxes with a digit from 0 to 9." };
+  const { error } = await dbOf(ctx).rpc("squares_draw", { p_pool_id: ctx.pool.id, p_clear: false, p_cols: cols.map(Number), p_rows: rows.map(Number) });
+  if (error) return { error: error.message };
+  refresh(slug);
+  return { ok: "Numbers set. The board is locked." };
+}
+
+/** The board's game (the Super Bowl by itself, or one chosen from this week's), its stand-in team names, and any scores typed in by hand. */
 export async function saveSquaresBoard(slug: string, _: ActionState, form: FormData): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
   if (poolFormat(ctx.pool.settings) !== "squares") return { error: "This isn't a Squares pool." };
-  const home = String(form.get("home_name") ?? "").trim().slice(0, 30);
-  const away = String(form.get("away_name") ?? "").trim().slice(0, 30);
-  if (!home || !away) return { error: "Both teams need a name." };
-  const espn = String(form.get("game_espn_id") ?? "").trim();
-  const espnId = espn ? espn.match(/(\d{6,})/)?.[1] ?? null : null;
-  if (espn && !espnId) return { error: "The ESPN game id is the long number in the game's ESPN link." };
+  const home = String(form.get("home_name") ?? "").trim().slice(0, 30) || "NFC";
+  const away = String(form.get("away_name") ?? "").trim().slice(0, 30) || "AFC";
+  const game = String(form.get("game") ?? "").trim();
+  if (game && !/^\d{6,}$/.test(game)) return { error: "Choose a game from the list." };
   const scores: Record<string, [number, number]> = {};
   for (const q of [1, 2, 3, 4]) {
     const h = String(form.get(`home_${q}`) ?? "").trim();
@@ -121,7 +132,7 @@ export async function saveSquaresBoard(slug: string, _: ActionState, form: FormD
   }
   const { error } = await dbOf(ctx)
     .from("squares_boards")
-    .upsert({ pool_id: ctx.pool.id, home_name: home, away_name: away, game_espn_id: espnId, scores, updated_at: new Date().toISOString() });
+    .upsert({ pool_id: ctx.pool.id, home_name: home, away_name: away, game_espn_id: game || null, scores, updated_at: new Date().toISOString() });
   if (error) return { error: error.message };
   refresh(slug);
   return { ok: "Board saved." };
@@ -162,31 +173,23 @@ export async function savePfTeams(slug: string, _: ActionState, form: FormData):
   }
   refresh(slug);
   const need = rosterSize(s);
-  return { ok: ids.length < need ? `Saved ${ids.length} teams. Rosters have ${need} spots, so ${need - ids.length} more are needed.` : `Saved ${ids.length} playoff teams. Next: load their players.` };
+  if (ids.length < need) return { ok: `Saved ${ids.length} teams. Rosters have ${need} spots, so ${need - ids.length} more are needed.` };
+  // Their players load straight away.
+  const r = await setupFromEspn(ctx.pool, true);
+  refresh(slug);
+  return r.ok ? { ok: `Saved ${ids.length} playoff teams. ${r.message}` } : { error: `Saved the teams, but: ${r.message}` };
 }
 
-/** Fill the player list from each playoff team's ESPN roster. Players already on rosters keep their ids. */
-export async function loadPfPlayers(slug: string): Promise<ActionState> {
+/**
+ * Load (or refresh) the playoff teams and their players from ESPN. `byHand`: keep the teams the
+ * commissioner ticked and only refresh their players.
+ */
+export async function loadPfPlayers(slug: string, byHand: boolean): Promise<ActionState> {
   const ctx = await requirePoolCommissioner(slug);
   if (poolFormat(ctx.pool.settings) !== "playoff_fantasy") return { error: "This isn't a Playoff Fantasy pool." };
-  const { teams } = await getPf(ctx);
-  if (!teams.length) return { error: "Save the playoff teams first." };
-  const results = await Promise.allSettled(teams.map((t) => espnRoster(t).then((players) => ({ t, players }))));
-  const failed = results.flatMap((r, i) => (r.status === "rejected" ? [teams[i].name] : []));
-  const rows = results.flatMap((r) => (r.status === "fulfilled" ? r.value.players.map((p) => ({ pool_id: ctx.pool.id, espn_id: p.espn_id, name: p.name, pos: p.pos, team_id: r.value.t.id })) : []));
-  if (!rows.length) return { error: "ESPN's rosters couldn't be read right now. Try again in a minute." };
-  const db = dbOf(ctx);
-  const { error } = await db.from("pf_players").upsert(rows);
-  if (error) return { error: error.message };
-  // Players no longer on a loaded team's roster come off the list (teams that failed are left alone).
-  const loaded = results.flatMap((r) => (r.status === "fulfilled" ? [r.value.t.id] : []));
-  const keep = new Set(rows.map((r) => r.espn_id));
-  const { data: existing } = await db.from("pf_players").select("espn_id, team_id").eq("pool_id", ctx.pool.id).in("team_id", loaded).limit(3000);
-  // …unless someone has them on a roster already.
-  const { data: lineups } = await db.from("pf_lineups").select("player_ids").eq("pool_id", ctx.pool.id);
-  const rostered = new Set(((lineups ?? []) as { player_ids: string[] }[]).flatMap((l) => l.player_ids ?? []));
-  const gone = ((existing ?? []) as { espn_id: string }[]).map((p) => p.espn_id).filter((id) => !keep.has(id) && !rostered.has(id));
-  if (gone.length) await db.from("pf_players").delete().eq("pool_id", ctx.pool.id).in("espn_id", gone);
+  const s = pfSettings(ctx.pool.settings);
+  if (!byHand && s.lock_at && Date.parse(s.lock_at) <= Date.now()) return { error: "Rosters have locked, so the playoff teams can't change." };
+  const r = await setupFromEspn(ctx.pool, byHand);
   refresh(slug);
-  return failed.length ? { error: `Loaded ${rows.length} players, but ESPN didn't answer for ${failed.join(", ")}. Load again to pick them up.` } : { ok: `Loaded ${rows.length} players from ${loaded.length} teams.` };
+  return r.ok ? { ok: r.message } : { error: r.message };
 }

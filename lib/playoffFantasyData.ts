@@ -2,18 +2,23 @@ import "server-only";
 import { getBenchedIds } from "./bench";
 import { getGameSummary } from "./gameSummary";
 import type { PoolBase } from "./pool";
+import { fresh } from "./microCache";
+import { getPlayoffField, getPlayoffGames } from "./nflPlayoffs";
 import {
-  ROUNDS,
+  applyExtras,
   defId,
   defLine,
   defPoints,
+  nameKey,
   pfSettings,
   playerLines,
   playerPoints,
+  scoringExtras,
   type BoxTeam,
   type PfScoring,
   type Position,
 } from "./playoffFantasy";
+import { createAdminClient } from "./supabase/admin";
 
 // A Playoff Fantasy pool's data: the playoff teams and player list the commissioner set up,
 // the lineups the viewer can see, and everyone's points, worked out from ESPN's box scores for
@@ -28,7 +33,22 @@ export type PfTeam = { id: string; espnId: string | null; name: string; abbrevia
 export type PfPlayer = { id: string; name: string; pos: Position; teamId: string };
 export type PfEntry = { userId: string; name: string; playerIds: string[] };
 
-export async function getPf(ctx: PoolBase) {
+/**
+ * The pool's setup and lineups. The first time it's read after the playoff field is set, the
+ * 14 teams and their players load by themselves (and rosters lock at the first Wild Card
+ * kickoff unless the commissioner chose another time).
+ */
+export async function getPf(ctx: PoolBase): Promise<Awaited<ReturnType<typeof readPf>>> {
+  const first = await readPf(ctx);
+  if (first.players.length > 0 || first.teams.length > 0 || first.locked) return first;
+  // Nothing set up yet: see whether the field is known. One attempt a minute, shared by every visitor.
+  const loaded = await fresh(`pf-setup:${ctx.pool.id}`, 60_000, () => setupFromEspn(ctx.pool).then((r) => r.ok)).catch(() => false);
+  if (!loaded) return first;
+  const settings = (await createAdminClient().from("pools").select("settings").eq("id", ctx.pool.id).maybeSingle()).data?.settings;
+  return readPf({ ...ctx, pool: { ...ctx.pool, settings: settings ?? ctx.pool.settings } } as PoolBase);
+}
+
+async function readPf(ctx: PoolBase) {
   const settings = pfSettings(ctx.pool.settings);
   const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const [{ data: teamRows }, { data: playerRows }, { data: lineupRows }, { data: memberRows }, benched] = await Promise.all([
@@ -56,35 +76,6 @@ export async function getPf(ctx: PoolBase) {
 // Points, from ESPN
 // ---------------------------------------------------------------------------------------------
 
-type PlayoffGame = { id: string; round: number; state: "pre" | "in" | "post"; teams: { espnId: string; score: number; lost: boolean }[] };
-
-/** The season's playoff games so far: ESPN's postseason scoreboard, one request per round. */
-async function playoffGames(season: number): Promise<PlayoffGame[]> {
-  const rounds = await Promise.all(
-    ROUNDS.map(async (r, i) => {
-      try {
-        const res = await fetch(`${ESPN}/scoreboard?seasontype=3&week=${r.week}&dates=${season}`, { headers: HEADERS, next: { revalidate: 120 }, signal: AbortSignal.timeout(5000) });
-        if (!res.ok) return [];
-        const data = (await res.json()) as Row;
-        return ((data?.events ?? []) as Row[]).map((e): PlayoffGame => {
-          const comp = e?.competitions?.[0] ?? {};
-          const state = comp?.status?.type?.state ?? e?.status?.type?.state;
-          const over = state === "post";
-          return {
-            id: String(e.id),
-            round: i,
-            state: state === "in" || state === "post" ? state : "pre",
-            teams: ((comp.competitors ?? []) as Row[]).map((c) => ({ espnId: String(c?.team?.id ?? ""), score: Number(c?.score ?? 0) || 0, lost: over && c?.winner === false })),
-          };
-        });
-      } catch {
-        return [];
-      }
-    }),
-  );
-  return rounds.flat();
-}
-
 export type PfPoints = {
   /** Per player id (a defense is "DEF-<team ESPN id>"): points by round (WC, DIV, CONF, SB) and in all. */
   byPlayer: Map<string, { total: number; rounds: number[] }>;
@@ -96,9 +87,16 @@ export type PfPoints = {
   roundsStarted: number;
 };
 
-/** Everyone's fantasy points so far under this pool's scoring. Never rejects: what can't be read counts as nothing yet. */
-export async function getPfPoints(season: number, sc: PfScoring): Promise<PfPoints> {
-  const games = (await playoffGames(season).catch(() => [])).filter((g) => g.state !== "pre");
+export const NO_POINTS: PfPoints = { byPlayer: new Map(), out: new Set(), live: false, roundsStarted: 0 };
+
+/**
+ * Everyone's fantasy points so far under this pool's scoring: each playoff game's box score,
+ * plus its scoring summary for what the box score leaves out (field goal distances, two-point
+ * conversions, safeties). `players` and `teams` are the pool's list, for matching the names in
+ * the scoring summary. Never rejects: what can't be read counts as nothing yet.
+ */
+export async function getPfPoints(season: number, sc: PfScoring, players: PfPlayer[] = [], teams: PfTeam[] = []): Promise<PfPoints> {
+  const games = (await getPlayoffGames(season).catch(() => [])).filter((g) => g.state !== "pre");
   const byPlayer = new Map<string, { total: number; rounds: number[] }>();
   const add = (id: string, round: number, pts: number) => {
     const p = byPlayer.get(id) ?? { total: 0, rounds: [0, 0, 0, 0] };
@@ -106,18 +104,30 @@ export async function getPfPoints(season: number, sc: PfScoring): Promise<PfPoin
     p.total = Math.round((p.total + pts) * 100) / 100;
     byPlayer.set(id, p);
   };
+  // Full name → player id, per team (ESPN id), from the pool's list.
+  const espnOf = new Map(teams.map((t) => [t.id, t.espnId ?? ""]));
+  const names = new Map<string, Map<string, string>>();
+  for (const p of players) {
+    const team = espnOf.get(p.teamId) ?? "";
+    if (!names.has(team)) names.set(team, new Map());
+    names.get(team)!.set(nameKey(p.name), p.id);
+  }
   await Promise.all(
     games.map(async (g) => {
       const sum = await getGameSummary("nfl", g.id, g.state === "in").catch(() => null);
       if (!sum) return;
       const boxes = sum.players as BoxTeam[];
+      const extras = scoringExtras(sum.scoring ?? []);
       for (const box of boxes) {
-        for (const [id, line] of playerLines(box)) add(id, g.round, playerPoints(line, sc));
+        const lines = playerLines(box);
+        applyExtras(box, lines, extras, (name) => names.get(box.teamId)?.get(nameKey(name)));
+        for (const [id, line] of lines) add(id, g.round, playerPoints(line, sc));
         const opponent = boxes.find((b) => b.teamId !== box.teamId);
         // The other side's score, from the summary (live) or the scoreboard.
         const oppSide = sum.home?.id === box.teamId ? sum.away : sum.home;
         const oppScore = Number(oppSide?.score ?? g.teams.find((t) => t.espnId !== box.teamId)?.score ?? 0) || 0;
-        add(defId(box.teamId), g.round, defPoints(defLine(box, opponent, oppScore), sc));
+        const safeties = extras.safeties.filter((t) => t === box.teamId).length;
+        add(defId(box.teamId), g.round, defPoints(defLine(box, opponent, oppScore, safeties), sc));
       }
     }),
   );
@@ -174,4 +184,73 @@ export async function espnRoster(team: PfTeam): Promise<{ espn_id: string; name:
     .filter((p): p is { espn_id: string; name: string; pos: Position } => Boolean(p.espn_id && p.name && p.pos));
   if (!out.length) throw new Error(`ESPN returned no players for ${team.name}`);
   return [...out, { espn_id: defId(team.espnId), name: `${team.name} Defense`, pos: "DEF" }];
+}
+
+/**
+ * Set a pool up from ESPN with the service role (callers have already checked who's asking):
+ * the playoff field as the pool's teams (unless `keepTeams`: the commissioner chose them by
+ * hand), every team's players, and the lock time at the first Wild Card kickoff when none is
+ * set. Players already on rosters keep their ids; ones who left a roster stay if someone has them.
+ */
+export async function setupFromEspn(pool: { id: string; season: number; settings: unknown }, keepTeams = false): Promise<{ ok: boolean; message: string }> {
+  const db = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const settings = pfSettings(pool.settings);
+  let firstKickoff: string | null = null;
+
+  if (!keepTeams) {
+    const field = await getPlayoffField(pool.season);
+    if (!field) return { ok: false, message: "The playoff field isn't set yet. It loads by itself once the regular season ends." };
+    firstKickoff = field.firstKickoff;
+    // Make sure every playoff team is in the site's team list, then make them this pool's teams.
+    const ids = field.teams.map((t) => t.espnId);
+    const { data: have } = await db.from("teams").select("id, espn_id").eq("sport", "nfl").in("espn_id", ids);
+    const known = new Map<string, string>(((have ?? []) as Row[]).map((t) => [t.espn_id, t.id]));
+    const missing = field.teams.filter((t) => !known.has(t.espnId));
+    if (missing.length) {
+      const { data: added, error } = await db
+        .from("teams")
+        .insert(missing.map((t) => ({ sport: "nfl", name: t.fullName || t.name, short_name: t.name, abbreviation: t.abbreviation, espn_id: t.espnId, logo_url: t.logo })))
+        .select("id, espn_id");
+      if (error) return { ok: false, message: error.message };
+      for (const t of (added ?? []) as Row[]) known.set(t.espn_id, t.id);
+    }
+    await db.from("pf_teams").delete().eq("pool_id", pool.id);
+    const { error } = await db.from("pf_teams").insert([...known.values()].map((team_id) => ({ pool_id: pool.id, team_id })));
+    if (error) return { ok: false, message: error.message };
+  }
+
+  const { data: teamRows } = await db.from("pf_teams").select("team:teams!inner ( id, espn_id, name, short_name, abbreviation, logo_url )").eq("pool_id", pool.id);
+  const teams: PfTeam[] = ((teamRows ?? []) as Row[]).map((r) => ({ id: r.team.id, espnId: r.team.espn_id, name: r.team.short_name ?? r.team.name, abbreviation: r.team.abbreviation, logo_url: r.team.logo_url }));
+  if (!teams.length) return { ok: false, message: "No playoff teams are set." };
+
+  const results = await Promise.allSettled(teams.map((t) => espnRoster(t).then((players) => ({ t, players }))));
+  const failed = results.flatMap((r, i) => (r.status === "rejected" ? [teams[i].name] : []));
+  const rows = results.flatMap((r) => (r.status === "fulfilled" ? r.value.players.map((p) => ({ pool_id: pool.id, espn_id: p.espn_id, name: p.name, pos: p.pos, team_id: r.value.t.id })) : []));
+  if (!rows.length) return { ok: false, message: "ESPN's rosters couldn't be read right now. Try again in a minute." };
+  const { error } = await db.from("pf_players").upsert(rows);
+  if (error) return { ok: false, message: error.message };
+
+  // Players no longer on a loaded team's roster (or on a team no longer in the pool) come off
+  // the list, unless someone has them.
+  const loaded = new Set(results.flatMap((r) => (r.status === "fulfilled" ? [r.value.t.id] : [])));
+  const teamIds = new Set(teams.map((t) => t.id));
+  const keep = new Set(rows.map((r) => r.espn_id));
+  const [{ data: existing }, { data: lineups }] = await Promise.all([
+    db.from("pf_players").select("espn_id, team_id").eq("pool_id", pool.id).limit(3000),
+    db.from("pf_lineups").select("player_ids").eq("pool_id", pool.id),
+  ]);
+  const rostered = new Set(((lineups ?? []) as Row[]).flatMap((l) => (l.player_ids ?? []) as string[]));
+  const gone = ((existing ?? []) as Row[])
+    .filter((p) => !rostered.has(p.espn_id) && (!teamIds.has(p.team_id) || (loaded.has(p.team_id) && !keep.has(p.espn_id))))
+    .map((p) => p.espn_id as string);
+  if (gone.length) await db.from("pf_players").delete().eq("pool_id", pool.id).in("espn_id", gone);
+
+  // Rosters lock at the first Wild Card kickoff unless the commissioner set a time.
+  if (!settings.lock_at && firstKickoff) {
+    const all = (pool.settings ?? {}) as Row;
+    await db.from("pools").update({ settings: { ...all, playoff_fantasy: { ...(all.playoff_fantasy ?? {}), lock_at: firstKickoff } } }).eq("id", pool.id);
+  }
+  return failed.length
+    ? { ok: true, message: `Loaded ${rows.length} players, but ESPN didn't answer for ${failed.join(", ")}. Reload to pick them up.` }
+    : { ok: true, message: `Loaded ${rows.length} players from ${teams.length} teams.` };
 }

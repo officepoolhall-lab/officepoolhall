@@ -148,24 +148,26 @@ const survivor: Omit<Guide, "tiebreakers"> = {
 const squares: Omit<Guide, "tiebreakers"> = {
   how: [
     "The board has 100 squares: ten columns for one team, ten rows for the other.",
-    "Players tap open squares to take them, and can give one back until the board locks.",
-    "When the board is ready, the commissioner draws the numbers: a digit from 0 to 9 lands on each column and row at random.",
+    "The commissioner writes a name on each square, or shares the pool's link and lets players put their own names on the squares they want.",
+    "When the board is ready, the numbers go on: a digit from 0 to 9 on each column and row, drawn at random. That locks the board.",
     "At the end of each quarter, take the last digit of each team's score. The square where they meet wins.",
-    "Scores and winners fill in live from ESPN once the game is linked, or the commissioner can type them in.",
+    "The site finds the Super Bowl by itself and fills in the teams, each quarter's score and the winners live.",
   ],
   scoring: ["Four winning squares: end of the 1st quarter, halftime, end of the 3rd quarter, and the final score (overtime included).", "The board shows the pot and what each quarter pays."],
   options: [
-    "The price of a square.",
-    "A limit on squares per entry, or none.",
+    "Who fills the board: the commissioner types the names (no accounts needed for anyone else), or players take their own squares.",
+    "The numbers: drawn at random, 0 to 9 in order, or typed in from a board drawn somewhere else.",
+    "The price of a square, and a limit on squares per player.",
     "How the pot is split: even quarters, a bigger final, halftime and final, final only, or your own percentages.",
-    "The team names on the board, and the game it follows.",
-    "The commissioner can take squares for a player, and clear the numbers to reopen the board.",
+    "A different game than the Super Bowl, chosen from the week's schedule.",
+    "The commissioner can rename or clear any square, type in a score, and clear the numbers to reopen the board.",
   ],
 };
 
 const playoffFantasy: Omit<Guide, "tiebreakers"> = {
   how: [
-    "Before the Wild Card round, each player builds one roster: 2 QB, 4 RB, 4 WR, 2 TE, a kicker and a defense by default.",
+    "When the regular season ends, the 14 playoff teams and their players load by themselves and rosters open.",
+    "Each player builds one roster: 2 QB, 4 RB, 4 WR, 2 TE, a kicker and a defense by default.",
     "Only one player from each playoff team, so all 14 teams end up on every roster.",
     "Rosters lock at the first Wild Card kickoff, and everyone's roster shows from then on.",
     "Every player on the roster scores every week he plays, from the Wild Card round through the Super Bowl.",
@@ -173,7 +175,8 @@ const playoffFantasy: Omit<Guide, "tiebreakers"> = {
   ],
   scoring: [
     "Starts from the most common league scoring: 1 point per 25 passing yards and per 10 rushing or receiving yards, 4 per passing touchdown, 6 per rushing or receiving touchdown, 1 per catch (PPR), -2 per interception or lost fumble.",
-    "Kickers: 3 per field goal, 1 per extra point. Defenses: sacks, interceptions, fumble recoveries, touchdowns and points allowed.",
+    "Kickers: 3 for a field goal under 40 yards, 4 from 40-49, 5 from 50 or more, 1 per extra point. Two-point conversions: 2.",
+    "Defenses: sacks, interceptions, fumble recoveries, touchdowns, safeties and points allowed.",
     "Points come from ESPN's box scores and update live during games.",
   ],
   options: [
@@ -182,7 +185,7 @@ const playoffFantasy: Omit<Guide, "tiebreakers"> = {
     "Yardage bonuses for 300-yard passing and 100-yard rushing or receiving games.",
     "Every scoring value, for players, kickers and defenses.",
     "Roster spots at each position.",
-    "When rosters lock.",
+    "When rosters lock (the first Wild Card kickoff unless you change it).",
     "The commissioner can set or fix a roster for a player.",
   ],
 };

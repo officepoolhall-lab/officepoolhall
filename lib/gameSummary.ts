@@ -35,6 +35,8 @@ export type GameSummary = {
   /** Player stats per team: passing, rushing, receiving… or one basketball table. */
   players: { teamId: string; abbreviation: string; groups: StatGroup[] }[];
   periodLabel: (n: number) => string;
+  /** Football: every scoring play in ESPN's words ("Harrison Butker 48 Yd Field Goal"), with the team that scored. */
+  scoring: { teamId: string; type: string; text: string }[];
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- ESPN's JSON is untyped */
@@ -172,6 +174,7 @@ async function readGameSummary(sport: TeamSport, espnId: string, live: boolean):
     home,
     drives,
     plays,
+    scoring: ((data?.scoringPlays ?? []) as any[]).map((p) => ({ teamId: String(p?.team?.id ?? ""), type: str(p?.type?.text) ?? str(p?.type?.abbreviation) ?? "", text: str(p?.text) ?? "" })),
     teamStats,
     players,
     periodLabel: (n: number) =>

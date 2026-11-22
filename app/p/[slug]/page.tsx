@@ -32,18 +32,15 @@ import { getTournamentPicks, getTournaments, tournamentUpside } from "@/lib/tour
 import { getStandingsBook, standingsByPoints } from "@/lib/standings";
 import { NEWS_TITLE, teamSport, type TeamSport } from "@/lib/sports";
 
-export default async function PoolHome({ params, searchParams }: PageProps<"/p/[slug]">) {
+export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   // An NCAA Pick X pool has its own Home.
   if (isPickX(ctx.pool.settings)) return <PickXHome ctx={ctx} slug={slug} />;
-  // So do Survivor, Squares (its board; ?for= lets the commissioner take squares for a player) and Playoff Fantasy.
+  // So do Survivor, Squares (its board) and Playoff Fantasy.
   const format = poolFormat(ctx.pool.settings);
   if (format === "survivor") return <SurvivorHome ctx={ctx} slug={slug} />;
-  if (format === "squares") {
-    const { for: forParam } = await searchParams;
-    return <SquaresHome ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} />;
-  }
+  if (format === "squares") return <SquaresHome ctx={ctx} slug={slug} />;
   if (format === "playoff_fantasy") return <PfHome ctx={ctx} slug={slug} />;
   const [slate, upcoming] = await Promise.all([getCurrentSlate(ctx), getUpcomingSlate(ctx)]);
   const sport = teamSport(ctx.pool.sport);

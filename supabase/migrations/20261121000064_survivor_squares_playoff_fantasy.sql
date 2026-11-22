@@ -163,18 +163,26 @@ grant execute on function submit_survivor_pick(uuid, uuid, uuid, uuid) to authen
 -- =====================================================================================
 -- Super Bowl Squares
 -- =====================================================================================
--- settings.squares: { price: number, max_per_entry: int|null, payouts: [q1, half, q3, final] (percent) }
+-- settings.squares: {
+--   price: number, payouts: [q1, half, q3, final] (percent),
+--   entry:   'commissioner' (default: the commissioner types a name into each square)
+--          | 'players' (anyone in the pool takes squares and types the name on them),
+--   max_per_entry: int|null (players mode: the most squares one player can take),
+--   numbers: 'random' (default: drawn at random) | 'ordered' (0-9 in order) | 'manual' (typed in)
+-- }
 -- Squares are numbered 0-99: row * 10 + column. Columns are the home team's digit, rows the
--- away team's. Players claim squares until the commissioner draws the numbers; after that
--- the board is fixed.
+-- away team's. Squares can be filled and cleared until the numbers are set; after that the
+-- board is fixed.
 
 create table if not exists squares_boards (
   pool_id uuid primary key references pools(id) on delete cascade,
+  -- Shown until ESPN lists the game's real teams.
   home_name text not null default 'NFC',
   away_name text not null default 'AFC',
-  -- ESPN's id for the game: quarter scores then fill in by themselves.
+  -- ESPN's id for the game, when the commissioner chose one; null = the season's Super Bowl,
+  -- found by itself.
   game_espn_id text,
-  -- The digit for each column (home) and row (away), 10 each; null until drawn.
+  -- The digit for each column (home) and row (away), 10 each; null until set.
   col_digits int[],
   row_digits int[],
   drawn_at timestamptz,
@@ -193,62 +201,76 @@ grant select, insert, update on squares_boards to authenticated;
 create table if not exists squares_claims (
   pool_id uuid not null references pools(id) on delete cascade,
   idx int not null check (idx between 0 and 99),
-  user_id uuid not null references profiles(id) on delete cascade,
-  edited_by uuid references profiles(id) on delete set null,
+  -- The name written on the square.
+  label text not null check (char_length(label) between 1 and 24),
+  -- The player who took it; null when the commissioner typed the name in.
+  user_id uuid references profiles(id) on delete set null,
   claimed_at timestamptz not null default now(),
   primary key (pool_id, idx)
 );
 create index if not exists squares_claims_entry on squares_claims (pool_id, user_id);
 alter table squares_claims enable row level security;
--- Everyone in the pool sees who has which square.
+-- Everyone in the pool sees the whole board.
 drop policy if exists squares_claims_read on squares_claims;
 create policy squares_claims_read on squares_claims for select using (pool_id = any ((select my_viewable_pools())::uuid[]));
 grant select on squares_claims to authenticated;
 
-/** Take an open square (for yourself, an entry you co-manage, or, as commissioner, anyone). */
-create or replace function claim_square(p_pool_id uuid, p_idx int, p_user_id uuid default null) returns void
+/**
+ * Write a name on a square. The commissioner can fill (or rename) any square; when the pool
+ * lets players fill the board, a player can take an open one (their own name unless they type
+ * another), up to the pool's limit.
+ */
+create or replace function claim_square(p_pool_id uuid, p_idx int, p_label text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   v_me uuid := auth.uid();
-  v_user uuid := coalesce(p_user_id, auth.uid());
   v_rules jsonb;
   v_commish boolean;
-  v_manager boolean;
+  v_label text := nullif(btrim(coalesce(p_label, '')), '');
   v_max int;
 begin
   if v_me is null then raise exception 'Not signed in'; end if;
   select settings->'squares' into v_rules from pools where id = p_pool_id and settings->>'format' = 'squares';
   if v_rules is null then raise exception 'This isn''t a Squares pool'; end if;
   if p_idx is null or p_idx < 0 or p_idx > 99 then raise exception 'No such square'; end if;
-
-  v_commish := exists (select 1 from pool_members where pool_id = p_pool_id and user_id = v_me and role = 'commissioner');
-  v_manager := exists (select 1 from entry_managers where pool_id = p_pool_id and owner_id = v_user and manager_id = v_me);
-  if v_user <> v_me and not v_commish and not v_manager then raise exception 'You can only take squares for yourself'; end if;
-  if not exists (select 1 from pool_members where pool_id = p_pool_id and user_id = v_user) then
-    raise exception 'That entry isn''t in this pool';
+  if not exists (select 1 from pool_members where pool_id = p_pool_id and user_id = v_me) then
+    raise exception 'You aren''t in this pool';
   end if;
-  if exists (select 1 from pool_member_bench where pool_id = p_pool_id and user_id = v_user) and not v_commish then
+  v_commish := is_commissioner(p_pool_id);
+  if exists (select 1 from squares_boards where pool_id = p_pool_id and drawn_at is not null) then
+    raise exception 'The numbers are set, so the board is locked';
+  end if;
+  if char_length(coalesce(v_label, '')) > 24 then raise exception 'Keep the name to 24 characters'; end if;
+
+  if v_commish then
+    if v_label is null then raise exception 'Type the name for the square'; end if;
+    insert into squares_claims (pool_id, idx, label, user_id) values (p_pool_id, p_idx, v_label, null)
+    on conflict (pool_id, idx) do update set label = excluded.label, user_id = null, claimed_at = now();
+    return;
+  end if;
+
+  if coalesce(v_rules->>'entry', 'commissioner') <> 'players' then
+    raise exception 'The commissioner fills in this board';
+  end if;
+  if exists (select 1 from pool_member_bench where pool_id = p_pool_id and user_id = v_me) then
     raise exception 'This entry is benched. Ask your commissioner to bring it back.';
   end if;
-  if exists (select 1 from squares_boards where pool_id = p_pool_id and drawn_at is not null) then
-    raise exception 'The numbers have been drawn, so the board is locked';
-  end if;
-
   v_max := nullif(v_rules->>'max_per_entry', '')::int;
-  if v_max is not null and (select count(*) from squares_claims where pool_id = p_pool_id and user_id = v_user) >= v_max then
-    raise exception 'Each entry can take up to % squares', v_max;
+  if v_max is not null and (select count(*) from squares_claims where pool_id = p_pool_id and user_id = v_me) >= v_max then
+    raise exception 'Each player can take up to % squares', v_max;
   end if;
-
+  if v_label is null then
+    select left(display_name, 24) into v_label from profiles where id = v_me;
+  end if;
   begin
-    insert into squares_claims (pool_id, idx, user_id, edited_by)
-    values (p_pool_id, p_idx, v_user, case when v_user <> v_me and v_commish then v_me end);
+    insert into squares_claims (pool_id, idx, label, user_id) values (p_pool_id, p_idx, coalesce(v_label, 'Player'), v_me);
   exception when unique_violation then
     raise exception 'That square was just taken';
   end;
 end;
 $$;
 
-/** Give a square back (your own, or any as commissioner), until the numbers are drawn. */
+/** Clear a square (your own, or any as commissioner), until the numbers are set. */
 create or replace function release_square(p_pool_id uuid, p_idx int) returns void
 language plpgsql security definer set search_path = public as $$
 declare
@@ -256,46 +278,61 @@ declare
   v_owner uuid;
 begin
   if v_me is null then raise exception 'Not signed in'; end if;
+  if not exists (select 1 from squares_claims where pool_id = p_pool_id and idx = p_idx) then return; end if;
   select user_id into v_owner from squares_claims where pool_id = p_pool_id and idx = p_idx;
-  if v_owner is null then return; end if;
-  if v_owner <> v_me and not is_commissioner(p_pool_id)
-     and not exists (select 1 from entry_managers where pool_id = p_pool_id and owner_id = v_owner and manager_id = v_me) then
+  if v_owner is distinct from v_me and not is_commissioner(p_pool_id) then
     raise exception 'That isn''t your square';
   end if;
   if exists (select 1 from squares_boards where pool_id = p_pool_id and drawn_at is not null) then
-    raise exception 'The numbers have been drawn, so the board is locked';
+    raise exception 'The numbers are set, so the board is locked';
   end if;
   delete from squares_claims where pool_id = p_pool_id and idx = p_idx;
 end;
 $$;
 
-/** Draw the numbers at random (locking the board), or clear them to reopen it. Commissioner only. */
-create or replace function squares_draw(p_pool_id uuid, p_clear boolean default false) returns void
+/**
+ * Set the board's numbers (which locks it), or clear them to reopen it. Commissioner only.
+ * Given both rows of digits, those are used (each has to be 0-9 once); otherwise the pool's
+ * setting decides: in order, or (the default) a random draw.
+ */
+create or replace function squares_draw(p_pool_id uuid, p_clear boolean default false, p_cols int[] default null, p_rows int[] default null) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_ordered boolean;
+  v_all int[] := array[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 begin
-  if not is_commissioner(p_pool_id) then raise exception 'Only the commissioner can draw the numbers'; end if;
+  if not is_commissioner(p_pool_id) then raise exception 'Only the commissioner can set the numbers'; end if;
   insert into squares_boards (pool_id) values (p_pool_id) on conflict (pool_id) do nothing;
   if p_clear then
     update squares_boards set col_digits = null, row_digits = null, drawn_at = null, updated_at = now() where pool_id = p_pool_id;
-  else
-    if exists (select 1 from squares_boards where pool_id = p_pool_id and drawn_at is not null) then
-      raise exception 'The numbers are already drawn';
-    end if;
-    update squares_boards set
-      col_digits = (select array_agg(d order by random()) from generate_series(0, 9) d),
-      row_digits = (select array_agg(d order by random()) from generate_series(0, 9) d),
-      drawn_at = now(), updated_at = now()
-    where pool_id = p_pool_id;
+    return;
   end if;
+  if exists (select 1 from squares_boards where pool_id = p_pool_id and drawn_at is not null) then
+    raise exception 'The numbers are already set';
+  end if;
+  if p_cols is not null or p_rows is not null then
+    if (select array_agg(d order by d) from unnest(p_cols) d) is distinct from v_all
+       or (select array_agg(d order by d) from unnest(p_rows) d) is distinct from v_all then
+      raise exception 'Each side needs every digit from 0 to 9 exactly once';
+    end if;
+    update squares_boards set col_digits = p_cols, row_digits = p_rows, drawn_at = now(), updated_at = now() where pool_id = p_pool_id;
+    return;
+  end if;
+  select coalesce(settings->'squares'->>'numbers', 'random') = 'ordered' into v_ordered from pools where id = p_pool_id;
+  update squares_boards set
+    col_digits = case when v_ordered then v_all else (select array_agg(d order by random()) from generate_series(0, 9) d) end,
+    row_digits = case when v_ordered then v_all else (select array_agg(d order by random()) from generate_series(0, 9) d) end,
+    drawn_at = now(), updated_at = now()
+  where pool_id = p_pool_id;
 end;
 $$;
 
-revoke execute on function claim_square(uuid, int, uuid) from public, anon;
+revoke execute on function claim_square(uuid, int, text) from public, anon;
 revoke execute on function release_square(uuid, int) from public, anon;
-revoke execute on function squares_draw(uuid, boolean) from public, anon;
-grant execute on function claim_square(uuid, int, uuid) to authenticated;
+revoke execute on function squares_draw(uuid, boolean, int[], int[]) from public, anon;
+grant execute on function claim_square(uuid, int, text) to authenticated;
 grant execute on function release_square(uuid, int) to authenticated;
-grant execute on function squares_draw(uuid, boolean) to authenticated;
+grant execute on function squares_draw(uuid, boolean, int[], int[]) to authenticated;
 
 -- =====================================================================================
 -- NFL Playoff Fantasy
