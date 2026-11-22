@@ -55,17 +55,16 @@ function Cell({ c }: { c: SvCell }) {
   );
 }
 
-/** The pool's rules as label / value rows (Home's Pool Rules). */
-function ruleRows(s: SurvivorSettings): [string, string][] {
+/** The pool's rules, a word or two each (Home's Pool Rules). */
+function ruleRows(s: SurvivorSettings): string[] {
   return [
-    ["Each week", "Pick 1 winner"],
-    ["Teams", s.reuse ? "Reuse allowed" : "Once per season"],
-    ["Out after", s.lives === 1 ? "1 loss" : `${s.lives} losses`],
-    ["Ties", s.tie === "loss" ? "Loss" : "Win"],
-    ["No pick", "Loss"],
-    ["Picks lock", "At kickoff"],
-    ["Picks shown", "At kickoff"],
-    ...(s.start_week > 1 ? ([["Starts", `Week ${s.start_week}`]] as [string, string][]) : []),
+    "1 pick weekly",
+    s.reuse ? "Repeats allowed" : "No repeats",
+    s.lives === 1 ? "1 loss: out" : `${s.lives} losses: out`,
+    s.tie === "loss" ? "Tie: loss" : "Tie: win",
+    "No pick: loss",
+    "Locks at kickoff",
+    ...(s.start_week > 1 ? [`Starts Week ${s.start_week}`] : []),
   ];
 }
 
@@ -169,17 +168,14 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
           {rows.length > 0 && <SurvivorSummary {...summary} only={["teams", "eliminated"]} />}
           <section>
             <SectionLabel fit className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
-            {/* Short tiles, two across: each rule's name over its answer, one line apiece. */}
-            <dl className="mt-2 grid grid-cols-2 gap-2">
-              {ruleRows(settings).map(([k, v]) => (
-                <div key={k} className="min-w-0 rounded-xl bg-surface px-3 py-2">
-                  <dt className="truncate text-[11px] font-medium uppercase tracking-wide text-muted">{k}</dt>
-                  <dd className="mt-0.5 min-w-0 text-sm font-semibold text-ink">
-                    <FitText min={10}>{v}</FitText>
-                  </dd>
-                </div>
+            {/* The rules in a word or two each. */}
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {ruleRows(settings).map((r) => (
+                <li key={r} className="whitespace-nowrap rounded-full bg-surface px-3 py-1 text-sm font-medium text-ink">
+                  {r}
+                </li>
               ))}
-            </dl>
+            </ul>
           </section>
         </div>
       </div>
