@@ -51,7 +51,9 @@ function Cell({ c }: { c: SvCell }) {
 }
 
 export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
-  const { settings, weeks, picks, members } = await getSurvivor(ctx);
+  const loaded = await getSurvivor(ctx);
+  const { settings, picks, members } = loaded;
+  const weeks = await withLiveScores(loaded.weeks);
   const rows = survivorStandings(weeks, picks, members, settings);
   const mine = rows.find((r) => r.userId === ctx.entryUserId);
   const week = currentWeek(weeks, settings.start_week);
@@ -62,6 +64,7 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
   const alive = rows.filter((r) => r.alive);
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+      <AutoRefresh active={anyLive(weeks)} />
       <div className="space-y-4">
         <section className={card}>
           <div className="text-xs font-semibold uppercase tracking-wide text-accent">{week ? week.label : "Survivor"}</div>
@@ -96,6 +99,22 @@ export async function SurvivorHome({ ctx, slug }: { ctx: PoolBase; slug: string 
             </>
           )}
         </section>
+        {/* The same Pool Summary as the tab on Standings. */}
+        {rows.length > 0 && (
+          <section className={card}>
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-base font-bold">Pool Summary</h2>
+              <Link href={`/p/${slug}/standings`} className="rounded-full px-2 py-1 text-sm font-semibold text-accent hover:bg-hover">Standings</Link>
+            </div>
+            <SurvivorSummary
+              rows={rows}
+              weeks={weeks.filter((w) => w.week >= settings.start_week)}
+              reuse={settings.reuse}
+              entryFee={Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0)}
+              onSurface
+            />
+          </section>
+        )}
         <section className={card}>
           <h2 className="text-base font-bold">How it works</h2>
           <ul className="mt-1 space-y-1 text-sm text-ink">
