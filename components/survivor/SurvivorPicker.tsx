@@ -188,7 +188,7 @@ export function SurvivorPicker({
 
       {/* What's picked and whether it has saved, pinned to the bottom like the other pools' tracker. */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto max-w-5xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
+        <div className="mx-auto max-w-5xl py-2.5 xl:max-w-6xl 2xl:max-w-7xl pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
           {error && <p className="mb-1.5 text-sm text-loss" role="alert">{error}</p>}
           <div className="flex min-h-9 items-center gap-3">
             <p className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted">

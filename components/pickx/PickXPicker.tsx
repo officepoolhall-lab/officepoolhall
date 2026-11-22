@@ -110,7 +110,7 @@ export function PickXPicker({
 
       {/* Count, seed total and Save, always in reach. */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 xl:max-w-6xl 2xl:max-w-7xl">
           <div className="min-w-0 flex-1">
             <div className="text-[15px] font-semibold text-ink tabular-nums">
               {picked.length} of {settings.picks} teams{forName ? ` for ${forName}` : ""}

@@ -65,9 +65,10 @@ function Grid({ cells, homeName, awayName, colDigits, rowDigits, canTap, onTap, 
                   } ${busy === idx ? "opacity-50" : ""}`}
                 >
                   <span className="truncate px-0.5 sm:hidden">{cell.short ?? (cell.held === "me" ? "✓" : cell.held === "other" ? "…" : "")}</span>
-                  {/* A long name shows its first word; the whole name is in the hover text and the list beside the board. */}
-                  <span className="hidden truncate px-1 sm:block">
-                    {cell.name ? (cell.name.length > 9 ? cell.name.split(" ")[0] : cell.name) : cell.held === "me" ? "Yours" : cell.held === "other" ? "…" : ""}
+                  {/* The name on up to two lines, small enough to fit the square; the whole name is in
+                      the hover text and the list beside the board. */}
+                  <span className="hidden px-0.5 text-center text-[10px] leading-[1.15] [overflow-wrap:anywhere] line-clamp-2 sm:[display:-webkit-box] lg:text-[11px]">
+                    {cell.name ?? (cell.held === "me" ? "Yours" : cell.held === "other" ? "…" : "")}
                   </span>
                   {/* Which quarter it won (the green outline alone on phones, where there's no room). */}
                   {cell.won && <span className="absolute right-0 top-0 hidden rounded-bl bg-win px-0.5 text-[9px] font-bold text-white sm:block">{cell.won}</span>}
