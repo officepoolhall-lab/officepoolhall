@@ -279,7 +279,8 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     const g = c.gameId ? games.get(c.gameId) : undefined;
     const live = Boolean(g && g.started && !g.final);
     const score = g && g.started && c.team ? cellScore(g, c.team.id) : null;
-    const fill = c.state === "win" ? "bg-[var(--win-fill)] text-win" : c.state === "loss" ? "bg-[var(--loss-fill)] text-loss" : "text-ink";
+    // The green or red fill gives the result; team names and scores stay black.
+    const fill = `text-ink ${c.state === "win" ? "bg-[var(--win-fill)]" : c.state === "loss" ? "bg-[var(--loss-fill)]" : ""}`;
     const label = `${c.team ? teamName(c.team) : ""}${c.state === "win" ? ", won" : c.state === "loss" ? ", lost" : c.state === "void" ? ", game didn't count" : live ? ", in progress" : ""}${score ? ` ${score}` : ""}`;
     const home = Boolean(g && c.team && c.team.id === g.home.id);
     const opp = g ? (home ? g.away : g.home) : null;
