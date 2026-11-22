@@ -39,10 +39,12 @@ export function WeekPickCard({
   const theirs = game && side ? (side === "home" ? game.awayScore : game.homeScore) : null;
   // No pick yet: just a small tag, not the full card.
   if (!team || !game || !side) {
+    const out = empty.startsWith("Eliminated");
     return (
       <section className={`flex w-fit max-w-full items-center gap-2 rounded-xl border-2 border-accent bg-surface px-3 py-1.5 ${className}`} aria-label={`${weekLabel} pick`}>
-        <span className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</span>
-        <span className={`whitespace-nowrap text-sm font-semibold ${empty.startsWith("Eliminated") ? "text-loss" : "text-muted"}`}>{empty}</span>
+        {/* An eliminated entry has no pick to make: just "Eliminated in Week N". */}
+        {!out && <span className="truncate text-xs font-semibold uppercase tracking-wide text-accent">{weekLabel} Pick</span>}
+        <span className={`whitespace-nowrap text-sm font-semibold ${out ? "text-loss" : "text-muted"}`}>{empty}</span>
       </section>
     );
   }
