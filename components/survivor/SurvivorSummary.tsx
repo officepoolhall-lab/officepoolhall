@@ -24,6 +24,7 @@ export function SurvivorSummary({
   only,
   page = false,
   hideWinner = false,
+  noWinner = false,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
@@ -41,6 +42,8 @@ export function SurvivorSummary({
   page?: boolean;
   /** The page already shows the winner (Home's winner card): just the prize here. */
   hideWinner?: boolean;
+  /** Don't show the pool as won at all (the League Grid's pop-out: the winner is Home's). */
+  noWinner?: boolean;
 }) {
   const show = (p: SummaryPart) => !only || only.includes(p);
   const H = ({ children }: { children: ReactNode }) =>
@@ -49,7 +52,7 @@ export function SurvivorSummary({
   const box = onSurface ? "bg-bg" : "bg-surface";
   const total = rows.length;
   // The pool is over once one entry is left standing (or everyone left went out together).
-  const won = survivorWinners(rows, weeks);
+  const won = noWinner ? null : survivorWinners(rows, weeks);
   const winnerNames = won ? rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name) : [];
   const alive = rows.filter((r) => r.alive).length;
   // The week to sum up: the latest one with a game under way or over.
@@ -120,7 +123,7 @@ export function SurvivorSummary({
         </p>
         )}
         {!(won && hideWinner) && <p className="whitespace-nowrap text-sm text-muted tabular-nums">
-          {won ? (winnerNames.length > 1 ? `Won together in Week ${won.week}` : `Last one standing after Week ${won.week}`) : `${total - alive} eliminated`}
+          {won ? (winnerNames.length > 1 ? "Shared" : "") : `${total - alive} eliminated`}
         </p>}
         {/* The pot, and what each entry would take splitting it, counting everyone still in coming
             into the current week (it changes once a week is final, not game by game). */}

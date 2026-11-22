@@ -5,7 +5,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { AxisLockScroll } from "@/components/AxisLockScroll";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
-import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, TrophyIcon, chipClass } from "@/components/ui";
+import { Empty, LiveDot, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { clearSurvivorPick, saveSurvivorPick } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { survivorStandings, survivorWinners, weekClosed, type SvCell, type SvGame, type SvRow, type SvTeam, type SvWeek, type SurvivorSettings } from "@/lib/survivor";
@@ -281,14 +281,12 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
       } as SvPrior;
     });
 
-  // The pool is over: the winner's card replaces the pick card.
-  const won = survivorWinners(rows, counted);
   // The pick that knocked this entry out, for the red card at the top.
   const outCell = row.outWeek !== null ? row.cells.find((c) => c.week === row.outWeek) : undefined;
   const outSvGame = outCell?.gameId ? weeks.find((w) => w.slateId === outCell.slateId)?.games.find((g) => g.id === outCell.gameId) : undefined;
   const outPick =
     outSvGame && outCell?.team ? { game: asSlateGame(outSvGame), side: (outCell.team.id === outSvGame.home.id ? "home" : "away") as "home" | "away" } : null;
-  const statusText = won?.userIds.includes(target) ? "Winner" : outAlready || !row.alive ? `Eliminated · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
+  const statusText = outAlready || !row.alive ? `Eliminated · Week ${row.outWeek}` : settings.lives > 1 ? `${row.livesLeft} of ${settings.lives} lives left` : "Alive";
 
   return (
     <div>
@@ -320,16 +318,6 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
         status={{ text: statusText, alive: row.alive && !outAlready }}
         outWeek={row.alive && !outAlready ? null : row.outWeek}
         outPick={outPick}
-        winner={
-          won
-            ? {
-                names: rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name),
-                week: won.week,
-                mine: won.userIds.includes(target),
-                prize: prizeOf(ctx, rows.length, won.userIds.length),
-              }
-            : null
-        }
         backHref={qs(week.week)}
         historyHref={ctx.isGuest ? undefined : `/p/${slug}/standings`}
         save={saveSurvivorPick.bind(null, slug, week.slateId, behalf ? target : null)}
@@ -361,7 +349,6 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const order = new Map(counted.map((w, i) => [w.slateId, i]));
   const games = new Map(weeks.flatMap((w) => w.games).map((g) => [g.id, g]));
   const alive = rows.filter((r) => r.alive).length;
-  const won = survivorWinners(rows, counted);
   const back = encodeURIComponent(`/p/${slug}/standings`);
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
   // A thin line between weeks.
@@ -454,19 +441,9 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     >
       <div className="mb-2 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
         <h1 className="sr-only">League Grid</h1>
-        {won ? (
-          <p className="flex min-w-0 items-center gap-2 text-base text-muted sm:text-lg">
-            <TrophyIcon className="size-6 shrink-0 text-accent" />
-            <span className="min-w-0 truncate">
-              <span className="text-2xl font-extrabold text-ink sm:text-3xl">{rows.filter((r) => won.userIds.includes(r.userId)).map((r) => r.name).join(" & ")}</span>{" "}
-              {won.userIds.length > 1 ? `share the pool · Week ${won.week}` : `wins the pool · Week ${won.week}`}
-            </span>
-          </p>
-        ) : (
-          <p className="text-base text-muted tabular-nums sm:text-lg">
-            <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
-          </p>
-        )}
+        <p className="text-base text-muted tabular-nums sm:text-lg">
+          <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
+        </p>
       </div>
       <AutoRefresh active={anyLive(weeks)} />
       {rows.length === 0 ? (
@@ -500,19 +477,17 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
               {rows.map((r) => {
                 const mine = r.userId === ctx.entryUserId;
                 const cells = [...r.cells].sort((a, b) => (order.get(a.slateId) ?? 0) - (order.get(b.slateId) ?? 0));
-                const winner = Boolean(won?.userIds.includes(r.userId));
-                const status = winner ? "Winner" : r.alive ? (settings.lives > 1 ? `${r.livesLeft} of ${settings.lives}` : "Alive") : `Out · Wk ${r.outWeek}`;
+                const status = r.alive ? (settings.lives > 1 ? `${r.livesLeft} of ${settings.lives}` : "Alive") : `Out · Wk ${r.outWeek}`;
                 return (
                   <tr key={r.userId} className="[&:last-child>*]:border-b-0">
                     <th className={`sticky left-0 z-10 border-b border-r border-line bg-bg px-3 py-0.5 text-left text-[13px] font-medium sm:px-4 lg:text-sm ${mine ? "shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`min-w-0 flex-1 ${winner ? "font-bold" : ""} ${mine ? "text-accent" : winner || r.alive ? "" : "text-loss"}`}>
+                        <span className={`min-w-0 flex-1 ${mine ? "text-accent" : r.alive ? "" : "text-loss"}`}>
                           <FitText min={9}>{r.name}</FitText>
                           {/* Phones: the status under the name, so the column stays narrow. */}
-                          <span className={`block text-[10px] leading-tight sm:hidden ${winner ? "font-bold text-accent" : r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
+                          <span className={`block text-[10px] leading-tight sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>{status}</span>
                         </span>
-                        <span className={`flex shrink-0 items-center gap-1 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${winner ? "font-bold text-accent" : r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
-                          {winner && <TrophyIcon className="size-3.5" />}
+                        <span className={`shrink-0 whitespace-nowrap text-right text-xs tabular-nums max-sm:hidden ${r.alive ? "font-semibold text-win" : "font-medium text-loss"}`}>
                           {status}
                         </span>
                       </div>
@@ -528,7 +503,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
       {/* The Pool Summary tab on the screen's edge, as on the League Grid. */}
       {rows.length > 0 && (
         <GridPanelDrawer>
-          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} reuse={settings.reuse} entryFee={Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0)} />
+          <SurvivorSummary rows={rows} weeks={counted} lives={settings.lives} reuse={settings.reuse} noWinner entryFee={Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0)} />
         </GridPanelDrawer>
       )}
     </div>
