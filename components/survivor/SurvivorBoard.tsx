@@ -7,8 +7,8 @@ import { GameRow, useNow, type BoardSettings } from "@/app/p/[slug]/picks/PickBo
 import { PickSummaryRow } from "@/components/PickSummaryRow";
 import { TeamHistoryDialog } from "@/components/ProfileDialogs";
 import { useLiveGames } from "@/components/useLiveGames";
-import { CheckIcon, ChevronIcon, LiveDot, LockIcon, TeamLogo, chipClass } from "@/components/ui";
-import { dayKey, dayLabel, formatDuration, formatSpread, shortGameTime } from "@/lib/format";
+import { CheckIcon, ChevronIcon, LockIcon, TeamLogo, chipClass } from "@/components/ui";
+import { dayKey, dayLabel, formatSpread } from "@/lib/format";
 import { hasStarted } from "@/lib/locks";
 import type { SlateGame } from "@/lib/pool";
 
@@ -114,8 +114,6 @@ export function SurvivorBoard({
     return out;
   }, [games, timezone]);
 
-  const open = games.filter((g) => !g.voided && !hasStarted(g, now));
-  const nextKick = open.length ? Math.min(...open.map((g) => new Date(g.startAt).getTime())) : null;
   const spreadLabel = (g: SlateGame) => {
     const sp = spreads[g.id];
     if (sp === undefined) return null;
@@ -123,50 +121,25 @@ export function SurvivorBoard({
     const fav = sp < 0 ? g.home : g.away;
     return `${fav.abbreviation ?? teamName(fav)} ${formatSpread(-Math.abs(sp))}`;
   };
-  const resultOf = (g: SlateGame | undefined, side: Side | null): "win" | "loss" | null => {
-    if (!g || !side || g.voided || !(g.status === "final" || g.overridden) || g.homeScore === null || g.awayScore === null) return null;
-    const m = g.homeScore - g.awayScore;
-    if (m === 0) return "loss";
-    return (m > 0) === (side === "home") ? "win" : "loss";
-  };
-  const thisResult = resultOf(pickGame, pickSide);
-  const live = pickGame && hasStarted(pickGame, now) && !(pickGame.status === "final" || pickGame.overridden);
 
   return (
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
-      {/* This week's pick, across the top. */}
-        <section className="mb-5 rounded-xl border border-line bg-bg p-4 lg:col-span-2 lg:mb-2">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-lg font-extrabold tracking-[-0.03em]">{weekLabel} pick</h2>
-            <span className="ml-auto flex items-center gap-1.5 text-sm text-muted">
-              {pickLocked && <LockIcon />}
-              {pickLocked ? "Locked" : canPick && nextKick ? <>Next kickoff in <strong className="font-semibold tabular-nums text-ink">{formatDuration(nextKick - now)}</strong></> : null}
+      {/* This week's pick, across the top: the team and who they're playing. */}
+      <h2 className="mb-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-lg font-extrabold tracking-[-0.03em] lg:col-span-2">
+        <span>{weekLabel} Pick:</span>
+        {pickTeam && pickGame ? (
+          <span className="flex min-w-0 items-center gap-2">
+            <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-7" />
+            <span className="truncate">{teamName(pickTeam)}</span>
+            <span className="truncate font-medium text-muted">
+              {pickSide === "away" && !pickGame.neutral ? "at" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)}
             </span>
-          </div>
-          {pickTeam && pickGame ? (
-            <div className="mt-2 flex items-center gap-3">
-              <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-9" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[17px] font-bold">{teamName(pickTeam)}</div>
-                <div className="truncate text-sm text-muted">
-                  {pickSide === "away" && !pickGame.neutral ? "@" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)} ·{" "}
-                  {live ? <LiveDot>{pickGame.clock ?? "Live"}</LiveDot> : pickGame.status === "final" || pickGame.overridden ? "Final" : shortGameTime(pickGame.startAt, timezone, pickGame.timeTbd)}
-                  {pickGame.tv && !(pickGame.status === "final") && <> · {pickGame.tv}</>}
-                </div>
-              </div>
-              {hasStarted(pickGame, now) && pickGame.homeScore !== null && pickGame.awayScore !== null && (
-                <span className="text-lg font-bold tabular-nums">
-                  {pickSide === "home" ? `${pickGame.homeScore}–${pickGame.awayScore}` : `${pickGame.awayScore}–${pickGame.homeScore}`}
-                </span>
-              )}
-              {thisResult && <span className={`text-sm font-semibold ${thisResult === "win" ? "text-win" : "text-loss"}`}>{thisResult === "win" ? "Win" : "Loss"}</span>}
-            </div>
-          ) : (
-            <p className="mt-1 text-sm text-muted">
-              {canPick ? "No pick yet. Tap a team below to pick it to win. A week without a pick counts as a loss." : status.alive ? "No pick this week." : "This entry is out."}
-            </p>
-          )}
-        </section>
+            {pickLocked && <LockIcon className="size-4 shrink-0 text-muted" />}
+          </span>
+        ) : (
+          <span className="font-medium text-muted">{canPick ? "None yet" : "None"}</span>
+        )}
+      </h2>
 
       {/* The season so far, pinned in the left column on desktop; above the games on phones. */}
       <aside className="lg:self-stretch">

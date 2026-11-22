@@ -709,7 +709,13 @@ export function GameRow({
         return (
           // Its own columns (name, then the pick button's score and cell) matching the card's, not a
           // CSS subgrid: browsers without subgrid (older Chrome, e.g. some Chromebooks) stacked them.
-          <div key={side} className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"}`}>
+          <div
+            key={side}
+            // Survivor: a team that can't be picked (already used) is greyed out.
+            className={`col-span-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-1.5 ${i === 0 ? "row-start-2" : "row-start-3"} ${
+              sideDisabled?.[side] ? "opacity-35 grayscale" : ""
+            }`}
+          >
             {team.espn_id ? (
               <button
                 type="button"
