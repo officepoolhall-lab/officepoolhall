@@ -7,18 +7,24 @@ import type { SvGame, SvRow, SvTeam, SvWeek } from "@/lib/survivor";
 
 const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 1000) / 10}%` : "—");
 const name = (t: SvTeam) => t.short_name ?? t.name;
+/** "$1,250" (cents only when there are any: "$83.33"). */
+const money = (v: number) =>
+  v.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2, maximumFractionDigits: 2 });
 
 export function SurvivorSummary({
   rows,
   weeks,
   lives,
   reuse,
+  entryFee,
 }: {
   rows: SvRow[];
   weeks: SvWeek[];
   lives: number;
   /** The pool lets a team be picked more than once: "teams left" doesn't apply. */
   reuse: boolean;
+  /** The pool's entry fee (pools.entry_fee); 0 hides the pot. */
+  entryFee: number;
 }) {
   const total = rows.length;
   const alive = rows.filter((r) => r.alive).length;
@@ -83,6 +89,21 @@ export function SurvivorSummary({
           <span className="ml-2 text-sm font-semibold text-ink">{pct(alive, total)}</span>
         </p>
         <p className="text-sm text-muted tabular-nums">{total - alive} eliminated</p>
+        {/* The pot, and what each entry still alive would take if they split it right now. */}
+        {entryFee > 0 && alive > 0 && (
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+            <div className="rounded-xl bg-surface px-2 py-2">
+              <div className="text-[11px] font-medium text-muted">Pot</div>
+              <div className="text-lg font-bold tabular-nums">{money(entryFee * total)}</div>
+              <div className="text-[11px] text-muted tabular-nums">{total} × {money(entryFee)}</div>
+            </div>
+            <div className="rounded-xl bg-surface px-2 py-2">
+              <div className="text-[11px] font-medium text-muted">Split today</div>
+              <div className="text-lg font-bold tabular-nums text-win">{money((entryFee * total) / alive)}</div>
+              <div className="text-[11px] text-muted tabular-nums">each, {alive} way{alive === 1 ? "" : "s"}</div>
+            </div>
+          </div>
+        )}
       </section>
 
       {shown && (
