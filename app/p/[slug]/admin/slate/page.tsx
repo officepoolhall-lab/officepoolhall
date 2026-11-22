@@ -13,6 +13,9 @@ import { GameTimeInput, SlateEditor, WeekDates, type Candidate } from "./SlateEd
 import { Matchup } from "@/components/Matchup";
 import { teamSport } from "@/lib/sports";
 import { NFL_WEEKS, currentNflWeek, nflWeekLabel, nflWeekWindow } from "@/lib/nflWeeks";
+import { poolFormat } from "@/lib/formats";
+import { survivorStandings } from "@/lib/survivor";
+import { getSurvivor } from "@/lib/survivorData";
 
 export const metadata: Metadata = { title: "Slate editor" };
 
@@ -266,11 +269,26 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
   }
 
   async function PublishedSummary({ slug, slate }: { slug: string; slate: NonNullable<typeof slates>[number] }) {
-    const [games, { data: progress }] = await Promise.all([
+    const [games, { data: allProgress }] = await Promise.all([
       getSlateGames(ctx, slate.id),
       ctx.supabase.rpc("slate_progress", { p_slate_id: slate.id }),
     ]);
-    const need = ctx.settings.picks_per_slate;
+    // Survivor: one pick a week (in survivor_picks), from the entries still in this week. Here,
+    // on Commissioner → Slate, is where a commissioner makes or fixes someone's pick.
+    const survivor = poolFormat(ctx.pool.settings) === "survivor";
+    let progress = allProgress;
+    if (survivor && allProgress) {
+      const sv = await getSurvivor(ctx);
+      const svRows = survivorStandings(sv.weeks, sv.picks, sv.members, sv.settings);
+      const inWeek = new Set(
+        svRows.filter((r) => r.cells.some((c) => c.slateId === slate.id && c.state !== "out" && c.state !== "before")).map((r) => r.userId),
+      );
+      const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const { data: svPicks } = await db.from("survivor_picks").select("user_id").eq("slate_id", slate.id);
+      const has = new Set(((svPicks ?? []) as { user_id: string }[]).map((p) => p.user_id));
+      progress = allProgress.filter((p) => inWeek.has(p.user_id)).map((p) => ({ ...p, picks: has.has(p.user_id) ? 1 : 0 }));
+    }
+    const need = survivor ? 1 : ctx.settings.picks_per_slate;
     const firstDay = WEEKDAYS[ctx.settings.window.start_weekday];
     // publish_slate pulls the first-day group's deadline to that day's first tip when it's
     // earlier; any deadline before both slate-level ones is that group's.
@@ -409,8 +427,9 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
         <section className="rounded-2xl bg-surface p-4 sm:p-5">
           <h2 className="text-base font-bold tracking-[-0.01em] text-ink">Pick progress</h2>
           <p className="mt-0.5 text-sm text-muted tabular-nums">
-            {(progress ?? []).filter((p) => p.picks >= need).length} of {(progress ?? []).length} entries have all {need} picks in. Tap an entry to enter or fix
-            their picks.
+            {survivor
+              ? `${(progress ?? []).filter((p) => p.picks >= need).length} of ${(progress ?? []).length} entries still in have a pick. Tap an entry to make or fix their pick.`
+              : `${(progress ?? []).filter((p) => p.picks >= need).length} of ${(progress ?? []).length} entries have all ${need} picks in. Tap an entry to enter or fix their picks.`}
           </p>
           <ul className="mt-2 divide-y divide-line">
             {progress?.map((p) => (
@@ -421,7 +440,7 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
                 </span>
                 {/* Past the deadline too: the commissioner can fix picks, and the change is marked. */}
                 <Link href={`/p/${slug}/picks?week=${slate.week}&for=${p.user_id}`} className="-my-1 inline-flex min-h-11 items-center pl-2 text-sm font-medium text-accent">
-                  {slate.status === "open" ? "Enter picks" : "Edit picks"}
+                  {survivor ? (p.picks ? "Edit pick" : "Enter pick") : slate.status === "open" ? "Enter picks" : "Edit picks"}
                 </Link>
               </li>
             ))}

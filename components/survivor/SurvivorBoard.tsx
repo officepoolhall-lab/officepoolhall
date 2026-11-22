@@ -125,16 +125,17 @@ export function SurvivorBoard({
   return (
     <div data-wide className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)] min-[1600px]:gap-10">
       {/* This week's pick, across the top: the team and who they're playing. */}
-      <h2 className="mb-4 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-lg font-extrabold tracking-[-0.03em] lg:col-span-2">
+      <h2 className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-2xl font-extrabold tracking-[-0.03em] sm:text-3xl lg:col-span-2">
         <span>{weekLabel} Pick:</span>
         {pickTeam && pickGame ? (
-          <span className="flex min-w-0 items-center gap-2">
-            <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-7" />
+          <span className="flex min-w-0 items-center gap-2.5">
+            <TeamLogo src={pickTeam.logo_url} abbr={pickTeam.abbreviation} className="size-9 shrink-0 sm:size-11" />
             <span className="truncate">{teamName(pickTeam)}</span>
-            <span className="truncate text-sm font-medium text-muted">
+            {/* Only the opponent is small. */}
+            <span className="truncate self-end pb-0.5 text-base font-medium tracking-normal text-muted sm:pb-1">
               {pickSide === "away" && !pickGame.neutral ? "at" : "vs"} {teamName(pickSide === "home" ? pickGame.away : pickGame.home)}
             </span>
-            {pickLocked && <LockIcon className="size-4 shrink-0 text-muted" />}
+            {pickLocked && <LockIcon className="size-4 shrink-0 self-end pb-1 text-muted sm:pb-1.5" />}
           </span>
         ) : (
           <span className="font-medium text-muted">{canPick ? "None yet" : "None"}</span>
