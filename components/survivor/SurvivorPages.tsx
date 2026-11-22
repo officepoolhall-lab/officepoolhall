@@ -264,7 +264,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
   const head = "sticky top-0 z-20 border-b border-line bg-bg px-1 py-1.5 text-center align-bottom text-[11px] font-medium text-muted";
 
   const cellOf = (c: SvCell) => {
-    const base = "h-11 min-w-13 border-b border-line px-0.5 text-center md:min-w-0";
+    const base = "h-12 min-w-[4.75rem] border-b border-line px-0.5 text-center md:min-w-0";
     if (c.state === "out" || c.state === "before") return <td key={c.slateId} className={base} />;
     if (c.state === "open") return <td key={c.slateId} className={`${base} text-faint`} title="No pick showing yet">·</td>;
     if (c.state === "missed") {
@@ -279,18 +279,40 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     const score = g && g.started && c.team ? cellScore(g, c.team.id) : null;
     const fill = c.state === "win" ? "bg-[var(--win-fill)] text-win" : c.state === "loss" ? "bg-[var(--loss-fill)] text-loss" : "text-ink";
     const label = `${c.team ? teamName(c.team) : ""}${c.state === "win" ? ", won" : c.state === "loss" ? ", lost" : c.state === "void" ? ", game didn't count" : live ? ", in progress" : ""}${score ? ` ${score}` : ""}`;
-    const inner = (
-      <>
-        <span className="flex items-center justify-center gap-1">
-          <TeamLogo src={c.team?.logo_url} abbr={c.team?.abbreviation} className="size-5 shrink-0" />
-          <span className="text-[11px] font-bold leading-none max-sm:sr-only">{c.team?.abbreviation}</span>
-        </span>
-        {score && (
-          <span className={`mt-0.5 flex items-center justify-center gap-1 text-[10px] font-semibold leading-none tabular-nums ${live ? "text-live" : ""}`}>
-            {live && <span aria-hidden className="size-1.5 rounded-full bg-live" />}
-            {score}
+    const home = Boolean(g && c.team && c.team.id === g.home.id);
+    const opp = g ? (home ? g.away : g.home) : null;
+    const abbr = (t: SvTeam | null | undefined) => t?.abbreviation ?? t?.short_name ?? t?.name ?? "";
+    const mine = home ? g?.homeScore : g?.awayScore;
+    const theirs = home ? g?.awayScore : g?.homeScore;
+    const inner =
+      g && g.started && opp ? (
+        // Under way or over: the opponent's score on top, the pick's below, the pick's logo on the right.
+        <span className="flex items-center justify-center gap-1.5">
+          <span className="grid grid-cols-[auto_auto] items-baseline gap-x-1.5 text-left text-[11px] leading-[1.15] tabular-nums">
+            <span className="font-medium opacity-75">{abbr(opp)}</span>
+            <span className="text-right font-medium opacity-75">{theirs ?? ""}</span>
+            <span className="font-bold">{abbr(c.team)}</span>
+            <span className="text-right font-bold">{mine ?? ""}</span>
           </span>
-        )}
+          <span className="relative">
+            <TeamLogo src={c.team?.logo_url} abbr={c.team?.abbreviation} className="size-6 shrink-0" />
+            {live && <span aria-hidden className="absolute -right-0.5 -top-0.5 size-2 animate-pulse rounded-full bg-live ring-2 ring-bg" />}
+          </span>
+        </span>
+      ) : (
+        // Before kickoff: the pick's logo, large, with the matchup under it ("DEN @ SEA").
+        <span className="flex flex-col items-center justify-center gap-0.5">
+          <TeamLogo src={c.team?.logo_url} abbr={c.team?.abbreviation} className="size-7 shrink-0" />
+          {opp && (
+            <span className="whitespace-nowrap text-[10px] font-semibold leading-none">
+              {abbr(c.team)} <span className="font-normal text-muted">{home ? "vs" : "@"}</span> {abbr(opp)}
+            </span>
+          )}
+        </span>
+      );
+    const content = (
+      <>
+        {inner}
         <span className="sr-only">{label}</span>
       </>
     );
@@ -301,12 +323,12 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
             href={`/p/${slug}/game/${g.id}?back=${back}`}
             scroll={false}
             title={`${label} · play-by-play and box score`}
-            className="flex h-11 flex-col items-center justify-center px-0.5 outline-none transition hover:bg-[color-mix(in_srgb,var(--ink)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+            className="flex h-12 flex-col items-center justify-center px-1 outline-none transition hover:bg-[color-mix(in_srgb,var(--ink)_8%,transparent)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
           >
-            {inner}
+            {content}
           </Link>
         ) : (
-          <span className="flex h-11 flex-col items-center justify-center px-0.5" title={label}>{inner}</span>
+          <span className="flex h-12 flex-col items-center justify-center px-1" title={label}>{content}</span>
         )}
       </td>
     );
@@ -321,9 +343,8 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
     >
       <div className="mb-2 flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Standings</h1>
-        <p className="text-sm text-muted tabular-nums">
-          <span className="font-semibold text-win">{alive} alive</span> of {rows.length}
-          <span className="max-sm:hidden"> · Tap a pick for the game&apos;s play-by-play and box score</span>
+        <p className="text-base text-muted tabular-nums sm:text-lg">
+          <span className="text-2xl font-extrabold text-win sm:text-3xl">{alive}</span> <span className="font-semibold text-win">alive</span> of {rows.length}
         </p>
       </div>
       <AutoRefresh active={anyLive(weeks)} />
@@ -333,7 +354,7 @@ export async function SurvivorStandingsPage({ ctx, slug }: { ctx: PoolBase; slug
         <AxisLockScroll className="relative -mx-4 min-h-0 min-w-0 flex-1 overflow-auto isolate sm:mx-0">
           <table
             className="border-separate border-spacing-0 text-sm md:w-full md:min-w-[var(--grid-min)] md:table-fixed"
-            style={{ "--grid-min": `${13 + counted.length * 3.75}rem` } as CSSProperties}
+            style={{ "--grid-min": `${13 + counted.length * 4.75}rem` } as CSSProperties}
           >
             <thead>
               <tr>
