@@ -344,7 +344,7 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
 
 /**
  * Each skill player's regular-season line in his main category, for picking a lineup: a QB's
- * passing ("3,412 yds · 24 TD · 8 INT"), a RB's rushing ("812 yds · 7 TD"), a WR's or TE's
+ * passing ("3,412 yds · 24 TD · 8 INT"), a RB's rushing ("187 att · 812 yds · 7 TD"), a WR's or TE's
  * receiving ("64 rec · 802 yds · 6 TD"). Only players on a depth chart (the rest rarely have
  * numbers). ESPN's per-player season stats, cached six hours; never rejects.
  */
@@ -375,7 +375,7 @@ export async function getPfSeasonStats(season: number, players: PfPlayer[]): Pro
         if (vol || stat("passing", "passingAttempts")) line = `${n(vol)} yds · ${n(stat("passing", "passingTouchdowns"))} TD · ${n(stat("passing", "interceptions"))} INT`;
       } else if (p.pos === "RB") {
         vol = stat("rushing", "rushingYards") + stat("receiving", "receivingYards");
-        if (stat("rushing", "rushingAttempts")) line = `${n(stat("rushing", "rushingYards"))} yds · ${n(stat("rushing", "rushingTouchdowns"))} TD`;
+        if (stat("rushing", "rushingAttempts")) line = `${n(stat("rushing", "rushingAttempts"))} att · ${n(stat("rushing", "rushingYards"))} yds · ${n(stat("rushing", "rushingTouchdowns"))} TD`;
       } else {
         vol = stat("receiving", "receivingYards");
         const rec = stat("receiving", "receptions");
