@@ -376,3 +376,45 @@ export const ROUNDS = [
   { name: "Conference", short: "CONF" },
   { name: "Super Bowl", short: "SB" },
 ] as const;
+
+/**
+ * The best possible lineup so far: one player per team, the roster's count at each position,
+ * the most total points. Exact (a search over how many spots each position has used, team by
+ * team; at most a few thousand states). Players with no points are ignored.
+ */
+export function optimalLineup(
+  players: { id: string; pos: Position; teamId: string }[],
+  points: (id: string) => number,
+  roster: Record<Position, number>,
+): { ids: string[]; total: number } {
+  // Each team's best player at each position.
+  const best = new Map<string, Map<Position, { id: string; pts: number }>>();
+  for (const p of players) {
+    const v = points(p.id);
+    if (!(v > 0) || !roster[p.pos]) continue;
+    const t = best.get(p.teamId) ?? new Map();
+    if (!t.has(p.pos) || t.get(p.pos)!.pts < v) t.set(p.pos, { id: p.id, pts: v });
+    best.set(p.teamId, t);
+  }
+  const pos = POSITIONS.filter((p) => roster[p] > 0);
+  const key = (used: number[]) => used.join(",");
+  // state: positions used so far → best total and the picks that got there.
+  let states = new Map<string, { used: number[]; total: number; ids: string[] }>([[key(pos.map(() => 0)), { used: pos.map(() => 0), total: 0, ids: [] }]]);
+  for (const t of best.values()) {
+    const next = new Map(states);
+    for (const s of states.values()) {
+      pos.forEach((p, i) => {
+        const c = t.get(p);
+        if (!c || s.used[i] >= roster[p]) return;
+        const used = s.used.map((u, j) => (j === i ? u + 1 : u));
+        const k = key(used);
+        const total = s.total + c.pts;
+        if (!next.has(k) || next.get(k)!.total < total) next.set(k, { used, total, ids: [...s.ids, c.id] });
+      });
+    }
+    states = next;
+  }
+  let top = { total: 0, ids: [] as string[] };
+  for (const s of states.values()) if (s.total > top.total) top = s;
+  return { ids: top.ids, total: Math.round(top.total * 100) / 100 };
+}

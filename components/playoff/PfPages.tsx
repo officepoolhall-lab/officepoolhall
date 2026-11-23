@@ -6,16 +6,14 @@ import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
-import { NewsList } from "@/components/NewsList";
-import { getNews } from "@/lib/news";
-import { NEWS_TITLE } from "@/lib/sports";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, ROUNDS, rosterSize } from "@/lib/playoffFantasy";
+import { POSITIONS, ROUNDS, optimalLineup, rosterSize, type Position } from "@/lib/playoffFantasy";
+import type { ReactNode } from "react";
 import { getPlayoffGames, getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
+import { PfBracket } from "./PfBracket";
 
 // The pages of an NFL Playoff Fantasy pool: Home, My Team and Standings. The pool routes reach
 // these when settings.format is "playoff_fantasy".
@@ -99,25 +97,8 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const fieldSet = games.filter((g) => g.round === 0).length >= 6;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
-  // Rosters in: counted for everyone (others' lineups stay hidden until the lock).
-  const { data: lineupSizes } = await (createAdminClient() as unknown as { from: (t: string) => any }) // eslint-disable-line @typescript-eslint/no-explicit-any
-    .from("pf_lineups")
-    .select("user_id, player_ids")
-    .eq("pool_id", ctx.pool.id);
-  const inIds = new Set(entries.map((e) => e.userId));
-  const rostersIn = ((lineupSizes ?? []) as { user_id: string; player_ids: string[] | null }[]).filter((l) => inIds.has(l.user_id) && (l.player_ids?.length ?? 0) >= size).length;
-  // Most rostered, once lineups lock (before then nobody sees anyone else's).
-  const playerOf = new Map(players.map((p) => [p.id, p]));
-  const teamOf = new Map(teams.map((t) => [t.id, t]));
-  const counts = new Map<string, number>();
-  if (locked) for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
-  const popular = [...counts.entries()]
-    .filter(([id]) => playerOf.has(id))
-    .sort((a, b) => b[1] - a[1] || playerOf.get(a[0])!.name.localeCompare(playerOf.get(b[0])!.name))
-    .slice(0, 8);
   const teamsLeft = teams.filter((t) => !pts.out.has(t.espnId ?? "")).length;
   const stat = "mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums";
-  const row = "flex items-center justify-between gap-3 py-1.5 text-sm";
 
   return (
     <div data-wide className="space-y-6">
@@ -214,47 +195,20 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
           </section>
         </FillColumn>
 
-        {/* Top stories, as on every pool's Home. */}
-        <FillColumn className="order-last lg:order-none lg:px-6">
-          <Suspense fallback={<p className="text-sm text-muted">Loading the news…</p>}>
-            <PfNews now={now} />
-          </Suspense>
-        </FillColumn>
-
-        {/* The pool's numbers, then the rules. */}
-        <div className="space-y-6 lg:pl-6">
-          <section>
-            <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
-            <div className="mt-2 rounded-xl bg-surface px-3 py-2.5 text-center">
-              <div className="text-2xl font-extrabold tabular-nums">
-                {rostersIn}
-                <span className="text-base font-bold text-muted">/{rows.length}</span>
-              </div>
-              <div className="text-xs text-muted">Rosters in</div>
-            </div>
-          </section>
-          {picture && <PlayoffMatchups picture={picture} out={pts.out} projected={!fieldSet} />}
-          {popular.length > 0 && (
-            <section>
-              <SectionLabel fit className="!text-sm lg:!text-base">Most Rostered</SectionLabel>
-              <ul className="mt-1 divide-y divide-line">
-                {popular.map(([id, n]) => {
-                  const p = playerOf.get(id)!;
-                  const t = teamOf.get(p.teamId);
-                  return (
-                    <li key={id} className={row}>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-5 shrink-0" />
-                        <span className="truncate font-medium">{p.name}</span>
-                        <span className="shrink-0 text-xs text-muted">{p.pos}</span>
-                      </span>
-                      <span className="shrink-0 font-semibold tabular-nums">{Math.round((n / Math.max(1, rows.length)) * 100)}%</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
+        {/* The playoff bracket (the field as it stands today until the season is over). */}
+        <div className="order-last lg:order-none lg:px-6">
+          {picture ? (
+            <PfBracket picture={picture} games={games} out={pts.out} projected={!fieldSet} />
+          ) : (
+            <Empty>The bracket shows here once ESPN&apos;s standings can be read.</Empty>
           )}
+        </div>
+
+        {/* The pool's numbers. */}
+        <div className="space-y-6 lg:pl-6">
+          <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
+            <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} />
+          </Suspense>
         </div>
       </div>
     </div>
@@ -277,60 +231,104 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
   );
 }
 
-type Picture = NonNullable<Awaited<ReturnType<typeof getPlayoffPicture>>>;
-
 /**
- * The Wild Card round by conference: 7 at 2, 6 at 3, 5 at 4, and the 1 seed's bye. Before the
- * season ends it's the standings as they are today ("if the season ended today").
+ * Home's Pool Summary. Before the games: each position's top regular-season producers among the
+ * playoff players (to help build a lineup). Once they start: the top scorer at each position and
+ * the perfect lineup so far (against the best entry). After the lock: the most rostered players.
+ * Never who has or hasn't entered a lineup.
  */
-function PlayoffMatchups({ picture, out, projected }: { picture: Picture; out: Set<string>; projected: boolean }) {
-  const team = (t: Picture["AFC"][number], home: boolean) => {
-    const gone = out.has(t.espnId);
+async function PfSummary({ season, players, teams, rows, pts, locked, roster }: { season: number; players: PfPlayer[]; teams: PfTeam[]; rows: PfRow[]; pts: PfPoints; locked: boolean; roster: Record<Position, number> }) {
+  const playerOf = new Map(players.map((p) => [p.id, p]));
+  const teamOf = new Map(teams.map((t) => [t.id, t]));
+  const started = pts.roundsStarted > 0;
+  const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
+  const row = "flex items-center gap-2 py-1.5 text-sm";
+  const label = "!text-sm lg:!text-base";
+  const who = (p: PfPlayer, right: ReactNode, sub?: string | null) => {
+    const t = teamOf.get(p.teamId);
     return (
-      <div className={`flex min-w-0 items-center gap-2 text-sm ${gone ? "text-muted line-through opacity-60" : "text-ink"}`}>
-        <span className="w-4 shrink-0 text-right text-[11px] font-semibold tabular-nums text-muted">{t.seed}</span>
-        <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5 shrink-0" />
-        <span className={`min-w-0 flex-1 truncate ${home ? "font-semibold" : "font-medium"}`}>{t.name}</span>
-        {t.record && <span className="shrink-0 text-xs tabular-nums text-muted">{t.record}</span>}
-      </div>
+      <li key={p.id} className={row}>
+        <span className="w-8 shrink-0 text-[11px] font-bold text-muted">{p.pos}</span>
+        <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-5 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{p.name}</span>
+          {sub && <span className="block truncate text-[11px] tabular-nums text-muted">{sub}</span>}
+        </span>
+        <span className="shrink-0 font-semibold tabular-nums">{right}</span>
+      </li>
     );
   };
-  return (
-    <section>
-      <div className="flex items-baseline justify-between gap-3">
-        <SectionLabel fit className="!text-sm lg:!text-base">Wild Card Round</SectionLabel>
-        {projected && <span className="shrink-0 text-xs text-muted">If the season ended today</span>}
-      </div>
-      <div className="mt-2 space-y-4">
-        {(["AFC", "NFC"] as const).map((c) => {
-          const s = picture[c];
-          return (
-            <div key={c}>
-              <div className="mb-1 text-xs font-bold tracking-wide text-muted">{c}</div>
-              <ul className="space-y-1.5">
-                {[[1, 6], [2, 5], [3, 4]].map(([h, a]) => (
-                  <li key={h} className="rounded-lg bg-surface px-2.5 py-1.5">
-                    {team(s[a], false)}
-                    <div className="my-0.5 pl-6 text-[10px] font-semibold uppercase tracking-wide text-faint">at</div>
-                    {team(s[h], true)}
-                  </li>
-                ))}
-                <li className="flex items-center gap-2 rounded-lg px-2.5 py-1 text-sm">
-                  <div className="min-w-0 flex-1">{team(s[0], true)}</div>
-                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">Bye</span>
-                </li>
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
-/** NFL top stories; streams in after the rest of the page. */
-async function PfNews({ now }: { now: number }) {
-  return <NewsList stories={await getNews("nfl", 10)} now={now} title={NEWS_TITLE.nfl} />;
+  // Before the games: the regular season's leaders, two at each skill position.
+  const stats = started ? {} : await getPfSeasonStats(season, players);
+  const producers = (["QB", "RB", "WR", "TE"] as const).flatMap((pos) =>
+    players
+      .filter((p) => p.pos === pos && stats[p.id])
+      .sort((a, b) => stats[b.id].vol - stats[a.id].vol)
+      .slice(0, 2),
+  );
+
+  // Once they start: each position's top scorer, and the perfect lineup.
+  const leaders = started
+    ? POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) => {
+        const top = players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id))[0];
+        return top ? [top] : [];
+      })
+    : [];
+  const perfect = started ? optimalLineup(players, ptsOf, roster) : null;
+  const bestEntry = rows[0];
+
+  // After the lock: the most rostered.
+  const counts = new Map<string, number>();
+  if (locked) for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const popular = [...counts.entries()]
+    .filter(([id]) => playerOf.has(id))
+    .sort((a, b) => b[1] - a[1] || playerOf.get(a[0])!.name.localeCompare(playerOf.get(b[0])!.name))
+    .slice(0, 8);
+
+  return (
+    <>
+      <SectionLabel fit className={label}>Pool Summary</SectionLabel>
+      {!started && producers.length > 0 && (
+        <section className="-mt-4">
+          <h3 className="mt-2 text-xs font-semibold text-muted">Top regular-season producers</h3>
+          <ul className="mt-1 divide-y divide-line">{producers.map((p) => who(p, null, stats[p.id].line))}</ul>
+        </section>
+      )}
+      {leaders.length > 0 && (
+        <section className="-mt-4">
+          <h3 className="mt-2 text-xs font-semibold text-muted">Top scorers by position</h3>
+          <ul className="mt-1 divide-y divide-line">{leaders.map((p) => who(p, fmt(ptsOf(p.id))))}</ul>
+        </section>
+      )}
+      {perfect && perfect.ids.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between gap-3">
+            <SectionLabel fit className={label}>Perfect Lineup</SectionLabel>
+            <span className="shrink-0 text-sm font-extrabold tabular-nums">{fmt(perfect.total)}</span>
+          </div>
+          {bestEntry && bestEntry.points > 0 && (
+            <p className="mt-0.5 text-xs text-muted tabular-nums">
+              Best entry: {bestEntry.name}, {fmt(bestEntry.points)} ({Math.round((bestEntry.points / perfect.total) * 100)}%)
+            </p>
+          )}
+          <ul className="mt-1 divide-y divide-line">
+            {perfect.ids
+              .map((id) => playerOf.get(id)!)
+              .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id))
+              .map((p) => who(p, fmt(ptsOf(p.id))))}
+          </ul>
+        </section>
+      )}
+      {popular.length > 0 && (
+        <section>
+          <SectionLabel fit className={label}>Most Rostered</SectionLabel>
+          <ul className="mt-1 divide-y divide-line">{popular.map(([id, n]) => who(playerOf.get(id)!, `${Math.round((n / Math.max(1, rows.length)) * 100)}%`))}</ul>
+        </section>
+      )}
+      {!started && !producers.length && !popular.length && <p className="-mt-4 text-sm text-muted">Top scorers and the perfect lineup show here once the Wild Card round starts.</p>}
+    </>
+  );
 }
 
 export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slug: string; forUserId?: string }) {
