@@ -56,26 +56,6 @@ function RosterTable({ ids, players, teams, pts }: { ids: string[]; players: PfP
   );
 }
 
-function StandingsList({ rows, me, locked, size, limit, progress = false }: { rows: PfRow[]; me: string; locked: boolean; size: number; limit?: number; /** Before the lock: show how far along every roster is (the commissioner); players see only their own. */ progress?: boolean }) {
-  return (
-    <ul className="divide-y divide-line">
-      {(limit ? rows.slice(0, limit) : rows).map((r) => (
-        <li key={r.userId} className={`flex items-center gap-3 py-2.5 ${r.userId === me ? "-mx-2 rounded-xl bg-accent/10 px-2" : ""}`}>
-          <span className="w-7 text-right text-sm tabular-nums text-muted">{locked ? r.rank : ""}</span>
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{r.name}</span>
-          {locked ? (
-            <>
-              <span className="hidden text-xs text-muted tabular-nums sm:inline">{r.alive} still playing</span>
-              <span className="w-16 text-right text-[15px] font-bold tabular-nums">{fmt(r.points)}</span>
-            </>
-          ) : (
-            <span className="w-16 text-right text-[15px] font-bold tabular-nums">{fmt(r.points)}</span>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 const NOT_READY = "Rosters open as soon as the playoff field is set, at the end of the regular season. The 14 teams and their players load here by themselves.";
 
@@ -390,49 +370,115 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
   );
 }
 
+/**
+ * Standings, laid out like the golf pools': every entry's full lineup as a card across the
+ * screen on desktop (as many columns as fit), a list to tap open on phones. Each card: place,
+ * name and points, then its players by position with their points (a player whose team is out
+ * is crossed out). Other entries' lineups show once lineups lock (the commissioner sees them all).
+ */
 export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
-  const size = rosterSize(settings);
+  const me = ctx.entryUserId;
+  const tz = tzOf(ctx);
+  const playerOf = new Map(players.map((p) => [p.id, p]));
+  const teamOf = new Map(teams.map((t) => [t.id, t]));
+  const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
+  const lineup = (r: PfRow) =>
+    r.playerIds
+      .map((id) => playerOf.get(id))
+      .filter((p): p is PfPlayer => Boolean(p))
+      .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id) || a.name.localeCompare(b.name));
+  // The narrowest card that shows everything: position, logo, points and gaps (about 7rem) plus
+  // the longest player name at 13px (~0.45rem a letter), or the entry's name along the top.
+  const longestPlayer = Math.max(0, ...rows.flatMap((r) => lineup(r).map((p) => p.name.length)));
+  const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
+  const cardRem = Math.max(14, Math.ceil(Math.max(7.5 + longestPlayer * 0.45, 5.5 + longestEntry * 0.52) * 2) / 2);
+  const hidden = !locked && !ctx.isCommissioner;
+
+  const Players = ({ r }: { r: PfRow }) => {
+    const list = lineup(r);
+    if (!list.length) return <p className="py-1.5 text-xs text-muted">{r.userId === me || !hidden ? "No lineup yet." : "Shows when lineups lock."}</p>;
+    return (
+      <ul className="mt-1">
+        {list.map((p) => {
+          const t = teamOf.get(p.teamId);
+          const out = pts.out.has(t?.espnId ?? "");
+          return (
+            <li key={p.id} className={`flex h-6 items-center gap-1.5 text-[13px] ${out ? "text-muted" : "text-ink"}`}>
+              <span className="w-7 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
+              <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
+              <span className={`min-w-0 flex-1 truncate ${out ? "line-through decoration-1" : ""}`}>{p.name}</span>
+              <span className="shrink-0 tabular-nums">{fmt(ptsOf(p.id))}</span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
   return (
-    <>
-      <PageTitle sub={locked ? "Total fantasy points, Wild Card round through the Super Bowl. Open an entry to see its players." : "Everyone's roster shows once rosters lock."}>Standings</PageTitle>
+    <div data-wide>
       {pts.live && <AutoRefresh active />}
-      <section className={card}>
-        {rows.length === 0 ? (
-          <Empty>No entries yet.</Empty>
-        ) : !locked ? (
-          <>
-            <StandingsList rows={rows} me={ctx.entryUserId} locked={false} size={size} progress={ctx.isCommissioner} />
-            {ctx.isCommissioner && <p className="mt-3 text-xs text-muted">To set a roster for a player, open Commissioner → Players.</p>}
-          </>
-        ) : (
-          <div className="divide-y divide-line">
+      <PageTitle
+        sub={
+          locked
+            ? `Total fantasy points, Wild Card round through the Super Bowl${pts.live ? " · Live" : ""}.`
+            : `Lineups show here once they lock${settings.lock_at ? `, ${lockLabel(settings.lock_at, tz)}` : ""}.`
+        }
+      >
+        Standings
+      </PageTitle>
+      {rows.length === 0 ? (
+        <Empty>No entries yet.</Empty>
+      ) : (
+        <>
+          {/* Desktop: every entry's lineup as a card, as many across as fit. */}
+          <ol className="hidden gap-2 lg:grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardRem}rem), 1fr))` }}>
             {rows.map((r) => (
-              <details key={r.userId} className="group">
-                <summary className={`flex cursor-pointer list-none items-center gap-3 py-2.5 [&::-webkit-details-marker]:hidden ${r.userId === ctx.entryUserId ? "-mx-2 rounded-xl bg-accent/10 px-2" : ""}`}>
-                  <span className="w-7 text-right text-sm tabular-nums text-muted">{r.rank}</span>
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{r.name}</span>
-                  {pts.roundsStarted > 1 && (
-                    <span className="hidden text-xs tabular-nums text-muted md:inline">
-                      {ROUNDS.slice(0, pts.roundsStarted).map((x, i) => `${x.short} ${fmt(r.rounds[i])}`).join(" · ")}
-                    </span>
-                  )}
-                  <span className="hidden text-xs text-muted tabular-nums sm:inline">{r.alive} still playing</span>
-                  <span className="w-16 text-right text-[15px] font-bold tabular-nums">{fmt(r.points)}</span>
+              <li key={r.userId} className={`rounded-lg border px-2.5 py-2 ${r.userId === me ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : "border-line"}`}>
+                <div className="flex items-baseline gap-1.5 border-b border-line pb-1 text-sm">
+                  <span className="w-5 shrink-0 tabular-nums text-muted">{locked ? r.rank : ""}</span>
+                  <FitText min={11} className={`flex-1 font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
+                  <span className="shrink-0 font-bold tabular-nums">{fmt(r.points)}</span>
+                </div>
+                {locked && pts.roundsStarted > 0 && <p className="mt-0.5 text-[11px] tabular-nums text-muted">{r.alive} of {r.playerIds.length} still playing</p>}
+                <Players r={r} />
+                {ctx.isCommissioner && (
+                  <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1 mt-1 inline-block rounded-md px-1 text-[11px] font-semibold text-accent transition hover:bg-hover">
+                    Edit lineup
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ol>
+
+          {/* Phones and tablets: a list; tap an entry to see its lineup. */}
+          <div className="border-t border-line lg:hidden">
+            {rows.map((r) => (
+              <details key={r.userId} className={`group border-b border-line ${r.userId === me ? "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]" : ""}`}>
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden">
+                  <span className="w-7 shrink-0 tabular-nums text-muted">{locked ? r.rank : ""}</span>
+                  <span className={`min-w-0 flex-1 truncate font-medium ${r.userId === me ? "text-accent" : ""}`}>{r.name}</span>
+                  <span className="shrink-0 font-semibold tabular-nums">{fmt(r.points)}</span>
+                  <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+                  </svg>
                 </summary>
-                <div className="pb-3 pl-10">
-                  {r.playerIds.length ? <RosterTable ids={r.playerIds} players={players} teams={teams} pts={pts} /> : <p className="py-2 text-sm text-muted">No roster was set.</p>}
+                <div className="px-2 pb-3 pl-11">
+                  <Players r={r} />
                   {ctx.isCommissioner && (
-                    <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold text-accent transition hover:bg-hover">Fix this roster</Link>
+                    <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1 mt-1 inline-block rounded-md px-1 text-xs font-semibold text-accent transition hover:bg-hover">
+                      Edit lineup
+                    </Link>
                   )}
                 </div>
               </details>
             ))}
           </div>
-        )}
-      </section>
-    </>
+        </>
+      )}
+    </div>
   );
 }
