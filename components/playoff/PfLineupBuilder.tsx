@@ -10,7 +10,7 @@ type Player = { id: string; name: string; pos: Position; teamId: string; depth?:
 type Team = { id: string; espnId?: string | null; name: string; abbreviation: string | null; logo_url: string | null };
 
 /** How deep each position's list goes before "Show backups": the players who'd usually start. */
-const STARTERS: Record<Position, number> = { QB: 1, RB: 2, WR: 3, TE: 1, K: 1, DEF: 1 };
+const STARTERS: Record<Position, number> = { QB: 1, RB: 1, WR: 3, TE: 1, K: 1, DEF: 1 };
 
 /**
  * Build the lineup, laid out like the other pools' My Picks: the lineup on the left (a spot for
