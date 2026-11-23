@@ -30,7 +30,7 @@ const ESPN = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 const HEADERS = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" };
 
 export type PfTeam = { id: string; espnId: string | null; name: string; abbreviation: string | null; logo_url: string | null };
-export type PfPlayer = { id: string; name: string; pos: Position; teamId: string };
+export type PfPlayer = { id: string; name: string; pos: Position; teamId: string; /** 1 = the starter at his position (ESPN's depth chart); null if unlisted. */ depth?: number | null };
 export type PfEntry = { userId: string; name: string; playerIds: string[] };
 
 /**
@@ -53,7 +53,7 @@ async function readPf(ctx: PoolBase) {
   const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const [{ data: teamRows }, { data: playerRows }, { data: lineupRows }, { data: memberRows }, benched] = await Promise.all([
     db.from("pf_teams").select("team:teams!inner ( id, espn_id, name, short_name, abbreviation, logo_url )").eq("pool_id", ctx.pool.id),
-    db.from("pf_players").select("espn_id, name, pos, team_id").eq("pool_id", ctx.pool.id).order("name").limit(2000),
+    db.from("pf_players").select("*").eq("pool_id", ctx.pool.id).order("name").limit(2000),
     // Row security: the viewer's own lineup always, everyone's once lineups lock.
     db.from("pf_lineups").select("user_id, player_ids").eq("pool_id", ctx.pool.id),
     db.from("pool_members").select("user_id, profile:profiles!inner ( display_name )").eq("pool_id", ctx.pool.id),
@@ -62,7 +62,7 @@ async function readPf(ctx: PoolBase) {
   const teams: PfTeam[] = ((teamRows ?? []) as Row[])
     .map((r) => ({ id: r.team.id, espnId: r.team.espn_id, name: r.team.short_name ?? r.team.name, abbreviation: r.team.abbreviation, logo_url: r.team.logo_url }))
     .sort((a, b) => a.name.localeCompare(b.name));
-  const players: PfPlayer[] = ((playerRows ?? []) as Row[]).map((p) => ({ id: p.espn_id, name: p.name, pos: p.pos, teamId: p.team_id }));
+  const players: PfPlayer[] = ((playerRows ?? []) as Row[]).map((p) => ({ id: p.espn_id, name: p.name, pos: p.pos, teamId: p.team_id, depth: p.depth ?? null }));
   const lineupOf = new Map<string, string[]>(((lineupRows ?? []) as Row[]).map((l) => [l.user_id, l.player_ids ?? []]));
   const entries: PfEntry[] = ((memberRows ?? []) as Row[])
     .filter((m) => !benched.has(m.user_id))
@@ -170,8 +170,58 @@ export function pfStandings(entries: PfEntry[], players: PfPlayer[], teams: PfTe
 
 const POS: Record<string, Position> = { QB: "QB", RB: "RB", FB: "RB", WR: "WR", TE: "TE", K: "K", PK: "K" };
 
-/** One team's fantasy-relevant players from its ESPN roster (plus the team's defense). Throws if ESPN can't be read. */
-export async function espnRoster(team: PfTeam): Promise<{ espn_id: string; name: string; pos: Position }[]> {
+const CORE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl";
+const athleteId = (ref: unknown) => (typeof ref === "string" ? (ref.match(/athletes\/(\d+)/)?.[1] ?? null) : null);
+
+/**
+ * How high each player sits on his team's ESPN depth chart (lower is higher): the starter at a
+ * position is 1. WR1/WR2/WR3 slots count in order, so the three starting receivers come first.
+ * Falls back to the team's statistical leaders (yards) when there's no depth chart. Never
+ * rejects: an empty map when ESPN can't be read.
+ */
+async function espnDepth(espnId: string, season: number): Promise<Map<string, number>> {
+  const best = new Map<string, number>();
+  const put = (id: string | null, key: number) => {
+    if (id && key < (best.get(id) ?? Infinity)) best.set(id, key);
+  };
+  try {
+    const res = await fetch(`${CORE}/seasons/${season}/teams/${encodeURIComponent(espnId)}/depthcharts?limit=50`, { headers: HEADERS, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = (await res.json()) as Row;
+      for (const item of (data?.items ?? []) as Row[]) {
+        for (const [key, slot] of Object.entries((item?.positions ?? {}) as Record<string, Row>)) {
+          const m = key.toLowerCase().match(/^(qb|rb|hb|fb|wr|te|pk|k)(\d?)$/);
+          if (!m) continue;
+          const n = Number(m[2] || 1);
+          for (const a of (slot?.athletes ?? []) as Row[]) {
+            const rank = Number(a?.rank ?? a?.slot ?? 99) || 99;
+            // WR1 rank 1, WR2 rank 1, WR3 rank 1, then WR1 rank 2, ...
+            put(athleteId(a?.athlete?.$ref ?? a?.athlete?.id), (rank - 1) * 3 + n);
+          }
+        }
+      }
+    }
+  } catch {
+    // Try the leaders.
+  }
+  if (best.size) return best;
+  try {
+    const res = await fetch(`${CORE}/seasons/${season}/types/2/teams/${encodeURIComponent(espnId)}/leaders`, { headers: HEADERS, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const data = (await res.json()) as Row;
+      for (const c of (data?.categories ?? []) as Row[]) {
+        if (!/^(passingYards|rushingYards|receivingYards|totalPoints|fieldGoalsMade)$/.test(String(c?.name ?? ""))) continue;
+        ((c?.leaders ?? []) as Row[]).forEach((l, i) => put(athleteId(l?.athlete?.$ref), i + 1));
+      }
+    }
+  } catch {
+    // No ranks: everyone unlisted.
+  }
+  return best;
+}
+
+/** One team's fantasy-relevant players from its ESPN roster (plus the team's defense), each with his depth at his position. Throws if ESPN can't be read. */
+export async function espnRoster(team: PfTeam, season?: number): Promise<{ espn_id: string; name: string; pos: Position; depth: number | null }[]> {
   if (!team.espnId) throw new Error(`${team.name} has no ESPN id`);
   const res = await fetch(`${ESPN}/teams/${encodeURIComponent(team.espnId)}/roster`, { headers: HEADERS, cache: "no-store", signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`ESPN ${res.status} for ${team.name}`);
@@ -183,7 +233,16 @@ export async function espnRoster(team: PfTeam): Promise<{ espn_id: string; name:
     .map((a) => ({ espn_id: String(a?.id ?? ""), name: String(a?.fullName ?? a?.displayName ?? "").trim(), pos: POS[String(a?.position?.abbreviation ?? "").toUpperCase()] }))
     .filter((p): p is { espn_id: string; name: string; pos: Position } => Boolean(p.espn_id && p.name && p.pos));
   if (!out.length) throw new Error(`ESPN returned no players for ${team.name}`);
-  return [...out, { espn_id: defId(team.espnId), name: `${team.name} Defense`, pos: "DEF" }];
+  // Depth: order each position by the depth chart, 1, 2, 3...; players it doesn't list get none.
+  const ranks = season ? await espnDepth(team.espnId, season) : new Map<string, number>();
+  const depth = new Map<string, number>();
+  for (const pos of new Set(out.map((p) => p.pos))) {
+    out
+      .filter((p) => p.pos === pos && ranks.has(p.espn_id))
+      .sort((a, b) => ranks.get(a.espn_id)! - ranks.get(b.espn_id)!)
+      .forEach((p, i) => depth.set(p.espn_id, i + 1));
+  }
+  return [...out.map((p) => ({ ...p, depth: depth.get(p.espn_id) ?? null })), { espn_id: defId(team.espnId), name: `${team.name} Defense`, pos: "DEF", depth: 1 }];
 }
 
 /**
@@ -224,11 +283,13 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
   const teams: PfTeam[] = ((teamRows ?? []) as Row[]).map((r) => ({ id: r.team.id, espnId: r.team.espn_id, name: r.team.short_name ?? r.team.name, abbreviation: r.team.abbreviation, logo_url: r.team.logo_url }));
   if (!teams.length) return { ok: false, message: "No playoff teams are set." };
 
-  const results = await Promise.allSettled(teams.map((t) => espnRoster(t).then((players) => ({ t, players }))));
+  const results = await Promise.allSettled(teams.map((t) => espnRoster(t, pool.season).then((players) => ({ t, players }))));
   const failed = results.flatMap((r, i) => (r.status === "rejected" ? [teams[i].name] : []));
-  const rows = results.flatMap((r) => (r.status === "fulfilled" ? r.value.players.map((p) => ({ pool_id: pool.id, espn_id: p.espn_id, name: p.name, pos: p.pos, team_id: r.value.t.id })) : []));
+  const rows = results.flatMap((r) => (r.status === "fulfilled" ? r.value.players.map((p) => ({ pool_id: pool.id, espn_id: p.espn_id, name: p.name, pos: p.pos, team_id: r.value.t.id, depth: p.depth })) : []));
   if (!rows.length) return { ok: false, message: "ESPN's rosters couldn't be read right now. Try again in a minute." };
-  const { error } = await db.from("pf_players").upsert(rows);
+  let { error } = await db.from("pf_players").upsert(rows);
+  // Before migration 069 there's no depth column: save without it.
+  if (error && /depth/i.test(error.message)) ({ error } = await db.from("pf_players").upsert(rows.map(({ depth: _d, ...r }) => r))); // eslint-disable-line @typescript-eslint/no-unused-vars
   if (error) return { ok: false, message: error.message };
 
   // Players no longer on a loaded team's roster (or on a team no longer in the pool) come off
