@@ -256,7 +256,8 @@ export function PfLineupBuilder({
                 )}
               </div>
             </div>
-            {/* The 14 teams: one row when there's room; two even rows of seven on phones. */}
+            {/* The 14 teams: one row when there's room; two even rows of seven on phones. In dark mode
+                each logo sits on a light circle, so dark logos (Texans, Raiders) stay visible. */}
             <div className="w-full lg:w-auto" aria-label="Teams still free">
               <span className="mb-1 block text-xs font-medium text-muted tabular-nums lg:hidden">{teams.length - usedTeams.size} teams left</span>
               <div className="grid grid-cols-7 justify-items-center gap-1 sm:grid-cols-14 lg:flex lg:items-center">
@@ -267,7 +268,7 @@ export function PfLineupBuilder({
                     type="button"
                     onClick={() => setTeamId(teamId === t.id ? "ALL" : t.id)}
                     title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
-                    className={`rounded-full p-0.5 transition hover:bg-hover ${usedTeams.has(t.id) ? "opacity-25 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
+                    className={`grid place-items-center rounded-full p-1 transition hover:bg-hover dark:bg-white/90 dark:hover:bg-white ${usedTeams.has(t.id) ? "opacity-30 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
                   >
                     <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-7 lg:size-6" />
                   </button>
