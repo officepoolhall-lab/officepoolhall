@@ -29,6 +29,7 @@ export function PfLineupBuilder({
   lockText,
   timezone = "America/Chicago",
   stats = {},
+  injuries = {},
 }: {
   players: Player[];
   teams: Team[];
@@ -39,8 +40,10 @@ export function PfLineupBuilder({
   /** "Locks Sat, Jan 16 · 3:30 PM". */
   lockText?: string | null;
   timezone?: string;
-  /** Regular-season line in each skill player's main category ("812 yds · 7 TD"), shown on desktop. */
-  stats?: Record<string, string>;
+  /** Regular-season line in each skill player's main category ("812 yds · 7 TD"), shown on desktop, and his yards (for ranking). */
+  stats?: Record<string, { line: string; vol: number }>;
+  /** Injury designations: Q, D or O. */
+  injuries?: Record<string, "Q" | "D" | "O">;
 }) {
   const router = useRouter();
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
@@ -77,13 +80,22 @@ export function PfLineupBuilder({
   // Which players each team card lists.
   const q = query.trim().toLowerCase();
   const hasDepth = useMemo(() => new Set(players.filter((p) => p.pos !== "DEF" && p.depth != null).map((p) => p.teamId)), [players]);
+  // Each player's place on his team at his position by this season's yards (1 = the leader).
+  const volRank = useMemo(() => {
+    const m = new Map<string, number>();
+    const groups = new Map<string, Player[]>();
+    for (const p of players) if (stats[p.id]?.vol) groups.set(`${p.teamId}:${p.pos}`, [...(groups.get(`${p.teamId}:${p.pos}`) ?? []), p]);
+    for (const g of groups.values()) g.sort((a, b) => stats[b.id].vol - stats[a.id].vol).forEach((p, i) => m.set(p.id, i + 1));
+    return m;
+  }, [players, stats]);
   const shown = (p: Player) => {
     if (pos !== "ALL" && p.pos !== pos) return false;
     if (picked.includes(p.id)) return true;
     if (q) return p.name.toLowerCase().includes(q) || (teamOf.get(p.teamId)?.name ?? "").toLowerCase().includes(q);
     // One team chosen: all of its players.
-    if (backups || teamId !== "ALL" || p.pos === "DEF" || !hasDepth.has(p.teamId)) return true;
-    return p.depth != null && p.depth <= STARTERS[p.pos];
+    if (backups || teamId !== "ALL" || p.pos === "DEF" || (!hasDepth.has(p.teamId) && !volRank.size)) return true;
+    // A starter on the depth chart, or one of the team's leaders at his position this season.
+    return (p.depth != null && p.depth <= STARTERS[p.pos]) || (volRank.get(p.id) ?? 99) <= STARTERS[p.pos];
   };
   const cards = teams
     .filter((t) => teamId === "ALL" || t.id === teamId)
@@ -91,11 +103,24 @@ export function PfLineupBuilder({
       t,
       list: players
         .filter((p) => p.teamId === t.id && shown(p))
-        .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || (a.depth ?? 99) - (b.depth ?? 99) || a.name.localeCompare(b.name)),
+        .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || (stats[b.id]?.vol ?? -1) - (stats[a.id]?.vol ?? -1) || (a.depth ?? 99) - (b.depth ?? 99) || a.name.localeCompare(b.name)),
     }))
     .filter((c) => c.list.length > 0)
     // Teams still open first, then the ones already used.
     .sort((a, b) => Number(usedTeams.has(a.t.id)) - Number(usedTeams.has(b.t.id)) || a.t.name.localeCompare(b.t.name));
+
+  // Q (questionable) in amber; D (doubtful) and O (out) in red.
+  const INJURY_NAME = { Q: "Questionable", D: "Doubtful", O: "Out" } as const;
+  const injuryTag = (p: Player) => {
+    const tag = injuries[p.id];
+    if (!tag) return null;
+    return (
+      <span title={INJURY_NAME[tag]} className={`shrink-0 self-center rounded px-1 text-[10px] font-bold leading-4 ${tag === "Q" ? "bg-[color-mix(in_srgb,#d97706_15%,transparent)] text-[#b45309]" : "bg-[var(--loss-fill)] text-loss"}`}>
+        {tag}
+        <span className="sr-only"> ({INJURY_NAME[tag]})</span>
+      </span>
+    );
+  };
 
   const nameButton = (p: Player, className = "") => (
     <button
@@ -144,6 +169,7 @@ export function PfLineupBuilder({
                           <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />
                           <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                             {nameButton(pl, "text-sm font-semibold text-ink")}
+                            {injuryTag(pl)}
                             <span className="shrink-0 text-xs text-muted">{team?.abbreviation}</span>
                           </span>
                           <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
@@ -254,7 +280,8 @@ export function PfLineupBuilder({
                             <span className={`flex min-w-0 flex-1 items-baseline gap-2 ${blocked ? "opacity-50" : ""}`}>
                               {nameButton(p, `shrink-0 max-w-[60%] text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`)}
                               {/* Desktop: his season so far in his main category. */}
-                              {stats[p.id] && <span className="hidden min-w-0 truncate text-[11px] tabular-nums text-muted lg:inline">{stats[p.id]}</span>}
+                              {injuryTag(p)}
+                              {stats[p.id] && <span className="hidden min-w-0 truncate text-[11px] tabular-nums text-muted lg:inline">{stats[p.id].line}</span>}
                             </span>
                             {blocked && <span className="shrink-0 text-[10px] font-medium text-muted">{blocked}</span>}
                             <button
