@@ -84,8 +84,9 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   return (
     <div data-wide className="space-y-6">
       {pts.live && <AutoRefresh active />}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
-        {/* The playoffs and where everyone stands. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,19rem)] xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,23rem)] 2xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,27rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        {/* The playoffs and where everyone stands: a narrow column (everything in it stays on one
+            line, shrinking to fit), leaving the Pool Summary more room. */}
         <FillColumn className="space-y-6 lg:pr-6">
           <section className="border-b border-line pb-4">
             <div className="whitespace-nowrap text-lg font-bold text-ink">NFL Playoffs</div>
@@ -134,7 +135,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
                     </FitText>
                   </div>
                 </div>
-                {!locked && settings.lock_at && <p className="mt-1 text-xs text-muted">{lockLabel(settings.lock_at, tzOf(ctx))}</p>}
+                {!locked && settings.lock_at && <FitText min={9} className="mt-1 block text-xs text-muted">{lockLabel(settings.lock_at, tzOf(ctx))}</FitText>}
                 {!locked && !ctx.isGuest && mine && mine.playerIds.length < size && (
                   <Link
                     href={`/p/${slug}/picks`}
@@ -205,7 +206,10 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
       className={`flex items-center gap-2.5 py-1.5 text-sm ${me ? "bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]" : ""} ${className}`}
     >
       <span className="w-6 shrink-0 pl-1 text-right text-xs tabular-nums text-muted">{locked ? r.rank : ""}</span>
-      <span className={`min-w-0 flex-1 truncate ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</span>
+      {/* The whole name on one line: it shrinks to fit rather than being cut off. */}
+      <span className="min-w-0 flex-1">
+        <FitText min={10} className={`block ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</FitText>
+      </span>
       {/* Just the points (0 until the games start). */}
       <span className="w-12 shrink-0 pr-1 text-right font-bold tabular-nums">{fmt(r.points)}</span>
     </li>
