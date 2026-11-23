@@ -17,6 +17,7 @@ import { NFL_WEEKS, currentNflWeek, nflWeekLabel, nflWeekWindow } from "@/lib/nf
 import { poolFormat } from "@/lib/formats";
 import { survivorStandings } from "@/lib/survivor";
 import { getSurvivor } from "@/lib/survivorData";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const metadata: Metadata = { title: "Slate editor" };
 
@@ -296,6 +297,17 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
       progress = allProgress.filter((p) => inWeek.has(p.user_id)).map((p) => ({ ...p, picks: has.has(p.user_id) ? 1 : 0 }));
     }
     const need = survivor ? 1 : ctx.settings.picks_per_slate;
+    // This week's tournament champion picks (college basketball): how many each entry has in.
+    // Read with the service role (the page is the commissioner's) since picks stay private until
+    // each tournament locks.
+    const admin = createAdminClient() as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { data: weekTourneys } = survivor ? { data: [] } : await admin.from("tournaments").select("id").eq("pool_id", ctx.pool.id).eq("week", slate.week);
+    const tourneyIds = ((weekTourneys ?? []) as { id: string }[]).map((t) => t.id);
+    const champPicks = new Map<string, number>();
+    if (tourneyIds.length) {
+      const { data: tp } = await admin.from("tournament_picks").select("user_id").in("tournament_id", tourneyIds);
+      for (const r of (tp ?? []) as { user_id: string }[]) champPicks.set(r.user_id, (champPicks.get(r.user_id) ?? 0) + 1);
+    }
     const firstDay = WEEKDAYS[ctx.settings.window.start_weekday];
     // publish_slate pulls the first-day group's deadline to that day's first tip when it's
     // earlier; any deadline before both slate-level ones is that group's.
@@ -443,13 +455,34 @@ export default async function SlateAdminPage({ params, searchParams }: PageProps
               ? `${(progress ?? []).filter((p) => p.picks >= need).length} of ${(progress ?? []).length} entries still in have a pick. Tap an entry to make or fix their pick.`
               : `${(progress ?? []).filter((p) => p.picks >= need).length} of ${(progress ?? []).length} entries have all ${need} picks in. Tap an entry to enter or fix their picks.`}
           </p>
-          <ul className="mt-2 divide-y divide-line">
+          {tourneyIds.length > 0 && (
+            <p className="mt-0.5 text-sm text-muted tabular-nums">
+              {(progress ?? []).filter((p) => (champPicks.get(p.user_id) ?? 0) >= tourneyIds.length).length} of {(progress ?? []).length} have all {tourneyIds.length} tournament champion pick{tourneyIds.length === 1 ? "" : "s"} in.
+            </p>
+          )}
+          {tourneyIds.length > 0 && (
+            <div className="mt-2 flex items-center gap-3 border-b border-line pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <span className="flex-1">Entry</span>
+              <span className="w-14 text-right">Games</span>
+              <span className="w-14 text-right">Champs</span>
+              <span className="w-[5.5rem]" />
+            </div>
+          )}
+          <ul className={`divide-y divide-line ${tourneyIds.length ? "" : "mt-2"}`}>
             {progress?.map((p) => (
               <li key={p.user_id} className="flex min-h-12 items-center gap-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{p.display_name}</span>
-                <span className={`text-[15px] font-semibold tabular-nums ${p.picks < need ? "text-loss" : "text-win"}`}>
+                <span className={`text-[15px] font-semibold tabular-nums ${tourneyIds.length ? "w-14 text-right" : ""} ${p.picks < need ? "text-loss" : "text-win"}`}>
                   {p.picks}/{need}
                 </span>
+                {tourneyIds.length > 0 && (
+                  <span
+                    title="Tournament champion picks"
+                    className={`w-14 text-right text-[15px] font-semibold tabular-nums ${(champPicks.get(p.user_id) ?? 0) < tourneyIds.length ? "text-loss" : "text-win"}`}
+                  >
+                    {champPicks.get(p.user_id) ?? 0}/{tourneyIds.length}
+                  </span>
+                )}
                 {/* Past the deadline too: the commissioner can fix picks, and the change is marked. */}
                 <Link href={`/p/${slug}/picks?week=${slate.week}&for=${p.user_id}`} className="-my-1 inline-flex min-h-11 items-center pl-2 text-sm font-medium text-accent">
                   {survivor ? (p.picks ? "Edit pick" : "Enter pick") : slate.status === "open" ? "Enter picks" : "Edit picks"}
