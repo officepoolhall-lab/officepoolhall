@@ -239,20 +239,21 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
     );
   };
 
-  // Before the games: the regular season's best under this pool's scoring, two at each position.
+  // Before the games: the regular season's best under this pool's scoring, as many at each
+  // position as a lineup has (2 QB, 4 RB, 4 WR, 2 TE, K, DEF).
   const stats = started ? {} : await getPfSeasonStats(season, players, scoring, teams);
   const producers = POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) =>
     players
       .filter((p) => p.pos === pos && (stats[p.id]?.fp ?? 0) > 0)
       .sort((a, b) => stats[b.id].fp - stats[a.id].fp)
-      .slice(0, 2),
+      .slice(0, roster[pos]),
   );
 
   // Once they start: each position's top scorer, and the perfect lineup.
   const leaders = started
     ? POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) => {
-        const top = players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id))[0];
-        return top ? [top] : [];
+        // As many at each position as a lineup has.
+        return players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, roster[pos]);
       })
     : [];
   const perfect = started ? optimalLineup(players, ptsOf, roster) : null;
