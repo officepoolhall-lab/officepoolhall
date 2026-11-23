@@ -215,7 +215,7 @@ export function PfLineupBuilder({
       ref={frame}
       data-wide
       data-fill-viewport
-      className="pb-16 lg:h-[max(18rem,calc(100dvh-8rem-3px-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
+      className="pb-20 lg:h-[max(18rem,calc(100dvh-8rem-3px-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
     >
       <div className="lg:grid lg:h-full lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
         {/* The lineup: a spot for every position. Tap × to drop a player, an open spot to see that position. */}
@@ -373,7 +373,19 @@ export function PfLineupBuilder({
       </div>
 
       {/* Phones: the lineup in a drawer from the bottom, like the other pools' Pool Summary. */}
-      <GridPanelDrawer title="My Lineup" tabId="pf-lineup-button" tabClassName="lg:hidden">
+      {/* Phones: a bar fixed along the bottom (count and save status); the View My Lineup tab sits
+          on its top edge and opens the lineup drawer. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        <div className="flex h-12 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-sm">
+          <span className="font-semibold tabular-nums">
+            {mine.length} <span className="font-normal text-muted">of {total} picked</span>
+          </span>
+          <span className={`flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
+            {status === "saving" ? "Saving…" : status === "error" ? "Not saved" : status === "saved" ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : `${teams.length - usedTeams.size} teams left`}
+          </span>
+        </div>
+      </div>
+      <GridPanelDrawer title="My Lineup" tabId="pf-lineup-button" tabClassName="lg:hidden !bottom-[calc(3rem+2px+env(safe-area-inset-bottom))] !pb-1.5">
         <p className="mb-2 text-sm text-muted tabular-nums">
           {mine.length} of {total} picked · {teams.length - usedTeams.size} teams left
         </p>
