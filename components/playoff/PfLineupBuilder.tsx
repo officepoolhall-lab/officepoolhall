@@ -122,16 +122,6 @@ export function PfLineupBuilder({
     );
   };
 
-  const nameButton = (p: Player, className = "") => (
-    <button
-      type="button"
-      onClick={() => setInfo(p)}
-      title={p.pos === "DEF" ? "Recent games" : "Game log and season stats"}
-      className={`-mx-1.5 -my-0.5 min-w-0 truncate rounded-md px-1.5 py-0.5 text-left transition hover:bg-hover ${className}`}
-    >
-      {p.name}
-    </button>
-  );
 
   return (
     // Desktop: sized to the screen above the Save bar, so the page itself never scrolls. The
@@ -167,11 +157,16 @@ export function PfLineupBuilder({
                       {pl ? (
                         <>
                           <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />
-                          <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                            {nameButton(pl, "text-sm font-semibold text-ink")}
+                          <button
+                            type="button"
+                            onClick={() => setInfo(pl)}
+                            title={pl.pos === "DEF" ? "Recent games" : "Game log and season stats"}
+                            className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-md px-1 text-left transition hover:bg-hover"
+                          >
+                            <span className="min-w-0 truncate text-sm font-semibold text-ink">{pl.name}</span>
                             {injuryTag(pl)}
                             <span className="shrink-0 text-xs text-muted">{team?.abbreviation}</span>
-                          </span>
+                          </button>
                           <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
                             ×
                           </button>
@@ -277,13 +272,19 @@ export function PfLineupBuilder({
                         return (
                           <li key={p.id} className="flex min-h-8 items-center gap-2 py-0.5">
                             <span className="w-7 shrink-0 text-[11px] font-bold text-muted">{p.pos}</span>
-                            <span className={`flex min-w-0 flex-1 items-baseline gap-2 ${blocked ? "opacity-50" : ""}`}>
-                              {nameButton(p, `shrink-0 max-w-[60%] text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`)}
-                              {/* Desktop: his season so far in his main category. */}
+                            {/* The whole stretch from the name to the pick button opens his stats. */}
+                            <button
+                              type="button"
+                              onClick={() => setInfo(p)}
+                              title={p.pos === "DEF" ? "Recent games" : "Game log and season stats"}
+                              className={`-my-0.5 flex min-h-8 min-w-0 flex-1 items-center gap-2 self-stretch rounded-md px-1.5 text-left transition hover:bg-hover ${blocked ? "opacity-50" : ""}`}
+                            >
+                              <span className={`max-w-[60%] shrink-0 truncate text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`}>{p.name}</span>
                               {injuryTag(p)}
+                              {/* Desktop: his season so far in his main category. */}
                               {stats[p.id] && <span className="hidden min-w-0 truncate text-[11px] tabular-nums text-muted lg:inline">{stats[p.id].line}</span>}
-                            </span>
-                            {blocked && <span className="shrink-0 text-[10px] font-medium text-muted">{blocked}</span>}
+                              {blocked && <span className="ml-auto shrink-0 text-[10px] font-medium text-muted">{blocked}</span>}
+                            </button>
                             <button
                               type="button"
                               onClick={() => toggle(p)}
