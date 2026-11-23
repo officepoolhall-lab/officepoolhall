@@ -5,7 +5,7 @@ import { Empty, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/component
 import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
 import { FitText } from "@/components/FitText";
-import { FitOrHide } from "@/components/FitOrHide";
+import { StatsFit } from "@/components/StatsFit";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
@@ -189,7 +189,9 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
         {/* The pool's numbers. */}
         <div className="space-y-6 lg:pl-6">
           <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-            <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} scoring={settings.scoring} />
+            <StatsFit className="space-y-6">
+              <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} scoring={settings.scoring} />
+            </StatsFit>
           </Suspense>
         </div>
       </div>
@@ -239,8 +241,8 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
         <span className="min-w-0 max-w-[55%] shrink-0">
           <FitText min={10} className="block font-medium">{p.name}</FitText>
         </span>
-        {/* The stat line only when it fits at a readable size; otherwise just name and points. */}
-        <span className="min-w-0 flex-1 pl-1">{sub && <FitOrHide min={10} className="text-[11px] tabular-nums text-muted">{sub}</FitOrHide>}</span>
+        {/* The stat line: shown only when every row's fits at a readable size (StatsFit). */}
+        <span className="min-w-0 flex-1 pl-1">{sub && <span data-stat className="block overflow-hidden whitespace-nowrap text-[11px] tabular-nums text-muted">{sub}</span>}</span>
         <span className="shrink-0 pl-1 font-semibold tabular-nums">{right}</span>
       </li>
     );
