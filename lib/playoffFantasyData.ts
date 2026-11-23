@@ -98,8 +98,9 @@ export const NO_POINTS: PfPoints = { byPlayer: new Map(), out: new Set(), live: 
  */
 /** A demo pool's made-up playoffs (settings.playoff_fantasy.demo_sim), from today's standings' seeds. */
 async function demoSim(season: number, players: PfPlayer[], teams: PfTeam[], demo: { through: number; seed: number }) {
-  const picture = await getPlayoffPicture(season).catch(() => null);
-  return picture ? simulatePlayoffs(picture, players, teams, demo.through, demo.seed) : null;
+  const [picture, stats] = await Promise.all([getPlayoffPicture(season).catch(() => null), getPfSeasonStats(season, players)]);
+  const vol = Object.fromEntries(Object.entries(stats).map(([id, st]) => [id, st.vol]));
+  return picture ? simulatePlayoffs(picture, players, teams, demo.through, demo.seed, vol) : null;
 }
 
 /** The season's playoff games: ESPN's, or a demo pool's made-up ones. */

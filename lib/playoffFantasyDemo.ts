@@ -1,7 +1,7 @@
 // Made-up playoff games and player stats for a demo Playoff Fantasy pool
 // (settings.playoff_fantasy.demo_sim). The bracket follows the real seeding rules from the
-// seeds it's given; each game's box score is built from the teams' depth charts, so the
-// starters get most of the numbers, and the final score comes from those numbers. Seeded, so the
+// seeds it's given; each game's box score goes mostly to each team's real starters (this
+// season's yards, then the depth chart), and the final score comes from those numbers. Seeded, so the
 // same pool shows the same results on every page and every visit.
 
 import type { PlayoffGame, Seeded } from "./nflPlayoffs";
@@ -31,8 +31,13 @@ function rng(seed: number) {
 }
 
 /** One team's offense in one game: its players' lines, and the points they add up to. */
-function offense(r: () => number, roster: Player[]) {
-  const at = (pos: Position) => roster.filter((p) => p.pos === pos).sort((a, b) => (a.depth ?? 99) - (b.depth ?? 99) || a.name.localeCompare(b.name));
+function offense(r: () => number, roster: Player[], vol: Record<string, number>) {
+  // Each position's players, best first: this season's yards (the real starters), then the
+  // depth chart. Yards first so a fullback or blocking tight end never takes a starter's role.
+  const at = (pos: Position) =>
+    roster
+      .filter((p) => p.pos === pos)
+      .sort((a, b) => (vol[b.id] ?? 0) - (vol[a.id] ?? 0) || (a.depth ?? 99) - (b.depth ?? 99) || a.name.localeCompare(b.name));
   const [qb] = at("QB");
   const rbs = at("RB");
   const wrs = at("WR");
@@ -115,7 +120,15 @@ function offense(r: () => number, roster: Player[]) {
 }
 
 /** The demo's playoffs, played through `through` rounds; the next round's games are set and not started. */
-export function simulatePlayoffs(picture: { AFC: Seeded[]; NFC: Seeded[] }, players: Player[], teams: Team[], through: number, seed: number): Sim {
+export function simulatePlayoffs(
+  picture: { AFC: Seeded[]; NFC: Seeded[] },
+  players: Player[],
+  teams: Team[],
+  through: number,
+  seed: number,
+  /** Player id → this season's yards in his main category, to tell the starters. */
+  vol: Record<string, number> = {},
+): Sim {
   const idOf = new Map(teams.map((t) => [t.espnId ?? "", t.id]));
   const rosterOf = (espnId: string) => players.filter((p) => p.teamId === idOf.get(espnId));
   const games: PlayoffGame[] = [];
@@ -139,8 +152,8 @@ export function simulatePlayoffs(picture: { AFC: Seeded[]; NFC: Seeded[] }, play
       return null;
     }
     const r = rng(seed * 7919 + ++n * 104729);
-    const a = offense(r, rosterOf(away.espnId));
-    const h = offense(r, rosterOf(home.espnId));
+    const a = offense(r, rosterOf(away.espnId), vol);
+    const h = offense(r, rosterOf(home.espnId), vol);
     const defense = (opp: ReturnType<typeof offense>, oppScore: number): DefLine => ({
       sacks: Math.round(r() * 5),
       ints: opp.passInt,
