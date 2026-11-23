@@ -107,36 +107,11 @@ export function PfLineupBuilder({
 
   return (
     <div data-wide className="pb-24">
-      {/* Across the top: how far along, when it locks, and which teams are still free. */}
-      <section className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-3">
-            <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl">
-              {mine.length} <span className="text-muted">of {total} picked</span>
-            </span>
-            {lockText && <span className="text-sm text-muted">{lockText}</span>}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1" aria-label="Teams still free">
-          <span className="mr-1 text-xs font-medium text-muted tabular-nums">{teams.length - usedTeams.size} teams left</span>
-          {teams.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTeamId(teamId === t.id ? "ALL" : t.id)}
-              title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
-              className={`rounded-full p-0.5 transition hover:bg-hover ${usedTeams.has(t.id) ? "opacity-25 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
-            >
-              <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-6" />
-            </button>
-          ))}
-        </div>
-      </section>
-
       <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
         {/* The lineup: a spot for every position. Tap × to drop a player, an open spot to see that position. */}
         <aside className="mb-5 lg:mb-0">
-          <div className="lg:sticky lg:top-[calc(3rem+3px+1rem+env(safe-area-inset-top))]">
+          {/* Pinned on desktop, never under the Save bar (a short screen scrolls the list itself). */}
+          <div className="lg:sticky lg:top-[calc(3rem+3px+1rem+env(safe-area-inset-top))] lg:max-h-[calc(100dvh-3rem-3px-1rem-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:overflow-y-auto">
             <h2 className="mb-1 flex items-baseline justify-between gap-3 text-lg font-extrabold tracking-[-0.03em]">
               {forName ? "Their lineup" : "My Lineup"}
               <button type="button" onClick={() => setLineupOpen(!lineupOpen)} aria-expanded={lineupOpen} className="rounded-md px-1.5 py-0.5 text-sm font-semibold tracking-normal text-accent transition hover:bg-hover lg:hidden">
@@ -150,7 +125,7 @@ export function PfLineupBuilder({
                   const pl = at[i];
                   const team = pl ? teamOf.get(pl.teamId) : null;
                   return (
-                    <li key={`${p}${i}`} className="flex min-h-10 items-center gap-2 py-1">
+                    <li key={`${p}${i}`} className="flex min-h-9 items-center gap-2 py-0.5">
                       <span className="w-8 shrink-0 text-xs font-bold text-muted">{p}</span>
                       {pl ? (
                         <>
@@ -177,6 +152,31 @@ export function PfLineupBuilder({
         </aside>
 
         <div className="min-w-0">
+          {/* Above the players: how far along, when it locks, and which teams are still free (beside the lineup, so the whole lineup fits on screen). */}
+          <section className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-3">
+                <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl">
+                  {mine.length} <span className="text-muted">of {total} picked</span>
+                </span>
+                {lockText && <span className="text-sm text-muted">{lockText}</span>}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1" aria-label="Teams still free">
+              <span className="mr-1 text-xs font-medium text-muted tabular-nums">{teams.length - usedTeams.size} teams left</span>
+              {teams.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTeamId(teamId === t.id ? "ALL" : t.id)}
+                  title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
+                  className={`rounded-full p-0.5 transition hover:bg-hover ${usedTeams.has(t.id) ? "opacity-25 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
+                >
+                  <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-6" />
+                </button>
+              ))}
+            </div>
+          </section>
           {/* Filters: position (one line that wraps, never scrolls), then team, search, backups. */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <div className="grid w-full grid-cols-7 gap-1 sm:flex sm:w-auto sm:gap-1.5">
