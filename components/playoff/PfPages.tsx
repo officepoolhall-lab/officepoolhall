@@ -9,7 +9,7 @@ import { StatsFit } from "@/components/StatsFit";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, ROUNDS, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
+import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
@@ -184,6 +184,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
           ) : (
             <Empty>The bracket shows here once ESPN&apos;s standings can be read.</Empty>
           )}
+          {locked && <RosterShare rows={rows} players={players} teams={teams} pts={pts} />}
         </div>
 
         {/* The pool's numbers. */}
@@ -196,6 +197,56 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Every player on at least one lineup, with the share of entries that have him, by position
+ * (most rostered first), and his points so far. Only once lineups lock.
+ */
+function RosterShare({ rows, players, teams, pts }: { rows: PfRow[]; players: PfPlayer[]; teams: PfTeam[]; pts: PfPoints }) {
+  const counts = new Map<string, number>();
+  for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const teamOf = new Map(teams.map((t) => [t.id, t]));
+  const entries = Math.max(1, rows.filter((r) => r.playerIds.length > 0).length);
+  const groups = POSITIONS.map((pos) => ({
+    pos,
+    list: players
+      .filter((p) => p.pos === pos && counts.has(p.id))
+      .sort((a, b) => counts.get(b.id)! - counts.get(a.id)! || (pts.byPlayer.get(b.id)?.total ?? 0) - (pts.byPlayer.get(a.id)?.total ?? 0) || a.name.localeCompare(b.name)),
+  })).filter((g) => g.list.length);
+  if (!groups.length) return null;
+  return (
+    <section className="mt-8 @container">
+      <div className="flex items-baseline justify-between gap-3">
+        <SectionLabel fit className="!text-sm lg:!text-base">Roster %</SectionLabel>
+        <span className="shrink-0 text-xs text-muted tabular-nums">Share of {entries} lineups · points</span>
+      </div>
+      <div className="mt-2 grid gap-x-6 gap-y-4 @[34rem]:grid-cols-2 @[52rem]:grid-cols-3">
+        {groups.map(({ pos, list }) => (
+          <div key={pos} className="min-w-0">
+            <div className="border-b border-line pb-1 text-xs font-bold tracking-wide text-muted">{POSITION_NAME[pos]}s</div>
+            <ul className="divide-y divide-line">
+              {list.map((p) => {
+                const t = teamOf.get(p.teamId);
+                const out = pts.out.has(t?.espnId ?? "");
+                const pct = Math.round((counts.get(p.id)! / entries) * 1000) / 10;
+                return (
+                  <li key={p.id} className={`flex h-7 items-center gap-1.5 text-[13px] ${out ? "text-muted" : "text-ink"}`}>
+                    <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <FitText min={10} className={`block ${out ? "line-through decoration-1" : "font-medium"}`}>{p.name}</FitText>
+                    </span>
+                    <span className="w-12 shrink-0 text-right font-semibold tabular-nums">{pct}%</span>
+                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{fmt(pts.byPlayer.get(p.id)?.total ?? 0)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
