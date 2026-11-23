@@ -70,11 +70,9 @@ function StandingsList({ rows, me, locked, size, limit, progress = false }: { ro
               <span className="hidden text-xs text-muted tabular-nums sm:inline">{r.alive} still playing</span>
               <span className="w-16 text-right text-[15px] font-bold tabular-nums">{fmt(r.points)}</span>
             </>
-          ) : progress || r.userId === me ? (
-            <span className={`text-sm font-semibold tabular-nums ${r.playerIds.length >= size ? "text-win" : "text-muted"}`}>
-              {r.playerIds.length >= size ? "Roster in" : `${r.playerIds.length}/${size}`}
-            </span>
-          ) : null}
+          ) : (
+            <span className="w-16 text-right text-[15px] font-bold tabular-nums">{fmt(r.points)}</span>
+          )}
         </li>
       ))}
     </ul>
@@ -264,7 +262,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
 }
 
 /** One entry's line in Home's standings. */
-function StandingRow({ r, me, locked, size, progress, pin = false, className = "" }: { r: PfRow; me: boolean; locked: boolean; size: number; progress: boolean; pin?: boolean; className?: string }) {
+function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow; me: boolean; locked: boolean; size: number; progress: boolean; pin?: boolean; className?: string }) {
   return (
     <li
       {...(me && !pin ? { "data-fill-me": "" } : {})}
@@ -273,16 +271,8 @@ function StandingRow({ r, me, locked, size, progress, pin = false, className = "
     >
       <span className="w-6 shrink-0 pl-1 text-right text-xs tabular-nums text-muted">{locked ? r.rank : ""}</span>
       <span className={`min-w-0 flex-1 truncate ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</span>
-      {locked ? (
-        <>
-          <span className="shrink-0 text-xs text-muted tabular-nums">{r.alive} left</span>
-          <span className="w-12 shrink-0 pr-1 text-right font-bold tabular-nums">{fmt(r.points)}</span>
-        </>
-      ) : progress || me ? (
-        <span className={`shrink-0 pr-1 text-xs font-semibold tabular-nums ${r.playerIds.length >= size ? "text-win" : "text-muted"}`}>
-          {r.playerIds.length >= size ? "Roster in" : `${r.playerIds.length}/${size}`}
-        </span>
-      ) : null}
+      {/* Just the points (0 until the games start). */}
+      <span className="w-12 shrink-0 pr-1 text-right font-bold tabular-nums">{fmt(r.points)}</span>
     </li>
   );
 }
