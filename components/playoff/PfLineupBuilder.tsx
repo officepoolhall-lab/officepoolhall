@@ -28,6 +28,7 @@ export function PfLineupBuilder({
   forName,
   lockText,
   timezone = "America/Chicago",
+  stats = {},
 }: {
   players: Player[];
   teams: Team[];
@@ -38,6 +39,8 @@ export function PfLineupBuilder({
   /** "Locks Sat, Jan 16 · 3:30 PM". */
   lockText?: string | null;
   timezone?: string;
+  /** Regular-season line in each skill player's main category ("812 yds · 7 TD"), shown on desktop. */
+  stats?: Record<string, string>;
 }) {
   const router = useRouter();
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
@@ -231,12 +234,12 @@ export function PfLineupBuilder({
           {cards.length === 0 ? (
             <p className="py-6 text-sm text-muted">No players match.</p>
           ) : (
-            <div className="grid content-start gap-4 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 2xl:grid-cols-3">
+            <div className="grid content-start gap-x-4 gap-y-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 2xl:grid-cols-3">
               {cards.map(({ t, list }) => {
                 const used = usedTeams.get(t.id);
                 return (
                   <section key={t.id} className="min-w-0">
-                    <h3 className="mb-1 flex items-center gap-2 border-l-4 border-accent bg-surface px-3 py-1.5 text-sm font-bold text-ink lg:rounded-r-md">
+                    <h3 className="mb-0.5 flex items-center gap-2 border-l-4 border-accent bg-surface px-3 py-1 text-sm font-bold text-ink lg:rounded-r-md">
                       <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" />
                       <span className="min-w-0 flex-1 truncate">{t.name}</span>
                       {used && <span className="shrink-0 truncate text-xs font-semibold text-loss">Used · {used.name}</span>}
@@ -246,19 +249,21 @@ export function PfLineupBuilder({
                         const on = picked.includes(p.id);
                         const blocked = on ? null : used ? "Team used" : countAt(p.pos) >= roster[p.pos] ? `${p.pos} full` : null;
                         return (
-                          <li key={p.id} className="flex min-h-10 items-center gap-2 py-1">
-                            <span className="w-8 shrink-0 text-xs font-bold text-muted">{p.pos}</span>
-                            <span className={`flex min-w-0 flex-1 items-baseline gap-1.5 ${blocked ? "opacity-50" : ""}`}>
-                              {nameButton(p, `text-sm ${on ? "font-bold text-accent" : "font-semibold text-ink"}`)}
+                          <li key={p.id} className="flex min-h-8 items-center gap-2 py-0.5">
+                            <span className="w-7 shrink-0 text-[11px] font-bold text-muted">{p.pos}</span>
+                            <span className={`flex min-w-0 flex-1 items-baseline gap-2 ${blocked ? "opacity-50" : ""}`}>
+                              {nameButton(p, `shrink-0 max-w-[60%] text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`)}
+                              {/* Desktop: his season so far in his main category. */}
+                              {stats[p.id] && <span className="hidden min-w-0 truncate text-[11px] tabular-nums text-muted lg:inline">{stats[p.id]}</span>}
                             </span>
-                            {blocked && <span className="shrink-0 text-[11px] font-medium text-muted">{blocked}</span>}
+                            {blocked && <span className="shrink-0 text-[10px] font-medium text-muted">{blocked}</span>}
                             <button
                               type="button"
                               onClick={() => toggle(p)}
                               disabled={Boolean(blocked)}
                               aria-pressed={on}
                               aria-label={on ? `Remove ${p.name}` : `Pick ${p.name}`}
-                              className={`grid h-8 w-14 shrink-0 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                              className={`grid h-7 w-12 shrink-0 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-30 ${
                                 on ? "bg-accent/15 text-accent ring-2 ring-accent" : "bg-surface text-muted ring-1 ring-line hover:ring-accent/60"
                               }`}
                             >

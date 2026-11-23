@@ -336,3 +336,56 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
     ? { ok: true, message: `Loaded ${rows.length} players${depthNote}, but ESPN didn't answer for ${failed.join(", ")}. Reload to pick them up.` }
     : { ok: true, message: `Loaded ${rows.length} players from ${teams.length} teams${depthNote}.` };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Regular-season stats for the lineup builder
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Each skill player's regular-season line in his main category, for picking a lineup: a QB's
+ * passing ("3,412 yds · 24 TD · 8 INT"), a RB's rushing ("812 yds · 7 TD"), a WR's or TE's
+ * receiving ("64 rec · 802 yds · 6 TD"). Only players on a depth chart (the rest rarely have
+ * numbers). ESPN's per-player season stats, cached six hours; never rejects.
+ */
+export async function getPfSeasonStats(season: number, players: PfPlayer[]): Promise<Record<string, string>> {
+  const want = players.filter((p) => ["QB", "RB", "WR", "TE"].includes(p.pos) && p.depth != null);
+  const out: Record<string, string> = {};
+  const n = (v: number) => Math.round(v).toLocaleString("en-US");
+  const one = async (p: PfPlayer) => {
+    try {
+      const res = await fetch(`${CORE}/seasons/${season}/types/2/athletes/${encodeURIComponent(p.id)}/statistics`, {
+        headers: HEADERS,
+        next: { revalidate: 21600 },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as Row;
+      const cats = (data?.splits?.categories ?? []) as Row[];
+      const stat = (cat: string, name: string) => {
+        const c = cats.find((x) => x?.name === cat);
+        const s = ((c?.stats ?? []) as Row[]).find((x) => x?.name === name);
+        return Number(s?.value ?? 0) || 0;
+      };
+      let line: string | null = null;
+      if (p.pos === "QB") {
+        const yds = stat("passing", "passingYards");
+        if (yds || stat("passing", "passingAttempts")) line = `${n(yds)} yds · ${n(stat("passing", "passingTouchdowns"))} TD · ${n(stat("passing", "interceptions"))} INT`;
+      } else if (p.pos === "RB") {
+        const att = stat("rushing", "rushingAttempts");
+        if (att) line = `${n(stat("rushing", "rushingYards"))} yds · ${n(stat("rushing", "rushingTouchdowns"))} TD`;
+      } else {
+        const rec = stat("receiving", "receptions");
+        if (rec) line = `${n(rec)} rec · ${n(stat("receiving", "receivingYards"))} yds · ${n(stat("receiving", "receivingTouchdowns"))} TD`;
+      }
+      if (line) out[p.id] = line;
+    } catch {
+      // No line for this player.
+    }
+  };
+  // A few at a time, so a cold cache doesn't fire hundreds of requests at once.
+  const queue = [...want];
+  await Promise.all(Array.from({ length: 16 }, async () => {
+    while (queue.length) await one(queue.shift()!);
+  }));
+  return out;
+}
