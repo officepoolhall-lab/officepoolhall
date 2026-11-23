@@ -13,7 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { POSITIONS, ROUNDS, recLabel, rosterSize, type PfSettings } from "@/lib/playoffFantasy";
-import { NO_POINTS, getPf, getPfPoints, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
+import { NO_POINTS, getPf, getPfPoints, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 
 // The pages of an NFL Playoff Fantasy pool: Home, My Team and Standings. The pool routes reach
@@ -351,6 +351,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
       ) : (
         <PfLineupBuilder
           players={players}
+          stats={await getPfSeasonStats(ctx.pool.season, players)}
           teams={teams}
           roster={settings.roster}
           initial={entry.playerIds}
