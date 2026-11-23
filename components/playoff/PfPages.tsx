@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
-import { Empty, LinkButton, PageTitle, TeamLogo } from "@/components/ui";
+import { Empty, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
+import { Suspense } from "react";
+import { Countdown } from "@/components/Countdown";
+import { FitText } from "@/components/FitText";
+import { FillColumn } from "@/components/FillColumn";
+import { NewsList } from "@/components/NewsList";
+import { getNews } from "@/lib/news";
+import { NEWS_TITLE } from "@/lib/sports";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, ROUNDS, pfRules, rosterSize } from "@/lib/playoffFantasy";
+import { POSITIONS, ROUNDS, recLabel, rosterSize, type PfSettings } from "@/lib/playoffFantasy";
 import { NO_POINTS, getPf, getPfPoints, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 
@@ -74,56 +82,233 @@ function StandingsList({ rows, me, locked, size, limit, progress = false }: { ro
 
 const NOT_READY = "Rosters open as soon as the playoff field is set, at the end of the regular season. The 14 teams and their players load here by themselves.";
 
+/** The rules in a sentence or two (Home's Pool Rules). */
+function rulesSummary(s: PfSettings): string {
+  const spots = POSITIONS.filter((p) => s.roster[p] > 0)
+    .map((p) => (s.roster[p] === 1 ? (p === "DEF" ? "a defense" : `a ${p}`) : `${s.roster[p]} ${p}s`))
+    .join(", ");
+  return `Pick one player from each playoff team: ${spots}. Everyone scores every round until his team is out, ${recLabel(s.scoring.rec)} scoring, and the most points wins.`;
+}
+
+const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: n % 1 ? 2 : 0, minimumFractionDigits: n % 1 ? 2 : 0 })}`;
+
+/**
+ * Home, laid out like every other pool's: the playoffs and the standings on the left, the news
+ * in the middle, the pool's numbers and the rules on the right, split by the same thin blue
+ * lines and ending level at the bottom.
+ */
 export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
-  const mine = rows.find((r) => r.userId === ctx.entryUserId);
+  const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
   const size = rosterSize(settings);
-  const tz = tzOf(ctx);
+  // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
+  const now = Date.now();
+  // Rosters in: counted for everyone (others' lineups stay hidden until the lock).
+  const { data: lineupSizes } = await (createAdminClient() as unknown as { from: (t: string) => any }) // eslint-disable-line @typescript-eslint/no-explicit-any
+    .from("pf_lineups")
+    .select("user_id, player_ids")
+    .eq("pool_id", ctx.pool.id);
+  const inIds = new Set(entries.map((e) => e.userId));
+  const rostersIn = ((lineupSizes ?? []) as { user_id: string; player_ids: string[] | null }[]).filter((l) => inIds.has(l.user_id) && (l.player_ids?.length ?? 0) >= size).length;
+  const fee = Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0);
+  const pot = fee * rows.length;
+  // Most rostered, once lineups lock (before then nobody sees anyone else's).
+  const playerOf = new Map(players.map((p) => [p.id, p]));
+  const teamOf = new Map(teams.map((t) => [t.id, t]));
+  const counts = new Map<string, number>();
+  if (locked) for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const popular = [...counts.entries()]
+    .filter(([id]) => playerOf.has(id))
+    .sort((a, b) => b[1] - a[1] || playerOf.get(a[0])!.name.localeCompare(playerOf.get(b[0])!.name))
+    .slice(0, 8);
+  const teamsLeft = teams.filter((t) => !pts.out.has(t.espnId ?? "")).length;
+  const stat = "mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums";
+  const row = "flex items-center justify-between gap-3 py-1.5 text-sm";
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+    <div data-wide className="space-y-6">
       {pts.live && <AutoRefresh active />}
-      <div className="space-y-4">
-        <section className={card}>
-          <div className="text-xs font-semibold uppercase tracking-wide text-accent">NFL Playoffs</div>
-          {players.length === 0 ? (
-            <p className="mt-1 text-sm text-muted">{NOT_READY}</p>
-          ) : locked ? (
-            <>
-              <div className="mt-1 text-lg font-bold">Rosters are locked</div>
-              {mine && <p className="text-sm text-muted tabular-nums">You have {fmt(mine.points)} points with {mine.alive} of {mine.playerIds.length} players still playing.</p>}
-            </>
-          ) : (
-            <>
-              <div className="mt-1 text-lg font-bold tabular-nums">{mine ? `${mine.playerIds.length} of ${size} picked` : "Build your roster"}</div>
-              <p className="text-sm text-muted">{settings.lock_at ? `Rosters lock ${lockLabel(settings.lock_at, tz)}.` : "Rosters lock at the first Wild Card kickoff."}</p>
-              {!ctx.isGuest && mine && (
-                <LinkButton href={`/p/${slug}/picks`} kind="accent" className="mt-3 w-full">
-                  {mine.playerIds.length ? "Change my roster" : "Build my roster"}
-                </LinkButton>
-              )}
-            </>
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        {/* The playoffs and where everyone stands. */}
+        <FillColumn className="space-y-6 lg:pr-6">
+          <section className="border-b border-line pb-4">
+            <div className="whitespace-nowrap text-lg font-bold text-ink">NFL Playoffs</div>
+            {players.length === 0 ? (
+              <p className="mt-1 text-sm text-muted">{NOT_READY}</p>
+            ) : (
+              <>
+                <div className="mt-2 grid grid-cols-2 gap-4 [&>*]:min-w-0">
+                  {!ctx.isGuest && mine && (
+                    <div>
+                      <FitText min={9} className="text-xs text-muted">{locked ? "My Points" : "My Roster"}</FitText>
+                      <FitText min={18} className={stat}>
+                        {locked ? (
+                          fmt(mine.points)
+                        ) : mine.playerIds.length >= size ? (
+                          "Submitted"
+                        ) : (
+                          <span className={mine.playerIds.length ? "" : "text-muted"}>
+                            {mine.playerIds.length}
+                            <span className="text-muted">/{size}</span>
+                          </span>
+                        )}
+                      </FitText>
+                    </div>
+                  )}
+                  <div>
+                    <FitText min={9} className="text-xs text-muted">{locked ? "Still Playing" : "Rosters Lock"}</FitText>
+                    <FitText min={18} className={stat}>
+                      {locked ? (
+                        mine ? (
+                          <>
+                            {mine.alive}
+                            <span className="text-muted">/{mine.playerIds.length}</span>
+                          </>
+                        ) : (
+                          <>
+                            {teamsLeft}
+                            <span className="text-muted">/{teams.length}</span>
+                          </>
+                        )
+                      ) : settings.lock_at && Date.parse(settings.lock_at) > now ? (
+                        <Countdown to={settings.lock_at} done="locked" />
+                      ) : (
+                        <span className="text-2xl">Wild Card</span>
+                      )}
+                    </FitText>
+                  </div>
+                </div>
+                {!locked && settings.lock_at && <p className="mt-1 text-xs text-muted">{lockLabel(settings.lock_at, tzOf(ctx))}</p>}
+                {!locked && !ctx.isGuest && mine && mine.playerIds.length < size && (
+                  <Link
+                    href={`/p/${slug}/picks`}
+                    className="mt-3 flex h-10 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-[15px] font-semibold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:brightness-95"
+                  >
+                    <span className="whitespace-nowrap">
+                      {mine.playerIds.length ? "Finish my roster" : "Build my roster"} <span aria-hidden>→</span>
+                    </span>
+                  </Link>
+                )}
+                <div className="mt-3 flex gap-1.5 whitespace-nowrap">
+                  {!ctx.isGuest && <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Team</Link>}
+                  <Link href={`/p/${slug}/standings`} className={chipClass(ctx.isGuest, "", "sm")}>Standings</Link>
+                </div>
+              </>
+            )}
+          </section>
+          <section>
+            <div className="flex items-baseline justify-between gap-3">
+              <SectionLabel fit className="!text-sm lg:!text-base">Standings</SectionLabel>
+              <span className="shrink-0 text-xs text-muted tabular-nums">{rows.length} entries</span>
+            </div>
+            {rows.length === 0 ? (
+              <Empty>No entries yet.</Empty>
+            ) : (
+              <ul data-fill-list className="mt-2 divide-y divide-line border-y border-line">
+                {rows.slice(0, 40).map((r) => {
+                  const me = r.userId === ctx.entryUserId;
+                  return (
+                    <li key={r.userId} {...(me ? { "data-fill-me": "" } : {})} className={`flex items-center gap-2.5 py-1.5 text-sm ${me ? "bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
+                      <span className="w-6 shrink-0 pl-1 text-right text-xs tabular-nums text-muted">{locked ? r.rank : ""}</span>
+                      <span className={`min-w-0 flex-1 truncate ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</span>
+                      {locked ? (
+                        <>
+                          <span className="shrink-0 text-xs text-muted tabular-nums">{r.alive} left</span>
+                          <span className="w-12 shrink-0 pr-1 text-right font-bold tabular-nums">{fmt(r.points)}</span>
+                        </>
+                      ) : (ctx.isCommissioner || me) ? (
+                        <span className={`shrink-0 pr-1 text-xs font-semibold tabular-nums ${r.playerIds.length >= size ? "text-win" : "text-muted"}`}>
+                          {r.playerIds.length >= size ? "Roster in" : `${r.playerIds.length}/${size}`}
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </FillColumn>
+
+        {/* Top stories, as on every pool's Home. */}
+        <FillColumn className="order-last lg:order-none lg:px-6">
+          <Suspense fallback={<p className="text-sm text-muted">Loading the news…</p>}>
+            <PfNews now={now} />
+          </Suspense>
+        </FillColumn>
+
+        {/* The pool's numbers, then the rules. */}
+        <div className="space-y-6 lg:pl-6">
+          <section>
+            <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-surface px-3 py-2.5 text-center">
+                <div className="text-2xl font-extrabold tabular-nums">
+                  {rostersIn}
+                  <span className="text-base font-bold text-muted">/{rows.length}</span>
+                </div>
+                <div className="text-xs text-muted">Rosters in</div>
+              </div>
+              <div className="rounded-xl bg-surface px-3 py-2.5 text-center">
+                <div className="text-2xl font-extrabold tabular-nums">{pot > 0 ? money(pot) : `${teamsLeft}/${teams.length || 14}`}</div>
+                <div className="text-xs text-muted">{pot > 0 ? "Pot" : "Teams left"}</div>
+              </div>
+            </div>
+          </section>
+          {teams.length > 0 && (
+            <section>
+              <div className="flex items-baseline justify-between gap-3">
+                <SectionLabel fit className="!text-sm lg:!text-base">Playoff Field</SectionLabel>
+                <span className="shrink-0 text-xs text-muted tabular-nums">{teamsLeft} of {teams.length} left</span>
+              </div>
+              <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {teams.map((t) => {
+                  const out = pts.out.has(t.espnId ?? "");
+                  return (
+                    <li key={t.id} className={`flex min-w-0 items-center gap-2 text-sm ${out ? "text-muted line-through opacity-60" : "text-ink"}`}>
+                      <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" />
+                      <span className="truncate">{t.name}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
-        </section>
-        <section className={card}>
-          <h2 className="text-base font-bold">How it works</h2>
-          <ul className="mt-1 space-y-1 text-sm text-ink">
-            {pfRules(settings).map((l) => (
-              <li key={l}>{l}</li>
-            ))}
-          </ul>
-        </section>
-      </div>
-      <section className={card}>
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-base font-bold">Standings</h2>
-          <Link href={`/p/${slug}/standings`} className="rounded-full px-2 py-1 text-sm font-semibold text-accent hover:bg-hover">All</Link>
+          {popular.length > 0 && (
+            <section>
+              <SectionLabel fit className="!text-sm lg:!text-base">Most Rostered</SectionLabel>
+              <ul className="mt-1 divide-y divide-line">
+                {popular.map(([id, n]) => {
+                  const p = playerOf.get(id)!;
+                  const t = teamOf.get(p.teamId);
+                  return (
+                    <li key={id} className={row}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-5 shrink-0" />
+                        <span className="truncate font-medium">{p.name}</span>
+                        <span className="shrink-0 text-xs text-muted">{p.pos}</span>
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums">{Math.round((n / Math.max(1, rows.length)) * 100)}%</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          <section>
+            <SectionLabel fit className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
+            <p className="mt-2 text-sm leading-relaxed text-ink">{rulesSummary(settings)}</p>
+          </section>
         </div>
-        {rows.length ? <StandingsList rows={rows} me={ctx.entryUserId} locked={locked} size={size} limit={10} progress={ctx.isCommissioner} /> : <Empty>No entries yet.</Empty>}
-      </section>
+      </div>
     </div>
   );
+}
+
+/** NFL top stories; streams in after the rest of the page. */
+async function PfNews({ now }: { now: number }) {
+  return <NewsList stories={await getNews("nfl", 10)} now={now} title={NEWS_TITLE.nfl} />;
 }
 
 export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slug: string; forUserId?: string }) {
