@@ -76,7 +76,7 @@ export const matchup = (g: PlayoffGame | null) => {
 const topSeeds = (season: number) => seeds(season, 1);
 
 /** Teams seeded 1 to `max` in each conference in ESPN's standings (as they stand now, mid-season). */
-type Seeded = { espnId: string; name: string; fullName: string; abbreviation: string | null; logo: string | null; seed: number; conference: "AFC" | "NFC" | null; record: string | null };
+export type Seeded = { espnId: string; name: string; fullName: string; abbreviation: string | null; logo: string | null; seed: number; conference: "AFC" | "NFC" | null; record: string | null };
 
 async function seeds(season: number, max: number): Promise<Seeded[]> {
   for (const url of [`https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season=${season}&seasontype=2`, `https://site.web.api.espn.com/apis/v2/sports/football/nfl/standings?season=${season}&seasontype=2`]) {
