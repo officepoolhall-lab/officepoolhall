@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon, TeamLogo, buttonClass, chipClass } from "@/components/ui";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
+import { FitText } from "@/components/FitText";
 import { POSITIONS, type Position } from "@/lib/playoffFantasy";
 
 type Player = { id: string; name: string; pos: Position; teamId: string; depth?: number | null };
@@ -285,10 +286,15 @@ export function PfLineupBuilder({
                               title={p.pos === "DEF" ? "Recent games" : "Game log and season stats"}
                               className={`-my-0.5 flex min-h-8 min-w-0 flex-1 items-center gap-2 self-stretch rounded-md px-1.5 text-left transition hover:bg-hover ${blocked ? "opacity-50" : ""}`}
                             >
-                              <span className={`max-w-[60%] shrink-0 truncate text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`}>{p.name}</span>
+                              <span className={`shrink-0 whitespace-nowrap text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`}>{p.name}</span>
                               {injuryTag(p)}
                               {/* Desktop: his season so far in his main category. */}
-                              {stats[p.id] && <span className="hidden min-w-0 truncate text-[11px] tabular-nums text-muted lg:inline">{stats[p.id].line}</span>}
+                              {/* The whole line always shows: it shrinks to fit rather than being cut off. */}
+                              {stats[p.id] && (
+                                <span className="hidden min-w-0 flex-1 lg:block">
+                                  <FitText min={7} className="block text-[11px] tabular-nums text-muted">{stats[p.id].line}</FitText>
+                                </span>
+                              )}
                               {blocked && <span className="ml-auto shrink-0 text-[10px] font-medium text-muted">{blocked}</span>}
                             </button>
                             <button
