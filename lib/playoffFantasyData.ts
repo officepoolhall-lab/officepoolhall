@@ -207,7 +207,8 @@ async function espnDepth(espnId: string, season: number): Promise<Map<string, nu
           const abbr = String(slot?.position?.abbreviation ?? "").toLowerCase();
           const what = /wr/.test(k) || abbr === "wr" ? "wr" : /qb/.test(k) || abbr === "qb" ? "qb" : /^(rb|hb|fb)/.test(k) || ["rb", "hb", "fb"].includes(abbr) ? "rb" : /^te/.test(k) || abbr === "te" ? "te" : /^(pk|k)$/.test(k) || ["pk", "k"].includes(abbr) ? "k" : null;
           if (!what) continue;
-          const n = what === "wr" ? ++wrSlot : 1;
+          // Receivers count slot by slot; a fullback sits behind every running back.
+          const n = what === "wr" ? ++wrSlot : /^fb/.test(k) || abbr === "fb" ? 5 : 1;
           ((slot?.athletes ?? []) as Row[]).forEach((a, i) => {
             const rank = Number(a?.rank ?? a?.slot ?? i + 1) || i + 1;
             // WR slots: every slot's rank-1 player before any rank-2 player.
@@ -347,9 +348,10 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
  * receiving ("64 rec · 802 yds · 6 TD"). Only players on a depth chart (the rest rarely have
  * numbers). ESPN's per-player season stats, cached six hours; never rejects.
  */
-export async function getPfSeasonStats(season: number, players: PfPlayer[]): Promise<Record<string, string>> {
-  const want = players.filter((p) => ["QB", "RB", "WR", "TE"].includes(p.pos) && p.depth != null);
-  const out: Record<string, string> = {};
+export type PfStat = { line: string; /** Yards in his main category, for ranking a team's players. */ vol: number };
+export async function getPfSeasonStats(season: number, players: PfPlayer[]): Promise<Record<string, PfStat>> {
+  const want = players.filter((p) => ["QB", "RB", "WR", "TE"].includes(p.pos));
+  const out: Record<string, PfStat> = {};
   const n = (v: number) => Math.round(v).toLocaleString("en-US");
   const one = async (p: PfPlayer) => {
     try {
@@ -367,25 +369,60 @@ export async function getPfSeasonStats(season: number, players: PfPlayer[]): Pro
         return Number(s?.value ?? 0) || 0;
       };
       let line: string | null = null;
+      let vol = 0;
       if (p.pos === "QB") {
-        const yds = stat("passing", "passingYards");
-        if (yds || stat("passing", "passingAttempts")) line = `${n(yds)} yds · ${n(stat("passing", "passingTouchdowns"))} TD · ${n(stat("passing", "interceptions"))} INT`;
+        vol = stat("passing", "passingYards");
+        if (vol || stat("passing", "passingAttempts")) line = `${n(vol)} yds · ${n(stat("passing", "passingTouchdowns"))} TD · ${n(stat("passing", "interceptions"))} INT`;
       } else if (p.pos === "RB") {
-        const att = stat("rushing", "rushingAttempts");
-        if (att) line = `${n(stat("rushing", "rushingYards"))} yds · ${n(stat("rushing", "rushingTouchdowns"))} TD`;
+        vol = stat("rushing", "rushingYards") + stat("receiving", "receivingYards");
+        if (stat("rushing", "rushingAttempts")) line = `${n(stat("rushing", "rushingYards"))} yds · ${n(stat("rushing", "rushingTouchdowns"))} TD`;
       } else {
+        vol = stat("receiving", "receivingYards");
         const rec = stat("receiving", "receptions");
-        if (rec) line = `${n(rec)} rec · ${n(stat("receiving", "receivingYards"))} yds · ${n(stat("receiving", "receivingTouchdowns"))} TD`;
+        if (rec) line = `${n(rec)} rec · ${n(vol)} yds · ${n(stat("receiving", "receivingTouchdowns"))} TD`;
       }
-      if (line) out[p.id] = line;
+      if (line) out[p.id] = { line, vol };
     } catch {
       // No line for this player.
     }
   };
   // A few at a time, so a cold cache doesn't fire hundreds of requests at once.
   const queue = [...want];
-  await Promise.all(Array.from({ length: 16 }, async () => {
+  await Promise.all(Array.from({ length: 20 }, async () => {
     while (queue.length) await one(queue.shift()!);
   }));
+  return out;
+}
+
+/** ESPN's game-status letters: Q questionable, D doubtful, O out (injured reserve, suspended and the like count as out). */
+export type PfInjury = "Q" | "D" | "O";
+
+/**
+ * Each injured player's designation from his team's ESPN roster (refreshed hourly), by player
+ * id. Never rejects: what can't be read shows no designation.
+ */
+export async function getPfInjuries(teams: PfTeam[]): Promise<Record<string, PfInjury>> {
+  const out: Record<string, PfInjury> = {};
+  await Promise.all(
+    teams.map(async (t) => {
+      if (!t.espnId) return;
+      try {
+        const res = await fetch(`${ESPN}/teams/${encodeURIComponent(t.espnId)}/roster`, { headers: HEADERS, next: { revalidate: 3600 }, signal: AbortSignal.timeout(6000) });
+        if (!res.ok) return;
+        const data = (await res.json()) as Row;
+        const groups = (data?.athletes ?? []) as Row[];
+        const items: Row[] = groups.some((g) => Array.isArray(g?.items)) ? groups.flatMap((g) => (g?.items ?? []) as Row[]) : groups;
+        for (const a of items) {
+          const raw = [((a?.injuries ?? []) as Row[])[0]?.status, ((a?.injuries ?? []) as Row[])[0]?.type?.description, a?.status?.type === "injured" ? a?.status?.name : null]
+            .filter((x) => typeof x === "string")
+            .join(" ");
+          const tag: PfInjury | null = /question/i.test(raw) ? "Q" : /doubt/i.test(raw) ? "D" : /\bout\b|reserve|\bIR\b|suspen|PUP|physically unable/i.test(raw) ? "O" : null;
+          if (tag && a?.id != null) out[String(a.id)] = tag;
+        }
+      } catch {
+        // No designations for this team.
+      }
+    }),
+  );
   return out;
 }
