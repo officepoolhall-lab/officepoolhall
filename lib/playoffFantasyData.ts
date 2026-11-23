@@ -171,7 +171,8 @@ export function pfStandings(entries: PfEntry[], players: PfPlayer[], teams: PfTe
 const POS: Record<string, Position> = { QB: "QB", RB: "RB", FB: "RB", WR: "WR", TE: "TE", K: "K", PK: "K" };
 
 const CORE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl";
-const athleteId = (ref: unknown) => (typeof ref === "string" ? (ref.match(/athletes\/(\d+)/)?.[1] ?? null) : null);
+const athleteId = (ref: unknown) =>
+  typeof ref === "number" ? String(ref) : typeof ref === "string" ? (ref.match(/athletes\/(\d+)/)?.[1] ?? (/^\d+$/.test(ref) ? ref : null)) : null;
 
 /**
  * How high each player sits on his team's ESPN depth chart (lower is higher): the starter at a
@@ -184,25 +185,40 @@ async function espnDepth(espnId: string, season: number): Promise<Map<string, nu
   const put = (id: string | null, key: number) => {
     if (id && key < (best.get(id) ?? Infinity)) best.set(id, key);
   };
-  try {
-    const res = await fetch(`${CORE}/seasons/${season}/teams/${encodeURIComponent(espnId)}/depthcharts?limit=50`, { headers: HEADERS, cache: "no-store", signal: AbortSignal.timeout(8000) });
-    if (res.ok) {
+  // Two places ESPN publishes depth charts (the core API, and the one espn.com's page uses):
+  // the same idea, slightly different shapes.
+  const sources = [
+    `${CORE}/seasons/${season}/teams/${encodeURIComponent(espnId)}/depthcharts?limit=50`,
+    `https://site.web.api.espn.com/apis/site/v2/sports/football/nfl/teams/${encodeURIComponent(espnId)}/depthcharts`,
+    `${ESPN}/teams/${encodeURIComponent(espnId)}/depthcharts`,
+  ];
+  for (const url of sources) {
+    try {
+      const res = await fetch(url, { headers: HEADERS, cache: "no-store", signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
       const data = (await res.json()) as Row;
-      for (const item of (data?.items ?? []) as Row[]) {
+      const charts = ((data?.items ?? data?.depthchart ?? data?.depthCharts ?? []) as Row[]);
+      for (const item of charts) {
+        // Keys vary ("qb", "rb", "wr", "lwr", "rwr", "slwr", "wr2", "te", "pk", "k"...): count
+        // each receiver slot in the order they come so all starting receivers rank first.
+        let wrSlot = 0;
         for (const [key, slot] of Object.entries((item?.positions ?? {}) as Record<string, Row>)) {
-          const m = key.toLowerCase().match(/^(qb|rb|hb|fb|wr|te|pk|k)(\d?)$/);
-          if (!m) continue;
-          const n = Number(m[2] || 1);
-          for (const a of (slot?.athletes ?? []) as Row[]) {
-            const rank = Number(a?.rank ?? a?.slot ?? 99) || 99;
-            // WR1 rank 1, WR2 rank 1, WR3 rank 1, then WR1 rank 2, ...
-            put(athleteId(a?.athlete?.$ref ?? a?.athlete?.id), (rank - 1) * 3 + n);
-          }
+          const k = key.toLowerCase();
+          const abbr = String(slot?.position?.abbreviation ?? "").toLowerCase();
+          const what = /wr/.test(k) || abbr === "wr" ? "wr" : /qb/.test(k) || abbr === "qb" ? "qb" : /^(rb|hb|fb)/.test(k) || ["rb", "hb", "fb"].includes(abbr) ? "rb" : /^te/.test(k) || abbr === "te" ? "te" : /^(pk|k)$/.test(k) || ["pk", "k"].includes(abbr) ? "k" : null;
+          if (!what) continue;
+          const n = what === "wr" ? ++wrSlot : 1;
+          ((slot?.athletes ?? []) as Row[]).forEach((a, i) => {
+            const rank = Number(a?.rank ?? a?.slot ?? i + 1) || i + 1;
+            // WR slots: every slot's rank-1 player before any rank-2 player.
+            put(athleteId(a?.athlete?.$ref ?? a?.athlete?.id ?? a?.id ?? a?.$ref), (rank - 1) * 10 + n);
+          });
         }
       }
+      if (best.size) return best;
+    } catch {
+      // Try the next source.
     }
-  } catch {
-    // Try the leaders.
   }
   if (best.size) return best;
   try {
@@ -307,12 +323,16 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
     .map((p) => p.espn_id as string);
   if (gone.length) await db.from("pf_players").delete().eq("pool_id", pool.id).in("espn_id", gone);
 
+  // How many teams came with a depth chart (starters ranked), for the commissioner's message.
+  const ranked = new Set(rows.filter((r) => r.pos !== "DEF" && r.depth != null).map((r) => r.team_id)).size;
+  const depthNote = ranked === teams.length ? " (depth charts for every team)" : `; depth charts for ${ranked} of ${teams.length} teams`;
+
   // Rosters lock at the first Wild Card kickoff unless the commissioner set a time.
   if (!settings.lock_at && firstKickoff) {
     const all = (pool.settings ?? {}) as Row;
     await db.from("pools").update({ settings: { ...all, playoff_fantasy: { ...(all.playoff_fantasy ?? {}), lock_at: firstKickoff } } }).eq("id", pool.id);
   }
   return failed.length
-    ? { ok: true, message: `Loaded ${rows.length} players, but ESPN didn't answer for ${failed.join(", ")}. Reload to pick them up.` }
-    : { ok: true, message: `Loaded ${rows.length} players from ${teams.length} teams.` };
+    ? { ok: true, message: `Loaded ${rows.length} players${depthNote}, but ESPN didn't answer for ${failed.join(", ")}. Reload to pick them up.` }
+    : { ok: true, message: `Loaded ${rows.length} players from ${teams.length} teams${depthNote}.` };
 }
