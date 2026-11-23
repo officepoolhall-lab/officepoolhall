@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition, type CSSProperties } from "react";
-import { useRouter } from "next/navigation";
-import { CheckIcon, TeamLogo, buttonClass, chipClass } from "@/components/ui";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { CheckIcon, TeamLogo, chipClass } from "@/components/ui";
+import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
 import { FitText } from "@/components/FitText";
 import { POSITIONS, type Position } from "@/lib/playoffFantasy";
@@ -46,7 +46,6 @@ export function PfLineupBuilder({
   /** Injury designations: Q, D or O. */
   injuries?: Record<string, "Q" | "D" | "O">;
 }) {
-  const router = useRouter();
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const teamOf = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
   const [picked, setPicked] = useState<string[]>(initial.filter((id) => byId.has(id)));
@@ -55,28 +54,38 @@ export function PfLineupBuilder({
   const [query, setQuery] = useState("");
   const [backups, setBackups] = useState(false);
   const [info, setInfo] = useState<Player | null>(null);
-  // Phones: the lineup is a sheet that slides up from the bottom; desktop always shows it.
-  const [lineupOpen, setLineupOpen] = useState(false);
-  const [message, setMessage] = useState<{ error?: string; ok?: string } | null>(null);
-  const [pending, start] = useTransition();
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const open = POSITIONS.filter((p) => roster[p] > 0);
   const total = open.reduce((t, p) => t + roster[p], 0);
   const mine: Player[] = picked.flatMap((id) => (byId.has(id) ? [byId.get(id) as Player] : []));
   const countAt = (p: Position) => mine.filter((x) => x.pos === p).length;
   const usedTeams = new Map(mine.map((p) => [p.teamId, p]));
-  const dirty = picked.join() !== initial.join();
 
+  // Every tap saves at once. Saves run one after another (the last one wins); one that fails puts
+  // the lineup back to what was last saved.
+  const saved = useRef<string[]>(initial.filter((id) => byId.has(id)));
+  const chain = useRef<Promise<unknown>>(Promise.resolve());
+  const latest = useRef(0);
   const toggle = (p: Player) => {
-    setMessage(null);
-    setPicked((cur) => (cur.includes(p.id) ? cur.filter((id) => id !== p.id) : [...cur, p.id]));
-  };
-  const onSave = () =>
-    start(async () => {
-      const r = await save(picked).catch(() => ({ error: "That didn't save. Try again." }));
-      setMessage(r.error ? { error: r.error } : { ok: "Lineup saved." });
-      if (!r.error) router.refresh();
+    const next = picked.includes(p.id) ? picked.filter((id) => id !== p.id) : [...picked, p.id];
+    setPicked(next);
+    setError(null);
+    setStatus("saving");
+    const n = ++latest.current;
+    chain.current = chain.current.then(async () => {
+      const r = await save(next).catch(() => ({ error: "That didn't save. Try again." }));
+      if (r.error) {
+        setError(r.error);
+        setStatus("error");
+        if (n === latest.current) setPicked(saved.current);
+      } else {
+        saved.current = next;
+        if (n === latest.current) setStatus("saved");
+      }
     });
+  };
 
   // Which players each team card lists.
   const q = query.trim().toLowerCase();
@@ -116,6 +125,50 @@ export function PfLineupBuilder({
     // Teams still open first, then the ones already used.
     .sort((a, b) => Number(usedTeams.has(a.t.id)) - Number(usedTeams.has(b.t.id)) || a.t.name.localeCompare(b.t.name));
 
+  // The lineup: a spot for every position. × drops a player; an open spot shows that position.
+  // fit: the desktop column, whose rows shrink to fit the screen's height.
+  const lineupList = (fit: boolean) => (
+    <ul
+      style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], countAt(p)), 0) } as CSSProperties}
+      className={`divide-y divide-line border-y border-line ${fit ? "lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto" : ""}`}
+    >
+      {open.flatMap((p) => {
+        const at = mine.filter((x) => x.pos === p);
+        return Array.from({ length: Math.max(roster[p], at.length) }, (_, i) => {
+          const pl = at[i];
+          const team = pl ? teamOf.get(pl.teamId) : null;
+          return (
+            <li key={`${p}${i}`} className={`flex min-h-9 items-center gap-2 py-0.5 ${fit ? "lg:min-h-0 lg:py-0" : ""}`}>
+              <span className="w-8 shrink-0 text-xs font-bold text-muted">{p}</span>
+              {pl ? (
+                <>
+                  <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />
+                  <button
+                    type="button"
+                    onClick={() => setInfo(pl)}
+                    title={pl.pos === "DEF" ? "Recent games" : "Game log and season stats"}
+                    className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-md px-1 text-left transition hover:bg-hover"
+                  >
+                    <span className="min-w-0 truncate text-sm font-semibold text-ink">{pl.name}</span>
+                    {injuryTag(pl)}
+                    <span className="shrink-0 text-xs text-muted">{team?.abbreviation}</span>
+                  </button>
+                  <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
+                    ×
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={() => setPos(p)} className="-mx-1.5 flex-1 rounded-md px-1.5 py-1 text-left text-sm text-faint transition hover:bg-hover hover:text-accent">
+                  Open
+                </button>
+              )}
+            </li>
+          );
+        });
+      })}
+    </ul>
+  );
+
   // Q (questionable) in amber; D (doubtful) and O (out) in red.
   const INJURY_NAME = { Q: "Questionable", D: "Doubtful", O: "Out" } as const;
   const injuryTag = (p: Player) => {
@@ -131,72 +184,21 @@ export function PfLineupBuilder({
 
 
   return (
-    // Desktop: sized to the screen above the Save bar, so the page itself never scrolls. The
+    // Desktop: sized to the screen, so the page itself never scrolls. The
     // lineup stays put on the left; only the players scroll, inside their own column.
     <div
       data-wide
       data-fill-viewport
-      className="pb-24 lg:h-[max(18rem,calc(100dvh-8rem-3px-4.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
+      className="pb-16 lg:h-[max(18rem,calc(100dvh-8rem-3px-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
     >
       <div className="lg:grid lg:h-full lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
         {/* The lineup: a spot for every position. Tap × to drop a player, an open spot to see that position. */}
         {/* Desktop: the lineup shrinks its rows to fit the screen's height (down to a floor). */}
-        {/* Phones: the lineup slides up from the bottom (My Lineup in the bottom bar); tap outside or Done to close. */}
-        {lineupOpen && <div aria-hidden onClick={() => setLineupOpen(false)} className="fixed inset-0 z-30 bg-black/40 lg:hidden" />}
-        <aside
-          aria-label="My lineup"
-          className={`lg:flex lg:min-h-0 lg:flex-col max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[80dvh] max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:rounded-t-2xl max-lg:border-t max-lg:border-line max-lg:bg-bg max-lg:px-4 max-lg:pb-[calc(1rem+env(safe-area-inset-bottom))] max-lg:pt-2 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 ${lineupOpen ? "" : "max-lg:pointer-events-none max-lg:translate-y-full"}`}
-        >
+        {/* Desktop: the lineup on the left (phones: View My Lineup at the bottom of the screen). */}
+        <aside aria-label="My lineup" className="hidden lg:flex lg:min-h-0 lg:flex-col">
           <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-            <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-line lg:hidden" />
-            <h2 className="mb-1 flex shrink-0 items-baseline justify-between gap-3 text-lg font-extrabold tracking-[-0.03em]">
-              <span>
-                {forName ? "Their lineup" : "My Lineup"}
-                <span className="ml-2 text-sm font-semibold tracking-normal text-muted tabular-nums lg:hidden">{mine.length}/{total}</span>
-              </span>
-              <button type="button" onClick={() => setLineupOpen(false)} className="rounded-md px-2 py-0.5 text-sm font-semibold tracking-normal text-accent transition hover:bg-hover lg:hidden">
-                Done
-              </button>
-            </h2>
-            <ul
-              style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], countAt(p)), 0) } as CSSProperties}
-              className={`divide-y divide-line border-y border-line lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto`}
-            >
-              {open.flatMap((p) => {
-                const at = mine.filter((x) => x.pos === p);
-                return Array.from({ length: Math.max(roster[p], at.length) }, (_, i) => {
-                  const pl = at[i];
-                  const team = pl ? teamOf.get(pl.teamId) : null;
-                  return (
-                    <li key={`${p}${i}`} className="flex min-h-9 items-center gap-2 py-0.5 lg:min-h-0 lg:py-0">
-                      <span className="w-8 shrink-0 text-xs font-bold text-muted">{p}</span>
-                      {pl ? (
-                        <>
-                          <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />
-                          <button
-                            type="button"
-                            onClick={() => setInfo(pl)}
-                            title={pl.pos === "DEF" ? "Recent games" : "Game log and season stats"}
-                            className="-mx-1 flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-md px-1 text-left transition hover:bg-hover"
-                          >
-                            <span className="min-w-0 truncate text-sm font-semibold text-ink">{pl.name}</span>
-                            {injuryTag(pl)}
-                            <span className="shrink-0 text-xs text-muted">{team?.abbreviation}</span>
-                          </button>
-                          <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
-                            ×
-                          </button>
-                        </>
-                      ) : (
-                        <button type="button" onClick={() => { setPos(p); setLineupOpen(false); }} className="-mx-1.5 flex-1 rounded-md px-1.5 py-1 text-left text-sm text-faint transition hover:bg-hover hover:text-accent">
-                          Open
-                        </button>
-                      )}
-                    </li>
-                  );
-                });
-              })}
-            </ul>
+            <h2 className="mb-1 shrink-0 text-lg font-extrabold tracking-[-0.03em]">{forName ? "Their lineup" : "My Lineup"}</h2>
+            {lineupList(true)}
           </div>
         </aside>
 
@@ -210,6 +212,20 @@ export function PfLineupBuilder({
                   {mine.length} <span className="text-muted">of {total} picked</span>
                 </span>
                 {lockText && <span className="text-sm text-muted">{lockText}</span>}
+              </div>
+              {/* Each tap saves on its own. */}
+              <div role="status" aria-live="polite" className={`mt-0.5 flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
+                {status === "saving" ? (
+                  "Saving…"
+                ) : status === "error" ? (
+                  error
+                ) : status === "saved" ? (
+                  <>
+                    <CheckIcon className="size-3.5 text-win" /> Saved
+                  </>
+                ) : (
+                  "Your picks save as you tap them."
+                )}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1" aria-label="Teams still free">
@@ -330,27 +346,13 @@ export function PfLineupBuilder({
         </div>
       </div>
 
-      {/* Count and Save, always in reach. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:max-w-none">
-          <div className="min-w-0 flex-1">
-            {/* Phones: the My Lineup button carries the count. */}
-            <div className="text-[15px] font-semibold text-ink tabular-nums max-sm:hidden">
-              {mine.length} of {total} players{forName ? ` for ${forName}` : ""}
-              <span className="ml-2 text-sm font-normal text-muted">{teams.length - usedTeams.size} teams left</span>
-            </div>
-            {message?.error && <div className="text-xs font-semibold text-loss">{message.error}</div>}
-            {message?.ok && !dirty && <div className="text-xs font-semibold text-win">{message.ok}</div>}
-            {dirty && !message?.error && <div className="text-xs text-muted">Not saved yet</div>}
-          </div>
-          <button type="button" onClick={() => setLineupOpen(true)} aria-expanded={lineupOpen} className={buttonClass("secondary", "!px-4 ring-1 ring-accent text-accent lg:hidden")}>
-            My Lineup <span className="tabular-nums">{mine.length}/{total}</span>
-          </button>
-          <button type="button" onClick={onSave} disabled={pending || !dirty} className={buttonClass("accent", "disabled:opacity-40")}>
-            {pending ? "Saving…" : "Save lineup"}
-          </button>
-        </div>
-      </div>
+      {/* Phones: the lineup in a drawer from the bottom, like the other pools' Pool Summary. */}
+      <GridPanelDrawer title="My Lineup" tabId="pf-lineup-button" tabClassName="lg:hidden">
+        <p className="mb-2 text-sm text-muted tabular-nums">
+          {mine.length} of {total} picked · {teams.length - usedTeams.size} teams left
+        </p>
+        {lineupList(false)}
+      </GridPanelDrawer>
 
       {info &&
         (info.pos === "DEF" ? (
