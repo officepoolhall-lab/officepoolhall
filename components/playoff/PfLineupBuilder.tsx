@@ -68,6 +68,7 @@ export function PfLineupBuilder({
   // Desktop: exactly the screen's height below where the page starts (header, tabs and any
   // banner above), so the page itself never scrolls; only the team cards do.
   const frame = useRef<HTMLDivElement>(null);
+  const footer = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = frame.current;
     if (!el) return;
@@ -79,7 +80,8 @@ export function PfLineupBuilder({
       }
       const top = el.getBoundingClientRect().top + window.scrollY;
       const below = parseFloat(getComputedStyle(el.parentElement ?? el).paddingBottom) || 0;
-      el.style.height = `${Math.max(288, window.innerHeight - top - below)}px`;
+      const bar = footer.current?.offsetHeight ?? 0;
+      el.style.height = `${Math.max(288, window.innerHeight - top - Math.max(below, bar + 8))}px`;
     };
     fit();
     window.addEventListener("resize", fit);
@@ -155,7 +157,7 @@ export function PfLineupBuilder({
   const lineupList = (fit: boolean) => (
     <ul
       style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], countAt(p)), 0) } as CSSProperties}
-      className={`divide-y divide-line border-y border-line ${fit ? "lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto" : ""}`}
+      className={`relative divide-y divide-line border-y border-line ${fit ? "lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto" : ""}`}
     >
       {open.flatMap((p) => {
         const at = mine.filter((x) => x.pos === p);
@@ -313,7 +315,7 @@ export function PfLineupBuilder({
           {cards.length === 0 ? (
             <p className="py-6 text-sm text-muted">No players match.</p>
           ) : (
-            <div className="grid content-start gap-x-4 gap-y-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 2xl:grid-cols-3">
+            <div className="relative grid content-start gap-x-4 gap-y-3 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 2xl:grid-cols-3">
               {cards.map(({ t, list }) => {
                 const used = usedTeams.get(t.id);
                 return (
@@ -373,12 +375,13 @@ export function PfLineupBuilder({
       </div>
 
       {/* Phones: the lineup in a drawer from the bottom, like the other pools' Pool Summary. */}
-      {/* Phones: a bar fixed along the bottom (count and save status); the View My Lineup tab sits
-          on its top edge and opens the lineup drawer. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+      {/* A bar fixed along the bottom, as on every pool's My Picks: the count and save status. On
+          phones the View My Lineup tab sits on its top edge and opens the lineup drawer. */}
+      <div ref={footer} className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="flex h-12 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-sm">
           <span className="font-semibold tabular-nums">
             {mine.length} <span className="font-normal text-muted">of {total} picked</span>
+            {lockText && <span className="ml-3 hidden font-normal text-muted lg:inline">{lockText}</span>}
           </span>
           <span className={`flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
             {status === "saving" ? "Saving…" : status === "error" ? "Not saved" : status === "saved" ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : `${teams.length - usedTeams.size} teams left`}
