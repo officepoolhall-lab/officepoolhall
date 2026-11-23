@@ -22,7 +22,8 @@ import { PfBracket } from "./PfBracket";
 const card = "rounded-2xl bg-surface p-4 sm:p-5";
 const tzOf = (ctx: PoolBase) => ((ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago");
 const lockLabel = (iso: string, tz: string) => formatInTimeZone(iso, tz, "EEE, MMM d · h:mm a");
-const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ""));
+/** Points, always to two decimals (12.40, 0.00). */
+const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 
 /** One entry's roster, position by position, with each player's points and whether his team is still in. */
 function RosterTable({ ids, players, teams, pts }: { ids: string[]; players: PfPlayer[]; teams: PfTeam[]; pts: PfPoints }) {
@@ -84,9 +85,8 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   return (
     <div data-wide className="space-y-6">
       {pts.live && <AutoRefresh active />}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_minmax(0,19rem)] xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,23rem)] 2xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,27rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
-        {/* The playoffs and where everyone stands: a narrow column (everything in it stays on one
-            line, shrinking to fit), leaving the Pool Summary more room. */}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+        {/* The playoffs and where everyone stands (everything in it stays on one line, shrinking to fit). */}
         <FillColumn className="space-y-6 lg:pr-6">
           <section className="border-b border-line pb-4">
             <div className="whitespace-nowrap text-lg font-bold text-ink">NFL Playoffs</div>
