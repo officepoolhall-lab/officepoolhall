@@ -281,10 +281,13 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster }: 
   // After the lock: the most rostered.
   const counts = new Map<string, number>();
   if (locked) for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
-  const popular = [...counts.entries()]
-    .filter(([id]) => playerOf.has(id))
-    .sort((a, b) => b[1] - a[1] || playerOf.get(a[0])!.name.localeCompare(playerOf.get(b[0])!.name))
-    .slice(0, 8);
+  // The two most rostered at each position.
+  const popular = POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) =>
+    [...counts.entries()]
+      .filter(([id]) => playerOf.get(id)?.pos === pos)
+      .sort((a, b) => b[1] - a[1] || playerOf.get(a[0])!.name.localeCompare(playerOf.get(b[0])!.name))
+      .slice(0, 2),
+  );
 
   return (
     <>
