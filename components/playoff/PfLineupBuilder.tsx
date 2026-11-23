@@ -55,7 +55,7 @@ export function PfLineupBuilder({
   const [query, setQuery] = useState("");
   const [backups, setBackups] = useState(false);
   const [info, setInfo] = useState<Player | null>(null);
-  // Phones: the lineup folds away so the players are in reach; desktop always shows it.
+  // Phones: the lineup is a sheet that slides up from the bottom; desktop always shows it.
   const [lineupOpen, setLineupOpen] = useState(false);
   const [message, setMessage] = useState<{ error?: string; ok?: string } | null>(null);
   const [pending, start] = useTransition();
@@ -141,17 +141,26 @@ export function PfLineupBuilder({
       <div className="lg:grid lg:h-full lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
         {/* The lineup: a spot for every position. Tap × to drop a player, an open spot to see that position. */}
         {/* Desktop: the lineup shrinks its rows to fit the screen's height (down to a floor). */}
-        <aside className="mb-5 lg:mb-0 lg:flex lg:min-h-0 lg:flex-col">
+        {/* Phones: the lineup slides up from the bottom (My Lineup in the bottom bar); tap outside or Done to close. */}
+        {lineupOpen && <div aria-hidden onClick={() => setLineupOpen(false)} className="fixed inset-0 z-30 bg-black/40 lg:hidden" />}
+        <aside
+          aria-label="My lineup"
+          className={`lg:flex lg:min-h-0 lg:flex-col max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[80dvh] max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:rounded-t-2xl max-lg:border-t max-lg:border-line max-lg:bg-bg max-lg:px-4 max-lg:pb-[calc(1rem+env(safe-area-inset-bottom))] max-lg:pt-2 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 ${lineupOpen ? "" : "max-lg:pointer-events-none max-lg:translate-y-full"}`}
+        >
           <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+            <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-line lg:hidden" />
             <h2 className="mb-1 flex shrink-0 items-baseline justify-between gap-3 text-lg font-extrabold tracking-[-0.03em]">
-              {forName ? "Their lineup" : "My Lineup"}
-              <button type="button" onClick={() => setLineupOpen(!lineupOpen)} aria-expanded={lineupOpen} className="rounded-md px-1.5 py-0.5 text-sm font-semibold tracking-normal text-accent transition hover:bg-hover lg:hidden">
-                {lineupOpen ? "Hide" : `Show (${mine.length}/${total})`}
+              <span>
+                {forName ? "Their lineup" : "My Lineup"}
+                <span className="ml-2 text-sm font-semibold tracking-normal text-muted tabular-nums lg:hidden">{mine.length}/{total}</span>
+              </span>
+              <button type="button" onClick={() => setLineupOpen(false)} className="rounded-md px-2 py-0.5 text-sm font-semibold tracking-normal text-accent transition hover:bg-hover lg:hidden">
+                Done
               </button>
             </h2>
             <ul
               style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], countAt(p)), 0) } as CSSProperties}
-              className={`divide-y divide-line border-y border-line lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto ${lineupOpen ? "" : "max-lg:hidden"}`}
+              className={`divide-y divide-line border-y border-line lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto`}
             >
               {open.flatMap((p) => {
                 const at = mine.filter((x) => x.pos === p);
@@ -325,7 +334,8 @@ export function PfLineupBuilder({
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:max-w-none">
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-semibold text-ink tabular-nums">
+            {/* Phones: the My Lineup button carries the count. */}
+            <div className="text-[15px] font-semibold text-ink tabular-nums max-sm:hidden">
               {mine.length} of {total} players{forName ? ` for ${forName}` : ""}
               <span className="ml-2 text-sm font-normal text-muted">{teams.length - usedTeams.size} teams left</span>
             </div>
@@ -333,6 +343,9 @@ export function PfLineupBuilder({
             {message?.ok && !dirty && <div className="text-xs font-semibold text-win">{message.ok}</div>}
             {dirty && !message?.error && <div className="text-xs text-muted">Not saved yet</div>}
           </div>
+          <button type="button" onClick={() => setLineupOpen(true)} aria-expanded={lineupOpen} className={buttonClass("secondary", "!px-4 ring-1 ring-accent text-accent lg:hidden")}>
+            My Lineup <span className="tabular-nums">{mine.length}/{total}</span>
+          </button>
           <button type="button" onClick={onSave} disabled={pending || !dirty} className={buttonClass("accent", "disabled:opacity-40")}>
             {pending ? "Saving…" : "Save lineup"}
           </button>
