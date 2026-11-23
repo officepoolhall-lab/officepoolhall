@@ -374,7 +374,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
  * Standings, laid out like the golf pools': every entry's full lineup as a card across the
  * screen on desktop (as many columns as fit), a list to tap open on phones. Each card: place,
  * name and points, then its players by position with their points (a player whose team is out
- * is crossed out). Other entries' lineups show once lineups lock (the commissioner sees them all).
+ * is crossed out). Other entries' lineups show once lineups lock, for everyone.
  */
 export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
@@ -392,14 +392,16 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
       .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id) || a.name.localeCompare(b.name));
   // The narrowest card that shows everything: position, logo, points and gaps (about 7rem) plus
   // the longest player name at 13px (~0.45rem a letter), or the entry's name along the top.
-  const longestPlayer = Math.max(0, ...rows.flatMap((r) => lineup(r).map((p) => p.name.length)));
+  const longestPlayer = Math.max(0, ...rows.filter((r) => locked || r.userId === me).flatMap((r) => lineup(r).map((p) => p.name.length)));
   const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
   const cardRem = Math.max(14, Math.ceil(Math.max(7.5 + longestPlayer * 0.45, 5.5 + longestEntry * 0.52) * 2) / 2);
-  const hidden = !locked && !ctx.isCommissioner;
 
   const Players = ({ r }: { r: PfRow }) => {
+    // Before the lock only your own lineup shows here, for everyone (the commissioner included:
+    // lineups are set or fixed on the Commissioner pages).
+    if (!locked && r.userId !== me) return <p className="py-1.5 text-xs text-muted">Shows when lineups lock.</p>;
     const list = lineup(r);
-    if (!list.length) return <p className="py-1.5 text-xs text-muted">{r.userId === me || !hidden ? "No lineup yet." : "Shows when lineups lock."}</p>;
+    if (!list.length) return <p className="py-1.5 text-xs text-muted">No lineup yet.</p>;
     return (
       <ul className="mt-1">
         {list.map((p) => {
@@ -445,11 +447,6 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
                 </div>
                 {locked && pts.roundsStarted > 0 && <p className="mt-0.5 text-[11px] tabular-nums text-muted">{r.alive} of {r.playerIds.length} still playing</p>}
                 <Players r={r} />
-                {ctx.isCommissioner && (
-                  <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1 mt-1 inline-block rounded-md px-1 text-[11px] font-semibold text-accent transition hover:bg-hover">
-                    Edit lineup
-                  </Link>
-                )}
               </li>
             ))}
           </ol>
@@ -468,11 +465,6 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
                 </summary>
                 <div className="px-2 pb-3 pl-11">
                   <Players r={r} />
-                  {ctx.isCommissioner && (
-                    <Link href={`/p/${slug}/picks?for=${r.userId}`} className="-mx-1 mt-1 inline-block rounded-md px-1 text-xs font-semibold text-accent transition hover:bg-hover">
-                      Edit lineup
-                    </Link>
-                  )}
                 </div>
               </details>
             ))}
