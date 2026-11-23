@@ -13,6 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { POSITIONS, ROUNDS, recLabel, rosterSize, type PfSettings } from "@/lib/playoffFantasy";
+import { getPlayoffGames, getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 
@@ -102,7 +103,11 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
+  const mineAt = mine ? rows.indexOf(mine) : -1;
   const size = rosterSize(settings);
+  // The Wild Card matchups (as the standings stand today until the season is over).
+  const [picture, games] = await Promise.all([getPlayoffPicture(ctx.pool.season).catch(() => null), getPlayoffGames(ctx.pool.season).catch(() => [])]);
+  const fieldSet = games.filter((g) => g.round === 0).length >= 6;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
   // Rosters in: counted for everyone (others' lineups stay hidden until the lock).
@@ -206,26 +211,18 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
             {rows.length === 0 ? (
               <Empty>No entries yet.</Empty>
             ) : (
+              // Every entry: phones show the top 10, desktop as many as fit beside the other
+              // columns (FillColumn). Your own row is pinned under the list whenever it's cut.
               <ul data-fill-list className="mt-2 divide-y divide-line border-y border-line">
-                {rows.slice(0, 40).map((r) => {
-                  const me = r.userId === ctx.entryUserId;
-                  return (
-                    <li key={r.userId} {...(me ? { "data-fill-me": "" } : {})} className={`flex items-center gap-2.5 py-1.5 text-sm ${me ? "bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]" : ""}`}>
-                      <span className="w-6 shrink-0 pl-1 text-right text-xs tabular-nums text-muted">{locked ? r.rank : ""}</span>
-                      <span className={`min-w-0 flex-1 truncate ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</span>
-                      {locked ? (
-                        <>
-                          <span className="shrink-0 text-xs text-muted tabular-nums">{r.alive} left</span>
-                          <span className="w-12 shrink-0 pr-1 text-right font-bold tabular-nums">{fmt(r.points)}</span>
-                        </>
-                      ) : (ctx.isCommissioner || me) ? (
-                        <span className={`shrink-0 pr-1 text-xs font-semibold tabular-nums ${r.playerIds.length >= size ? "text-win" : "text-muted"}`}>
-                          {r.playerIds.length >= size ? "Roster in" : `${r.playerIds.length}/${size}`}
-                        </span>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                {rows.map((r, i) => (
+                  <StandingRow key={r.userId} r={r} me={r.userId === ctx.entryUserId} locked={locked} size={size} progress={ctx.isCommissioner} className={i >= 10 ? "max-lg:hidden" : ""} />
+                ))}
+                {mineAt >= 3 && mine && (
+                  <>
+                    <li aria-hidden data-fill-pin="block" className={`py-1 text-center text-xs leading-none text-faint lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`}>···</li>
+                    <StandingRow r={mine} me locked={locked} size={size} progress={ctx.isCommissioner} pin className={`lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`} />
+                  </>
+                )}
               </ul>
             )}
           </section>
@@ -256,25 +253,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
               </div>
             </div>
           </section>
-          {teams.length > 0 && (
-            <section>
-              <div className="flex items-baseline justify-between gap-3">
-                <SectionLabel fit className="!text-sm lg:!text-base">Playoff Field</SectionLabel>
-                <span className="shrink-0 text-xs text-muted tabular-nums">{teamsLeft} of {teams.length} left</span>
-              </div>
-              <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {teams.map((t) => {
-                  const out = pts.out.has(t.espnId ?? "");
-                  return (
-                    <li key={t.id} className={`flex min-w-0 items-center gap-2 text-sm ${out ? "text-muted line-through opacity-60" : "text-ink"}`}>
-                      <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" />
-                      <span className="truncate">{t.name}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
+          {picture && <PlayoffMatchups picture={picture} out={pts.out} projected={!fieldSet} />}
           {popular.length > 0 && (
             <section>
               <SectionLabel fit className="!text-sm lg:!text-base">Most Rostered</SectionLabel>
@@ -303,6 +282,81 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** One entry's line in Home's standings. */
+function StandingRow({ r, me, locked, size, progress, pin = false, className = "" }: { r: PfRow; me: boolean; locked: boolean; size: number; progress: boolean; pin?: boolean; className?: string }) {
+  return (
+    <li
+      {...(me && !pin ? { "data-fill-me": "" } : {})}
+      {...(pin ? { "data-fill-pin": "flex" } : {})}
+      className={`flex items-center gap-2.5 py-1.5 text-sm ${me ? "bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]" : ""} ${className}`}
+    >
+      <span className="w-6 shrink-0 pl-1 text-right text-xs tabular-nums text-muted">{locked ? r.rank : ""}</span>
+      <span className={`min-w-0 flex-1 truncate ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</span>
+      {locked ? (
+        <>
+          <span className="shrink-0 text-xs text-muted tabular-nums">{r.alive} left</span>
+          <span className="w-12 shrink-0 pr-1 text-right font-bold tabular-nums">{fmt(r.points)}</span>
+        </>
+      ) : progress || me ? (
+        <span className={`shrink-0 pr-1 text-xs font-semibold tabular-nums ${r.playerIds.length >= size ? "text-win" : "text-muted"}`}>
+          {r.playerIds.length >= size ? "Roster in" : `${r.playerIds.length}/${size}`}
+        </span>
+      ) : null}
+    </li>
+  );
+}
+
+type Picture = NonNullable<Awaited<ReturnType<typeof getPlayoffPicture>>>;
+
+/**
+ * The Wild Card round by conference: 7 at 2, 6 at 3, 5 at 4, and the 1 seed's bye. Before the
+ * season ends it's the standings as they are today ("if the season ended today").
+ */
+function PlayoffMatchups({ picture, out, projected }: { picture: Picture; out: Set<string>; projected: boolean }) {
+  const team = (t: Picture["AFC"][number], home: boolean) => {
+    const gone = out.has(t.espnId);
+    return (
+      <div className={`flex min-w-0 items-center gap-2 text-sm ${gone ? "text-muted line-through opacity-60" : "text-ink"}`}>
+        <span className="w-4 shrink-0 text-right text-[11px] font-semibold tabular-nums text-muted">{t.seed}</span>
+        <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5 shrink-0" />
+        <span className={`min-w-0 flex-1 truncate ${home ? "font-semibold" : "font-medium"}`}>{t.name}</span>
+        {t.record && <span className="shrink-0 text-xs tabular-nums text-muted">{t.record}</span>}
+      </div>
+    );
+  };
+  return (
+    <section>
+      <div className="flex items-baseline justify-between gap-3">
+        <SectionLabel fit className="!text-sm lg:!text-base">Wild Card Round</SectionLabel>
+        {projected && <span className="shrink-0 text-xs text-muted">If the season ended today</span>}
+      </div>
+      <div className="mt-2 space-y-4">
+        {(["AFC", "NFC"] as const).map((c) => {
+          const s = picture[c];
+          return (
+            <div key={c}>
+              <div className="mb-1 text-xs font-bold tracking-wide text-muted">{c}</div>
+              <ul className="space-y-1.5">
+                {[[1, 6], [2, 5], [3, 4]].map(([h, a]) => (
+                  <li key={h} className="rounded-lg bg-surface px-2.5 py-1.5">
+                    {team(s[a], false)}
+                    <div className="my-0.5 pl-6 text-[10px] font-semibold uppercase tracking-wide text-faint">at</div>
+                    {team(s[h], true)}
+                  </li>
+                ))}
+                <li className="flex items-center gap-2 rounded-lg px-2.5 py-1 text-sm">
+                  <div className="min-w-0 flex-1">{team(s[0], true)}</div>
+                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">Bye</span>
+                </li>
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

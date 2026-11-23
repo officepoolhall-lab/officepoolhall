@@ -76,17 +76,29 @@ export const matchup = (g: PlayoffGame | null) => {
 const topSeeds = (season: number) => seeds(season, 1);
 
 /** Teams seeded 1 to `max` in each conference in ESPN's standings (as they stand now, mid-season). */
-async function seeds(season: number, max: number): Promise<{ espnId: string; name: string; fullName: string; abbreviation: string | null; logo: string | null }[]> {
+type Seeded = { espnId: string; name: string; fullName: string; abbreviation: string | null; logo: string | null; seed: number; conference: "AFC" | "NFC" | null; record: string | null };
+
+async function seeds(season: number, max: number): Promise<Seeded[]> {
   for (const url of [`https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season=${season}&seasontype=2`, `https://site.web.api.espn.com/apis/v2/sports/football/nfl/standings?season=${season}&seasontype=2`]) {
     try {
       const res = await fetch(url, { headers: HEADERS, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
       if (!res.ok) continue;
       const out: Awaited<ReturnType<typeof seeds>> = [];
-      const walk = (g: Row) => {
+      const walk = (g: Row, conf: Seeded["conference"]) => {
+        const here = String(g?.abbreviation ?? g?.name ?? "");
+        const c: Seeded["conference"] = /\bAFC\b|American/i.test(here) ? "AFC" : /\bNFC\b|National Football Conference/i.test(here) ? "NFC" : conf;
         for (const e of (g?.standings?.entries ?? []) as Row[]) {
-          const seed = ((e?.stats ?? []) as Row[]).find((x) => x?.name === "playoffSeed")?.value;
+          const stats = (e?.stats ?? []) as Row[];
+          const stat = (name: string) => stats.find((x) => x?.name === name);
+          const seed = stat("playoffSeed")?.value;
           if (Number(seed) >= 1 && Number(seed) <= max && e?.team?.id != null) {
+            const w = Number(stat("wins")?.value ?? NaN);
+            const l = Number(stat("losses")?.value ?? NaN);
+            const t = Number(stat("ties")?.value ?? 0) || 0;
             out.push({
+              seed: Number(seed),
+              conference: c,
+              record: Number.isFinite(w) && Number.isFinite(l) ? `${w}-${l}${t ? `-${t}` : ""}` : (stats.find((x) => x?.name === "overall" || x?.type === "total")?.summary ?? null),
               espnId: String(e.team.id),
               name: String(e.team.shortDisplayName ?? e.team.name ?? e.team.displayName ?? ""),
               fullName: String(e.team.displayName ?? ""),
@@ -95,9 +107,9 @@ async function seeds(season: number, max: number): Promise<{ espnId: string; nam
             });
           }
         }
-        for (const c of (g?.children ?? []) as Row[]) walk(c);
+        for (const ch of (g?.children ?? []) as Row[]) walk(ch, c);
       };
-      walk((await res.json()) as Row);
+      walk((await res.json()) as Row, null);
       if (out.length) return out;
     } catch {
       // Try the next address.
@@ -114,6 +126,19 @@ export async function getProjectedField(season: number): Promise<PlayoffField | 
   const teams = await seeds(season, 7);
   const unique = [...new Map(teams.map((t) => [t.espnId, t])).values()];
   return unique.length === 14 ? { teams: unique, firstKickoff: null } : null;
+}
+
+/**
+ * Each conference's seeds 1–7 with records, from ESPN's standings: the Wild Card matchups if
+ * the season ended today (2 hosts 7, 3 hosts 6, 4 hosts 5; 1 has the bye), and the real ones
+ * once it's over. Null unless both conferences have all seven.
+ */
+export async function getPlayoffPicture(season: number): Promise<{ AFC: Seeded[]; NFC: Seeded[] } | null> {
+  const all = await seeds(season, 7);
+  const conf = (c: "AFC" | "NFC") => [...new Map(all.filter((t) => t.conference === c).map((t) => [t.seed, t])).values()].sort((a, b) => a.seed - b.seed);
+  const AFC = conf("AFC");
+  const NFC = conf("NFC");
+  return AFC.length === 7 && NFC.length === 7 ? { AFC, NFC } : null;
 }
 
 export type PlayoffField = {
