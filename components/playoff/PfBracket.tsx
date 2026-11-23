@@ -58,88 +58,156 @@ function conference(seeds: Seeded[], games: PlayoffGame[]) {
   return { wild, bye: s(1), div, champ, champion: champ.state === "tbd" ? null : winner(champ) };
 }
 
-function TeamLine({ side, out }: { side: Side; out: Set<string> }) {
+/** Placeholder names that fit the narrow bracket. */
+const SHORT_LABEL: Record<string, string> = { "Lowest seed left": "Low seed", "Wild Card winner": "WC winner", "Divisional winner": "Div. winner", "AFC champion": "AFC champ", "NFC champion": "NFC champ" };
+
+// Conference colors: AFC red, NFC blue; the Super Bowl gold.
+const COLOR = { AFC: "#d50a0a", NFC: "#1d4ed8", SB: "#b8860b" } as const;
+type Tone = keyof typeof COLOR;
+
+function TeamLine({ side, out, tone, short = false, flip = false }: { side: Side; out: Set<string>; tone: Tone; short?: boolean; flip?: boolean }) {
   if (!side.team) {
     return (
-      <div className="flex h-6 items-center gap-1.5 px-2 text-[11px] italic text-faint">
-        <span className="truncate">{side.label ?? "TBD"}</span>
+      <div className={`flex h-7 items-center px-2 text-[11px] italic text-faint ${flip ? "justify-end text-right" : ""}`}>
+        <span className="truncate">{(short && side.label ? (SHORT_LABEL[side.label] ?? side.label) : side.label) ?? "TBD"}</span>
       </div>
     );
   }
   const t = side.team;
   const gone = side.lost || out.has(t.espnId);
   return (
-    <div className={`flex h-6 min-w-0 items-center gap-1.5 px-2 text-xs ${gone ? "text-muted" : "text-ink"}`}>
-      <span className="w-3 shrink-0 text-right text-[10px] font-semibold tabular-nums text-muted">{t.seed}</span>
-      <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-4 shrink-0" />
-      <span className={`min-w-0 flex-1 truncate ${side.won ? "font-extrabold" : "font-medium"} ${gone ? "line-through decoration-1" : ""}`}>{t.name}</span>
-      {side.score != null && <span className={`shrink-0 tabular-nums ${side.won ? "font-extrabold" : ""}`}>{side.score}</span>}
+    <div
+      className={`flex h-7 min-w-0 items-center gap-1.5 px-2 text-xs ${flip ? "flex-row-reverse text-right" : ""} ${gone ? "text-muted" : "text-ink"}`}
+      style={side.won ? { background: `color-mix(in srgb, ${COLOR[tone]} 14%, transparent)` } : undefined}
+    >
+      <span className="w-3 shrink-0 text-center text-[10px] font-bold tabular-nums" style={{ color: COLOR[tone] }}>
+        {t.seed}
+      </span>
+      <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5 shrink-0" />
+      <span className={`min-w-0 flex-1 truncate ${side.won ? "font-extrabold" : "font-semibold"} ${gone ? "line-through decoration-1 opacity-60" : ""}`}>
+        {short ? (t.abbreviation ?? t.name) : t.name}
+      </span>
+      {side.score != null && <span className={`shrink-0 tabular-nums ${side.won ? "font-extrabold" : "text-muted"}`}>{side.score}</span>}
     </div>
   );
 }
 
-function GameBox({ g, out, live = false }: { g: Game; out: Set<string>; live?: boolean }) {
+function GameBox({ g, out, tone, short, flip }: { g: Game; out: Set<string>; tone: Tone; short?: boolean; flip?: boolean }) {
+  const live = g.state === "in";
   return (
-    <div className={`divide-y divide-line overflow-hidden rounded-lg bg-surface ring-1 ${g.state === "in" || live ? "ring-live" : "ring-line"}`}>
-      <TeamLine side={g.away} out={out} />
-      <TeamLine side={g.home} out={out} />
+    <div
+      className={`overflow-hidden rounded-md bg-bg shadow-sm ring-1 ${live ? "ring-2 ring-live" : "ring-line"} ${flip ? "border-r-[3px]" : "border-l-[3px]"}`}
+      style={{ borderColor: COLOR[tone] }}
+    >
+      <TeamLine side={g.away} out={out} tone={tone} short={short} flip={flip} />
+      <div className="h-px bg-line" />
+      <TeamLine side={g.home} out={out} tone={tone} short={short} flip={flip} />
     </div>
   );
 }
 
-const ROUND_LABELS = ["Wild Card", "Divisional", "Conference"];
+function ByeBox({ team, out, tone, short, flip }: { team: Seeded; out: Set<string>; tone: Tone; short?: boolean; flip?: boolean }) {
+  return (
+    <div className={`overflow-hidden rounded-md ring-1 ring-dashed ring-line ${flip ? "border-r-[3px]" : "border-l-[3px]"}`} style={{ borderColor: COLOR[tone] }}>
+      <TeamLine side={{ team }} out={out} tone={tone} short={short} flip={flip} />
+      <div className={`px-2 pb-1 text-[9px] font-bold uppercase tracking-wider text-muted ${flip ? "text-right" : ""}`}>First-round bye</div>
+    </div>
+  );
+}
+
+function ConfTag({ c }: { c: "AFC" | "NFC" }) {
+  return (
+    <span className="rounded px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white" style={{ background: COLOR[c] }}>
+      {c}
+    </span>
+  );
+}
+
+const ROUNDS = ["Wild Card", "Divisional", "Conference"];
 
 export function PfBracket({ picture, games, out, projected }: { picture: Picture; games: PlayoffGame[]; out: Set<string>; projected: boolean }) {
   const confs = (["AFC", "NFC"] as const).map((c) => ({ c, ...conference(picture[c], games) }));
-  const afc = confs[0];
-  const nfc = confs[1];
+  const [afc, nfc] = confs;
   const sbReal = afc.champion && nfc.champion ? seededGame(games, 3, afc.champion, nfc.champion) : null;
   const sb: Game = sbReal ?? { away: afc.champion ? { team: afc.champion } : tbd("AFC champion"), home: nfc.champion ? { team: nfc.champion } : tbd("NFC champion"), state: "tbd" };
+  const champ = sb.state === "post" ? winner(sb) : null;
+
+  // One conference's three rounds as columns (the NFC's mirrored so both lead to the middle).
+  const columns = (k: (typeof confs)[number], flip: boolean, short: boolean) => {
+    const cols = [
+      <div key="wc" className="flex flex-col justify-around gap-2">
+        <ByeBox team={k.bye} out={out} tone={k.c} short={short} flip={flip} />
+        {k.wild.map((g, i) => (
+          <GameBox key={i} g={g} out={out} tone={k.c} short={short} flip={flip} />
+        ))}
+      </div>,
+      <div key="div" className="flex flex-col justify-around gap-2">
+        {k.div.map((g, i) => (
+          <GameBox key={i} g={g} out={out} tone={k.c} short={short} flip={flip} />
+        ))}
+      </div>,
+      <div key="cc" className="flex flex-col justify-center">
+        <GameBox g={k.champ} out={out} tone={k.c} short={short} flip={flip} />
+      </div>,
+    ];
+    return flip ? cols.reverse() : cols;
+  };
+  const superBowl = (
+    <div className="flex flex-col items-stretch justify-center gap-1.5">
+      <div className="text-center text-[10px] font-extrabold uppercase tracking-wider" style={{ color: COLOR.SB }}>
+        Super Bowl
+      </div>
+      <GameBox g={sb} out={out} tone="SB" short />
+      {champ && (
+        <div className="text-center text-[11px] font-bold" style={{ color: COLOR.SB }}>
+          {champ.name} win it all
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <section>
       <div className="flex items-baseline justify-between gap-3">
         <SectionLabel fit className="!text-sm lg:!text-base">Playoff Bracket</SectionLabel>
         {projected && <span className="shrink-0 text-xs text-muted">If the season ended today</span>}
       </div>
-      <div className="mt-3 space-y-5">
-        {confs.map(({ c, wild, bye, div, champ }) => (
-          <div key={c}>
-            <div className="mb-1.5 text-xs font-bold tracking-wide text-muted">{c}</div>
-            <div className="grid grid-cols-3 gap-2 text-[10px] font-semibold uppercase tracking-wide text-faint">
-              {ROUND_LABELS.map((r) => (
-                <div key={r}>{r}</div>
+
+      {/* Desktop: the classic bracket, AFC on the left, NFC on the right, the Super Bowl in the
+          middle; each round's games sit between the ones that feed them. */}
+      <div className="mt-3 hidden lg:block">
+        <div className="grid grid-cols-7 gap-2 pb-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted">
+          {[...ROUNDS, "", ...[...ROUNDS].reverse()].map((r, i) => (
+            <div key={i} className="truncate">{r}</div>
+          ))}
+        </div>
+        <div className="grid min-h-[26rem] grid-cols-7 gap-2 rounded-xl p-2" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${COLOR.AFC} 7%, transparent), transparent 40%, transparent 60%, color-mix(in srgb, ${COLOR.NFC} 7%, transparent))` }}>
+          {columns(afc, false, true)}
+          {superBowl}
+          {columns(nfc, true, true)}
+        </div>
+        <div className="mt-1.5 flex justify-between px-1">
+          <ConfTag c="AFC" />
+          <ConfTag c="NFC" />
+        </div>
+      </div>
+
+      {/* Phones and tablets: one conference at a time, rounds left to right, then the Super Bowl. */}
+      <div className="mt-3 space-y-5 lg:hidden">
+        {confs.map((k) => (
+          <div key={k.c} className="rounded-xl p-2" style={{ background: `color-mix(in srgb, ${COLOR[k.c]} 6%, transparent)` }}>
+            <div className="mb-1.5 flex items-center gap-2">
+              <ConfTag c={k.c} />
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted">
+              {ROUNDS.map((r) => (
+                <div key={r} className="truncate">{r}</div>
               ))}
             </div>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {/* Wild Card: three games and the 1 seed's bye. */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between gap-1 rounded-lg px-0.5 py-1">
-                  <div className="min-w-0 flex-1">
-                    <TeamLine side={{ team: bye }} out={out} />
-                  </div>
-                  <span className="shrink-0 pr-2 text-[10px] font-semibold uppercase tracking-wide text-muted">Bye</span>
-                </div>
-                {wild.map((g, i) => (
-                  <GameBox key={i} g={g} out={out} />
-                ))}
-              </div>
-              {/* Divisional: two games, spread to sit between the games that feed them. */}
-              <div className="flex flex-col justify-around gap-1.5">
-                {div.map((g, i) => (
-                  <GameBox key={i} g={g} out={out} />
-                ))}
-              </div>
-              {/* Championship. */}
-              <div className="flex flex-col justify-center">
-                <GameBox g={champ} out={out} />
-              </div>
-            </div>
+            <div className="grid grid-cols-3 gap-1.5">{columns(k, false, true)}</div>
           </div>
         ))}
-        <div className="mx-auto max-w-xs">
-          <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-faint">Super Bowl</div>
-          <GameBox g={sb} out={out} />
-        </div>
+        <div className="mx-auto max-w-xs">{superBowl}</div>
       </div>
     </section>
   );
