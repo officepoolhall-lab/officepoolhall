@@ -345,7 +345,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
 
   return (
     <>
-      <PageTitle sub={<>{settings.lock_at ? `Rosters lock ${lockLabel(settings.lock_at, tz)}. ` : ""}One player from each playoff team.</>}>{title}</PageTitle>
+      <h1 className="sr-only">{title}</h1>
       {ctx.isGuest ? (
         <Empty>Guests can&apos;t build a roster.</Empty>
       ) : (
@@ -356,6 +356,8 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
           initial={entry.playerIds}
           save={savePfLineup.bind(null, slug, behalf ? target : null)}
           forName={behalf ? entry.name : undefined}
+          lockText={settings.lock_at ? `Locks ${lockLabel(settings.lock_at, tz)}` : "Locks at the first Wild Card kickoff"}
+          timezone={tz}
         />
       )}
     </>

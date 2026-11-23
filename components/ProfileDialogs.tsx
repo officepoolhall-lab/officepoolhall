@@ -78,7 +78,7 @@ export function PlayerName({ sport, id, name, className = "" }: { sport: Sport; 
   );
 }
 
-function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; name: string; onClose: () => void }) {
+export function PlayerDialog({ sport, id, name, onClose }: { sport: Sport; id: string; name: string; onClose: () => void }) {
   const data = useJson<PlayerProfile>(`/api/espn/player?sport=${sport}&id=${id}`);
   const p = typeof data === "object" ? data : null;
   return (
