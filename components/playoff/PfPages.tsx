@@ -222,19 +222,20 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
   const teamOf = new Map(teams.map((t) => [t.id, t]));
   const started = pts.roundsStarted > 0;
   const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
-  const row = "flex items-center gap-2 py-1.5 text-sm";
   const label = "!text-sm lg:!text-base";
   const who = (p: PfPlayer, right: ReactNode, sub?: string | null) => {
     const t = teamOf.get(p.teamId);
     return (
-      <li key={p.id} className={row}>
-        <span className="w-8 shrink-0 text-[11px] font-bold text-muted">{p.pos}</span>
-        <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-5 shrink-0" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium">{p.name}</span>
-          {sub && <span className="block truncate text-[11px] tabular-nums text-muted">{sub}</span>}
+      // One line: position, logo and name close together, the stat line in between (it shrinks to
+      // fit rather than wrapping or being cut off), the points on the right.
+      <li key={p.id} className="flex items-center gap-1.5 py-1.5 text-[13px]">
+        <span className="w-6 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
+        <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
+        <span className="min-w-0 max-w-[55%] shrink-0">
+          <FitText min={10} className="block font-medium">{p.name}</FitText>
         </span>
-        <span className="shrink-0 font-semibold tabular-nums">{right}</span>
+        <span className="min-w-0 flex-1 pl-1">{sub && <FitText min={7} className="block text-[11px] tabular-nums text-muted">{sub}</FitText>}</span>
+        <span className="shrink-0 pl-1 font-semibold tabular-nums">{right}</span>
       </li>
     );
   };
