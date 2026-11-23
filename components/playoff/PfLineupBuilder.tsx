@@ -4,13 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon, TeamLogo, buttonClass, chipClass } from "@/components/ui";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
-import { POSITIONS, POSITION_NAME, type Position } from "@/lib/playoffFantasy";
+import { POSITIONS, type Position } from "@/lib/playoffFantasy";
 
 type Player = { id: string; name: string; pos: Position; teamId: string; depth?: number | null };
 type Team = { id: string; espnId?: string | null; name: string; abbreviation: string | null; logo_url: string | null };
 
 /** How deep each position's list goes before "Show backups": the players who'd usually start. */
-const STARTERS: Record<Position, number> = { QB: 1, RB: 2, WR: 3, TE: 2, K: 1, DEF: 1 };
+const STARTERS: Record<Position, number> = { QB: 1, RB: 2, WR: 3, TE: 1, K: 1, DEF: 1 };
 
 /**
  * Build the lineup, laid out like the other pools' My Picks: the lineup on the left (a spot for
@@ -78,7 +78,8 @@ export function PfLineupBuilder({
     if (pos !== "ALL" && p.pos !== pos) return false;
     if (picked.includes(p.id)) return true;
     if (q) return p.name.toLowerCase().includes(q) || (teamOf.get(p.teamId)?.name ?? "").toLowerCase().includes(q);
-    if (backups || p.pos === "DEF" || !hasDepth.has(p.teamId)) return true;
+    // One team chosen: all of its players.
+    if (backups || teamId !== "ALL" || p.pos === "DEF" || !hasDepth.has(p.teamId)) return true;
     return p.depth != null && p.depth <= STARTERS[p.pos];
   };
   const cards = teams
@@ -164,7 +165,7 @@ export function PfLineupBuilder({
                         </>
                       ) : (
                         <button type="button" onClick={() => { setPos(p); setLineupOpen(false); }} className="-mx-1.5 flex-1 rounded-md px-1.5 py-1 text-left text-sm text-faint transition hover:bg-hover hover:text-accent">
-                          Open · pick a {POSITION_NAME[p].toLowerCase()}
+                          Open
                         </button>
                       )}
                     </li>
@@ -176,13 +177,14 @@ export function PfLineupBuilder({
         </aside>
 
         <div className="min-w-0">
-          {/* Filters: position, team, search, backups. */}
+          {/* Filters: position (one line that wraps, never scrolls), then team, search, backups. */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 sm:pb-0">
-              <button type="button" onClick={() => setPos("ALL")} className={chipClass(pos === "ALL", "shrink-0", "sm")}>All</button>
+            <div className="grid w-full grid-cols-7 gap-1 sm:flex sm:w-auto sm:gap-1.5">
+              <button type="button" onClick={() => setPos("ALL")} className={chipClass(pos === "ALL", "justify-center !px-1 sm:!px-3", "sm")}>All</button>
               {open.map((p) => (
-                <button key={p} type="button" onClick={() => setPos(pos === p ? "ALL" : p)} className={chipClass(pos === p, "shrink-0", "sm")}>
-                  {p} <span className={`ml-1 tabular-nums ${countAt(p) >= roster[p] ? "" : "opacity-70"}`}>{countAt(p)}/{roster[p]}</span>
+                <button key={p} type="button" onClick={() => setPos(pos === p ? "ALL" : p)} className={chipClass(pos === p, "flex-col justify-center !gap-0 !px-1 leading-tight max-sm:!h-auto max-sm:py-1 sm:flex-row sm:!px-3", "sm")}>
+                  <span>{p}</span>
+                  <span className={`text-[10px] tabular-nums sm:ml-1 sm:text-xs ${countAt(p) >= roster[p] ? "" : "opacity-70"}`}>{countAt(p)}/{roster[p]}</span>
                 </button>
               ))}
             </div>
@@ -214,6 +216,7 @@ export function PfLineupBuilder({
             </label>
           </div>
 
+          <p className="mb-2 text-sm text-muted">Tap a player&apos;s name to see his game log and season stats.</p>
           {/* One card per team, its players starters first. */}
           {cards.length === 0 ? (
             <p className="py-6 text-sm text-muted">No players match.</p>
@@ -237,7 +240,6 @@ export function PfLineupBuilder({
                             <span className="w-8 shrink-0 text-xs font-bold text-muted">{p.pos}</span>
                             <span className={`flex min-w-0 flex-1 items-baseline gap-1.5 ${blocked ? "opacity-50" : ""}`}>
                               {nameButton(p, `text-sm ${on ? "font-bold text-accent" : "font-semibold text-ink"}`)}
-                              {p.depth === 1 && p.pos !== "DEF" && <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted">Starter</span>}
                             </span>
                             {blocked && <span className="shrink-0 text-[11px] font-medium text-muted">{blocked}</span>}
                             <button
