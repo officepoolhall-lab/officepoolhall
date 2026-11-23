@@ -143,7 +143,7 @@ export function PfLineupBuilder({
                             {nameButton(pl, "text-sm font-semibold text-ink")}
                             <span className="shrink-0 text-xs text-muted">{team?.abbreviation}</span>
                           </span>
-                          <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss">
+                          <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
                             ×
                           </button>
                         </>
