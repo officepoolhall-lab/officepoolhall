@@ -358,7 +358,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
     );
   }
 
-  const [stats, injuries] = await Promise.all([getPfSeasonStats(ctx.pool.season, players), getPfInjuries(teams)]);
+  const [stats, injuries] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams)]);
   return (
     <>
       <h1 className="sr-only">{title}</h1>

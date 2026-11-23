@@ -41,7 +41,7 @@ export function PfLineupBuilder({
   /** "Locks Sat, Jan 16 · 3:30 PM". */
   lockText?: string | null;
   timezone?: string;
-  /** Regular-season line in each skill player's main category ("812 yds · 7 TD"), shown on desktop, and his yards (for ranking). */
+  /** Regular-season line ("812 yds · 7 TD", a kicker's "23/25 FG · 13 XP", a defense's "37 sacks · 17 takeaways"), shown on desktop, and yards (for ranking). */
   stats?: Record<string, { line: string; vol: number }>;
   /** Injury designations: Q, D or O. */
   injuries?: Record<string, "Q" | "D" | "O">;
