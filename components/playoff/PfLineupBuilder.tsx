@@ -256,19 +256,23 @@ export function PfLineupBuilder({
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-1" aria-label="Teams still free">
-              <span className="mr-1 text-xs font-medium text-muted tabular-nums">{teams.length - usedTeams.size} teams left</span>
-              {teams.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTeamId(teamId === t.id ? "ALL" : t.id)}
-                  title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
-                  className={`rounded-full p-0.5 transition hover:bg-hover ${usedTeams.has(t.id) ? "opacity-25 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
-                >
-                  <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-6" />
-                </button>
-              ))}
+            {/* The 14 teams: one row when there's room, otherwise two even rows of seven. */}
+            <div className="w-full sm:w-auto" aria-label="Teams still free">
+              <span className="mb-1 block text-xs font-medium text-muted tabular-nums sm:hidden">{teams.length - usedTeams.size} teams left</span>
+              <div className="grid grid-cols-7 justify-items-center gap-1 sm:flex sm:items-center">
+                <span className="mr-1 hidden text-xs font-medium text-muted tabular-nums sm:inline">{teams.length - usedTeams.size} teams left</span>
+                {teams.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTeamId(teamId === t.id ? "ALL" : t.id)}
+                    title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
+                    className={`rounded-full p-0.5 transition hover:bg-hover ${usedTeams.has(t.id) ? "opacity-25 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
+                  >
+                    <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-7 sm:size-6" />
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
           {/* Filters: position (one line that wraps, never scrolls), then team, search, backups. */}
