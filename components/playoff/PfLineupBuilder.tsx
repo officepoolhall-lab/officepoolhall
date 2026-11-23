@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CheckIcon, TeamLogo, chipClass } from "@/components/ui";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
@@ -65,6 +65,31 @@ export function PfLineupBuilder({
 
   // Every tap saves at once. Saves run one after another (the last one wins); one that fails puts
   // the lineup back to what was last saved.
+  // Desktop: exactly the screen's height below where the page starts (header, tabs and any
+  // banner above), so the page itself never scrolls; only the team cards do.
+  const frame = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const fit = () => {
+      if (!desktop.matches) {
+        el.style.height = "";
+        return;
+      }
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      const below = parseFloat(getComputedStyle(el.parentElement ?? el).paddingBottom) || 0;
+      el.style.height = `${Math.max(288, window.innerHeight - top - below)}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    desktop.addEventListener("change", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      desktop.removeEventListener("change", fit);
+    };
+  }, []);
+
   const saved = useRef<string[]>(initial.filter((id) => byId.has(id)));
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const latest = useRef(0);
@@ -187,6 +212,7 @@ export function PfLineupBuilder({
     // Desktop: sized to the screen, so the page itself never scrolls. The
     // lineup stays put on the left; only the players scroll, inside their own column.
     <div
+      ref={frame}
       data-wide
       data-fill-viewport
       className="pb-16 lg:h-[max(18rem,calc(100dvh-8rem-3px-1rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
