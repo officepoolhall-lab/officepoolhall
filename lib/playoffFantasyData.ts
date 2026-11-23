@@ -348,11 +348,38 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
  * receiving ("64 rec · 802 yds · 6 TD"). Only players on a depth chart (the rest rarely have
  * numbers). ESPN's per-player season stats, cached six hours; never rejects.
  */
-export type PfStat = { line: string; /** Yards in his main category, for ranking a team's players. */ vol: number };
-export async function getPfSeasonStats(season: number, players: PfPlayer[]): Promise<Record<string, PfStat>> {
-  const want = players.filter((p) => ["QB", "RB", "WR", "TE"].includes(p.pos));
+export type PfStat = {
+  line: string;
+  /** Yards in his main category, for ranking a team's players. */
+  vol: number;
+  /** Regular-season fantasy points under the pool's scoring (when it's given). */
+  fp: number;
+};
+
+/**
+ * Regular-season stats for the pool's players: the stat line and yards (QB, RB, WR, TE) and,
+ * with the pool's scoring, fantasy points for every position: passing, rushing and receiving
+ * yards and touchdowns, catches, interceptions, fumbles lost and two-point conversions; a
+ * kicker's field goals by distance and extra points; a defense's sacks, takeaways, touchdowns
+ * and safeties. Per-game bonuses and points allowed need game logs, so they're left out here.
+ */
+export async function getPfSeasonStats(season: number, players: PfPlayer[], sc?: PfScoring, teams: PfTeam[] = []): Promise<Record<string, PfStat>> {
+  const want = players.filter((p) => ["QB", "RB", "WR", "TE"].includes(p.pos) || (sc && p.pos === "K"));
   const out: Record<string, PfStat> = {};
   const n = (v: number) => Math.round(v).toLocaleString("en-US");
+  const round = (v: number) => Math.round(v * 10) / 10;
+  const reader = (data: Row) => {
+    const cats = (data?.splits?.categories ?? []) as Row[];
+    // A stat by name, from the named category or (if that has none) any category.
+    return (cat: string, ...names: string[]) => {
+      for (const name of names) {
+        const inCat = ((cats.find((x) => x?.name === cat)?.stats ?? []) as Row[]).find((x) => x?.name === name);
+        const any = inCat ?? cats.flatMap((c) => (c?.stats ?? []) as Row[]).find((x) => x?.name === name);
+        if (any) return Number(any.value ?? 0) || 0;
+      }
+      return 0;
+    };
+  };
   const one = async (p: PfPlayer) => {
     try {
       const res = await fetch(`${CORE}/seasons/${season}/types/2/athletes/${encodeURIComponent(p.id)}/statistics`, {
@@ -361,13 +388,7 @@ export async function getPfSeasonStats(season: number, players: PfPlayer[]): Pro
         signal: AbortSignal.timeout(6000),
       });
       if (!res.ok) return;
-      const data = (await res.json()) as Row;
-      const cats = (data?.splits?.categories ?? []) as Row[];
-      const stat = (cat: string, name: string) => {
-        const c = cats.find((x) => x?.name === cat);
-        const s = ((c?.stats ?? []) as Row[]).find((x) => x?.name === name);
-        return Number(s?.value ?? 0) || 0;
-      };
+      const stat = reader((await res.json()) as Row);
       let line: string | null = null;
       let vol = 0;
       if (p.pos === "QB") {
@@ -376,21 +397,65 @@ export async function getPfSeasonStats(season: number, players: PfPlayer[]): Pro
       } else if (p.pos === "RB") {
         vol = stat("rushing", "rushingYards") + stat("receiving", "receivingYards");
         if (stat("rushing", "rushingAttempts")) line = `${n(stat("rushing", "rushingAttempts"))} att · ${n(stat("rushing", "rushingYards"))} yds · ${n(stat("rushing", "rushingTouchdowns"))} TD`;
-      } else {
+      } else if (p.pos === "WR" || p.pos === "TE") {
         vol = stat("receiving", "receivingYards");
         const rec = stat("receiving", "receptions");
         if (rec) line = `${n(rec)} rec · ${n(vol)} yds · ${n(stat("receiving", "receivingTouchdowns"))} TD`;
+      } else if (p.pos === "K") {
+        const made = stat("kicking", "fieldGoalsMade");
+        if (made || stat("kicking", "extraPointsMade")) line = `${n(made)}/${n(stat("kicking", "fieldGoalAttempts", "fieldGoalsAttempted"))} FG · ${n(stat("kicking", "extraPointsMade"))} XP`;
       }
-      if (line) out[p.id] = { line, vol };
+      let fp = 0;
+      if (sc) {
+        if (p.pos === "K") {
+          const long = stat("kicking", "fieldGoalsMade50", "fieldGoalsMade50Plus") || stat("kicking", "fieldGoalsMade50_59") + stat("kicking", "fieldGoalsMade60_99");
+          const mid = stat("kicking", "fieldGoalsMade40_49");
+          const short = Math.max(0, stat("kicking", "fieldGoalsMade") - long - mid);
+          fp = short * sc.fg + mid * sc.fg_40 + long * sc.fg_50 + stat("kicking", "extraPointsMade") * sc.xp;
+        } else {
+          fp =
+            stat("passing", "passingYards") / sc.pass_yds_per_pt +
+            stat("passing", "passingTouchdowns") * sc.pass_td +
+            stat("passing", "interceptions") * sc.pass_int +
+            (stat("rushing", "rushingYards") + stat("receiving", "receivingYards")) / sc.yds_per_pt +
+            stat("rushing", "rushingTouchdowns") * sc.rush_td +
+            stat("receiving", "receivingTouchdowns") * sc.rec_td +
+            stat("receiving", "receptions") * sc.rec +
+            stat("general", "fumblesLost") * sc.fum_lost +
+            (stat("passing", "twoPointPassConvs") + stat("rushing", "twoPointRushConvs") + stat("receiving", "twoPointRecConvs")) * sc.two_pt;
+        }
+      }
+      if (line || fp) out[p.id] = { line: line ?? "", vol, fp: round(fp) };
     } catch {
       // No line for this player.
     }
   };
+  // Defenses: the team's season defense.
+  const defense = async (t: PfTeam) => {
+    if (!sc || !t.espnId) return;
+    try {
+      const res = await fetch(`${CORE}/seasons/${season}/types/2/teams/${encodeURIComponent(t.espnId)}/statistics`, { headers: HEADERS, next: { revalidate: 21600 }, signal: AbortSignal.timeout(6000) });
+      if (!res.ok) return;
+      const stat = reader((await res.json()) as Row);
+      const sacks = stat("defensive", "sacks");
+      const ints = stat("defensiveInterceptions", "interceptions");
+      const fum = stat("defensive", "fumblesRecovered");
+      const tds = stat("defensive", "defensiveTouchdowns");
+      const safeties = stat("defensive", "safeties");
+      const fp = sacks * sc.def_sack + ints * sc.def_int + fum * sc.def_fum_rec + tds * sc.def_td + safeties * sc.def_safety;
+      out[defId(t.espnId)] = { line: `${n(sacks)} sacks · ${n(ints + fum)} takeaways`, vol: 0, fp: round(fp) };
+    } catch {
+      // No line for this defense.
+    }
+  };
   // A few at a time, so a cold cache doesn't fire hundreds of requests at once.
   const queue = [...want];
-  await Promise.all(Array.from({ length: 20 }, async () => {
-    while (queue.length) await one(queue.shift()!);
-  }));
+  await Promise.all([
+    ...Array.from({ length: 20 }, async () => {
+      while (queue.length) await one(queue.shift()!);
+    }),
+    ...teams.map(defense),
+  ]);
   return out;
 }
 

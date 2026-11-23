@@ -8,7 +8,7 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, ROUNDS, optimalLineup, rosterSize, type Position } from "@/lib/playoffFantasy";
+import { POSITIONS, ROUNDS, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffGames, getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
@@ -187,7 +187,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
         {/* The pool's numbers. */}
         <div className="space-y-6 lg:pl-6">
           <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-            <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} />
+            <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} scoring={settings.scoring} />
           </Suspense>
         </div>
       </div>
@@ -212,12 +212,12 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
 }
 
 /**
- * Home's Pool Summary. Before the games: each position's top regular-season producers among the
- * playoff players (to help build a lineup). Once they start: the top scorer at each position and
+ * Home's Pool Summary. Before the games: each position's top regular-season scorers under the
+ * pool's own scoring (to help build a lineup). Once they start: the top scorer at each position and
  * the perfect lineup so far (against the best entry). After the lock: the most rostered players.
  * Never who has or hasn't entered a lineup.
  */
-async function PfSummary({ season, players, teams, rows, pts, locked, roster }: { season: number; players: PfPlayer[]; teams: PfTeam[]; rows: PfRow[]; pts: PfPoints; locked: boolean; roster: Record<Position, number> }) {
+async function PfSummary({ season, players, teams, rows, pts, locked, roster, scoring }: { season: number; players: PfPlayer[]; teams: PfTeam[]; rows: PfRow[]; pts: PfPoints; locked: boolean; roster: Record<Position, number>; scoring: PfScoring }) {
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
   const started = pts.roundsStarted > 0;
@@ -239,12 +239,12 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster }: 
     );
   };
 
-  // Before the games: the regular season's leaders, two at each skill position.
-  const stats = started ? {} : await getPfSeasonStats(season, players);
-  const producers = (["QB", "RB", "WR", "TE"] as const).flatMap((pos) =>
+  // Before the games: the regular season's best under this pool's scoring, two at each position.
+  const stats = started ? {} : await getPfSeasonStats(season, players, scoring, teams);
+  const producers = POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) =>
     players
-      .filter((p) => p.pos === pos && stats[p.id])
-      .sort((a, b) => stats[b.id].vol - stats[a.id].vol)
+      .filter((p) => p.pos === pos && (stats[p.id]?.fp ?? 0) > 0)
+      .sort((a, b) => stats[b.id].fp - stats[a.id].fp)
       .slice(0, 2),
   );
 
@@ -274,8 +274,8 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster }: 
       <SectionLabel fit className={label}>Pool Summary</SectionLabel>
       {!started && producers.length > 0 && (
         <section className="-mt-4">
-          <h3 className="mt-2 text-xs font-semibold text-muted">Top regular-season producers</h3>
-          <ul className="mt-1 divide-y divide-line">{producers.map((p) => who(p, null, stats[p.id].line))}</ul>
+          <h3 className="mt-2 text-xs font-semibold text-muted">Top regular-season scorers (this pool&apos;s scoring)</h3>
+          <ul className="mt-1 divide-y divide-line">{producers.map((p) => who(p, fmt(stats[p.id].fp), stats[p.id].line || null))}</ul>
         </section>
       )}
       {leaders.length > 0 && (
