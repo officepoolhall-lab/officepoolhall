@@ -3,7 +3,8 @@ import { getBenchedIds } from "./bench";
 import { getGameSummary } from "./gameSummary";
 import type { PoolBase } from "./pool";
 import { fresh } from "./microCache";
-import { getPlayoffField, getPlayoffGames, getProjectedField } from "./nflPlayoffs";
+import { getPlayoffField, getPlayoffGames, getPlayoffPicture, getProjectedField, type PlayoffGame } from "./nflPlayoffs";
+import { simulatePlayoffs } from "./playoffFantasyDemo";
 import {
   applyExtras,
   defId,
@@ -95,8 +96,19 @@ export const NO_POINTS: PfPoints = { byPlayer: new Map(), out: new Set(), live: 
  * conversions, safeties). `players` and `teams` are the pool's list, for matching the names in
  * the scoring summary. Never rejects: what can't be read counts as nothing yet.
  */
-export async function getPfPoints(season: number, sc: PfScoring, players: PfPlayer[] = [], teams: PfTeam[] = []): Promise<PfPoints> {
-  const games = (await getPlayoffGames(season).catch(() => [])).filter((g) => g.state !== "pre");
+/** A demo pool's made-up playoffs (settings.playoff_fantasy.demo_sim), from today's standings' seeds. */
+async function demoSim(season: number, players: PfPlayer[], teams: PfTeam[], demo: { through: number; seed: number }) {
+  const picture = await getPlayoffPicture(season).catch(() => null);
+  return picture ? simulatePlayoffs(picture, players, teams, demo.through, demo.seed) : null;
+}
+
+/** The season's playoff games: ESPN's, or a demo pool's made-up ones. */
+export async function getPfGames(season: number, players: PfPlayer[], teams: PfTeam[], demo?: { through: number; seed: number } | null): Promise<PlayoffGame[]> {
+  if (demo) return (await demoSim(season, players, teams, demo))?.games ?? [];
+  return getPlayoffGames(season).catch(() => []);
+}
+
+export async function getPfPoints(season: number, sc: PfScoring, players: PfPlayer[] = [], teams: PfTeam[] = [], demo?: { through: number; seed: number } | null): Promise<PfPoints> {
   const byPlayer = new Map<string, { total: number; rounds: number[] }>();
   const add = (id: string, round: number, pts: number) => {
     const p = byPlayer.get(id) ?? { total: 0, rounds: [0, 0, 0, 0] };
@@ -104,6 +116,20 @@ export async function getPfPoints(season: number, sc: PfScoring, players: PfPlay
     p.total = Math.round((p.total + pts) * 100) / 100;
     byPlayer.set(id, p);
   };
+  if (demo) {
+    // A demo pool: points from the made-up box scores.
+    const sim = await demoSim(season, players, teams, demo);
+    const played = (sim?.games ?? []).filter((g) => g.state === "post");
+    for (const [id, rounds] of sim?.lines ?? []) rounds.forEach((l, i) => l && add(id, i, playerPoints(l, sc)));
+    for (const [id, rounds] of sim?.defs ?? []) rounds.forEach((d, i) => d && add(id, i, defPoints(d, sc)));
+    return {
+      byPlayer,
+      out: new Set(played.flatMap((g) => g.teams.filter((t) => t.lost).map((t) => t.espnId))),
+      live: false,
+      roundsStarted: played.length ? Math.max(...played.map((g) => g.round)) + 1 : 0,
+    };
+  }
+  const games = (await getPlayoffGames(season).catch(() => [])).filter((g) => g.state !== "pre");
   // Full name → player id, per team (ESPN id), from the pool's list.
   const espnOf = new Map(teams.map((t) => [t.id, t.espnId ?? ""]));
   const names = new Map<string, Map<string, string>>();

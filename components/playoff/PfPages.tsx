@@ -11,8 +11,8 @@ import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { POSITIONS, ROUNDS, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
-import { getPlayoffGames, getPlayoffPicture } from "@/lib/nflPlayoffs";
-import { NO_POINTS, getPf, getPfPoints, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
+import { getPlayoffPicture } from "@/lib/nflPlayoffs";
+import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 import { PfBracket } from "./PfBracket";
 
@@ -68,13 +68,13 @@ const NOT_READY = "Rosters open as soon as the playoff field is set, at the end 
  */
 export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
-  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
+  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
   const mineAt = mine ? rows.indexOf(mine) : -1;
   const size = rosterSize(settings);
   // The Wild Card matchups (as the standings stand today until the season is over).
-  const [picture, games] = await Promise.all([getPlayoffPicture(ctx.pool.season).catch(() => null), getPlayoffGames(ctx.pool.season).catch(() => [])]);
+  const [picture, games] = await Promise.all([getPlayoffPicture(ctx.pool.season).catch(() => null), getPfGames(ctx.pool.season, players, teams, settings.demo_sim)]);
   const fieldSet = games.filter((g) => g.round === 0).length >= 6;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
@@ -337,7 +337,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
   if (!entry) return (<><PageTitle>{title}</PageTitle><Empty>{ctx.isGuest ? "Guests can't build a roster." : "This entry isn't playing."}</Empty></>);
 
   if (locked && !behalf) {
-    const pts = await getPfPoints(ctx.pool.season, settings.scoring, players, teams);
+    const pts = await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim);
     const row = pfStandings([entry], players, teams, pts)[0];
     return (
       <>
@@ -390,7 +390,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
  */
 export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
-  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams) : NO_POINTS;
+  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const me = ctx.entryUserId;
   const tz = tzOf(ctx);
