@@ -79,23 +79,29 @@ export function PfLineupBuilder({
 
   // Which players each team card lists.
   const q = query.trim().toLowerCase();
-  const hasDepth = useMemo(() => new Set(players.filter((p) => p.pos !== "DEF" && p.depth != null).map((p) => p.teamId)), [players]);
-  // Each player's place on his team at his position by this season's yards (1 = the leader).
-  const volRank = useMemo(() => {
-    const m = new Map<string, number>();
+  // The players each team shows by default: exactly its top QB, RB, 3 WRs, TE, K and DEF.
+  // Ranked by this season's yards (the leaders), then the depth chart, then name. A player
+  // you've picked from deeper down takes the last spot at his position, so the count stays.
+  const top = useMemo(() => {
+    const keep = new Set<string>();
     const groups = new Map<string, Player[]>();
-    for (const p of players) if (stats[p.id]?.vol) groups.set(`${p.teamId}:${p.pos}`, [...(groups.get(`${p.teamId}:${p.pos}`) ?? []), p]);
-    for (const g of groups.values()) g.sort((a, b) => stats[b.id].vol - stats[a.id].vol).forEach((p, i) => m.set(p.id, i + 1));
-    return m;
-  }, [players, stats]);
+    for (const p of players) groups.set(`${p.teamId}:${p.pos}`, [...(groups.get(`${p.teamId}:${p.pos}`) ?? []), p]);
+    for (const g of groups.values()) {
+      const n = STARTERS[g[0].pos];
+      const ranked = [...g].sort((a, b) => (stats[b.id]?.vol ?? -1) - (stats[a.id]?.vol ?? -1) || (a.depth ?? 99) - (b.depth ?? 99) || a.name.localeCompare(b.name));
+      const mineHere = ranked.filter((p) => picked.includes(p.id));
+      const rest = ranked.filter((p) => !picked.includes(p.id));
+      for (const p of [...mineHere, ...rest].slice(0, Math.max(n, mineHere.length))) keep.add(p.id);
+    }
+    return keep;
+  }, [players, stats, picked]);
   const shown = (p: Player) => {
     if (pos !== "ALL" && p.pos !== pos) return false;
     if (picked.includes(p.id)) return true;
     if (q) return p.name.toLowerCase().includes(q) || (teamOf.get(p.teamId)?.name ?? "").toLowerCase().includes(q);
-    // One team chosen: all of its players.
-    if (backups || teamId !== "ALL" || p.pos === "DEF" || (!hasDepth.has(p.teamId) && !volRank.size)) return true;
-    // A starter on the depth chart, or one of the team's leaders at his position this season.
-    return (p.depth != null && p.depth <= STARTERS[p.pos]) || (volRank.get(p.id) ?? 99) <= STARTERS[p.pos];
+    // One team chosen, or Show backups: everyone.
+    if (backups || teamId !== "ALL") return true;
+    return top.has(p.id);
   };
   const cards = teams
     .filter((t) => teamId === "ALL" || t.id === teamId)
