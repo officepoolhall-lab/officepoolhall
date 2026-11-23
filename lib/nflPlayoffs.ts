@@ -73,16 +73,19 @@ export const matchup = (g: PlayoffGame | null) => {
 };
 
 /** Each conference's top seed (the two teams with a first-round bye), from ESPN's standings. */
-async function topSeeds(season: number): Promise<{ espnId: string; name: string; fullName: string; abbreviation: string | null; logo: string | null }[]> {
+const topSeeds = (season: number) => seeds(season, 1);
+
+/** Teams seeded 1 to `max` in each conference in ESPN's standings (as they stand now, mid-season). */
+async function seeds(season: number, max: number): Promise<{ espnId: string; name: string; fullName: string; abbreviation: string | null; logo: string | null }[]> {
   for (const url of [`https://site.api.espn.com/apis/v2/sports/football/nfl/standings?season=${season}&seasontype=2`, `https://site.web.api.espn.com/apis/v2/sports/football/nfl/standings?season=${season}&seasontype=2`]) {
     try {
       const res = await fetch(url, { headers: HEADERS, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
       if (!res.ok) continue;
-      const out: Awaited<ReturnType<typeof topSeeds>> = [];
+      const out: Awaited<ReturnType<typeof seeds>> = [];
       const walk = (g: Row) => {
         for (const e of (g?.standings?.entries ?? []) as Row[]) {
           const seed = ((e?.stats ?? []) as Row[]).find((x) => x?.name === "playoffSeed")?.value;
-          if (Number(seed) === 1 && e?.team?.id != null) {
+          if (Number(seed) >= 1 && Number(seed) <= max && e?.team?.id != null) {
             out.push({
               espnId: String(e.team.id),
               name: String(e.team.shortDisplayName ?? e.team.name ?? e.team.displayName ?? ""),
@@ -101,6 +104,16 @@ async function topSeeds(season: number): Promise<{ espnId: string; name: string;
     }
   }
   return [];
+}
+
+/**
+ * The playoff field if the season ended today: each conference's seeds 1–7 from ESPN's current
+ * standings (for a demo pool before the real field is set). Null unless all 14 are there.
+ */
+export async function getProjectedField(season: number): Promise<PlayoffField | null> {
+  const teams = await seeds(season, 7);
+  const unique = [...new Map(teams.map((t) => [t.espnId, t])).values()];
+  return unique.length === 14 ? { teams: unique, firstKickoff: null } : null;
 }
 
 export type PlayoffField = {

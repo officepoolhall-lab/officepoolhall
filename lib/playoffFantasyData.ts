@@ -3,7 +3,7 @@ import { getBenchedIds } from "./bench";
 import { getGameSummary } from "./gameSummary";
 import type { PoolBase } from "./pool";
 import { fresh } from "./microCache";
-import { getPlayoffField, getPlayoffGames } from "./nflPlayoffs";
+import { getPlayoffField, getPlayoffGames, getProjectedField } from "./nflPlayoffs";
 import {
   applyExtras,
   defId,
@@ -198,7 +198,8 @@ export async function setupFromEspn(pool: { id: string; season: number; settings
   let firstKickoff: string | null = null;
 
   if (!keepTeams) {
-    const field = await getPlayoffField(pool.season);
+    // A demo pool uses the teams in if the season ended today until the real field is set.
+    const field = (await getPlayoffField(pool.season)) ?? (settings.demo_projected ? await getProjectedField(pool.season) : null);
     if (!field) return { ok: false, message: "The playoff field isn't set yet. It loads by itself once the regular season ends." };
     firstKickoff = field.firstKickoff;
     // Make sure every playoff team is in the site's team list, then make them this pool's teams.
