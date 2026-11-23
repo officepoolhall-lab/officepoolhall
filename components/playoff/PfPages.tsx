@@ -5,6 +5,7 @@ import { Empty, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/component
 import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
 import { FitText } from "@/components/FitText";
+import { FitOrHide } from "@/components/FitOrHide";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
@@ -234,7 +235,8 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
         <span className="min-w-0 max-w-[55%] shrink-0">
           <FitText min={10} className="block font-medium">{p.name}</FitText>
         </span>
-        <span className="min-w-0 flex-1 pl-1">{sub && <FitText min={7} className="block text-[11px] tabular-nums text-muted">{sub}</FitText>}</span>
+        {/* The stat line only when it fits at a readable size; otherwise just name and points. */}
+        <span className="min-w-0 flex-1 pl-1">{sub && <FitOrHide min={10} className="text-[11px] tabular-nums text-muted">{sub}</FitOrHide>}</span>
         <span className="shrink-0 pl-1 font-semibold tabular-nums">{right}</span>
       </li>
     );
@@ -276,7 +278,9 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
       <SectionLabel fit className={label}>Pool Summary</SectionLabel>
       {!started && producers.length > 0 && (
         <section className="-mt-4">
-          <h3 className="mt-2 text-xs font-semibold text-muted">Top regular-season scorers (this pool&apos;s scoring)</h3>
+          <h3 className="mt-2" title="Regular-season fantasy points under this pool's scoring">
+            <FitText min={9} className="block text-xs font-semibold text-muted">Top regular-season scorers · pool scoring</FitText>
+          </h3>
           <ul className="mt-1 divide-y divide-line">{producers.map((p) => who(p, fmt(stats[p.id].fp), stats[p.id].line || null))}</ul>
         </section>
       )}
