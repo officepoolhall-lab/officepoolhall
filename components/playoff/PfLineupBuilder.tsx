@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { CheckIcon, TeamLogo, buttonClass, chipClass } from "@/components/ui";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
@@ -111,26 +111,30 @@ export function PfLineupBuilder({
     <div
       data-wide
       data-fill-viewport
-      className="pb-24 lg:h-[max(30rem,calc(100dvh-8rem-3px-4.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
+      className="pb-24 lg:h-[max(18rem,calc(100dvh-8rem-3px-4.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
     >
       <div className="lg:grid lg:h-full lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
         {/* The lineup: a spot for every position. Tap × to drop a player, an open spot to see that position. */}
-        <aside className="mb-5 lg:mb-0 lg:min-h-0 lg:overflow-y-auto">
-          <div>
-            <h2 className="mb-1 flex items-baseline justify-between gap-3 text-lg font-extrabold tracking-[-0.03em]">
+        {/* Desktop: the lineup shrinks its rows to fit the screen's height (down to a floor). */}
+        <aside className="mb-5 lg:mb-0 lg:flex lg:min-h-0 lg:flex-col">
+          <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+            <h2 className="mb-1 flex shrink-0 items-baseline justify-between gap-3 text-lg font-extrabold tracking-[-0.03em]">
               {forName ? "Their lineup" : "My Lineup"}
               <button type="button" onClick={() => setLineupOpen(!lineupOpen)} aria-expanded={lineupOpen} className="rounded-md px-1.5 py-0.5 text-sm font-semibold tracking-normal text-accent transition hover:bg-hover lg:hidden">
                 {lineupOpen ? "Hide" : `Show (${mine.length}/${total})`}
               </button>
             </h2>
-            <ul className={`divide-y divide-line border-y border-line ${lineupOpen ? "" : "max-lg:hidden"}`}>
+            <ul
+              style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], countAt(p)), 0) } as CSSProperties}
+              className={`divide-y divide-line border-y border-line lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto ${lineupOpen ? "" : "max-lg:hidden"}`}
+            >
               {open.flatMap((p) => {
                 const at = mine.filter((x) => x.pos === p);
                 return Array.from({ length: Math.max(roster[p], at.length) }, (_, i) => {
                   const pl = at[i];
                   const team = pl ? teamOf.get(pl.teamId) : null;
                   return (
-                    <li key={`${p}${i}`} className="flex min-h-9 items-center gap-2 py-0.5">
+                    <li key={`${p}${i}`} className="flex min-h-9 items-center gap-2 py-0.5 lg:min-h-0 lg:py-0">
                       <span className="w-8 shrink-0 text-xs font-bold text-muted">{p}</span>
                       {pl ? (
                         <>
@@ -159,10 +163,10 @@ export function PfLineupBuilder({
         {/* Desktop: the progress bar and filters stay put; the team cards scroll under them. */}
         <div className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
           {/* Above the players: how far along, when it locks, and which teams are still free (beside the lineup, so the whole lineup fits on screen). */}
-          <section className="mb-5 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5">
+          <section className="mb-5 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5 lg:[@media(max-height:800px)]:mb-3 lg:[@media(max-height:800px)]:py-1.5">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl">
+                <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl lg:[@media(max-height:800px)]:text-xl">
                   {mine.length} <span className="text-muted">of {total} picked</span>
                 </span>
                 {lockText && <span className="text-sm text-muted">{lockText}</span>}
@@ -184,7 +188,7 @@ export function PfLineupBuilder({
             </div>
           </section>
           {/* Filters: position (one line that wraps, never scrolls), then team, search, backups. */}
-          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 lg:[@media(max-height:800px)]:mb-2">
             <div className="grid w-full grid-cols-7 gap-1 sm:flex sm:w-auto sm:gap-1.5">
               <button type="button" onClick={() => setPos("ALL")} className={chipClass(pos === "ALL", "justify-center !px-1 sm:!px-3", "sm")}>All</button>
               {open.map((p) => (
