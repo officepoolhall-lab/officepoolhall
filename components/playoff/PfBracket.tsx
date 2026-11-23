@@ -65,7 +65,7 @@ const SHORT_LABEL: Record<string, string> = { "Lowest seed left": "Low seed", "W
 const COLOR = { AFC: "#d50a0a", NFC: "#1d4ed8", SB: "#b8860b" } as const;
 type Tone = keyof typeof COLOR;
 
-/** short: "abbr" always the abbreviation; "auto" the abbreviation in a narrow bracket, the name when there's room. */
+/** short: true, the abbreviation; "auto", the logo alone in a narrow bracket and the name when there's room. */
 type Short = boolean | "auto";
 
 function TeamLine({ side, out, tone, short = false, flip = false }: { side: Side; out: Set<string>; tone: Tone; short?: Short; flip?: boolean }) {
@@ -89,10 +89,8 @@ function TeamLine({ side, out, tone, short = false, flip = false }: { side: Side
       <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5 shrink-0" />
       <span className={`min-w-0 flex-1 truncate ${side.won ? "font-extrabold" : "font-semibold"} ${gone ? "line-through decoration-1 opacity-60" : ""}`}>
         {short === "auto" ? (
-          <>
-            <span className="@[30rem]:hidden">{t.abbreviation ?? t.name}</span>
-            <span className="hidden @[30rem]:inline">{t.name}</span>
-          </>
+          // Narrow (phones): just the seed and logo; the name once there's room.
+          <span className="hidden @[30rem]:inline">{t.name}</span>
         ) : short ? (
           (t.abbreviation ?? t.name)
         ) : (
