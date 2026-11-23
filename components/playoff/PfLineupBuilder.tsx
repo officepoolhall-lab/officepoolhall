@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { TeamLogo, buttonClass, chipClass } from "@/components/ui";
 import { POSITIONS, POSITION_NAME, type Position } from "@/lib/playoffFantasy";
 
-type Player = { id: string; name: string; pos: Position; teamId: string };
+type Player = { id: string; name: string; pos: Position; teamId: string; depth?: number | null };
 type Team = { id: string; name: string; abbreviation: string | null; logo_url: string | null };
 
 /**
@@ -57,7 +57,13 @@ export function PfLineupBuilder({
   const q = query.trim().toLowerCase();
   const list = players
     .filter((p) => p.pos === tab && (!q || p.name.toLowerCase().includes(q) || (teamOf.get(p.teamId)?.name ?? "").toLowerCase().includes(q)))
-    .sort((a, b) => (teamOf.get(a.teamId)?.name ?? "").localeCompare(teamOf.get(b.teamId)?.name ?? "") || a.name.localeCompare(b.name));
+    // By team, starters first (ESPN's depth chart), then by name.
+    .sort(
+      (a, b) =>
+        (teamOf.get(a.teamId)?.name ?? "").localeCompare(teamOf.get(b.teamId)?.name ?? "") ||
+        (a.depth ?? 99) - (b.depth ?? 99) ||
+        a.name.localeCompare(b.name),
+    );
 
   return (
     <div className="pb-24">
