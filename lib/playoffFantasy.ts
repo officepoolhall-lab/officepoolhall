@@ -50,6 +50,11 @@ export type PfSettings = {
    * set, use the teams that would be in if the season ended today.
    */
   demo_projected?: boolean;
+  /**
+   * Demo pools only: made-up playoff games and player stats, played through `through` rounds
+   * (1 = Wild Card done, 2 = Divisional done...), the same every time for a given `seed`.
+   */
+  demo_sim?: { through: number; seed: number } | null;
   /** When lineups lock (the first Wild Card kickoff), ISO; null until the commissioner sets it. */
   lock_at: string | null;
   roster: Record<Position, number>;
@@ -94,6 +99,10 @@ export function pfSettings(settings: unknown): PfSettings {
   const n = (k: keyof PfScoring, lo: number, hi: number) => num(sc[k], lo, hi) ?? (d[k] as number);
   return {
     demo_projected: s.demo_projected === true,
+    demo_sim:
+      s.demo_sim && typeof s.demo_sim === "object"
+        ? { through: Math.min(4, Math.max(0, Number((s.demo_sim as Record<string, unknown>).through) || 0)), seed: Number((s.demo_sim as Record<string, unknown>).seed) || 1 }
+        : null,
     lock_at: typeof s.lock_at === "string" && !Number.isNaN(Date.parse(s.lock_at)) ? s.lock_at : null,
     roster: Object.fromEntries(POSITIONS.map((p) => [p, int(r[p], 0, 10) ?? PF_DEFAULT.roster[p]])) as Record<Position, number>,
     scoring: {
