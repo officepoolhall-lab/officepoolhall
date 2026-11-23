@@ -106,12 +106,17 @@ export function PfLineupBuilder({
   );
 
   return (
-    <div data-wide className="pb-24">
-      <div className="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
+    // Desktop: sized to the screen above the Save bar, so the page itself never scrolls. The
+    // lineup stays put on the left; only the players scroll, inside their own column.
+    <div
+      data-wide
+      data-fill-viewport
+      className="pb-24 lg:h-[max(30rem,calc(100dvh-8rem-3px-4.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] lg:pb-0"
+    >
+      <div className="lg:grid lg:h-full lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 min-[1600px]:grid-cols-[22rem_minmax(0,1fr)]">
         {/* The lineup: a spot for every position. Tap × to drop a player, an open spot to see that position. */}
-        <aside className="mb-5 lg:mb-0">
-          {/* Pinned on desktop, never under the Save bar (a short screen scrolls the list itself). */}
-          <div className="lg:sticky lg:top-[calc(3rem+3px+1rem+env(safe-area-inset-top))] lg:max-h-[calc(100dvh-3rem-3px-1rem-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:overflow-y-auto">
+        <aside className="mb-5 lg:mb-0 lg:min-h-0 lg:overflow-y-auto">
+          <div>
             <h2 className="mb-1 flex items-baseline justify-between gap-3 text-lg font-extrabold tracking-[-0.03em]">
               {forName ? "Their lineup" : "My Lineup"}
               <button type="button" onClick={() => setLineupOpen(!lineupOpen)} aria-expanded={lineupOpen} className="rounded-md px-1.5 py-0.5 text-sm font-semibold tracking-normal text-accent transition hover:bg-hover lg:hidden">
@@ -151,9 +156,10 @@ export function PfLineupBuilder({
           </div>
         </aside>
 
-        <div className="min-w-0">
+        {/* Desktop: the progress bar and filters stay put; the team cards scroll under them. */}
+        <div className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
           {/* Above the players: how far along, when it locks, and which teams are still free (beside the lineup, so the whole lineup fits on screen). */}
-          <section className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5">
+          <section className="mb-5 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-3">
                 <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl">
@@ -178,7 +184,7 @@ export function PfLineupBuilder({
             </div>
           </section>
           {/* Filters: position (one line that wraps, never scrolls), then team, search, backups. */}
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
             <div className="grid w-full grid-cols-7 gap-1 sm:flex sm:w-auto sm:gap-1.5">
               <button type="button" onClick={() => setPos("ALL")} className={chipClass(pos === "ALL", "justify-center !px-1 sm:!px-3", "sm")}>All</button>
               {open.map((p) => (
@@ -216,12 +222,12 @@ export function PfLineupBuilder({
             </label>
           </div>
 
-          <p className="mb-2 text-sm text-muted">Tap a player&apos;s name to see his game log and season stats.</p>
+          <p className="mb-2 shrink-0 text-sm text-muted">Tap a player&apos;s name to see his game log and season stats.</p>
           {/* One card per team, its players starters first. */}
           {cards.length === 0 ? (
             <p className="py-6 text-sm text-muted">No players match.</p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid content-start gap-4 md:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pb-4 lg:pr-1 2xl:grid-cols-3">
               {cards.map(({ t, list }) => {
                 const used = usedTeams.get(t.id);
                 return (
