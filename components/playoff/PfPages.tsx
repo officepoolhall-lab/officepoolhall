@@ -12,7 +12,7 @@ import { NEWS_TITLE } from "@/lib/sports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, ROUNDS, recLabel, rosterSize, type PfSettings } from "@/lib/playoffFantasy";
+import { POSITIONS, ROUNDS, rosterSize } from "@/lib/playoffFantasy";
 import { getPlayoffGames, getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
@@ -83,15 +83,6 @@ function StandingsList({ rows, me, locked, size, limit, progress = false }: { ro
 
 const NOT_READY = "Rosters open as soon as the playoff field is set, at the end of the regular season. The 14 teams and their players load here by themselves.";
 
-/** The rules in a sentence or two (Home's Pool Rules). */
-function rulesSummary(s: PfSettings): string {
-  const spots = POSITIONS.filter((p) => s.roster[p] > 0)
-    .map((p) => (s.roster[p] === 1 ? (p === "DEF" ? "a defense" : `a ${p}`) : `${s.roster[p]} ${p}s`))
-    .join(", ");
-  return `Pick one player from each playoff team: ${spots}. Everyone scores every round until his team is out, ${recLabel(s.scoring.rec)} scoring, and the most points wins.`;
-}
-
-const money = (n: number) => `$${n.toLocaleString("en-US", { maximumFractionDigits: n % 1 ? 2 : 0, minimumFractionDigits: n % 1 ? 2 : 0 })}`;
 
 /**
  * Home, laid out like every other pool's: the playoffs and the standings on the left, the news
@@ -117,8 +108,6 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
     .eq("pool_id", ctx.pool.id);
   const inIds = new Set(entries.map((e) => e.userId));
   const rostersIn = ((lineupSizes ?? []) as { user_id: string; player_ids: string[] | null }[]).filter((l) => inIds.has(l.user_id) && (l.player_ids?.length ?? 0) >= size).length;
-  const fee = Number((ctx.pool as { entry_fee?: number | string | null }).entry_fee ?? 0);
-  const pot = fee * rows.length;
   // Most rostered, once lineups lock (before then nobody sees anyone else's).
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
@@ -206,7 +195,6 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
           <section>
             <div className="flex items-baseline justify-between gap-3">
               <SectionLabel fit className="!text-sm lg:!text-base">Standings</SectionLabel>
-              <span className="shrink-0 text-xs text-muted tabular-nums">{rows.length} entries</span>
             </div>
             {rows.length === 0 ? (
               <Empty>No entries yet.</Empty>
@@ -239,18 +227,12 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
         <div className="space-y-6 lg:pl-6">
           <section>
             <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-surface px-3 py-2.5 text-center">
-                <div className="text-2xl font-extrabold tabular-nums">
-                  {rostersIn}
-                  <span className="text-base font-bold text-muted">/{rows.length}</span>
-                </div>
-                <div className="text-xs text-muted">Rosters in</div>
+            <div className="mt-2 rounded-xl bg-surface px-3 py-2.5 text-center">
+              <div className="text-2xl font-extrabold tabular-nums">
+                {rostersIn}
+                <span className="text-base font-bold text-muted">/{rows.length}</span>
               </div>
-              <div className="rounded-xl bg-surface px-3 py-2.5 text-center">
-                <div className="text-2xl font-extrabold tabular-nums">{pot > 0 ? money(pot) : `${teamsLeft}/${teams.length || 14}`}</div>
-                <div className="text-xs text-muted">{pot > 0 ? "Pot" : "Teams left"}</div>
-              </div>
+              <div className="text-xs text-muted">Rosters in</div>
             </div>
           </section>
           {picture && <PlayoffMatchups picture={picture} out={pts.out} projected={!fieldSet} />}
@@ -275,10 +257,6 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
               </ul>
             </section>
           )}
-          <section>
-            <SectionLabel fit className="!text-sm lg:!text-base">Pool Rules</SectionLabel>
-            <p className="mt-2 text-sm leading-relaxed text-ink">{rulesSummary(settings)}</p>
-          </section>
         </div>
       </div>
     </div>
