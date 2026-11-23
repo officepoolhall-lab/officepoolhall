@@ -384,7 +384,7 @@ export function PfLineupBuilder({
       {/* A bar fixed along the bottom, as on every pool's My Picks: the count and save status. On
           phones the View My Lineup tab sits on its top edge and opens the lineup drawer. */}
       <div ref={footer} className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="flex h-12 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-sm">
+        <div className="flex h-10 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-sm">
           <span className="font-semibold tabular-nums">
             {mine.length} <span className="font-normal text-muted">of {total} picked</span>
             {lockText && <span className="ml-3 hidden font-normal text-muted lg:inline">{lockText}</span>}
@@ -394,7 +394,7 @@ export function PfLineupBuilder({
           </span>
         </div>
       </div>
-      <GridPanelDrawer title="My Lineup" tabId="pf-lineup-button" tabClassName="lg:hidden !bottom-[calc(3rem+2px+env(safe-area-inset-bottom))] !pb-1.5">
+      <GridPanelDrawer title="My Lineup" tabId="pf-lineup-button" tabClassName="lg:hidden !bottom-[calc(2.5rem+2px+env(safe-area-inset-bottom))] !pb-1.5">
         <p className="mb-2 text-sm text-muted tabular-nums">
           {mine.length} of {total} picked · {teams.length - usedTeams.size} teams left
         </p>
