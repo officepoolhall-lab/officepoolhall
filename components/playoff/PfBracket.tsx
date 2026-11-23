@@ -65,7 +65,10 @@ const SHORT_LABEL: Record<string, string> = { "Lowest seed left": "Low seed", "W
 const COLOR = { AFC: "#d50a0a", NFC: "#1d4ed8", SB: "#b8860b" } as const;
 type Tone = keyof typeof COLOR;
 
-function TeamLine({ side, out, tone, short = false, flip = false }: { side: Side; out: Set<string>; tone: Tone; short?: boolean; flip?: boolean }) {
+/** short: "abbr" always the abbreviation; "auto" the abbreviation in a narrow bracket, the name when there's room. */
+type Short = boolean | "auto";
+
+function TeamLine({ side, out, tone, short = false, flip = false }: { side: Side; out: Set<string>; tone: Tone; short?: Short; flip?: boolean }) {
   if (!side.team) {
     return (
       <div className={`flex h-7 items-center px-2 text-[11px] italic text-faint ${flip ? "justify-end text-right" : ""}`}>
@@ -85,14 +88,23 @@ function TeamLine({ side, out, tone, short = false, flip = false }: { side: Side
       </span>
       <TeamLogo src={t.logo} abbr={t.abbreviation} className="size-5 shrink-0" />
       <span className={`min-w-0 flex-1 truncate ${side.won ? "font-extrabold" : "font-semibold"} ${gone ? "line-through decoration-1 opacity-60" : ""}`}>
-        {short ? (t.abbreviation ?? t.name) : t.name}
+        {short === "auto" ? (
+          <>
+            <span className="@[30rem]:hidden">{t.abbreviation ?? t.name}</span>
+            <span className="hidden @[30rem]:inline">{t.name}</span>
+          </>
+        ) : short ? (
+          (t.abbreviation ?? t.name)
+        ) : (
+          t.name
+        )}
       </span>
       {side.score != null && <span className={`shrink-0 tabular-nums ${side.won ? "font-extrabold" : "text-muted"}`}>{side.score}</span>}
     </div>
   );
 }
 
-function GameBox({ g, out, tone, short, flip }: { g: Game; out: Set<string>; tone: Tone; short?: boolean; flip?: boolean }) {
+function GameBox({ g, out, tone, short, flip }: { g: Game; out: Set<string>; tone: Tone; short?: Short; flip?: boolean }) {
   const live = g.state === "in";
   return (
     <div
@@ -106,7 +118,7 @@ function GameBox({ g, out, tone, short, flip }: { g: Game; out: Set<string>; ton
   );
 }
 
-function ByeBox({ team, out, tone, short, flip }: { team: Seeded; out: Set<string>; tone: Tone; short?: boolean; flip?: boolean }) {
+function ByeBox({ team, out, tone, short, flip }: { team: Seeded; out: Set<string>; tone: Tone; short?: Short; flip?: boolean }) {
   return (
     <div className={`overflow-hidden rounded-md ring-1 ring-dashed ring-line ${flip ? "border-r-[3px]" : "border-l-[3px]"}`} style={{ borderColor: COLOR[tone] }}>
       <TeamLine side={{ team }} out={out} tone={tone} short={short} flip={flip} />
@@ -133,7 +145,7 @@ export function PfBracket({ picture, games, out, projected }: { picture: Picture
   const champ = sb.state === "post" ? winner(sb) : null;
 
   // One conference's three rounds as columns (the NFC's mirrored so both lead to the middle).
-  const columns = (k: (typeof confs)[number], flip: boolean, short: boolean) => {
+  const columns = (k: (typeof confs)[number], flip: boolean, short: Short) => {
     const cols = [
       <div key="wc" className="flex flex-col justify-around gap-2">
         <ByeBox team={k.bye} out={out} tone={k.c} short={short} flip={flip} />
@@ -167,15 +179,17 @@ export function PfBracket({ picture, games, out, projected }: { picture: Picture
   );
 
   return (
-    <section>
+    // Sized by the space it has, not the screen: the full mirrored bracket needs about 50rem;
+    // narrower (a small laptop's middle column, a phone) it stacks the conferences.
+    <section className="@container">
       <div className="flex items-baseline justify-between gap-3">
         <SectionLabel fit className="!text-sm lg:!text-base">Playoff Bracket</SectionLabel>
         {projected && <span className="shrink-0 text-xs text-muted">If the season ended today</span>}
       </div>
 
-      {/* Desktop: the classic bracket, AFC on the left, NFC on the right, the Super Bowl in the
+      {/* Wide: the classic bracket, AFC on the left, NFC on the right, the Super Bowl in the
           middle; each round's games sit between the ones that feed them. */}
-      <div className="mt-3 hidden lg:block">
+      <div className="mt-3 hidden @[50rem]:block">
         <div className="grid grid-cols-7 gap-2 pb-1.5 text-center text-[10px] font-bold uppercase tracking-wider text-muted">
           {[...ROUNDS, "", ...[...ROUNDS].reverse()].map((r, i) => (
             <div key={i} className="truncate">{r}</div>
@@ -192,8 +206,8 @@ export function PfBracket({ picture, games, out, projected }: { picture: Picture
         </div>
       </div>
 
-      {/* Phones and tablets: one conference at a time, rounds left to right, then the Super Bowl. */}
-      <div className="mt-3 space-y-5 lg:hidden">
+      {/* Narrower: one conference at a time, rounds left to right, then the Super Bowl. */}
+      <div className="mt-3 space-y-5 @[50rem]:hidden">
         {confs.map((k) => (
           <div key={k.c} className="rounded-xl p-2" style={{ background: `color-mix(in srgb, ${COLOR[k.c]} 6%, transparent)` }}>
             <div className="mb-1.5 flex items-center gap-2">
@@ -204,10 +218,10 @@ export function PfBracket({ picture, games, out, projected }: { picture: Picture
                 <div key={r} className="truncate">{r}</div>
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-1.5">{columns(k, false, true)}</div>
+            <div className="grid grid-cols-3 gap-1.5">{columns(k, false, "auto")}</div>
           </div>
         ))}
-        <div className="mx-auto max-w-xs">{superBowl}</div>
+        <div className="mx-auto w-full max-w-xs">{superBowl}</div>
       </div>
     </section>
   );
