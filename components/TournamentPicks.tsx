@@ -74,7 +74,8 @@ function Card({ slug, card: c, timezone, forUserId, canEditLocked }: { slug: str
   };
 
   return (
-    <div className="rounded-lg border border-line bg-surface/60 px-3 py-2.5">
+    // A thin blue border marks each tournament champion pick on My Picks.
+    <div className="rounded-lg border border-accent bg-surface/60 px-3 py-2.5">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
         <span className="text-[15px] font-bold text-ink">{c.name}</span>
         <span className="text-xs font-semibold uppercase tracking-wide text-accent">Champion pick</span>
