@@ -256,11 +256,11 @@ export function PfLineupBuilder({
                 )}
               </div>
             </div>
-            {/* The 14 teams: one row when there's room, otherwise two even rows of seven. */}
-            <div className="w-full sm:w-auto" aria-label="Teams still free">
-              <span className="mb-1 block text-xs font-medium text-muted tabular-nums sm:hidden">{teams.length - usedTeams.size} teams left</span>
-              <div className="grid grid-cols-7 justify-items-center gap-1 sm:flex sm:items-center">
-                <span className="mr-1 hidden text-xs font-medium text-muted tabular-nums sm:inline">{teams.length - usedTeams.size} teams left</span>
+            {/* The 14 teams: one row when there's room; two even rows of seven on phones. */}
+            <div className="w-full lg:w-auto" aria-label="Teams still free">
+              <span className="mb-1 block text-xs font-medium text-muted tabular-nums lg:hidden">{teams.length - usedTeams.size} teams left</span>
+              <div className="grid grid-cols-7 justify-items-center gap-1 sm:grid-cols-14 lg:flex lg:items-center">
+                <span className="mr-1 hidden text-xs font-medium text-muted tabular-nums lg:inline">{teams.length - usedTeams.size} teams left</span>
                 {teams.map((t) => (
                   <button
                     key={t.id}
@@ -269,7 +269,7 @@ export function PfLineupBuilder({
                     title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
                     className={`rounded-full p-0.5 transition hover:bg-hover ${usedTeams.has(t.id) ? "opacity-25 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
                   >
-                    <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-7 sm:size-6" />
+                    <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-7 lg:size-6" />
                   </button>
                 ))}
               </div>
@@ -306,7 +306,7 @@ export function PfLineupBuilder({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search players"
               aria-label="Search players"
-              className="h-9 min-w-0 flex-1 rounded-full bg-surface px-3.5 text-sm outline-none ring-1 ring-line placeholder:text-faint focus:ring-2 focus:ring-accent sm:max-w-56"
+              className="h-9 min-w-[9rem] flex-1 rounded-full bg-surface px-3.5 text-sm outline-none ring-1 ring-line placeholder:text-faint focus:ring-2 focus:ring-accent sm:max-w-56"
             />
             <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-muted">
               <input type="checkbox" checked={backups} onChange={(e) => setBackups(e.target.checked)} className="size-4 accent-[var(--accent)]" />
@@ -314,7 +314,8 @@ export function PfLineupBuilder({
             </label>
           </div>
 
-          <p className="mb-2 shrink-0 text-sm text-muted">Tap a player&apos;s name to see his game log and season stats.</p>
+          {/* One line on any screen: the text shrinks to fit. */}
+          <FitText min={9} className="mb-2 block shrink-0 text-sm text-muted">Tap a player&apos;s name to see his game log and season stats.</FitText>
           {/* One card per team, its players starters first. */}
           {cards.length === 0 ? (
             <p className="py-6 text-sm text-muted">No players match.</p>
