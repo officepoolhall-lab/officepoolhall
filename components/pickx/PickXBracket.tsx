@@ -326,6 +326,7 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
 }
 
 /** The whole bracket for the printable page (/print/bracket/[slug]). */
-export function PrintableBracket({ b, mine }: { b: LiveBracket; mine: string[] }) {
-  return <FullBracket b={b} mine={new Set(mine)} writeIn />;
+export function PrintableBracket({ b }: { b: LiveBracket }) {
+  // The same for everyone: nobody's picks are marked on the printout.
+  return <FullBracket b={b} mine={new Set()} writeIn />;
 }

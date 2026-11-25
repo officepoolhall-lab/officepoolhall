@@ -20,13 +20,12 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   if (!isPickX(ctx.pool.settings)) notFound();
-  const { bracket, entries } = await getPickX(ctx);
+  const { bracket } = await getPickX(ctx);
   if (!bracket) notFound();
   const tz = (ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago";
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
   const year = formatInTimeZone(bracket.lockAt, tz, "yyyy");
   const live = await getLiveBracket(bracket, tz, now);
-  const mine = entries.find((e) => e.userId === ctx.entryUserId)?.teamIds ?? [];
   return (
     // Always the light colors, on screen and on paper.
     <div
@@ -56,16 +55,14 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
         >
           <Wordmark className="text-2xl" />
           <h1 className="text-center leading-none">
-            <span className="block text-[11px] font-bold tracking-[0.35em] text-[#f2c14e] uppercase">Fill it out · Pick a champion</span>
-            <span className="mt-1 block text-[34px] font-extrabold tracking-[-0.02em] uppercase">
+            <span className="block text-[34px] font-extrabold tracking-[-0.02em] uppercase">
               <span className="text-[#f2c14e]">{year}</span> NCAA Tournament Bracket
             </span>
           </h1>
           <div className="text-right text-sm font-semibold text-white/85">theofficepoolhall.com</div>
         </header>
         <div className="mb-3 h-1.5 rounded-b-xl bg-[#f2c14e]" />
-        <PrintableBracket b={live} mine={mine} />
-        {mine.length > 0 && <p className="mt-3 text-[11px] text-[#6e6e73]">Teams highlighted are your picks.</p>}
+        <PrintableBracket b={live} />
       </div>
     </div>
   );
