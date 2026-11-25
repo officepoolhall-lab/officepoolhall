@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OptionCards, SettingRow, SettingsSection, Toggle, settingInput } from "@/components/SettingsUI";
 import { ROUNDS } from "@/lib/bracket";
-import { SCORING_PRESETS, pickXSettingsError, rulesSummary, winPoints, type PickXSettings } from "@/lib/pickx";
+import { BY_ROUND, SCORING_PRESETS, SEED_TIERS, isByRound, pickXSettingsError, rulesSummary, scoringPreset, winPoints, type PickXSettings } from "@/lib/pickx";
 
 /**
  * Pick X rules: how many teams, the scoring (a preset or custom: seed or flat, a value per
@@ -12,7 +12,7 @@ import { SCORING_PRESETS, pickXSettingsError, rulesSummary, winPoints, type Pick
  */
 export function PickXRulesFields({ initial, locked = false }: { initial: PickXSettings; locked?: boolean }) {
   const [s, setS] = useState<PickXSettings>(initial);
-  const presetId = SCORING_PRESETS.find((p) => JSON.stringify(p.scoring) === JSON.stringify(s.scoring))?.id ?? "custom";
+  const presetId = scoringPreset(s.scoring);
   const [custom, setCustom] = useState(presetId === "custom");
   const problem = pickXSettingsError(s);
   const setScoring = (patch: Partial<PickXSettings["scoring"]>) => setS((p) => ({ ...p, scoring: { ...p.scoring, ...patch } }));
@@ -52,7 +52,7 @@ export function PickXRulesFields({ initial, locked = false }: { initial: PickXSe
               if (id === "custom") return setCustom(true);
               setCustom(false);
               const p = SCORING_PRESETS.find((x) => x.id === id);
-              if (p) setS((prev) => ({ ...prev, scoring: { ...p.scoring, rounds: [...p.scoring.rounds] } }));
+              if (p) setS((prev) => ({ ...prev, scoring: { ...p.scoring, rounds: [...p.scoring.rounds], seed_tiers: p.scoring.seed_tiers ? [...p.scoring.seed_tiers] : null } }));
             }}
             options={[
               ...SCORING_PRESETS.map((p) => ({ value: p.id, label: p.label, text: p.text })),
@@ -61,11 +61,48 @@ export function PickXRulesFields({ initial, locked = false }: { initial: PickXSe
           />
         </SettingRow>
         {custom && (
+          <SettingRow label="What a win is based on" stack hint="The round values below multiply this.">
+            <OptionCards
+              ariaLabel="What a win is based on"
+              value={s.scoring.seed_tiers ? "tiers" : s.scoring.seed ? "seed" : "flat"}
+              onChange={(v) =>
+                setScoring(v === "tiers" ? { seed: false, seed_tiers: s.scoring.seed_tiers ?? [1, 2, 3, 4, 5, 6, 7, 8] } : { seed: v === "seed", seed_tiers: null })
+              }
+              options={[
+                { value: "seed", label: "The seed", text: "A 12 seed's win is worth 12 times the round value." },
+                { value: "tiers", label: "Seed tiers", text: "Points you set for each pair of seed lines (1-2, 3-4 …)." },
+                { value: "flat", label: "Same for every team", text: "Every team's win is worth the round value." },
+              ]}
+            />
+          </SettingRow>
+        )}
+        {s.scoring.seed_tiers && (custom || presetId === "seed-tiers") && (
+          <SettingRow stack label="Points per win by seed" hint="What a win is worth for a team in each pair of seed lines.">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+              {SEED_TIERS.map((t, i) => (
+                <label key={t} className="flex flex-col items-center gap-1 rounded-xl bg-bg p-2">
+                  <span className="text-xs font-semibold whitespace-nowrap text-muted">{t}</span>
+                  <input
+                    type="number" min={0} step={0.5} aria-label={`Points per win for ${t} seeds`} value={s.scoring.seed_tiers![i]}
+                    onChange={(e) => setScoring({ seed_tiers: s.scoring.seed_tiers!.map((v, j) => (j === i ? Math.max(0, Number(e.target.value) || 0) : v)) })}
+                    className="h-9 w-full rounded-lg bg-surface text-center text-[15px] font-semibold tabular-nums text-accent outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+              ))}
+            </div>
+          </SettingRow>
+        )}
+        {s.scoring.seed_tiers && !custom && presetId === "seed-tiers" && (
+          <SettingRow
+            label="Multiply by the round"
+            hint={isByRound(s.scoring.rounds) ? "On: a win is worth the tier's points times the round (First Round ×1 up to the title game ×6)." : "Off: a win is worth the tier's points in every round."}
+          >
+            <Toggle label="Multiply by the round" checked={isByRound(s.scoring.rounds)} onChange={(v) => setScoring({ rounds: v ? [...BY_ROUND] : [1, 1, 1, 1, 1, 1] })} />
+          </SettingRow>
+        )}
+        {custom && (
           <>
-            <SettingRow label="Multiply by the team's seed" hint="On: a 12 seed's win is worth 12 times the round value. Off: every team's win is worth the same.">
-              <Toggle label="Multiply by the team's seed" checked={s.scoring.seed} onChange={(v) => setScoring({ seed: v })} />
-            </SettingRow>
-            <SettingRow stack label="Round values" hint="What a win in each round is worth (before the seed, if on).">
+            <SettingRow stack label="Round values" hint="What a win in each round is worth (times the seed or tier points, when used).">
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {ROUNDS.map((r, i) => (
                   <label key={r.round} className="flex flex-col items-center gap-1 rounded-xl bg-bg p-2">
