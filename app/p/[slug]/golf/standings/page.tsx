@@ -9,7 +9,7 @@ import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs"
 import { Empty, PageTitle, SectionLabel } from "@/components/ui";
 import { getGolfContext, getGolfEvents, golfFormat } from "@/lib/golf";
 import { MajorsStandings } from "./MajorsStandings";
-import { getGolfStandingsData, type StandingRow } from "@/lib/golfStandings";
+import { getGolfStandingsData, golferShare, type StandingRow } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "Standings" };
 
@@ -67,20 +67,24 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
       const logOf = (r: StandingRow) => r.log.find((l) => l.week === week);
       return ranked(data.rows, (r) => logOf(r)?.earned ?? 0, (r) => r.name).map(({ r, place, tied }) => {
         const l = logOf(r);
-        return { ...base(r), place, tied, golfer: l?.golfer ?? null, hidden: false, finish: l?.finish ?? "", earned: l?.earned ?? 0 };
+        return { ...base(r), place, tied, golfer: l?.golfer ?? null, hidden: false, finish: l?.finish ?? "", earned: l?.earned ?? 0, own: golferShare(data.ownership, week, l?.golfer ?? null) };
       });
     }
     // Under way: by the golfer's live place. Still open: in season order, picks hidden.
-    const rows = data.rows.map((r) => ({
+    const rows = data.rows.map((r) => {
+      const golfer = isCurrent ? (r.thisWeek?.golfer ?? null) : (r.log.find((l) => l.week === week)?.golfer ?? null);
+      return {
       ...base(r),
       place: null,
       tied: false,
-      golfer: isCurrent ? (r.thisWeek?.golfer ?? null) : (r.log.find((l) => l.week === week)?.golfer ?? null),
+      golfer,
+      own: golferShare(data.ownership, week, golfer),
       hidden: isCurrent ? (r.thisWeek?.hidden ?? false) : false,
       finish: isCurrent ? (r.thisWeek?.live ?? "") : "",
       earned: 0,
       liveRank: isCurrent ? (r.thisWeek?.liveRank ?? 99999) : 99999,
-    }));
+      };
+    });
     return rows.sort((a, b) => a.liveRank - b.liveRank);
   };
 

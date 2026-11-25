@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronIcon, PageTitle } from "@/components/ui";
 import { getGolfContext, money } from "@/lib/golf";
-import { getGolfStandingsData } from "@/lib/golfStandings";
+import { getGolfStandingsData, golferShare } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "Pick History" };
 
@@ -68,6 +68,7 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
                 <th className="w-7 py-2 pr-1 font-medium sm:w-10">Wk</th>
                 <th className="py-2 pr-2 font-medium">Tournament</th>
                 <th className="py-2 pr-2 font-medium">Golfer</th>
+                <th className="w-10 py-2 pr-2 text-right font-medium sm:w-auto" title="Share of the pool that picked the same golfer that week">Own</th>
                 <th className="w-12 py-2 pr-2 font-medium sm:w-auto">Finish</th>
                 <th className="w-[5.5rem] py-2 text-right font-medium sm:w-auto">Earnings</th>
                 <th className="hidden py-2 pl-3 text-right font-medium sm:table-cell">Total</th>
@@ -79,6 +80,7 @@ export default async function GolfPickHistoryPage({ params }: PageProps<"/p/[slu
                   <td className="py-2 pr-1 tabular-nums text-muted">{l.week}</td>
                   <td className="truncate py-2 pr-2">{l.event}</td>
                   <td className={`break-words py-2 leading-snug pr-2 ${l.golfer ? "font-medium" : "text-muted"}`}>{l.golfer ?? "No Pick"}</td>
+                  <td className="py-2 pr-2 text-right tabular-nums text-muted">{golferShare(data.ownership, l.week, l.golfer) !== null ? `${golferShare(data.ownership, l.week, l.golfer)}%` : "–"}</td>
                   <td className="py-2 pr-2 tabular-nums text-muted">
                     {l.finish}
                     {!l.final && <span className="ml-1 text-xs text-live">Live</span>}

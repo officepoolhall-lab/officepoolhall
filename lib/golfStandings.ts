@@ -65,7 +65,18 @@ export type GolfStandingsData = {
   played: { week: number; name: string; final: boolean }[];
   lastFinal: { name: string; week: number } | null;
   finalCount: number;
+  /**
+   * Week → golfer name → share of the entries with a pick that week who picked him (0-100,
+   * rounded). Not for an event still open for picks: only the viewer's own pick is known then.
+   */
+  ownership: Map<number, Map<string, number>>;
 };
+
+/** Each golfer's share of a week's picks (see GolfStandingsData.ownership). */
+export function golferShare(ownership: Map<number, Map<string, number>>, week: number, golfer: string | null): number | null {
+  if (!golfer) return null;
+  return ownership.get(week)?.get(golfer) ?? null;
+}
 
 /** Competition ranking: 1, 2, 2, 4. One sort, so it stays quick for any number of entries. */
 function places(totals: Map<string, number>) {
@@ -203,5 +214,27 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
     current: current ? { name: current.name, week: weekOf.get(current.id)!, open: currentOpen, live: current.status === "in_progress" } : null,
     lastFinal: lastFinal ? { name: lastFinal.name, week: weekOf.get(lastFinal.id)! } : null,
     finalCount: finals.length,
+    ownership: weekOwnership(rows, current && !currentOpen ? weekOf.get(current.id)! : null),
   };
+}
+
+/** Golfer shares by week from everyone's picks: the events played, and the current one once it locks. */
+function weekOwnership(rows: StandingRow[], currentWeek: number | null): Map<number, Map<string, number>> {
+  const counts = new Map<number, Map<string, number>>();
+  const add = (week: number, golfer: string | null) => {
+    if (!golfer) return;
+    const m = counts.get(week) ?? new Map<string, number>();
+    m.set(golfer, (m.get(golfer) ?? 0) + 1);
+    counts.set(week, m);
+  };
+  for (const r of rows) {
+    for (const l of r.log) if (l.week !== currentWeek) add(l.week, l.golfer);
+    if (currentWeek !== null) add(currentWeek, r.thisWeek?.golfer ?? r.log.find((l) => l.week === currentWeek)?.golfer ?? null);
+  }
+  const out = new Map<number, Map<string, number>>();
+  for (const [week, m] of counts) {
+    const total = [...m.values()].reduce((a, b) => a + b, 0);
+    out.set(week, new Map([...m].map(([g, n]) => [g, Math.round((n / Math.max(1, total)) * 100)])));
+  }
+  return out;
 }

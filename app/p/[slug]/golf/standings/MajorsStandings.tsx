@@ -100,7 +100,7 @@ export async function MajorsStandings({
   // entry's name and total along the top (14px semibold, ~0.52rem a letter, plus about 5.5rem).
   const longestGolfer = Math.max(0, ...[...board.lineups.entries()].filter(([k]) => ids.some((id) => k.endsWith(`|${id}`))).flatMap(([, ls]) => ls.map((l) => l.golfer_name.length)));
   const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
-  const cardRem = Math.max(14, Math.ceil(Math.max(12 + longestGolfer * 0.45, 5.5 + longestEntry * 0.52) * 2) / 2);
+  const cardRem = Math.max(14, Math.ceil(Math.max(14.25 + longestGolfer * 0.45, 5.5 + longestEntry * 0.52) * 2) / 2);
 
   return (
     <div data-wide>
@@ -189,6 +189,7 @@ function Lineup({
   showName: boolean;
 }) {
   const rows = board.lineups.get(`${userId}|${event.id}`) ?? [];
+  const own = ownershipFor(board, event.id);
   const score = board.scores.get(`${userId}|${event.id}`);
   const results = board.results.get(event.id) ?? [];
   const byId = new Map(results.map((r) => [r.espn_golfer_id, r]));
@@ -206,6 +207,7 @@ function Lineup({
           <li className="flex items-center gap-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint" aria-hidden>
             <span className={`${s.contest === "salary" ? "w-9" : "w-7"} shrink-0`}>{s.contest === "salary" ? "Sal." : "Tier"}</span>
             <span className="min-w-0 flex-1">Golfer</span>
+            <span className="w-8 shrink-0 text-right" title="Share of the pool's lineups with this golfer">Own</span>
             <span className="w-8 shrink-0 text-right">Pos</span>
             <span className="w-9 shrink-0 text-right">{s.contest === "salary" ? "Pts" : "Score"}</span>
             <span className="w-12 shrink-0 text-right">{final ? "Earn." : "Proj. $"}</span>
@@ -220,6 +222,7 @@ function Lineup({
                   <span className={`${s.contest === "salary" ? "w-9" : "w-7"} shrink-0 text-[11px] tabular-nums text-muted`}>{s.contest === "salary" ? `$${((l.salary ?? 0) / 1000).toFixed(1)}K` : `T${l.tier}`}</span>
                   {/* The card is sized to fit the longest name; the font steps down if one still doesn't. */}
                   <FitText min={10} className={`flex-1 ${counted ? "font-medium" : ""}`}>{l.golfer_name}</FitText>
+                  <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted">{own.get(l.espn_golfer_id) ?? 0}%</span>
                   <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-muted">{posLabel(r)}</span>
                   <span className={`w-9 shrink-0 text-right tabular-nums ${counted ? "font-semibold" : ""}`}>{formatShown(golferShown(l.espn_golfer_id, results, asScore, final))}</span>
                   {/* Prize money: projected from current standings until it's posted. */}
@@ -231,4 +234,23 @@ function Lineup({
       )}
     </div>
   );
+}
+
+/** Each golfer's share of an event's lineups (0-100, rounded), worked out once per event. */
+const ownCache = new WeakMap<object, Map<string, Map<string, number>>>();
+function ownershipFor(board: Awaited<ReturnType<typeof getMajorsScoreboard>>, eventId: string): Map<string, number> {
+  const byEvent = ownCache.get(board) ?? new Map<string, Map<string, number>>();
+  ownCache.set(board, byEvent);
+  const hit = byEvent.get(eventId);
+  if (hit) return hit;
+  const counts = new Map<string, number>();
+  let entries = 0;
+  for (const [key, lineup] of board.lineups) {
+    if (!key.endsWith(`|${eventId}`) || lineup.length === 0) continue;
+    entries++;
+    for (const id of new Set(lineup.map((l) => l.espn_golfer_id))) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const out = new Map([...counts].map(([id, n]) => [id, Math.round((n / Math.max(1, entries)) * 100)]));
+  byEvent.set(eventId, out);
+  return out;
 }
