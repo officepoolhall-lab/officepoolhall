@@ -287,7 +287,6 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
               </div>
             </section>
           )}
-          {bracket && !locked && <p className="text-sm text-muted">The teams still alive, and how much of the pool has each, show here once picks lock.</p>}
         </div>
       </div>
     </div>
