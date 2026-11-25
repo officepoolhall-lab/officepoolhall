@@ -1,10 +1,16 @@
+"use client";
+
+import { useState } from "react";
 import { FitText } from "@/components/FitText";
 import { TeamLogo } from "@/components/ui";
 import { ROUNDS } from "@/lib/bracket";
+import type { TeamGame } from "@/lib/tourneyLive";
+import { TeamGames } from "./TeamGames";
 
 // One entry's Pick X teams as a table, like Playoff Fantasy's lineup: seed, team, how much of the
 // pool has it, the points from each round's win (a red L in the round it lost), and in all.
-// Phones: the round columns don't fit, so the rounds go on a line under the team.
+// Phones: the round columns don't fit, so the rounds go on a line under the team. With games, a
+// team's row opens to show its tournament games.
 
 export type PickXTeamRow = {
   teamId: string;
@@ -25,8 +31,9 @@ export type PickXTeamRow = {
 const FULL = "grid grid-cols-[2rem_minmax(0,1fr)_3rem_3.25rem] sm:grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_repeat(6,3rem)_3.75rem] items-center gap-x-2";
 const COMPACT = "grid grid-cols-[2rem_minmax(0,1fr)_3rem_3.25rem] sm:grid-cols-[1.75rem_minmax(0,1fr)_2.75rem_repeat(6,2.5rem)_3.25rem] items-center gap-x-1.5";
 
-export function PickXTeamsTable({ rows, started, compact = false, totalRow = true }: { rows: PickXTeamRow[]; /** Rounds with results in (0-6). */ started: number; compact?: boolean; totalRow?: boolean }) {
+export function PickXTeamsTable({ rows, started, compact = false, totalRow = true, games }: { rows: PickXTeamRow[]; /** Rounds with results in (0-6). */ started: number; compact?: boolean; totalRow?: boolean; /** Each team's games: rows open to show them. */ games?: Record<string, TeamGame[]> }) {
   const grid = compact ? COMPACT : FULL;
+  const [open, setOpen] = useState<string | null>(null);
   const cell = (t: PickXTeamRow, i: number) =>
     t.points[i] !== null ? { text: String(t.points[i]), cls: "" } : t.lostIn === i + 1 ? { text: "L", cls: "font-bold text-loss" } : { text: "–", cls: "text-muted" };
   const sums = ROUNDS.map((_, i) => rows.reduce((s, t) => s + (t.points[i] ?? 0), 0));
@@ -42,8 +49,14 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
         <span className="text-right">Total</span>
       </div>
       <ul className="divide-y divide-line">
-        {rows.map((t) => (
-          <li key={t.teamId} className={`${grid} ${compact ? "py-1.5" : "py-2"} ${t.lostIn ? "text-muted" : ""}`}>
+        {rows.map((t) => {
+          const Row = games ? "button" : "div";
+          return (
+          <li key={t.teamId}>
+          <Row
+            {...(games ? { type: "button" as const, onClick: () => setOpen(open === t.teamId ? null : t.teamId), "aria-expanded": open === t.teamId } : {})}
+            className={`${grid} w-full text-left ${compact ? "py-1.5" : "py-2"} ${t.lostIn ? "text-muted" : ""} ${games ? "cursor-pointer hover:bg-hover" : ""}`}
+          >
             <span className="text-center text-xs font-bold tabular-nums text-muted">{t.seed}</span>
             <span className="flex min-w-0 flex-col">
               <span className="flex min-w-0 items-center gap-2">
@@ -64,8 +77,15 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
               );
             })}
             <span className={`text-right font-bold tabular-nums ${t.lostIn ? "" : "text-ink"}`}>{t.total}</span>
+          </Row>
+          {games && open === t.teamId && (
+            <div className={compact ? "pl-8" : "pl-10"}>
+              <TeamGames games={games[t.teamId]} />
+            </div>
+          )}
           </li>
-        ))}
+          );
+        })}
       </ul>
       {totalRow && started > 0 && (
         <div className={`${grid} hidden border-t-2 border-line py-2 font-bold sm:grid`}>

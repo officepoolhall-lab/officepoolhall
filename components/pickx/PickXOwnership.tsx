@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { FitText } from "@/components/FitText";
 import { TeamLogo, chipClass } from "@/components/ui";
+import type { TeamGame } from "@/lib/tourneyLive";
+import { TeamGames } from "./TeamGames";
 
 // Pick X Home, once picks lock: every team in the field with how much of the pool picked it and
 // what it has scored. Filter by region, sort by any column (tap again to flip it).
@@ -24,7 +26,8 @@ export type PickXOwnRow = {
 
 type Sort = "seed" | "name" | "own" | "wins" | "points";
 
-export function PickXOwnership({ rows, regions, entries }: { rows: PickXOwnRow[]; regions: string[]; entries: number }) {
+export function PickXOwnership({ rows, regions, entries, games }: { rows: PickXOwnRow[]; regions: string[]; entries: number; /** Each team's games: a row opens to show them. */ games?: Record<string, TeamGame[]> }) {
+  const [open, setOpen] = useState<string | null>(null);
   const [region, setRegion] = useState("ALL");
   const [picked, setPicked] = useState(true);
   const [sort, setSort] = useState<{ by: Sort; desc: boolean }>({ by: "own", desc: true });
@@ -73,7 +76,13 @@ export function PickXOwnership({ rows, regions, entries }: { rows: PickXOwnRow[]
       ) : (
         <ul className="divide-y divide-line">
           {list.map((r) => (
-            <li key={r.teamId} className={`${grid} py-1.5 text-sm ${r.alive ? "" : "text-muted"}`}>
+            <li key={r.teamId}>
+            <button
+              type="button"
+              onClick={() => setOpen(open === r.teamId ? null : r.teamId)}
+              aria-expanded={open === r.teamId}
+              className={`${grid} w-full cursor-pointer py-1.5 text-left text-sm hover:bg-hover ${r.alive ? "" : "text-muted"}`}
+            >
               <span className="text-center text-xs font-bold tabular-nums text-muted">{r.seed}</span>
               <span className="flex min-w-0 items-center gap-2">
                 <TeamLogo src={r.logo} abbr={r.abbr} className="size-5 shrink-0" />
@@ -84,11 +93,17 @@ export function PickXOwnership({ rows, regions, entries }: { rows: PickXOwnRow[]
               <span className="hidden text-right tabular-nums text-muted sm:block">{r.count}</span>
               <span className="text-right tabular-nums text-muted">{r.wins}</span>
               <span className="text-right tabular-nums">{r.points}</span>
+            </button>
+            {open === r.teamId && (
+              <div className="pl-12">
+                <TeamGames games={games?.[r.teamId]} />
+              </div>
+            )}
             </li>
           ))}
         </ul>
       )}
-      <FitText min={8} className="mt-2 text-xs text-muted">Own % is the share of the pool&apos;s {entries} entries with that team. W is its wins and Pts what it has scored for each entry with it. Tap a column to sort.</FitText>
+      <FitText min={8} className="mt-2 text-xs text-muted">Own % is the share of the pool&apos;s {entries} entries with that team. W is its wins and Pts what it has scored for each entry with it. Tap a column to sort, or a team to see its games.</FitText>
     </div>
   );
 }
