@@ -428,29 +428,61 @@ export function optimalLineup(
   return { ids: top.ids, total: Math.round(top.total * 100) / 100 };
 }
 
-/** One game's line in words, only what happened: "212 pass yds, 2 TD · 34 rush yds", "FG 2 (47, 31) · XP 3", "3 sacks · 1 INT · 17 pts allowed". */
-export function gameStatLine(pos: Position, l: PlayerLine | DefLine): string {
-  const n = (v: number, one: string, many = `${one}s`) => `${v} ${v === 1 ? one : many}`;
-  if (pos === "DEF") {
-    const d = l as DefLine;
-    return [
-      d.sacks ? n(d.sacks, "sack") : null,
-      d.ints ? `${d.ints} INT` : null,
-      d.fumRec ? `${d.fumRec} FR` : null,
-      d.td ? `${d.td} TD` : null,
-      d.safeties ? n(d.safeties, "safety", "safeties") : null,
-      `${d.pointsAllowed} pts allowed`,
-    ].filter(Boolean).join(" · ");
-  }
-  const p = l as PlayerLine;
-  if (pos === "K") {
-    const fg = p.fg ? `FG ${p.fg}${p.fgYds.length ? ` (${p.fgYds.join(", ")})` : ""}` : "FG 0";
-    return [fg, `XP ${p.xp}`].join(" · ");
-  }
-  const pass = p.passYds || p.passTd || p.passInt ? [`${p.passYds} pass yds`, p.passTd ? `${p.passTd} TD` : null, p.passInt ? `${p.passInt} INT` : null].filter(Boolean).join(", ") : null;
-  const rush = p.rushYds || p.rushTd ? [`${p.rushYds} rush yds`, p.rushTd ? `${p.rushTd} TD` : null].filter(Boolean).join(", ") : null;
-  const rec = p.rec || p.recYds || p.recTd ? [`${n(p.rec, "rec")} ${p.recYds} yds`, p.recTd ? `${p.recTd} TD` : null].filter(Boolean).join(", ") : null;
-  // A receiver's catches first; a quarterback's passing first.
-  const parts = pos === "QB" ? [pass, rush, rec] : pos === "RB" ? [rush, rec, pass] : [rec, rush, pass];
-  return [...parts, p.fumLost ? `${p.fumLost} fum lost` : null, p.twoPt ? `${p.twoPt} 2-pt` : null].filter(Boolean).join(" · ") || "No stats";
+/** A game-log column: its group ("Passing"), its label ("YDS") and how to read it from a line. */
+type StatCol = { group: string; label: string; get: (l: PlayerLine & DefLine) => number | string };
+const RECEIVER: StatCol[] = [
+  { group: "Receiving", label: "REC", get: (l) => l.rec },
+  { group: "Receiving", label: "YDS", get: (l) => l.recYds },
+  { group: "Receiving", label: "TD", get: (l) => l.recTd },
+  { group: "Rushing", label: "YDS", get: (l) => l.rushYds },
+  { group: "Rushing", label: "TD", get: (l) => l.rushTd },
+];
+const STAT_COLS: Record<Position, StatCol[]> = {
+  QB: [
+    { group: "Passing", label: "YDS", get: (l) => l.passYds },
+    { group: "Passing", label: "TD", get: (l) => l.passTd },
+    { group: "Passing", label: "INT", get: (l) => l.passInt },
+    { group: "Rushing", label: "YDS", get: (l) => l.rushYds },
+    { group: "Rushing", label: "TD", get: (l) => l.rushTd },
+  ],
+  RB: [
+    { group: "Rushing", label: "YDS", get: (l) => l.rushYds },
+    { group: "Rushing", label: "TD", get: (l) => l.rushTd },
+    { group: "Receiving", label: "REC", get: (l) => l.rec },
+    { group: "Receiving", label: "YDS", get: (l) => l.recYds },
+    { group: "Receiving", label: "TD", get: (l) => l.recTd },
+  ],
+  WR: RECEIVER,
+  TE: RECEIVER,
+  K: [
+    { group: "Kicking", label: "FG", get: (l) => l.fg },
+    { group: "Kicking", label: "LONG", get: (l) => (l.fgYds.length ? Math.max(...l.fgYds) : "–") },
+    { group: "Kicking", label: "50+", get: (l) => l.fgYds.filter((y) => y >= 50).length },
+    { group: "Kicking", label: "XP", get: (l) => l.xp },
+  ],
+  DEF: [
+    { group: "Defense", label: "SACK", get: (l) => l.sacks },
+    { group: "Defense", label: "INT", get: (l) => l.ints },
+    { group: "Defense", label: "FR", get: (l) => l.fumRec },
+    { group: "Defense", label: "TD", get: (l) => l.td },
+    { group: "Defense", label: "PA", get: (l) => l.pointsAllowed },
+  ],
+};
+const EXTRA_COLS: StatCol[] = [
+  { group: "Misc", label: "FUM", get: (l) => l.fumLost },
+  { group: "Misc", label: "2PT", get: (l) => l.twoPt },
+];
+
+/**
+ * A player's playoff game log as columns: the position's usual ones (a QB's passing and rushing,
+ * a kicker's field goals, a defense's sacks to points allowed), plus fumbles lost or two-point
+ * conversions when any game had one. One row of values per line (null: no line that round).
+ */
+export function statColumns(pos: Position, lines: (PlayerLine | DefLine | null)[]): { head: { group: string; label: string }[]; rows: ((number | string)[] | null)[] } {
+  const all = lines.filter((l): l is PlayerLine | DefLine => Boolean(l)) as (PlayerLine & DefLine)[];
+  const cols = [...STAT_COLS[pos], ...(pos === "DEF" || pos === "K" ? [] : EXTRA_COLS.filter((c) => all.some((l) => Number(c.get(l)) > 0)))];
+  return {
+    head: cols.map((c) => ({ group: c.group, label: c.label })),
+    rows: lines.map((l) => (l ? cols.map((c) => c.get(l as PlayerLine & DefLine)) : null)),
+  };
 }

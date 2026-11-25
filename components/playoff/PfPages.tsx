@@ -9,7 +9,7 @@ import { StatsFit } from "@/components/StatsFit";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, gameStatLine, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
+import { POSITIONS, POSITION_NAME, optimalLineup, statColumns, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
@@ -41,7 +41,7 @@ function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: Pf
       const espn = team?.espnId ?? "";
       const score = pts.byPlayer.get(p.id);
       const games = pts.games.get(espn) ?? [];
-      const lines = pts.lines.get(p.id) ?? [];
+      const log = statColumns(p.pos, [0, 1, 2, 3].map((i) => pts.lines.get(p.id)?.[i] ?? null));
       return {
         id: p.id,
         name: p.name,
@@ -51,12 +51,12 @@ function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: Pf
         out: pts.out.has(espn),
         own: own ? (own.get(p.id) ?? 0) : null,
         total: score?.total ?? 0,
+        statHead: log.head,
         rounds: [0, 1, 2, 3].map((i) => {
           const g = games[i] ?? null;
-          const line = lines[i] ?? null;
           return {
             game: g ? { oppAbbr: g.oppAbbr, oppLogo: g.oppLogo, home: g.home, us: g.us, them: g.them, state: g.state } : null,
-            stats: line ? gameStatLine(p.pos, line) : null,
+            stats: log.rows[i],
             points: g ? (score?.rounds[i] ?? 0) : null,
           };
         }),

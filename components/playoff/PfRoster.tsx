@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FitText } from "@/components/FitText";
 import { TeamLogo } from "@/components/ui";
 import { Shell } from "@/components/ProfileDialogs";
@@ -18,7 +18,8 @@ const ROUNDS = [
 /** One round of a player's playoffs: his team's game (null: none that round) and what he did in it. */
 export type PfLogRound = {
   game: { oppAbbr: string | null; oppLogo: string | null; home: boolean; us: number; them: number; state: "pre" | "in" | "post" } | null;
-  stats: string | null;
+  /** His numbers in the row's stat columns (null: no line that round). */
+  stats: (number | string)[] | null;
   points: number | null;
 };
 export type PfRosterRow = {
@@ -31,6 +32,8 @@ export type PfRosterRow = {
   /** Share of the pool's lineups with him, 0-100; null before anyone's lineup counts. */
   own: number | null;
   total: number;
+  /** The game log's stat columns for his position. */
+  statHead: { group: string; label: string }[];
   rounds: PfLogRound[];
 };
 
@@ -136,48 +139,132 @@ function PlayoffLog({ row, started, onClose }: { row: PfRosterRow; started: numb
       {games.length === 0 ? (
         <p className="mt-4 text-sm text-muted">No playoff games yet.</p>
       ) : (
-        <div className="mt-4 text-sm">
-          <div className="grid grid-cols-[3rem_minmax(0,1fr)_3.5rem] gap-x-3 border-b border-line pb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted sm:grid-cols-[6.5rem_9.5rem_minmax(0,1fr)_3.5rem]">
-            <span>Round</span>
-            <span className="hidden sm:block">Game</span>
-            <span>Stats</span>
-            <span className="text-right">Pts</span>
-          </div>
-          <ul className="divide-y divide-line">
-            {games.map((r) => {
-              const g = r.game;
-              const result = g ? `${g.state === "post" ? (g.us > g.them ? "W " : g.us < g.them ? "L " : "T ") : g.state === "in" ? "Live " : ""}${g.us}-${g.them}` : null;
-              const vs = g ? (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="text-muted">{g.home ? "vs" : "@"}</span>
-                  <TeamLogo src={g.oppLogo} abbr={g.oppAbbr} className="size-4 shrink-0" />
-                  <span className="font-semibold">{g.oppAbbr}</span>
-                  <span className={`tabular-nums ${g.state === "post" && g.us > g.them ? "text-emerald-600 dark:text-emerald-400" : g.state === "post" ? "text-red-600 dark:text-red-400" : "text-muted"}`}>{result}</span>
-                </span>
-              ) : null;
-              return (
-                <li key={r.i} className="grid grid-cols-[3rem_minmax(0,1fr)_3.5rem] items-center gap-x-3 py-2 sm:grid-cols-[6.5rem_9.5rem_minmax(0,1fr)_3.5rem]">
-                  <span className="font-semibold">
-                    <span className="sm:hidden">{ROUNDS[r.i].short}</span>
-                    <span className="hidden sm:inline">{ROUNDS[r.i].name}</span>
-                  </span>
-                  <span className="hidden whitespace-nowrap sm:block">{vs ?? <span className="text-muted">Bye</span>}</span>
-                  <span className="flex min-w-0 flex-col">
-                    {/* Below sm the game sits above the line. */}
-                    <span className="whitespace-nowrap text-xs sm:hidden">{vs ?? <span className="text-muted">Bye</span>}</span>
-                    {g ? <FitText min={9} className="text-xs tabular-nums text-muted sm:text-sm sm:text-ink">{r.stats ?? "Didn't play"}</FitText> : <span className="text-xs text-muted sm:hidden">No game</span>}
-                  </span>
-                  <span className="text-right font-bold tabular-nums">{g ? fmt(r.points ?? 0) : "–"}</span>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="flex justify-between border-t-2 border-line pt-2 font-bold">
-            <span>Playoff total</span>
-            <span className="tabular-nums">{fmt(row.total)}</span>
-          </div>
-        </div>
+        <GameLog row={row} games={games} />
       )}
     </Shell>
+  );
+}
+
+type LogGame = PfLogRound & { i: number };
+
+/** The stat columns' group headings ("Passing" over YDS TD INT), one cell per run of a group. */
+function groupRuns(head: { group: string }[]) {
+  const runs: { group: string; span: number; start: number }[] = [];
+  head.forEach((h, j) => {
+    const last = runs[runs.length - 1];
+    if (last && last.group === h.group) last.span++;
+    else runs.push({ group: h.group, span: 1, start: j });
+  });
+  return runs;
+}
+
+/** Opponent and result: "vs [logo] JAX  W 31-17". */
+function Matchup({ g }: { g: NonNullable<PfLogRound["game"]> }) {
+  const won = g.us > g.them;
+  const result = g.state === "post" ? `${won ? "W" : g.us < g.them ? "L" : "T"} ${g.us}-${g.them}` : g.state === "in" ? `Live ${g.us}-${g.them}` : "";
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span className="w-4 text-xs text-muted">{g.home ? "vs" : "@"}</span>
+      <TeamLogo src={g.oppLogo} abbr={g.oppAbbr} className="size-4 shrink-0" />
+      <span className="w-9 font-semibold">{g.oppAbbr}</span>
+      <span className={`text-xs font-semibold tabular-nums ${g.state === "post" ? (won ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400") : "text-muted"}`}>{result}</span>
+    </span>
+  );
+}
+
+const TH = "px-1.5 text-[10px] font-bold uppercase tracking-wide text-muted";
+const TD = "px-1.5 text-right tabular-nums";
+
+/**
+ * The playoff game log as a table, ESPN style: stat groups over their columns, one row a game,
+ * points on the right. Below sm each game (round, opponent, result) gets its own line above its
+ * numbers so the stat columns keep their room.
+ */
+function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
+  const head = row.statHead;
+  const runs = groupRuns(head);
+  // Each group's first column gets a divider on its left.
+  const starts = new Set(runs.slice(1).map((r) => r.start));
+  const sep = (j: number) => (starts.has(j) ? "border-l border-line" : "");
+  const stat = (r: LogGame, j: number) => (r.stats ? r.stats[j] : 0);
+  const totals = head.map((h, j) =>
+    h.label === "LONG" ? Math.max(0, ...games.map((r) => Number(r.stats?.[j]) || 0)) || "–" : games.reduce((t, r) => t + (Number(r.stats?.[j]) || 0), 0),
+  );
+  const groupRow = (lead: number) => (
+    <tr>
+      {lead > 0 && <th colSpan={lead} />}
+      {runs.map((r, k) => (
+        <th key={k} colSpan={r.span} className={`${TH} border-b border-line pb-1 text-center ${k > 0 ? "border-l" : ""}`}>{r.group}</th>
+      ))}
+      <th />
+    </tr>
+  );
+  const labels = (lead: ReactNode) => (
+    <tr className="border-b border-line">
+      {lead}
+      {head.map((h, j) => <th key={j} className={`${TH} py-1 text-right ${sep(j)}`}>{h.label}</th>)}
+      <th className={`${TH} py-1 pr-0 text-right`}>PTS</th>
+    </tr>
+  );
+  const totalCells = (
+    <>
+      {totals.map((v, j) => <td key={j} className={`${TD} py-2 ${sep(j)}`}>{v}</td>)}
+      <td className={`${TD} py-2 pr-0`}>{fmt(row.total)}</td>
+    </>
+  );
+  return (
+    <div className="mt-4">
+      {/* sm and up: Round | Game | stats | Pts on one row. */}
+      <table className="hidden w-full text-sm sm:table">
+        <thead>
+          {groupRow(2)}
+          {labels(<><th className={`${TH} py-1 pl-0 text-left`}>Round</th><th className={`${TH} py-1 text-left`}>Game</th></>)}
+        </thead>
+        <tbody className="divide-y divide-line">
+          {games.map((r) => (
+            <tr key={r.i}>
+              <td className="whitespace-nowrap py-2 pr-1.5 font-semibold">{ROUNDS[r.i].name}</td>
+              <td className="px-1.5 py-2">{r.game ? <Matchup g={r.game} /> : <span className="text-muted">Bye</span>}</td>
+              {head.map((_, j) => <td key={j} className={`${TD} py-2 ${sep(j)}`}>{r.game ? stat(r, j) : ""}</td>)}
+              <td className={`${TD} py-2 pr-0 font-bold`}>{r.game ? fmt(r.points ?? 0) : "–"}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot className="border-t-2 border-line font-bold">
+          <tr>
+            <td className="py-2" colSpan={2}>Playoff total</td>
+            {totalCells}
+          </tr>
+        </tfoot>
+      </table>
+
+      {/* Phones: each game's line over its numbers. */}
+      <table className="w-full text-sm sm:hidden">
+        <thead>
+          {groupRow(0)}
+          {labels(null)}
+        </thead>
+        {games.map((r) => (
+          <tbody key={r.i} className="border-b border-line">
+            <tr>
+              <td colSpan={head.length + 1} className="pb-0.5 pt-2">
+                <span className="mr-2 inline-block w-9 text-xs font-bold">{ROUNDS[r.i].short}</span>
+                {r.game ? <Matchup g={r.game} /> : <span className="text-xs text-muted">Bye</span>}
+              </td>
+            </tr>
+            {r.game && (
+              <tr>
+                {head.map((_, j) => <td key={j} className={`${TD} pb-2 ${sep(j)}`}>{stat(r, j)}</td>)}
+                <td className={`${TD} pb-2 pr-0 font-bold`}>{fmt(r.points ?? 0)}</td>
+              </tr>
+            )}
+          </tbody>
+        ))}
+        <tfoot className="font-bold">
+          <tr><td colSpan={head.length + 1} className="pt-2 text-xs">Playoff total</td></tr>
+          <tr>{totalCells}</tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
