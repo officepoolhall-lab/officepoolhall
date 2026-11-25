@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { CheckIcon, TeamLogo, chipClass } from "@/components/ui";
 import { Shell } from "@/components/ProfileDialogs";
 import { ROUNDS } from "@/lib/bracket";
@@ -13,8 +13,10 @@ const nameOf = (t: Team) => t.short_name ?? t.name;
 
 /**
  * Choose the entry's teams from the tournament field, region by region in seed order, like
- * Playoff Fantasy's My Team: each Add saves on its own; teams that would break a rule are dimmed
- * with the reason. Filter by region or seed line; tap a team for its pod of the bracket. The picks so far sit on the left (desktop) or in a drawer from the footer bar
+ * Playoff Fantasy's My Team; teams that would break a rule are dimmed with the reason. Filter by
+ * region or seed line; tap a team for its pod of the bracket. Picks save together, with the
+ * tiebreaker, and only as a full set: Save stays off until every team is picked and (when the
+ * pool uses one) the tiebreaker is filled in. The picks so far sit on the left (desktop) or in a drawer from the footer bar
  * (phones); the bar along the bottom shows the count, seed total and save status.
  */
 export function PickXPicker({
@@ -33,25 +35,25 @@ export function PickXPicker({
   regions: string[];
   initial: string[];
   settings: PickXSettings;
-  save: (teamIds: string[]) => Promise<{ error?: string }>;
+  save: (teamIds: string[], tiebreak: number | null) => Promise<{ error?: string }>;
   /** The commissioner picking for someone. */
   forName?: string;
   /** "Locks Thu, Mar 19 · 11:15 AM". */
   lockText?: string;
   /** The scoring rules' "i". */
   scoringInfo?: ReactNode;
-  /** The tiebreaker form, under the picks. */
-  tiebreak?: ReactNode;
+  /** The pool's tiebreaker (the title game's total points): the saved guess; null when the pool has no tiebreaker. */
+  tiebreak: { initial: number | null } | null;
 }) {
   const [picked, setPicked] = useState<string[]>(initial);
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [tb, setTb] = useState<string>(tiebreak?.initial != null ? String(tiebreak.initial) : "");
+  const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
   const [regionFilter, setRegionFilter] = useState<number | null>(null);
   const [seedFilter, setSeedFilter] = useState<number | null>(null);
   const [pod, setPod] = useState<number | null>(null);
-  const saved = useRef<string[]>(initial);
-  const latest = useRef(0);
-  const chain = useRef<Promise<unknown>>(Promise.resolve());
+  const saved = useRef({ picks: [...initial].sort().join(","), tb: tiebreak?.initial != null ? String(tiebreak.initial) : "" });
 
   const slotOf = new Map(field.map((t, i) => [t?.id ?? "", i]));
   const slots = picked.map((id) => slotOf.get(id)).filter((x): x is number => x !== undefined);
@@ -59,30 +61,71 @@ export function PickXPicker({
   const problem = picksError(slots, settings);
   const firstWin = (slot: number) => winPoints(settings.scoring, 1, seedAt(slot));
 
-  // Each tap saves on its own (in order); a set that breaks a rule waits for a fix.
   const toggle = (id: string) => {
-    const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
-    setPicked(next);
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
     setError(null);
-    const bad = picksError(next.map((x) => slotOf.get(x)!).filter((x) => x !== undefined), settings);
-    if (bad) {
-      setStatus("idle");
-      return;
-    }
-    setStatus("saving");
-    const n = ++latest.current;
-    chain.current = chain.current.then(async () => {
-      const r = await save(next).catch(() => ({ error: "That didn't save. Try again." }));
+    setStatus("idle");
+  };
+
+  // What's holding up Save: teams still to pick, a broken rule, the tiebreaker.
+  const tbValue = /^\d{1,3}$/.test(tb.trim()) ? Number(tb.trim()) : null;
+  const dirty = [...picked].sort().join(",") !== saved.current.picks || tb.trim() !== saved.current.tb;
+  const missing = settings.picks - picked.length;
+  const blocker =
+    missing > 0
+      ? `${missing} more to pick`
+      : problem
+        ? problem
+        : tiebreak && tbValue === null
+          ? "Tiebreaker needed"
+          : null;
+  const canSave = dirty && !blocker && !saving;
+  const onSave = () =>
+    startSave(async () => {
+      const r = await save(picked, tiebreak ? tbValue : null).catch(() => ({ error: "That didn't save. Try again." }));
       if (r.error) {
         setError(r.error);
         setStatus("error");
-        if (n === latest.current) setPicked(saved.current);
       } else {
-        saved.current = next;
-        if (n === latest.current) setStatus("saved");
+        saved.current = { picks: [...picked].sort().join(","), tb: tb.trim() };
+        setStatus("saved");
       }
     });
-  };
+  // Leaving with changes that aren't saved: the browser asks first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // The tiebreaker: the title game's total points, saved with the picks.
+  const tiebreakBox = tiebreak && (
+    <label className="block rounded-xl border-2 border-accent bg-surface px-3 py-2.5">
+      <span className="flex items-center gap-3">
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold">Tiebreaker</span>
+          <span className="block text-xs text-muted">Total points in the title game, both teams added together. Closest guess wins a tie.</span>
+        </span>
+        <input
+          type="number" min={0} max={999} inputMode="numeric" placeholder="141" aria-label="Tiebreaker: championship game total points" value={tb}
+          onChange={(e) => (setTb(e.target.value), setStatus("idle"))}
+          className={`h-10 w-20 shrink-0 rounded-[10px] bg-bg px-2 text-center text-[17px] font-bold tabular-nums outline-none ring-2 focus:ring-accent ${tbValue === null ? "ring-line" : "ring-accent/40"}`}
+        />
+      </span>
+      {tbValue === null && <span className="mt-1 block text-xs font-semibold text-accent">Required to save your picks.</span>}
+    </label>
+  );
+  const saveButton = (className = "") => (
+    <button
+      type="button"
+      onClick={onSave}
+      disabled={!canSave}
+      className={`flex shrink-0 cursor-pointer items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold whitespace-nowrap text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+    >
+      {saving ? "Saving…" : "Save picks"}
+    </button>
+  );
 
   // Each region's teams in seed order (1 through 16), filtered.
   const byRegion = regions
@@ -122,11 +165,16 @@ export function PickXPicker({
     </ul>
   );
   const statusText =
-    status === "saving" ? "Saving…" : status === "error" ? (error ?? "Not saved") : problem ? problem : status === "saved" ? (
+    status === "error" ? (error ?? "Not saved") : blocker && (dirty || missing > 0) ? blocker : dirty ? "Unsaved changes" : status === "saved" ? (
       <>
         <CheckIcon className="size-3.5 text-win" /> Saved
       </>
+    ) : missing === 0 ? (
+      <>
+        <CheckIcon className="size-3.5 text-win" /> Picks in
+      </>
     ) : null;
+  const statusBad = status === "error" || (!!blocker && (dirty || missing > 0));
 
   return (
     <div data-wide className="pb-16 lg:pb-14">
@@ -135,7 +183,7 @@ export function PickXPicker({
         <aside aria-label="My picks" className="hidden lg:sticky lg:top-4 lg:block">
           <h2 className="mb-1 text-lg font-extrabold tracking-[-0.03em]">{forName ? "Their picks" : "My Picks"}</h2>
           {myPicks}
-          {tiebreak && <div className="mt-4">{tiebreak}</div>}
+          {tiebreakBox && <div className="mt-4">{tiebreakBox}</div>}
         </aside>
 
         <div className="min-w-0">
@@ -151,7 +199,7 @@ export function PickXPicker({
             {lockText && <span className="text-sm text-muted">{lockText}</span>}
             {scoringInfo && <span className="inline-flex items-center gap-1 text-sm text-muted">{scoringInfo} Scoring</span>}
           </section>
-          {tiebreak && <div className="mb-4 lg:hidden">{tiebreak}</div>}
+          {tiebreakBox && <div className="mb-4 lg:hidden">{tiebreakBox}</div>}
           {/* Filters: a region, a seed line, or both. */}
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
             <button type="button" onClick={() => setRegionFilter(null)} className={chipClass(regionFilter === null, "cursor-pointer", "sm")}>All regions</button>
@@ -178,7 +226,7 @@ export function PickXPicker({
             )}
           </div>
           <FitText min={9} className="mb-2 block text-sm text-muted">
-            Tap a team to see its pod of the bracket. Add picks it; the number is its first win&apos;s points.
+            Tap a team for its pod. The + button picks it (its first win&apos;s points).
           </FitText>
 
           <div className={`grid gap-4 ${byRegion.length > 1 ? "sm:grid-cols-2" : ""} ${byRegion.length > 2 ? "2xl:grid-cols-4" : ""} ${seedFilter !== null && byRegion.length > 1 ? "2xl:grid-cols-4" : ""}`}>
@@ -240,7 +288,10 @@ export function PickXPicker({
             {picked.length} <span className="font-normal text-muted">of {settings.picks} picked{forName ? ` for ${forName}` : ""}</span>
             <span className="ml-3 hidden font-normal text-muted sm:inline">Seeds {seedTotal}</span>
           </span>
-          <span className={`flex min-w-0 items-center gap-1 truncate text-xs ${status === "error" || (problem && status !== "saving") ? "font-semibold text-loss" : "text-muted"}`}>{statusText}</span>
+          <span className="flex min-w-0 items-center gap-3">
+            <span className={`flex min-w-0 items-center gap-1 truncate text-xs ${statusBad ? "font-semibold text-loss" : "text-muted"}`}>{statusText}</span>
+            {saveButton("h-8")}
+          </span>
         </div>
       </div>
       {pod !== null && <PodDialog slot={pod} field={field} regions={regions} picked={picked} settings={settings} onToggle={toggle} blocked={(sl) => blockedReason(sl, slots, settings)} onClose={() => setPod(null)} />}
@@ -249,6 +300,11 @@ export function PickXPicker({
           {picked.length} of {settings.picks} picked · seeds total {seedTotal}
         </p>
         {myPicks}
+        {tiebreakBox && <div className="mt-3">{tiebreakBox}</div>}
+        <div className="mt-3 flex items-center gap-3">
+          <span className={`min-w-0 flex-1 text-xs ${statusBad ? "font-semibold text-loss" : "text-muted"}`}>{statusText}</span>
+          {saveButton("h-10")}
+        </div>
       </GridPanelDrawer>
     </div>
   );

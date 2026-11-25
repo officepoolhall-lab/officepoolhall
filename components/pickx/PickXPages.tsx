@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { Empty, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
-import { savePickXPicks, savePickXTiebreak } from "@/app/p/[slug]/pickx/actions";
-import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { savePickXPicks } from "@/app/p/[slug]/pickx/actions";
 import type { PoolBase } from "@/lib/pool";
 import { ROUNDS } from "@/lib/bracket";
 import { pickXScoringTable, roundPointsOf, roundsStarted, seedAt, type PickXSettings, type TeamStatus } from "@/lib/pickx";
@@ -302,23 +301,6 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
     );
   }
 
-  // The tiebreaker guess, saved on its own (same lock as the picks).
-  const tiebreak =
-    !ctx.isGuest && settings.tiebreaker === "title_total" ? (
-      <ActionForm action={savePickXTiebreak.bind(null, slug, behalf ? forUserId! : null)} className="rounded-xl bg-surface px-3 py-2.5">
-        <label className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold">Tiebreaker</span>
-            <span className="block text-xs text-muted">Total points in the title game. Closest guess wins a tie.</span>
-          </span>
-          <input
-            name="tiebreak" type="number" min={0} max={999} inputMode="numeric" placeholder="141" aria-label="Tiebreaker: championship game total points" defaultValue={entry?.tiebreak ?? ""}
-            className="h-9 w-20 rounded-[10px] bg-bg px-3 text-center text-[15px] tabular-nums outline-none ring-1 ring-line focus:ring-2 focus:ring-accent"
-          />
-          <SubmitButton kind="secondary" className="!h-9 !px-3 !text-sm">Save</SubmitButton>
-        </label>
-      </ActionForm>
-    ) : null;
 
   return (
     <>
@@ -337,7 +319,7 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
           forName={behalf ? entry?.name : undefined}
           lockText={`Locks ${lockLabel(bracket.lockAt, tz)}`}
           scoringInfo={<Scoring settings={settings} />}
-          tiebreak={tiebreak}
+          tiebreak={settings.tiebreaker === "title_total" ? { initial: entry?.tiebreak ?? null } : null}
         />
       )}
     </>
