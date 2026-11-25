@@ -2,20 +2,19 @@ import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { Empty, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
-import { Suspense } from "react";
 import { Countdown } from "@/components/Countdown";
 import { FitText } from "@/components/FitText";
-import { StatsFit } from "@/components/StatsFit";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, optimalLineup, statColumns, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
+import { POSITIONS, POSITION_NAME, optimalLineup, statColumns, rosterSize } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 import { PfBracket } from "./PfBracket";
 import { PfRosterTable, type PfRosterRow } from "./PfRoster";
+import { PfSummaryTabs, type SumGroup, type SumPlayer } from "./PfSummaryTabs";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { LiveTicker } from "@/components/LiveTicker";
 
@@ -209,55 +208,6 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   );
 }
 
-/**
- * Every player on at least one lineup, with the share of entries that have him, by position
- * (most rostered first), and his points so far. Only once lineups lock.
- */
-function RosterShare({ rows, players, teams, pts }: { rows: PfRow[]; players: PfPlayer[]; teams: PfTeam[]; pts: PfPoints }) {
-  const counts = new Map<string, number>();
-  for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
-  const teamOf = new Map(teams.map((t) => [t.id, t]));
-  const entries = Math.max(1, rows.filter((r) => r.playerIds.length > 0).length);
-  const groups = POSITIONS.map((pos) => ({
-    pos,
-    list: players
-      .filter((p) => p.pos === pos && counts.has(p.id))
-      .sort((a, b) => counts.get(b.id)! - counts.get(a.id)! || (pts.byPlayer.get(b.id)?.total ?? 0) - (pts.byPlayer.get(a.id)?.total ?? 0) || a.name.localeCompare(b.name)),
-  })).filter((g) => g.list.length);
-  if (!groups.length) return null;
-  return (
-    <section className="mt-8 @container">
-      <div className="flex items-baseline justify-between gap-3">
-        <SectionLabel fit className="!text-sm lg:!text-base">Roster %</SectionLabel>
-        <span className="shrink-0 text-xs text-muted tabular-nums">Share of {entries} lineups · points</span>
-      </div>
-      <div className="mt-2 grid gap-x-6 gap-y-4 @[34rem]:grid-cols-2 @[52rem]:grid-cols-3">
-        {groups.map(({ pos, list }) => (
-          <div key={pos} className="min-w-0">
-            <div className="border-b border-line pb-1 text-xs font-bold tracking-wide text-muted">{POSITION_NAME[pos]}s</div>
-            <ul className="divide-y divide-line">
-              {list.map((p) => {
-                const t = teamOf.get(p.teamId);
-                const out = pts.out.has(t?.espnId ?? "");
-                const pct = Math.round((counts.get(p.id)! / entries) * 1000) / 10;
-                return (
-                  <li key={p.id} className={`flex h-7 items-center gap-1.5 text-[13px] ${out ? "text-muted" : "text-ink"}`}>
-                    <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
-                    <span className="min-w-0 flex-1">
-                      <FitText min={10} className={`block ${out ? "line-through decoration-1" : "font-medium"}`}>{p.name}</FitText>
-                    </span>
-                    <span className="w-12 shrink-0 text-right font-semibold tabular-nums">{pct}%</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted">{fmt(pts.byPlayer.get(p.id)?.total ?? 0)}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 /** One entry's line in Home's standings. */
 function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow; me: boolean; locked: boolean; size: number; progress: boolean; pin?: boolean; className?: string }) {
@@ -278,115 +228,6 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
   );
 }
 
-/**
- * Home's Pool Summary. Before the games: each position's top regular-season scorers under the
- * pool's own scoring (to help build a lineup). Once they start: the top scorer at each position and
- * the perfect lineup so far (against the best entry). After the lock: the most rostered players.
- * Never who has or hasn't entered a lineup.
- */
-async function PfSummary({ season, players, teams, rows, pts, locked, roster, scoring }: { season: number; players: PfPlayer[]; teams: PfTeam[]; rows: PfRow[]; pts: PfPoints; locked: boolean; roster: Record<Position, number>; scoring: PfScoring }) {
-  // The Pool Summary page: each part is a column of its own, under its own heading.
-  const playerOf = new Map(players.map((p) => [p.id, p]));
-  const teamOf = new Map(teams.map((t) => [t.id, t]));
-  const started = pts.roundsStarted > 0;
-  const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
-  const label = "!text-sm lg:!text-base";
-  const who = (p: PfPlayer, right: ReactNode, sub?: string | null) => {
-    const t = teamOf.get(p.teamId);
-    return (
-      // One line: position, logo and name close together, the stat line in between (it shrinks to
-      // fit rather than wrapping or being cut off), the points on the right.
-      <li key={p.id} className="flex items-center gap-1.5 py-1.5 text-[13px]">
-        <span className="w-6 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
-        <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
-        <span className="min-w-0 max-w-[55%] shrink-0">
-          <FitText min={10} className="block font-medium">{p.name}</FitText>
-        </span>
-        {/* The stat line: shown only when every row's fits at a readable size (StatsFit). */}
-        <span className="min-w-0 flex-1 pl-1">{sub && <span data-stat className="block overflow-hidden whitespace-nowrap text-[11px] tabular-nums text-muted">{sub}</span>}</span>
-        <span className="shrink-0 pl-1 font-semibold tabular-nums">{right}</span>
-      </li>
-    );
-  };
-
-  // Before the games: the regular season's best under this pool's scoring, as many at each
-  // position as a lineup has (2 QB, 4 RB, 4 WR, 2 TE, K, DEF).
-  const stats = started ? {} : await getPfSeasonStats(season, players, scoring, teams);
-  const producers = POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) =>
-    players
-      .filter((p) => p.pos === pos && (stats[p.id]?.fp ?? 0) > 0)
-      .sort((a, b) => stats[b.id].fp - stats[a.id].fp)
-      .slice(0, roster[pos]),
-  );
-
-  // Once they start: each position's top scorer, and the perfect lineup.
-  const leaders = started
-    ? POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) => {
-        // As many at each position as a lineup has.
-        return players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, roster[pos]);
-      })
-    : [];
-  const perfect = started ? optimalLineup(players, ptsOf, roster) : null;
-  const bestEntry = rows[0];
-
-  // After the lock: the most rostered.
-  const counts = new Map<string, number>();
-  if (locked) for (const r of rows) for (const id of r.playerIds) counts.set(id, (counts.get(id) ?? 0) + 1);
-  // The two most rostered at each position.
-  const popular = POSITIONS.filter((p) => roster[p] > 0).flatMap((pos) =>
-    [...counts.entries()]
-      .filter(([id]) => playerOf.get(id)?.pos === pos)
-      .sort((a, b) => b[1] - a[1] || playerOf.get(a[0])!.name.localeCompare(playerOf.get(b[0])!.name))
-      .slice(0, 2),
-  );
-
-  return (
-    <>
-      {!started && producers.length > 0 && (
-        <section>
-          <SectionLabel fit className={label}>Top Scorers</SectionLabel>
-          <h3 title="Regular-season fantasy points under this pool's scoring">
-            <FitText min={9} className="block text-xs text-muted">Regular season, under this pool&apos;s scoring</FitText>
-          </h3>
-          <ul className="mt-1 divide-y divide-line">{producers.map((p) => who(p, fmt(stats[p.id].fp), stats[p.id].line || null))}</ul>
-        </section>
-      )}
-      {leaders.length > 0 && (
-        <section>
-          <SectionLabel fit className={label}>Top Scorers</SectionLabel>
-          <h3 className="text-xs text-muted">Playoff points, by position</h3>
-          <ul className="mt-1 divide-y divide-line">{leaders.map((p) => who(p, fmt(ptsOf(p.id))))}</ul>
-        </section>
-      )}
-      {perfect && perfect.ids.length > 0 && (
-        <section>
-          <div className="flex items-baseline justify-between gap-3">
-            <SectionLabel fit className={label}>Perfect Lineup</SectionLabel>
-            <span className="shrink-0 text-sm font-extrabold tabular-nums">{fmt(perfect.total)}</span>
-          </div>
-          {bestEntry && bestEntry.points > 0 && (
-            <p className="mt-0.5 text-xs text-muted tabular-nums">
-              Best entry: {bestEntry.name}, {fmt(bestEntry.points)} ({Math.round((bestEntry.points / perfect.total) * 100)}%)
-            </p>
-          )}
-          <ul className="mt-1 divide-y divide-line">
-            {perfect.ids
-              .map((id) => playerOf.get(id)!)
-              .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id))
-              .map((p) => who(p, fmt(ptsOf(p.id))))}
-          </ul>
-        </section>
-      )}
-      {popular.length > 0 && (
-        <section>
-          <SectionLabel fit className={label}>Most Rostered</SectionLabel>
-          <ul className="mt-1 divide-y divide-line">{popular.map(([id, n]) => who(playerOf.get(id)!, `${Math.round((n / Math.max(1, rows.length)) * 100)}%`))}</ul>
-        </section>
-      )}
-      {!started && !producers.length && !popular.length && <p className="text-sm text-muted">Top scorers and the perfect lineup show here once the Wild Card round starts.</p>}
-    </>
-  );
-}
 
 export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slug: string; forUserId?: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
@@ -532,12 +373,87 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
   );
 }
 
-/** Pool Summary: top scorers, the perfect lineup, the most rostered players and everyone's roster share. */
+/** Pool Summary: two tabs, Ownership % (every rostered player, by position, sortable) and Top Players (each position's most rostered and highest scoring, and the perfect lineup). */
 export async function PfSummaryPage({ ctx }: { ctx: PoolBase }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const ticker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
+  const started = pts.roundsStarted > 0;
+  const teamOf = new Map(teams.map((t) => [t.id, t]));
+  const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
+  const positions = POSITIONS.filter((p) => settings.roster[p] > 0);
+
+  // After the lock: how many lineups have each player.
+  const counts = new Map<string, number>();
+  if (locked) for (const r of rows) for (const id of new Set(r.playerIds)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const lineups = rows.filter((r) => r.playerIds.length > 0).length;
+  const sum = (p: PfPlayer): SumPlayer => {
+    const t = teamOf.get(p.teamId);
+    const count = counts.get(p.id) ?? 0;
+    return { id: p.id, name: p.name, pos: p.pos, team: t?.abbreviation ?? null, logo: t?.logo_url ?? null, out: pts.out.has(t?.espnId ?? ""), count, own: Math.round((count / Math.max(1, lineups)) * 1000) / 10, points: ptsOf(p.id) };
+  };
+  const owned = players.filter((p) => counts.has(p.id)).map(sum);
+
+  // Highest scoring: playoff points once games start; before that the regular season under the
+  // pool's scoring, with the stat line.
+  const stats = started ? {} : await getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams);
+  const TOP = 3;
+  const groups: SumGroup[] = positions.map((pos) => {
+    const at = players.filter((p) => p.pos === pos);
+    return {
+      pos,
+      name: `${POSITION_NAME[pos]}s`,
+      rostered: at
+        .filter((p) => counts.has(p.id))
+        .sort((a, b) => counts.get(b.id)! - counts.get(a.id)! || ptsOf(b.id) - ptsOf(a.id) || a.name.localeCompare(b.name))
+        .slice(0, TOP)
+        .map((p) => { const x = sum(p); return { p: x, value: `${x.own.toFixed(1)}%` }; }),
+      scoring: started
+        ? at.filter((p) => ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, TOP).map((p) => ({ p: sum(p), value: fmt(ptsOf(p.id)) }))
+        : at
+            .filter((p) => (stats[p.id]?.fp ?? 0) > 0)
+            .sort((a, b) => stats[b.id].fp - stats[a.id].fp)
+            .slice(0, TOP)
+            .map((p) => ({ p: sum(p), value: fmt(stats[p.id].fp), sub: stats[p.id].line || null })),
+    };
+  });
+
+  // The perfect lineup, once games start.
+  const perfect = started ? optimalLineup(players, ptsOf, settings.roster) : null;
+  const best = rows[0];
+  const playerOf = new Map(players.map((p) => [p.id, p]));
+  const perfectNode =
+    perfect && perfect.ids.length > 0 ? (
+      <section className="max-w-xl">
+        <div className="flex items-baseline justify-between gap-3 border-b-2 border-line pb-1">
+          <SectionLabel fit className="!text-sm lg:!text-base">Perfect Lineup</SectionLabel>
+          <span className="shrink-0 text-sm font-extrabold tabular-nums">{fmt(perfect.total)}</span>
+        </div>
+        {best && best.points > 0 && (
+          <FitText min={9} className="mt-1 block text-xs text-muted tabular-nums">
+            Best entry: {best.name}, {fmt(best.points)} ({Math.round((best.points / perfect.total) * 100)}%)
+          </FitText>
+        )}
+        <ul className="mt-1 divide-y divide-line">
+          {perfect.ids
+            .map((id) => playerOf.get(id)!)
+            .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id))
+            .map((p) => {
+              const t = teamOf.get(p.teamId);
+              return (
+                <li key={p.id} className="flex h-8 items-center gap-1.5 text-[13px]">
+                  <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
+                  <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
+                  <FitText min={10} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
+                  <span className="shrink-0 font-semibold tabular-nums">{fmt(ptsOf(p.id))}</span>
+                </li>
+              );
+            })}
+        </ul>
+      </section>
+    ) : null;
+
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
@@ -545,15 +461,7 @@ export async function PfSummaryPage({ ctx }: { ctx: PoolBase }) {
       {players.length === 0 ? (
         <Empty>{NOT_READY}</Empty>
       ) : (
-        <>
-          {/* Each part a column: three across on a laptop, stacked on phones. */}
-          <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-            <StatsFit className="grid items-start gap-x-8 gap-y-8 md:grid-cols-2 xl:grid-cols-3">
-              <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} scoring={settings.scoring} />
-            </StatsFit>
-          </Suspense>
-          {locked && <RosterShare rows={rows} players={players} teams={teams} pts={pts} />}
-        </>
+        <PfSummaryTabs owned={owned} groups={groups} positions={positions} lineups={lineups} locked={locked} started={started} perfect={perfectNode} />
       )}
     </div>
   );
