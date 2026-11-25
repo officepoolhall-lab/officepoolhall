@@ -1,4 +1,5 @@
 import "server-only";
+import type { SlateGame } from "@/lib/pool";
 import { formatInTimeZone } from "date-fns-tz";
 import { ROUNDS, SEED_ORDER, gameKey, gameTeams, gamesIn, type Picks } from "./bracket";
 import type { Bracket } from "./brackets";
@@ -120,6 +121,9 @@ export type LiveGame = {
   /** The day it's played ("Thu 3/19"), when ESPN has the game; and where ("Buffalo, NY"). */
   date?: string | null;
   site?: string | null;
+  /** ESPN's tip time and game id, when ESPN has the game. */
+  startAt?: string | null;
+  espnId?: string | null;
 };
 export type LiveBracket = {
   regions: string[];
@@ -342,6 +346,8 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
         placeholders,
         date: sched ? formatInTimeZone(sched.startAt, tz, "EEE M/d") : roundDates[round - 1],
         site,
+        startAt: sched?.startAt ?? null,
+        espnId: eg?.id ?? null,
       });
     }
     rounds.push(list);
@@ -357,4 +363,64 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
     regionSites,
     finalSite,
   };
+}
+
+/** One of a team's tournament games, from that team's side. */
+export type TeamGame = {
+  round: number;
+  status: LiveGame["status"];
+  opp: { name: string; seed: number | null } | null;
+  /** Its score and the other team's (null until the game starts). */
+  score: number | null;
+  oppScore: number | null;
+  won: boolean;
+  lost: boolean;
+  /** The clock, "Final", or the tip time. */
+  detail: string | null;
+};
+
+/** Each team's games so far and its next one, by our team id (First Round first). */
+export function gamesByTeam(b: LiveBracket): Record<string, TeamGame[]> {
+  const out: Record<string, TeamGame[]> = {};
+  for (const games of b.rounds)
+    for (const g of games)
+      g.teams.forEach((t, i) => {
+        if (!t?.id) return;
+        const o = g.teams[1 - i];
+        (out[t.id] ??= []).push({
+          round: g.round,
+          status: g.status,
+          opp: o ? { name: o.name, seed: o.seed } : g.placeholders[1 - i] ? { name: g.placeholders[1 - i]!, seed: null } : null,
+          score: t.score,
+          oppScore: o?.score ?? null,
+          won: t.won,
+          lost: t.lost,
+          detail: g.detail,
+        });
+      });
+  return out;
+}
+
+/**
+ * The page header's games: the round being played (the first with a game not final, else the
+ * title game), its games with both teams known, by tip time.
+ */
+export function tourneyTicker(b: LiveBracket): SlateGame[] {
+  const r = b.rounds.findIndex((games) => games.some((g) => g.status !== "final" && g.teams[0] && g.teams[1]));
+  const games = b.rounds[r < 0 ? 5 : r] ?? [];
+  const team = (t: LiveTeam) => ({ id: t.id ?? `espn-${t.name}`, espn_id: null, name: t.name, short_name: t.name, abbreviation: t.abbr, logo_url: t.logo, conference: null });
+  return games
+    .filter((g) => g.teams[0] && g.teams[1] && (g.startAt || g.status !== "scheduled"))
+    .map((g) => {
+      const [away, home] = g.teams as [LiveTeam, LiveTeam];
+      const startAt = g.startAt ?? new Date().toISOString();
+      return {
+        id: g.espnId ?? g.key, startAt, timeTbd: !g.startAt, manualTime: false, lockAt: null, effectiveLockAt: startAt,
+        status: g.status, homeScore: home.score, awayScore: away.score,
+        overridden: false, neutral: true, venue: g.site ?? null, tv: null, homeRank: home.seed, awayRank: away.seed, spread: null, voided: false,
+        espnId: g.espnId ?? null, clock: g.status === "in_progress" ? g.detail : null, lastPlay: null, situation: null, possession: null,
+        home: team(home), away: team(away),
+      } as unknown as SlateGame;
+    })
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
 }

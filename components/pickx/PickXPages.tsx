@@ -12,7 +12,7 @@ import { PickXOwnership, type PickXOwnRow } from "./PickXOwnership";
 import type { BracketTeam } from "@/lib/brackets";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { PickXBracket } from "./PickXBracket";
-import { getLiveBracket } from "@/lib/tourneyLive";
+import { gamesByTeam, getLiveBracket, tourneyTicker } from "@/lib/tourneyLive";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { ScoringInfo } from "@/components/ScoringInfo";
 import { ExpandAll } from "@/components/ExpandAll";
@@ -148,8 +148,8 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
         };
       })
     : [];
-  const most = [...ownRows].sort((a, b) => b.count - a.count || a.seed - b.seed)[0];
-  const top = [...ownRows].sort((a, b) => b.points - a.points || b.count - a.count)[0];
+  // Each team's games, for its row in the Pool Summary.
+  const games = bracket && locked ? gamesByTeam(await getLiveBracket(bracket, tz, now)) : undefined;
 
   return (
     <div data-wide className="space-y-6">
@@ -202,7 +202,8 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
               </>
             )}
           </section>
-          <section>
+          {/* Phones skip the standings here (they have their own tab). */}
+          <section className="max-lg:hidden">
             <div className="flex items-baseline justify-between gap-3">
               <SectionLabel fit className="!text-sm lg:!text-base">Standings</SectionLabel>
               {locked && <span className="shrink-0 text-[10px] font-bold tracking-wide text-muted uppercase">Alive · Pts</span>}
@@ -240,22 +241,8 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
               <div className="border-b border-line pb-1">
                 <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-4 [&>*]:min-w-0">
-                <div>
-                  <FitText min={9} className="text-xs text-muted">Most Picked</FitText>
-                  <FitText min={12} className="mt-0.5 text-lg font-bold">{most && most.count ? `${most.name} · ${most.own.toFixed(0)}%` : "–"}</FitText>
-                </div>
-                <div>
-                  <FitText min={9} className="text-xs text-muted">Top Scoring Team</FitText>
-                  <FitText min={12} className="mt-0.5 text-lg font-bold">{top && top.points ? `${top.name} · ${top.points} pts` : "–"}</FitText>
-                </div>
-                <div>
-                  <FitText min={9} className="text-xs text-muted">Teams Alive</FitText>
-                  <FitText min={12} className="mt-0.5 text-lg font-bold">{alive.length}<span className="text-muted">/64</span></FitText>
-                </div>
-              </div>
-              <div className="mt-4">
-                <PickXOwnership rows={ownRows} regions={regions} entries={own.entries} />
+              <div className="mt-3">
+                <PickXOwnership rows={ownRows} regions={regions} entries={own.entries} games={games} />
               </div>
             </section>
           )}
@@ -318,6 +305,7 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
     // Locked: the entry's teams, round by round.
     const row = pickXStandings(bracket, entry ? [entry] : [], settings)[0];
     const own = ownership(entries).own;
+    const games = gamesByTeam(await getLiveBracket(bracket, tz, now));
     return (
       <>
         <PoolPageHeader title={<span className="inline-flex items-center gap-2">My Picks <Scoring settings={settings} /></span>} sub={`Picks locked ${lockLabel(bracket.lockAt, tz)}.`} now={now} timezone={tz} />
@@ -329,9 +317,9 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
               <SectionLabel fit className="!text-sm lg:!text-base">My Teams</SectionLabel>
               <span className="shrink-0 text-lg font-extrabold tabular-nums">{row.points}</span>
             </div>
-            <PickXTeamsTable rows={teamRows(row.teams, fieldOf(bracket), bracket.regions, settings, own)} started={roundsStarted(bracket.results)} />
+            <PickXTeamsTable rows={teamRows(row.teams, fieldOf(bracket), bracket.regions, settings, own)} started={roundsStarted(bracket.results)} games={games} />
             <FitText min={8} className="mt-2 text-xs text-muted">
-              Own is the share of the pool&apos;s entries with that team. L marks the round a team lost in.
+              Own % is the share of the pool&apos;s entries with that team. L marks the round a team lost in. Tap a team to see its games.
               {settings.tiebreaker === "title_total" && row.tiebreak !== null ? ` Your tiebreaker: ${row.tiebreak}.` : ""}
             </FitText>
           </section>
@@ -376,21 +364,26 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
   const own = locked ? ownership(entries).own : null;
   const me = ctx.entryUserId;
   const tb = settings.tiebreaker === "title_total";
-  // Place | Entry | the six rounds (from sm) | Alive | Total | the open/close arrow.
-  const grid = "grid grid-cols-[2rem_minmax(0,1fr)_2.75rem_3.25rem_1.25rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_repeat(6,3rem)_3.25rem_3.75rem_1.25rem] items-center gap-x-2";
+  // Like Playoff Fantasy's: the round's games in the header, scores kept fresh while they're on.
+  const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
+  const live = bracket && locked ? await getLiveBracket(bracket, tz, now) : null;
+  const games = live ? gamesByTeam(live) : undefined;
+  // Place | Entry | the six rounds (from sm) | Total | the open/close arrow.
+  const grid = "grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_1.25rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_repeat(6,3.5rem)_5rem_1.25rem] items-center gap-x-2";
 
   return (
     <div data-wide>
+      {live && <AutoRefresh active={live.live || live.soon} seconds={30} />}
       <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} lockAt={bracket?.lockAt ?? null} locked={locked} />
-      <PoolPageHeader title={<span className="inline-flex items-center gap-2">Standings <Scoring settings={settings} /></span>} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
+      <PoolPageHeader title={<span className="inline-flex items-center gap-2">Standings <Scoring settings={settings} /></span>} games={live ? tourneyTicker(live) : []} now={now} timezone={tz} />
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
-        <section className="max-w-5xl">
+        <section className="max-w-4xl">
           <div className="mb-2 flex items-center gap-3">
             <FitText min={8} className="min-w-0 flex-1 text-xs text-muted">
               {locked
-                ? `Tap an entry to see its teams.${tb ? (settings.title_total !== null ? ` Ties go to the closest guess of the title game's total (${settings.title_total}).` : " Ties go to the closest guess of the title game's total.") : ""}`
+                ? `Tap an entry to see its teams, and a team for its games.${tb ? (settings.title_total !== null ? ` Ties go to the closest guess of the title game's total (${settings.title_total}).` : " Ties go to the closest guess of the title game's total.") : ""}`
                 : "Everyone's teams show here once picks lock."}
             </FitText>
             {locked && <ExpandAll target="pickx-standings" />}
@@ -401,8 +394,7 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
             {ROUNDS.map((r) => (
               <span key={r.round} className="hidden text-right sm:block">{r.short}</span>
             ))}
-            <span className="text-right">{locked ? "Alive" : ""}</span>
-            <span className="text-right">{locked ? "Total" : "Picks"}</span>
+            <span className="text-right">Total</span>
             <span />
           </div>
           <div id="pickx-standings">
@@ -414,17 +406,12 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
                     <span className="tabular-nums text-muted">{locked ? r.rank : ""}</span>
                     <span className="min-w-0">
                       <FitText min={10} className={`block font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
-                      {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">TB {r.tiebreak}</span>}
+                      {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">Tiebreaker: {r.tiebreak}</span>}
                     </span>
                     {byRound.map((v, i) => (
                       <span key={i} className={`hidden text-right tabular-nums sm:block ${i >= started || !locked ? "text-muted" : ""}`}>{i >= started || !locked ? "–" : v}</span>
                     ))}
-                    <span className="text-right text-xs tabular-nums text-muted">{locked ? `${r.alive}/${r.teams.length}` : ""}</span>
-                    {locked ? (
-                      <span className="text-right font-bold tabular-nums">{r.points}</span>
-                    ) : (
-                      <span className={`text-right text-xs font-semibold tabular-nums ${r.teamIds.length >= settings.picks ? "text-win" : "text-muted"}`}>{r.teamIds.length >= settings.picks ? "In" : `${r.teamIds.length}/${settings.picks}`}</span>
-                    )}
+                    <span className="text-right font-bold tabular-nums">{locked ? r.points : ""}</span>
                     <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-4 justify-self-end text-muted transition-transform group-open:rotate-180">
                       <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
                     </svg>
@@ -435,7 +422,10 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
                     ) : !r.teams.length ? (
                       <p className="py-1.5 text-xs text-muted">No picks made.</p>
                     ) : (
-                      <PickXTeamsTable rows={teamRows(r.teams, field, regions, settings, own)} started={started} compact />
+                      <>
+                        <p className="pb-1 text-[11px] tabular-nums text-muted">{r.alive} of {r.teams.length} still alive</p>
+                        <PickXTeamsTable rows={teamRows(r.teams, field, regions, settings, own)} started={started} compact games={games} />
+                      </>
                     )}
                   </div>
                 </details>
@@ -448,7 +438,6 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
   );
 }
 
-/** Pool Summary: every picked team, how much of the pool has it and what it has scored (sortable, by region). */
 /** The tournament bracket, live: every game with ESPN's score, clock or tip time, the First Four included. */
 export async function PickXBracketPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { bracket, entries } = await getPickX(ctx);
