@@ -41,18 +41,18 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false, for
         ...(format === "pick_x" ? [
           { href: `${base}/bracket`, label: "Bracket", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/bracket`) },
         ] : []),
-        // Playoff Fantasy and Pick X: ownership and the pool's numbers on a page of their own
-        // (Pick X's sits under More on phones, beside its Bracket).
-        ...(format === "playoff_fantasy" || format === "pick_x" ? [
-          { href: `${base}/summary`, label: "Pool Summary", short: "Summary", phone: (format === "pick_x" ? "more" : "main") as "main" | "more", match: (p: string) => p.startsWith(`${base}/summary`) },
+        // Playoff Fantasy: ownership and the pool's numbers on a page of their own.
+        ...(format === "playoff_fantasy" ? [
+          { href: `${base}/summary`, label: "Pool Summary", short: "Summary", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/summary`) },
         ] : []),
         // Weekly pools: the Grid and the Scoreboard. Pools with their own format show everyone's
         // picks on Standings instead; Survivor keeps the Scoreboard (it runs on weekly games).
         ...(format ? [] : [
           { href: `${base}/grid/${week ?? 1}`, label: "League Grid", short: "Grid", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/grid`) },
         ]),
-        ...(!format || format === "survivor" ? [
-          { href: `${base}/scoreboard`, label: "Scoreboard", phone: (format ? "main" : "more") as "main" | "more", match: (p: string) => p.startsWith(`${base}/scoreboard`) },
+        // Pick X: every game, like the other college pools (under More on phones, beside its Bracket).
+        ...(!format || format === "survivor" || format === "pick_x" ? [
+          { href: `${base}/scoreboard`, label: "Scoreboard", phone: (format === "survivor" ? "main" : "more") as "main" | "more", match: (p: string) => p.startsWith(`${base}/scoreboard`) },
         ] : []),
         { href: `${base}/board`, label: "Message Board", phone: "more", match: (p) => p.startsWith(`${base}/board`) },
         ...(isCommissioner ? [{ href: `${base}/admin/roster`, label: "Commissioner", phone: "more" as const, match: (p: string) => p.startsWith(`${base}/admin`) }] : []),

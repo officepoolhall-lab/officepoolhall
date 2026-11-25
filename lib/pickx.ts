@@ -121,9 +121,16 @@ export const regionAt = (slot: number) => Math.floor(slot / 16);
 /** How each picked team is doing: its wins (by round), points so far, and whether it's still alive. */
 export type TeamStatus = { teamId: string; slot: number; seed: number; region: number; wins: number[]; points: number; alive: boolean };
 
-export function teamStatus(teamId: string, field: (string | null)[], results: Picks, sc: PickXScoring): TeamStatus | null {
+/** First Four teams not in the field: the spot their play-in game feeds, and whether they lost it. */
+export type PlayInTeams = Map<string, { slot: number; lost: boolean }>;
+
+export function teamStatus(teamId: string, field: (string | null)[], results: Picks, sc: PickXScoring, playIn?: PlayInTeams): TeamStatus | null {
   const slot = field.indexOf(teamId);
-  if (slot < 0) return null;
+  if (slot < 0) {
+    // A First Four team: no points yet; out once it loses its play-in game.
+    const p = playIn?.get(teamId);
+    return p ? { teamId, slot: p.slot, seed: seedAt(p.slot), region: regionAt(p.slot), wins: [], points: 0, alive: !p.lost } : null;
+  }
   const seed = seedAt(slot);
   const wins: number[] = [];
   let alive = true;
