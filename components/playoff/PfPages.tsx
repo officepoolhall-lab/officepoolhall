@@ -494,7 +494,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
     <div data-wide>
       {pts.live && <AutoRefresh active />}
       <PoolPageHeader title="Standings" games={standingsTicker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
-      {locked && rows.length > 0 && <FitText min={8} className="mb-2 text-xs text-muted">Own is the share of the pool&apos;s lineups with that player. Tap a player for his playoff games.</FitText>}
+      {locked && rows.length > 0 && <FitText min={8} className="mb-2 text-xs text-muted">Tap a player to view game stats. Own % is the share of the pool&apos;s lineups with that player.</FitText>}
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (

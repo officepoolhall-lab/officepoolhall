@@ -100,7 +100,7 @@ export function PfRosterTable({ rows, roundTotals, started, compact = false }: {
           <span className="text-right tabular-nums">{fmt(roundTotals.reduce((a, b) => a + b, 0))}</span>
         </div>
       )}
-      {!compact && <FitText min={8} className="mt-2 text-xs text-muted">Own is the share of the pool&apos;s lineups with that player. Tap a player for his playoff games.</FitText>}
+      {!compact && <FitText min={8} className="mt-2 text-xs text-muted">Tap a player to view game stats. Own % is the share of the pool&apos;s lineups with that player.</FitText>}
       {open && <PlayoffLog row={open} started={started} onClose={() => setOpen(null)} />}
     </div>
   );
