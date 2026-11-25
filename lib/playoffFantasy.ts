@@ -427,3 +427,30 @@ export function optimalLineup(
   for (const s of states.values()) if (s.total > top.total) top = s;
   return { ids: top.ids, total: Math.round(top.total * 100) / 100 };
 }
+
+/** One game's line in words, only what happened: "212 pass yds, 2 TD · 34 rush yds", "FG 2 (47, 31) · XP 3", "3 sacks · 1 INT · 17 pts allowed". */
+export function gameStatLine(pos: Position, l: PlayerLine | DefLine): string {
+  const n = (v: number, one: string, many = `${one}s`) => `${v} ${v === 1 ? one : many}`;
+  if (pos === "DEF") {
+    const d = l as DefLine;
+    return [
+      d.sacks ? n(d.sacks, "sack") : null,
+      d.ints ? `${d.ints} INT` : null,
+      d.fumRec ? `${d.fumRec} FR` : null,
+      d.td ? `${d.td} TD` : null,
+      d.safeties ? n(d.safeties, "safety", "safeties") : null,
+      `${d.pointsAllowed} pts allowed`,
+    ].filter(Boolean).join(" · ");
+  }
+  const p = l as PlayerLine;
+  if (pos === "K") {
+    const fg = p.fg ? `FG ${p.fg}${p.fgYds.length ? ` (${p.fgYds.join(", ")})` : ""}` : "FG 0";
+    return [fg, `XP ${p.xp}`].join(" · ");
+  }
+  const pass = p.passYds || p.passTd || p.passInt ? [`${p.passYds} pass yds`, p.passTd ? `${p.passTd} TD` : null, p.passInt ? `${p.passInt} INT` : null].filter(Boolean).join(", ") : null;
+  const rush = p.rushYds || p.rushTd ? [`${p.rushYds} rush yds`, p.rushTd ? `${p.rushTd} TD` : null].filter(Boolean).join(", ") : null;
+  const rec = p.rec || p.recYds || p.recTd ? [`${n(p.rec, "rec")} ${p.recYds} yds`, p.recTd ? `${p.recTd} TD` : null].filter(Boolean).join(", ") : null;
+  // A receiver's catches first; a quarterback's passing first.
+  const parts = pos === "QB" ? [pass, rush, rec] : pos === "RB" ? [rush, rec, pass] : [rec, rush, pass];
+  return [...parts, p.fumLost ? `${p.fumLost} fum lost` : null, p.twoPt ? `${p.twoPt} 2-pt` : null].filter(Boolean).join(" · ") || "No stats";
+}

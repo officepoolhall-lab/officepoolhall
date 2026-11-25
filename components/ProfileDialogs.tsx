@@ -30,7 +30,7 @@ function useJson<T>(url: string) {
 /** Pop-up widths: wide enough for a game log's stat columns on a laptop, never past the screen. */
 const WIDTHS = { normal: "w-[min(30rem,calc(100vw-2rem))]", wide: "w-[min(44rem,calc(100vw-2rem))]", log: "w-[min(64rem,calc(100vw-2rem))]" };
 
-function Shell({ label, onClose, header, children, size = "normal" }: { label: string; onClose: () => void; header: ReactNode; children: ReactNode; size?: keyof typeof WIDTHS }) {
+export function Shell({ label, onClose, header, children, size = "normal" }: { label: string; onClose: () => void; header: ReactNode; children: ReactNode; size?: keyof typeof WIDTHS }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useScrollLock();
   useEffect(() => {

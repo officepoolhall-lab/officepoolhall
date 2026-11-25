@@ -16,7 +16,9 @@ import {
   playerPoints,
   scoringExtras,
   type BoxTeam,
+  type DefLine,
   type PfScoring,
+  type PlayerLine,
   type Position,
 } from "./playoffFantasy";
 import { createAdminClient } from "./supabase/admin";
@@ -86,9 +88,32 @@ export type PfPoints = {
   live: boolean;
   /** Rounds that have started (how many of the four columns to show). */
   roundsStarted: number;
+  /** Per player id: his box-score line in each round (null: no line that round). */
+  lines: Map<string, (PlayerLine | DefLine | null)[]>;
+  /** Per team ESPN id: its game in each round (null: no game that round, a bye or knocked out). */
+  games: Map<string, (PfTeamGame | null)[]>;
 };
 
-export const NO_POINTS: PfPoints = { byPlayer: new Map(), out: new Set(), live: false, roundsStarted: 0 };
+/** One team's game in one round: the other side, the score and whether it's over. */
+export type PfTeamGame = { opp: string; oppAbbr: string | null; oppLogo: string | null; home: boolean; us: number; them: number; state: "pre" | "in" | "post" };
+
+export const NO_POINTS: PfPoints = { byPlayer: new Map(), out: new Set(), live: false, roundsStarted: 0, lines: new Map(), games: new Map() };
+
+/** Each team's game, round by round, from the playoff games that have started. */
+function teamGames(games: PlayoffGame[]): Map<string, (PfTeamGame | null)[]> {
+  const out = new Map<string, (PfTeamGame | null)[]>();
+  for (const g of games) {
+    if (g.state === "pre") continue;
+    for (const t of g.teams) {
+      const o = g.teams.find((x) => x !== t);
+      if (!o) continue;
+      const row = out.get(t.espnId) ?? [null, null, null, null];
+      row[g.round] = { opp: o.espnId, oppAbbr: o.abbreviation, oppLogo: o.logo, home: t.homeAway === "home", us: t.score, them: o.score, state: g.state };
+      out.set(t.espnId, row);
+    }
+  }
+  return out;
+}
 
 /**
  * Everyone's fantasy points so far under this pool's scoring: each playoff game's box score,
@@ -117,17 +142,25 @@ export async function getPfPoints(season: number, sc: PfScoring, players: PfPlay
     p.total = Math.round((p.total + pts) * 100) / 100;
     byPlayer.set(id, p);
   };
+  const lines = new Map<string, (PlayerLine | DefLine | null)[]>();
+  const keep = (id: string, round: number, line: PlayerLine | DefLine) => {
+    const row = lines.get(id) ?? [null, null, null, null];
+    row[round] = line;
+    lines.set(id, row);
+  };
   if (demo) {
     // A demo pool: points from the made-up box scores.
     const sim = await demoSim(season, players, teams, demo);
     const played = (sim?.games ?? []).filter((g) => g.state === "post");
-    for (const [id, rounds] of sim?.lines ?? []) rounds.forEach((l, i) => l && add(id, i, playerPoints(l, sc)));
-    for (const [id, rounds] of sim?.defs ?? []) rounds.forEach((d, i) => d && add(id, i, defPoints(d, sc)));
+    for (const [id, rounds] of sim?.lines ?? []) rounds.forEach((l, i) => l && (add(id, i, playerPoints(l, sc)), keep(id, i, l)));
+    for (const [id, rounds] of sim?.defs ?? []) rounds.forEach((d, i) => d && (add(id, i, defPoints(d, sc)), keep(id, i, d)));
     return {
       byPlayer,
       out: new Set(played.flatMap((g) => g.teams.filter((t) => t.lost).map((t) => t.espnId))),
       live: false,
       roundsStarted: played.length ? Math.max(...played.map((g) => g.round)) + 1 : 0,
+      lines,
+      games: teamGames(played),
     };
   }
   const games = (await getPlayoffGames(season).catch(() => [])).filter((g) => g.state !== "pre");
@@ -146,15 +179,20 @@ export async function getPfPoints(season: number, sc: PfScoring, players: PfPlay
       const boxes = sum.players as BoxTeam[];
       const extras = scoringExtras(sum.scoring ?? []);
       for (const box of boxes) {
-        const lines = playerLines(box);
-        applyExtras(box, lines, extras, (name) => names.get(box.teamId)?.get(nameKey(name)));
-        for (const [id, line] of lines) add(id, g.round, playerPoints(line, sc));
+        const boxLines = playerLines(box);
+        applyExtras(box, boxLines, extras, (name) => names.get(box.teamId)?.get(nameKey(name)));
+        for (const [id, line] of boxLines) {
+          add(id, g.round, playerPoints(line, sc));
+          keep(id, g.round, line);
+        }
         const opponent = boxes.find((b) => b.teamId !== box.teamId);
         // The other side's score, from the summary (live) or the scoreboard.
         const oppSide = sum.home?.id === box.teamId ? sum.away : sum.home;
         const oppScore = Number(oppSide?.score ?? g.teams.find((t) => t.espnId !== box.teamId)?.score ?? 0) || 0;
         const safeties = extras.safeties.filter((t) => t === box.teamId).length;
-        add(defId(box.teamId), g.round, defPoints(defLine(box, opponent, oppScore, safeties), sc));
+        const def = defLine(box, opponent, oppScore, safeties);
+        add(defId(box.teamId), g.round, defPoints(def, sc));
+        keep(defId(box.teamId), g.round, def);
       }
     }),
   );
@@ -163,6 +201,8 @@ export async function getPfPoints(season: number, sc: PfScoring, players: PfPlay
     out: new Set(games.flatMap((g) => g.teams.filter((t) => t.lost).map((t) => t.espnId))),
     live: games.some((g) => g.state === "in"),
     roundsStarted: games.length ? Math.max(...games.map((g) => g.round)) + 1 : 0,
+    lines,
+    games: teamGames(games),
   };
 }
 
