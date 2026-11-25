@@ -344,7 +344,7 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
-        <section className="max-w-4xl">
+        <section className="max-w-6xl">
           <div className="mb-2 flex items-center gap-3">
             <FitText min={8} className="min-w-0 flex-1 text-xs text-muted">
               {locked
@@ -371,9 +371,20 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
                 <details key={r.userId} className={`group border-b border-line ${r.userId === me ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}>
                   <summary className={`${grid} cursor-pointer list-none px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden`}>
                     <span className="tabular-nums text-muted">{locked ? r.rank : ""}</span>
-                    <span className="min-w-0">
-                      <FitText min={10} className={`block font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
-                      {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">Tiebreaker: {r.tiebreak}</span>}
+                    <span className="flex min-w-0 items-center gap-4">
+                      <span className="min-w-0 sm:w-44 sm:shrink-0 lg:w-52">
+                        <FitText min={10} className={`block font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
+                        {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">Tiebreaker: {r.tiebreak}</span>}
+                      </span>
+                      {/* Desktop: the logos of the entry's teams still alive. */}
+                      {locked && (
+                        <span className="hidden min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:flex">
+                          {r.teams.filter((t) => t.alive).sort((a, b) => a.seed - b.seed).map((t) => {
+                            const team = field.get(t.teamId);
+                            return <TeamLogo key={t.teamId} src={team?.logo_url} abbr={team?.abbreviation} className="size-6 shrink-0" />;
+                          })}
+                        </span>
+                      )}
                     </span>
                     {byRound.map((v, i) => (
                       <span key={i} className={`hidden text-right tabular-nums sm:block ${i >= started || !locked ? "text-muted" : ""}`}>{i >= started || !locked ? "–" : v}</span>
