@@ -5,8 +5,8 @@ import type { Bracket } from "./brackets";
 
 // The NCAA Tournament as it stands right now, for a pool's live bracket: the pool's field and
 // winners, with ESPN's scores, clocks and tip times laid over every game, plus the First Four.
-// ESPN's tournament scoreboard (groups=100) is read for each tournament day up to tomorrow:
-// today's every 20 seconds, earlier days every hour.
+// ESPN's tournament scoreboard (groups=100) is read for each tournament day: today's every 20
+// seconds, other days every hour.
 
 const BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard";
 const HEADERS = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" };
@@ -61,13 +61,14 @@ async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
   }
 }
 
-/** Every tournament game ESPN has from three days before the lock (the First Four) to tomorrow. */
+/** Every tournament game ESPN has, from three days before the lock (the First Four) to the title game. */
 async function tourneyGames(lockAt: string, now: number): Promise<EspnGame[]> {
   const lock = Date.parse(lockAt);
   if (!Number.isFinite(lock)) return [];
   const day = (t: number) => formatInTimeZone(t, "America/New_York", "yyyyMMdd");
   const today = day(now);
-  const last = Math.min(lock + 24 * DAY, now + DAY);
+  // The whole tournament, scheduled games included (tip times and networks show ahead of time).
+  const last = lock + 24 * DAY;
   const dates: string[] = [];
   for (let t = lock - 3 * DAY; t <= last; t += DAY) if (!dates.includes(day(t))) dates.push(day(t));
   const days = await Promise.all(dates.map((d) => espnDay(d, d === today)));
@@ -121,22 +122,58 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
   const teamOf = new Map(bracket.field.flatMap((t, slot) => (t ? [[t.id, { t, slot }] as const] : [])));
   const idOfEspn = new Map(bracket.field.flatMap((t) => (t?.espn_id ? [[t.espn_id, t.id] as const] : [])));
 
-  // The First Four: ESPN's games before the lock that its headline calls First Four (or, without
-  // a headline, any game before the first Round of 64 tip).
+  // The First Four: the pool's own record of it (Commissioner → Bracket, or ESPN's sync), with
+  // ESPN's score, clock or tip time laid over each game; plus any First Four game only ESPN has
+  // (its headline says First Four, or it's before the first Round of 64 tip).
   const lock = Date.parse(bracket.lockAt);
-  const ffGames = games.filter((g) => /first four/i.test(g.headline) || (!g.headline && Date.parse(g.startAt) < lock - 60 * 60 * 1000));
   const regionOf = (headline: string) => {
     const i = bracket.regions.findIndex((r) => new RegExp(`\\b${r.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(headline));
     return i < 0 ? null : i;
   };
-  // Slot each First Four game feeds: a team of it already in the field, else its region and seed.
-  const ffSlot = new Map<number, EspnGame>();
-  const firstFour = ffGames.map((g) => {
+  type FFGame = LiveGame & { region: string | null; seed: number | null; slot: number | null; winnerTeam: LiveTeam | null };
+  const firstFourGames: FFGame[] = [];
+  const usedEspn = new Set<string>();
+  for (const ff of bracket.firstFour) {
+    const seed = SEED_ORDER[ff.slot % 16];
+    const eg = ff.teams[0]?.espn_id && ff.teams[1]?.espn_id ? byPair.get(pairKey(ff.teams[0].espn_id, ff.teams[1].espn_id)) : undefined;
+    if (eg) usedEspn.add(eg.id);
+    const espnWinner = eg?.status === "final" ? eg.teams.find((x) => x.winner)?.espnId : undefined;
+    const winner = ff.winner ?? ff.teams.find((t) => t?.espn_id && t.espn_id === espnWinner)?.id ?? null;
+    const teams = ff.teams.map((t) =>
+      t
+        ? {
+            id: t.id,
+            seed,
+            name: t.short_name ?? t.name,
+            abbr: t.abbreviation,
+            logo: t.logo_url,
+            score: eg?.teams.find((x) => x.espnId === t.espn_id)?.score ?? null,
+            won: !!winner && t.id === winner,
+            lost: !!winner && t.id !== winner,
+          }
+        : null,
+    ) as [LiveTeam | null, LiveTeam | null];
+    firstFourGames.push({
+      key: `ff-${ff.slot}`,
+      round: 0,
+      status: winner ? "final" : (eg?.status ?? "scheduled"),
+      detail: eg ? when(eg) : winner ? "Final" : null,
+      teams,
+      placeholders: [null, null],
+      region: bracket.regions[Math.floor(ff.slot / 16)] ?? null,
+      seed,
+      slot: ff.slot,
+      winnerTeam: teams.find((t) => t?.won) ?? null,
+    });
+  }
+  const knownSlots = new Set(firstFourGames.map((g) => g.slot));
+  for (const g of games) {
+    if (usedEspn.has(g.id) || !(/first four/i.test(g.headline) || (!g.headline && Date.parse(g.startAt) < lock - 60 * 60 * 1000))) continue;
     const inField = g.teams.map((x) => idOfEspn.get(x.espnId)).find(Boolean);
     const seed = g.teams[0].seed ?? g.teams[1].seed;
     const region = regionOf(g.headline);
     const slot = inField ? teamOf.get(inField)!.slot : region !== null && seed !== null ? region * 16 + SEED_ORDER.indexOf(seed as (typeof SEED_ORDER)[number]) : null;
-    if (slot !== null && slot >= 0) ffSlot.set(slot, g);
+    if (slot !== null && knownSlots.has(slot)) continue;
     const decided = g.status === "final";
     const teams = g.teams.map((x) => ({
       id: idOfEspn.get(x.espnId) ?? null,
@@ -148,17 +185,22 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
       won: decided && x.winner,
       lost: decided && !x.winner,
     })) as [LiveTeam, LiveTeam];
-    return {
+    firstFourGames.push({
       key: `ff-${g.id}`,
       round: 0,
       status: g.status,
       detail: when(g),
       teams,
-      placeholders: [null, null] as [null, null],
+      placeholders: [null, null],
       region: region !== null ? bracket.regions[region] : slot !== null && slot >= 0 ? bracket.regions[Math.floor(slot / 16)] : null,
       seed,
-    };
-  });
+      slot: slot !== null && slot >= 0 ? slot : null,
+      winnerTeam: teams.find((t) => t.won) ?? null,
+    });
+  }
+  firstFourGames.sort((x, y) => (x.slot ?? 99) - (y.slot ?? 99));
+  const ffSlot = new Map(firstFourGames.filter((g) => g.slot !== null).map((g) => [g.slot!, g]));
+  const firstFour = firstFourGames.map(({ slot: _slot, winnerTeam: _w, ...g }) => g); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Round by round: who's in each game (the pool's winners, then ESPN's finals for any the pool
   // hasn't entered yet), and ESPN's score and clock for it.
@@ -180,15 +222,21 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
         if (round === 1) {
           const ff = ffSlot.get(2 * g + i);
           if (ff) {
-            const w = ff.status === "final" ? ff.teams.find((x) => x.winner) : undefined;
-            if (w) return { id: null, seed: SEED_ORDER[(2 * g + i) % 16], name: w.name, abbr: w.abbr, logo: w.logo, score: null, won: false, lost: false };
-            placeholders[i] = `${ff.teams[0].abbr ?? ff.teams[0].name}/${ff.teams[1].abbr ?? ff.teams[1].name}`;
+            const w = ff.winnerTeam;
+            if (w) return { ...w, seed: SEED_ORDER[(2 * g + i) % 16], score: null, won: false, lost: false };
+            placeholders[i] = ff.teams.map((t) => t?.abbr ?? t?.name ?? "TBD").join("/");
           }
         }
         return null;
       }) as [LiveTeam | null, LiveTeam | null];
       // ESPN's game between these two teams.
-      const espnIds = sides.map((s, i) => (s?.id ? teamOf.get(s.id)?.t.espn_id : round === 1 ? ffSlot.get(2 * g + i)?.teams.find((x) => x.winner)?.espnId : null));
+      const ffEspn = (slot: number) => {
+        const w = ffSlot.get(slot)?.winnerTeam;
+        if (!w) return null;
+        if (w.id) return bracket.firstFour.flatMap((f) => f.teams).find((t) => t?.id === w.id)?.espn_id ?? null;
+        return games.flatMap((x) => x.teams).find((x) => x.name === w.name && x.abbr === w.abbr)?.espnId ?? null;
+      };
+      const espnIds = sides.map((s, i) => (s?.id ? (teamOf.get(s.id)?.t.espn_id ?? null) : round === 1 ? ffEspn(2 * g + i) : null));
       const eg = espnIds[0] && espnIds[1] ? byPair.get(pairKey(espnIds[0], espnIds[1])) : undefined;
       if (eg) for (const s of sides) if (s) {
         const espnId = s.id ? teamOf.get(s.id)?.t.espn_id : espnIds[sides.indexOf(s)];

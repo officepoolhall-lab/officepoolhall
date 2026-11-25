@@ -212,6 +212,26 @@ export function pickXScoringTable(s: PickXSettings): { group: string; rows: [str
   ];
 }
 
+/**
+ * The scoring as a table for the info pop-up: a row for each seed tier (seed tiers), each seed
+ * (seed scoring) or every team (flat), the points a win earns in each round across, and the most
+ * a team can earn (winning the title) on the right.
+ */
+export function pickXScoringGrid(s: PickXSettings): { head: string[]; rows: string[][] } {
+  const sc = s.scoring;
+  const fmt = (n: number) => String(Math.round(n * 100) / 100);
+  const row = (label: string, seed: number) => {
+    const pts = ROUNDS.map((r) => winPoints(sc, r.round, seed));
+    return [label, ...pts.map(fmt), fmt(pts.reduce((a, b) => a + b, 0))];
+  };
+  const rows = sc.seed_tiers
+    ? SEED_TIERS.map((t, i) => row(`${t} seeds`, 2 * i + 1))
+    : sc.seed
+      ? Array.from({ length: 16 }, (_, i) => row(`${i + 1} seed`, i + 1))
+      : [row("Every team", 1)];
+  return { head: ["Seeds", ...ROUNDS.map((r) => (r.round === 6 ? "Title" : r.short)), "Max"], rows };
+}
+
 /** Points by round for a team (null where it didn't win that round), and the round it lost in (0 = still alive). */
 export function roundPointsOf(t: TeamStatus, sc: PickXScoring): { points: (number | null)[]; lostIn: number } {
   const points = ROUNDS.map(({ round }) => (t.wins.includes(round) ? winPoints(sc, round, t.seed) : null));

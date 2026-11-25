@@ -17,6 +17,8 @@ export type Bracket = {
   field: (BracketTeam | null)[];
   /** Winners so far, {"r-g": team id}. */
   results: Picks;
+  /** The First Four: each play-in game's First Round slot, its two teams and its winner (null until played). */
+  firstFour: { slot: number; teams: [BracketTeam | null, BracketTeam | null]; winner: string | null }[];
 };
 
 const asPicks = (v: unknown): Picks => (v && typeof v === "object" ? (v as Picks) : {});
@@ -34,6 +36,18 @@ export async function getBracket(ctx: PoolContext): Promise<Bracket | null> {
   const field: (BracketTeam | null)[] = Array.from({ length: 64 }, () => null);
   for (const bt of data.bracket_teams ?? []) field[bt.slot] = bt.team;
   const res = Array.isArray(data.bracket_results) ? data.bracket_results[0] : data.bracket_results;
+  // The First Four, on its own (its column may not be there yet): its teams loaded by id.
+  type FF = { slot: number; teams: string[]; winner: string | null };
+  const ffRow = await ctx.supabase.from("brackets").select("first_four").eq("id", data.id).maybeSingle();
+  const ffRaw = (!ffRow.error && Array.isArray((ffRow.data as { first_four?: unknown } | null)?.first_four) ? (ffRow.data as { first_four: FF[] }).first_four : []).filter(
+    (g) => Number.isInteger(g?.slot) && g.slot >= 0 && g.slot < 64 && Array.isArray(g?.teams),
+  );
+  const ffIds = [...new Set(ffRaw.flatMap((g) => g.teams).filter(Boolean))];
+  const ffTeams = new Map<string, BracketTeam>();
+  if (ffIds.length) {
+    const { data: rows } = await ctx.supabase.from("teams").select("id, name, short_name, abbreviation, logo_url, espn_id").in("id", ffIds);
+    for (const t of (rows ?? []) as BracketTeam[]) ffTeams.set(t.id, t);
+  }
   return {
     id: data.id,
     name: data.name,
@@ -42,6 +56,11 @@ export async function getBracket(ctx: PoolContext): Promise<Bracket | null> {
     regions: data.regions,
     field,
     results: asPicks(res?.results),
+    firstFour: ffRaw.map((g) => ({
+      slot: g.slot,
+      teams: [ffTeams.get(g.teams[0]) ?? null, ffTeams.get(g.teams[1]) ?? null],
+      winner: typeof g.winner === "string" ? g.winner : null,
+    })),
   };
 }
 

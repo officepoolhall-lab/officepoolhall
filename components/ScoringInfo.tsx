@@ -7,7 +7,10 @@ import { useEffect, useRef, useState } from "react";
 
 export type ScoringGroups = { group: string; rows: [string, string][] }[];
 
-export function ScoringInfo({ groups, intro }: { groups: ScoringGroups; /** A line under the heading ("Lineup: 1 QB, …"). */ intro?: string }) {
+/** A points table: a label column on the left, the values across (Pick X: seed tiers by round, max on the right). */
+export type ScoringTable = { head: string[]; rows: string[][] };
+
+export function ScoringInfo({ groups, intro, table }: { groups: ScoringGroups; /** A line under the heading ("Lineup: 1 QB, …"). */ intro?: string; table?: ScoringTable }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [at, setAt] = useState<{ top: number; left: number } | null>(null);
@@ -68,7 +71,29 @@ export function ScoringInfo({ groups, intro }: { groups: ScoringGroups; /** A li
         >
           <span className="block text-base font-bold">Scoring</span>
           {intro && <span className="mt-0.5 block text-xs text-muted">{intro}</span>}
-          <span className="mt-2 block max-h-[65vh] overflow-y-auto overscroll-contain sm:max-h-none sm:columns-2 sm:gap-6">
+          {table && (
+            <span className="mt-2 block overflow-x-auto">
+              <table className="w-full text-[12px] tabular-nums sm:text-[13px]">
+                <thead>
+                  <tr className="border-b border-line text-[10px] font-bold tracking-wide text-muted uppercase sm:text-[11px]">
+                    {table.head.map((h, i) => (
+                      <th key={h} className={`pb-1 font-bold ${i === 0 ? "text-left" : "text-right"} ${i === table.head.length - 1 ? "pl-2" : i > 0 ? "pl-1.5" : ""}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.map((row) => (
+                    <tr key={row[0]} className="border-b border-line last:border-0">
+                      {row.map((v, i) => (
+                        <td key={i} className={`py-1 ${i === 0 ? "pr-1 whitespace-nowrap text-left font-semibold" : "text-right"} ${i === row.length - 1 ? "pl-2 font-bold" : i > 0 ? "pl-1.5" : ""}`}>{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </span>
+          )}
+          <span className={`mt-2 block max-h-[65vh] overflow-y-auto overscroll-contain sm:max-h-none ${table ? "" : "sm:columns-2 sm:gap-6"}`}>
             {groups.map((g) => (
               <span key={g.group} className="mb-2 block break-inside-avoid">
                 <span className="block border-b border-line pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase">{g.group}</span>
