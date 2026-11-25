@@ -52,7 +52,11 @@ function Game({ g, mine, color, out, className = "" }: {
   const live = g.status === "in_progress";
   return (
     <div className={`w-full min-w-0 ${className}`}>
-      <div data-detail className={`flex h-4 items-center gap-1 px-1 text-[9.5px] leading-none ${live ? "font-semibold text-live" : "text-muted"}`}>
+      {/* On paper: the day and the site (the live clock and tip time line is for the screen). */}
+      <div data-meta className="hidden h-3 items-center px-1 text-[9px] leading-none font-semibold whitespace-nowrap text-muted print:flex">
+        {[g.date, g.site?.split(",")[0]].filter(Boolean).join(" · ")}
+      </div>
+      <div data-detail className={`flex h-4 items-center gap-1 px-1 text-[9.5px] leading-none print:hidden ${live ? "font-semibold text-live" : "text-muted"}`}>
         {live && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-live" aria-hidden />}
         {/* A plain "Final" adds nothing (the winner is in bold); "Final/OT" and clocks and tip times show. */}
         <FitText min={7} className="min-w-0 flex-1">{g.status === "final" && /^final$/i.test(g.detail ?? "") ? "" : (g.detail ?? "")}</FitText>
@@ -81,7 +85,8 @@ function Region({ b, r, mine, flip = false, label = true }: { b: LiveBracket; r:
     <div className="min-w-0">
       {label && (
         <div className={`mb-1.5 flex h-6 items-center ${flip ? "justify-end" : ""}`}>
-          <span className="rounded-md px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase" style={{ backgroundColor: color }}>{b.regions[r]}</span>
+          <span className="rounded-md px-2 py-0.5 text-xs font-extrabold tracking-wider text-white uppercase" style={{ backgroundColor: color }}>{b.regions[r]}</span>
+          {b.regionSites[r] && <span className={`text-[10px] font-semibold tracking-wide text-muted uppercase ${flip ? "order-first mr-2" : "ml-2"}`}>{b.regionSites[r]}</span>}
         </div>
       )}
       {/* Each round's games in pairs; a bracket line joins each pair to the game its winner plays next. */}
@@ -149,23 +154,28 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
   return (
     <div className="grid grid-cols-3 items-start gap-x-4">
       <div>
-        <div className={label}>Final Four<br />{b.regions[0]}/{b.regions[1]}</div>
+        <div className={label}>Final Four · {b.roundDates[4]}<br />{b.regions[0]}/{b.regions[1]}</div>
         <Game g={semi1} mine={mine} color={GOLD} out="right" />
       </div>
       <div className="relative">
-        <div className={label}>🏆 Championship</div>
+        <div className={label}>🏆 Championship<br />{b.roundDates[5]}</div>
         <Game g={title} mine={mine} color={GOLD} className="rounded-md ring-2 ring-[#b8860b]/50 ring-offset-2" />
         {writeIn && (
-          // Out of the flow, so the title game stays level with the semifinals.
-          <div className="absolute inset-x-[-2.5rem] top-full mt-4 space-y-4 text-[12px] font-semibold">
-            <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
-            <div className="flex items-end gap-1.5"><span className="shrink-0">Tiebreaker (title game total):</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
-            <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+          // Out of the flow, above the Final Four, so the title game stays level with the semifinals.
+          <div className="absolute inset-x-[-3rem] bottom-full mb-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
+            <div className="text-center text-[28px] leading-none">🏆</div>
+            <div className="mt-1 text-center text-[13px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[#0b2a5b] uppercase">National Champion</div>
+            {b.finalSite && <div className="text-center text-[10px] font-bold tracking-widest text-[#b8860b] uppercase">{b.roundDates[5]} · {b.finalSite}</div>}
+            <div className="mt-4 space-y-4">
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Tiebreaker (title game total):</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+            </div>
           </div>
         )}
       </div>
       <div>
-        <div className={label}>Final Four<br />{b.regions[2]}/{b.regions[3]}</div>
+        <div className={label}>Final Four · {b.roundDates[4]}<br />{b.regions[2]}/{b.regions[3]}</div>
         <Game g={semi2} mine={mine} color={GOLD} out="left" />
       </div>
     </div>
@@ -188,6 +198,22 @@ function FirstFour({ b, mine }: { b: LiveBracket; mine: Set<string> }) {
 
 type View = "ff" | "r0" | "r1" | "r2" | "r3" | "final";
 
+/** The round names and their days over a half's four columns (44px tall). */
+function Rounds({ b, flip = false }: { b: LiveBracket; flip?: boolean }) {
+  const names = ["First Round", "Second Round", "Sweet 16", "Elite 8"];
+  const cols = flip ? [3, 2, 1, 0] : [0, 1, 2, 3];
+  return (
+    <div className="mb-2 grid h-9 grid-cols-4 gap-x-4">
+      {cols.map((i) => (
+        <div key={i} className="flex flex-col items-center justify-center rounded-md bg-[#0b2a5b] text-center leading-tight text-white">
+          <span className="text-[10px] font-extrabold tracking-widest uppercase">{names[i]}</span>
+          <span className="text-[10px] text-white/75">{b.roundDates[i]}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The whole bracket: the left half's regions, the Final Four, the right half's, with the First
  * Four under the Final Four. Bracket lines join every game to the next, including each half's
@@ -209,12 +235,16 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
   );
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-x-4">
-      <div className="relative space-y-6">
-        <Region b={b} r={0} mine={mine} />
-        <Region b={b} r={1} mine={mine} />
-        {join("left")}
+      <div>
+        <Rounds b={b} />
+        <div className="relative space-y-6">
+          <Region b={b} r={0} mine={mine} />
+          <Region b={b} r={1} mine={mine} />
+          {join("left")}
+        </div>
       </div>
-      <div className="relative flex flex-col justify-center pt-[30px]">
+      {/* Padded so the semifinals sit level with the lines from each half's Elite 8 games. */}
+      <div className="relative flex flex-col justify-center pt-[20px]">
         <FinalFour b={b} mine={mine} row writeIn={writeIn} />
         {b.firstFour.length > 0 && (
           <section className="absolute inset-x-0 bottom-0">
@@ -223,10 +253,13 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
           </section>
         )}
       </div>
-      <div className="relative space-y-6">
-        <Region b={b} r={2} mine={mine} flip />
-        <Region b={b} r={3} mine={mine} flip />
-        {join("right")}
+      <div>
+        <Rounds b={b} flip />
+        <div className="relative space-y-6">
+          <Region b={b} r={2} mine={mine} flip />
+          <Region b={b} r={3} mine={mine} flip />
+          {join("right")}
+        </div>
       </div>
     </div>
   );

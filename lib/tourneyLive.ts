@@ -15,7 +15,7 @@ const DAY = 86_400_000;
 /* eslint-disable @typescript-eslint/no-explicit-any -- ESPN's JSON is untyped */
 
 type EspnTeam = { espnId: string; name: string; abbr: string | null; logo: string | null; score: number | null; seed: number | null; winner: boolean };
-type EspnGame = { id: string; startAt: string; status: "scheduled" | "in_progress" | "final"; detail: string | null; tv: string | null; headline: string; teams: [EspnTeam, EspnTeam] };
+type EspnGame = { id: string; startAt: string; status: "scheduled" | "in_progress" | "final"; detail: string | null; tv: string | null; headline: string; /** "Buffalo, NY". */ venue: string | null; teams: [EspnTeam, EspnTeam] };
 
 async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
   try {
@@ -52,6 +52,7 @@ async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
         detail: c?.status?.type?.shortDetail ?? e?.status?.type?.shortDetail ?? null,
         tv: national?.names?.join("/") || null,
         headline: String(c?.notes?.[0]?.headline ?? ""),
+        venue: c?.venue?.address?.city ? [c.venue.address.city, c.venue.address.state].filter(Boolean).join(", ") : null,
         teams: [team(a), team(b)],
       });
     }
@@ -87,6 +88,18 @@ export type LiveTeam = {
   won: boolean;
   lost: boolean;
 };
+/** The round a tournament game's headline names (1-6), or null ("… - East Region - Sweet 16"). */
+function roundOf(headline: string): number | null {
+  if (/first four|opening round/i.test(headline)) return null;
+  if (/\b(1st|first) round\b/i.test(headline)) return 1;
+  if (/\b(2nd|second) round\b/i.test(headline)) return 2;
+  if (/sweet 16|regional semifinal/i.test(headline)) return 3;
+  if (/elite (8|eight)|regional final/i.test(headline)) return 4;
+  if (/final four|national semifinal/i.test(headline)) return 5;
+  if (/national championship|championship game/i.test(headline)) return 6;
+  return null;
+}
+
 export type LiveGame = {
   key: string;
   round: number;
@@ -96,6 +109,9 @@ export type LiveGame = {
   /** A side not decided yet: a placeholder ("Winner of TEX/NCSU") or null. */
   teams: [LiveTeam | null, LiveTeam | null];
   placeholders: [string | null, string | null];
+  /** The day it's played ("Thu 3/19"), when ESPN has the game; and where ("Buffalo, NY"). */
+  date?: string | null;
+  site?: string | null;
 };
 export type LiveBracket = {
   regions: string[];
@@ -108,6 +124,11 @@ export type LiveBracket = {
   soon: boolean;
   /** ESPN answered (scores and times are showing). */
   fromEspn: boolean;
+  /** Each round's days ("Mar 19–20"), from ESPN's games, else the usual schedule from the lock. */
+  roundDates: string[];
+  /** Each region's Sweet 16 and Elite 8 site, and the Final Four's. */
+  regionSites: (string | null)[];
+  finalSite: string | null;
 };
 
 /** The pool's bracket with ESPN's games laid over it. */
@@ -202,6 +223,31 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
   const ffSlot = new Map(firstFourGames.filter((g) => g.slot !== null).map((g) => [g.slot!, g]));
   const firstFour = firstFourGames.map(({ slot: _slot, winnerTeam: _w, ...g }) => g); // eslint-disable-line @typescript-eslint/no-unused-vars
 
+  // Each region's later-round site and the Final Four's, from ESPN games whose headlines say so
+  // (they're listed before their teams are known).
+  const regionSites: (string | null)[] = bracket.regions.map(() => null);
+  let finalSite: string | null = null;
+  const roundDays: number[][] = [[], [], [], [], [], []];
+  for (const g of games) {
+    const r = roundOf(g.headline);
+    if (!r) continue;
+    roundDays[r - 1].push(Date.parse(g.startAt));
+    if (!g.venue) continue;
+    if (r >= 5) finalSite ??= g.venue;
+    else if (r >= 3) {
+      const i = bracket.regions.findIndex((name) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(g.headline));
+      if (i >= 0) regionSites[i] ??= g.venue;
+    }
+  }
+  // Each round's days: ESPN's, else the usual schedule (First Round on the lock day and the next).
+  const OFFSETS = [[0, 1], [2, 3], [7, 8], [9, 10], [16, 16], [18, 18]];
+  const roundDates = OFFSETS.map((off, i) => {
+    const days = roundDays[i].length ? [Math.min(...roundDays[i]), Math.max(...roundDays[i])] : off.map((d) => lock + d * 86_400_000);
+    const [a, b] = days.map((t) => formatInTimeZone(t, tz, "MMM d"));
+    if (a === b) return a;
+    return a.slice(0, 3) === b.slice(0, 3) ? `${a}–${b.slice(4)}` : `${a} – ${b}`;
+  });
+
   // Round by round: who's in each game (the pool's winners, then ESPN's finals for any the pool
   // hasn't entered yet), and ESPN's score and clock for it.
   const winners: Picks = { ...bracket.results };
@@ -250,7 +296,20 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
         if (id) winners[key] = winner = id;
       }
       if (winner) for (const s of sides) if (s) (s.won = s.id === winner), (s.lost = s.id !== winner);
-      list.push({ key, round, status: winner ? "final" : (eg?.status ?? "scheduled"), detail: eg ? when(eg) : winner ? "Final" : null, teams: sides, placeholders });
+      // Where: ESPN's game, else the pod's site (Second Round), the region's (Sweet 16, Elite 8) or the Final Four's.
+      const site =
+        eg?.venue ??
+        (round === 2 ? (rounds[0][2 * g]?.site ?? rounds[0][2 * g + 1]?.site ?? null) : round <= 4 && round >= 3 ? regionSites[Math.floor(g / (gamesIn(round) / 4))] : round >= 5 ? finalSite : null);
+      list.push({
+        key,
+        round,
+        status: winner ? "final" : (eg?.status ?? "scheduled"),
+        detail: eg ? when(eg) : winner ? "Final" : null,
+        teams: sides,
+        placeholders,
+        date: eg ? formatInTimeZone(eg.startAt, tz, "EEE M/d") : null,
+        site,
+      });
     }
     rounds.push(list);
   }
@@ -261,5 +320,8 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
     live: games.some((g) => g.status === "in_progress"),
     soon: games.some((g) => g.status !== "final" && Math.abs(Date.parse(g.startAt) - now) < 3 * 60 * 60 * 1000),
     fromEspn: games.length > 0,
+    roundDates,
+    regionSites,
+    finalSite,
   };
 }
