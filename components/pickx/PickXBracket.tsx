@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FitText } from "@/components/FitText";
-import { TeamLogo, chipClass } from "@/components/ui";
+import { chipClass } from "@/components/ui";
 import type { LiveBracket, LiveGame, LiveTeam } from "@/lib/tourneyLive";
 
 // The live NCAA Tournament bracket for a Pick X pool. Wide screens: the whole bracket, the left
@@ -30,7 +30,6 @@ function TeamLine({ t, placeholder, mine }: { t: LiveTeam | null; placeholder: s
   return (
     <div data-line className={`flex h-6 items-center gap-1.5 px-1.5 text-[12px] ${t.lost ? "text-muted" : ""} ${isMine ? "bg-accent/10" : ""}`}>
       <span className="w-4 shrink-0 text-right text-[10px] font-bold tabular-nums text-muted">{t.seed ?? ""}</span>
-      <TeamLogo src={t.logo} abbr={t.abbr} className="size-4 shrink-0 dark:rounded-full dark:bg-white/90 dark:p-px" />
       <FitText min={9} className={`min-w-0 flex-1 ${t.won ? "font-bold" : "font-medium"} ${isMine ? "text-accent" : ""} ${t.lost ? "line-through decoration-1" : ""}`}>{t.name}</FitText>
       <span className={`shrink-0 tabular-nums ${t.won ? "font-bold" : ""}`}>{t.score ?? ""}</span>
     </div>
@@ -52,10 +51,6 @@ function Game({ g, mine, color, out, className = "" }: {
   const live = g.status === "in_progress";
   return (
     <div className={`w-full min-w-0 ${className}`}>
-      {/* On paper: the day and the site (the live clock and tip time line is for the screen). */}
-      <div data-meta className="hidden h-3 items-center px-1 text-[9px] leading-none font-semibold whitespace-nowrap text-muted print:flex">
-        {[g.date, g.site?.split(",")[0]].filter(Boolean).join(" · ")}
-      </div>
       <div data-detail className={`flex h-4 items-center gap-1 px-1 text-[9.5px] leading-none print:hidden ${live ? "font-semibold text-live" : "text-muted"}`}>
         {live && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-live" aria-hidden />}
         {/* A plain "Final" adds nothing (the winner is in bold); "Final/OT" and clocks and tip times show. */}
@@ -68,6 +63,10 @@ function Game({ g, mine, color, out, className = "" }: {
           <TeamLine t={g.teams[1]} placeholder={g.placeholders[1]} mine={mine} />
         </div>
         {out && <span aria-hidden className={`absolute top-1/2 w-4 border-t ${WIRE} ${out === "right" ? "left-full" : "right-full"}`} />}
+      </div>
+      {/* On paper, under the game: its day and city (the clock and tip time line above is for the screen). */}
+      <div data-meta className="hidden h-3 items-center px-1 text-[9px] leading-none font-semibold whitespace-nowrap text-muted print:flex">
+        {[g.date, g.site?.split(",")[0]].filter(Boolean).join(" · ")}
       </div>
     </div>
   );
@@ -162,13 +161,13 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
         <Game g={title} mine={mine} color={GOLD} className="rounded-md ring-2 ring-[#b8860b]/50 ring-offset-2" />
         {writeIn && (
           // Out of the flow, below the Final Four, so the title game stays level with the semifinals.
-          <div className="absolute inset-x-[-3rem] top-full mt-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
+          <div className="absolute inset-x-[-5.5rem] top-full mt-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
             <div className="text-center text-[28px] leading-none">🏆</div>
             <div className="mt-1 text-center text-[13px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[#0b2a5b] uppercase">National Champion</div>
             {b.finalSite && <div className="text-center text-[10px] font-bold tracking-widest text-[#b8860b] uppercase">{b.roundDates[5]} · {b.finalSite}</div>}
             <div className="mt-4 space-y-4">
               <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
-              <div className="flex items-end gap-1.5"><span className="shrink-0">Tiebreaker (title game total):</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Total points in championship game:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
               <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
             </div>
           </div>
@@ -182,10 +181,10 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
   );
 }
 
-function FirstFour({ b, mine }: { b: LiveBracket; mine: Set<string> }) {
+function FirstFour({ b, mine, row = false }: { b: LiveBracket; mine: Set<string>; /** All four side by side. */ row?: boolean }) {
   if (!b.firstFour.length) return <p className="text-sm text-muted">{b.fromEspn ? "No First Four games." : "The First Four games show here when ESPN's scoreboard can be read."}</p>;
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+    <div className={row ? "grid flex-1 grid-cols-4 gap-x-4" : "grid grid-cols-2 gap-x-3 gap-y-2"}>
       {b.firstFour.map((g) => (
         <div key={g.key} className="min-w-0">
           <div className="px-1 text-[10px] font-semibold" style={{ color: REGION_COLORS[b.regions.indexOf(g.region ?? "")] ?? undefined }}>{[g.region, g.seed ? `${g.seed} seed` : null].filter(Boolean).join(" · ")}</div>
@@ -234,7 +233,15 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
     </>
   );
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-x-4">
+    <div className="relative grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-x-4">
+      {/* The First Four, all four games across the top: under the round headers, in the open space
+          between the two Second Round columns (above each half's first Sweet 16 game). */}
+      {b.firstFour.length > 0 && (
+        <section className="absolute top-[48px] z-10 flex items-center gap-x-3" style={{ left: "calc((100% - 28rem) / 4 + 1rem)", right: "calc((100% - 28rem) / 4 + 1rem)" }}>
+          <div className="shrink-0 text-center text-xs leading-tight font-extrabold tracking-widest text-muted uppercase">First<br />Four</div>
+          <FirstFour b={b} mine={mine} row />
+        </section>
+      )}
       <div>
         <Rounds b={b} />
         <div className="relative space-y-6">
@@ -246,12 +253,6 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
       {/* Padded so the semifinals sit level with the lines from each half's Elite 8 games. */}
       <div className="relative flex flex-col justify-center pt-[20px]">
         <FinalFour b={b} mine={mine} row writeIn={writeIn} />
-        {b.firstFour.length > 0 && (
-          <section className="absolute inset-x-0 top-0">
-            <div className="mb-1 text-center text-xs font-bold tracking-wide text-muted uppercase">First Four</div>
-            <FirstFour b={b} mine={mine} />
-          </section>
-        )}
       </div>
       <div>
         <Rounds b={b} flip />
@@ -326,6 +327,7 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
 }
 
 /** The whole bracket for the printable page (/print/bracket/[slug]). */
-export function PrintableBracket({ b, mine }: { b: LiveBracket; mine: string[] }) {
-  return <FullBracket b={b} mine={new Set(mine)} writeIn />;
+export function PrintableBracket({ b }: { b: LiveBracket }) {
+  // The same for everyone: nobody's picks are marked on the printout.
+  return <FullBracket b={b} mine={new Set()} writeIn />;
 }

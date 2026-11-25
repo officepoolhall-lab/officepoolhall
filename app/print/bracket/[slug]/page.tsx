@@ -20,13 +20,12 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   if (!isPickX(ctx.pool.settings)) notFound();
-  const { bracket, entries } = await getPickX(ctx);
+  const { bracket } = await getPickX(ctx);
   if (!bracket) notFound();
   const tz = (ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago";
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
   const year = formatInTimeZone(bracket.lockAt, tz, "yyyy");
   const live = await getLiveBracket(bracket, tz, now);
-  const mine = entries.find((e) => e.userId === ctx.entryUserId)?.teamIds ?? [];
   return (
     // Always the light colors, on screen and on paper.
     <div
@@ -35,15 +34,15 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
     >
       <style>{`
         @page { size: landscape; margin: 0.25in; }
+        /* Games still to be decided show as blank lines (to fill in by hand), on screen and on paper. */
+        .bracket-print [data-tbd] { visibility: hidden; }
         @media print {
           html, body { background: #fff !important; }
           .bracket-print { padding: 0 !important; zoom: 0.61; }
           /* Tighter on paper so the whole bracket fits one page: shorter lines, no clocks or tip times. */
           .bracket-print [data-line] { height: 21px; font-size: 13px; }
-          /* On paper each game has a 12px day-and-site line above it instead of the 16px clock line. */
-          .bracket-print { --g-off: 6px; }
-          /* Games still to be decided print as blank lines, to fill in by hand. */
-          .bracket-print [data-tbd] { visibility: hidden; }
+          /* On paper each game has a 12px day-and-city line under it instead of the 16px clock line above. */
+          .bracket-print { --g-off: -6px; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
@@ -56,16 +55,14 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
         >
           <Wordmark className="text-2xl" />
           <h1 className="text-center leading-none">
-            <span className="block text-[11px] font-bold tracking-[0.35em] text-[#f2c14e] uppercase">Fill it out · Pick a champion</span>
-            <span className="mt-1 block text-[34px] font-extrabold tracking-[-0.02em] uppercase">
-              <span className="text-[#f2c14e]">{year}</span> NCAA Tournament Bracket
+            <span className="block text-[34px] font-extrabold tracking-[-0.02em] uppercase">
+              <span className="text-[#f2c14e]">{year}</span> NCAA Tournament
             </span>
           </h1>
-          <div className="text-right text-sm font-semibold text-white/85">theofficepoolhall.com</div>
+          <div className="text-right text-sm font-semibold text-white/85">officepoolhall.com</div>
         </header>
         <div className="mb-3 h-1.5 rounded-b-xl bg-[#f2c14e]" />
-        <PrintableBracket b={live} mine={mine} />
-        {mine.length > 0 && <p className="mt-3 text-[11px] text-[#6e6e73]">Teams highlighted are your picks.</p>}
+        <PrintableBracket b={live} />
       </div>
     </div>
   );
