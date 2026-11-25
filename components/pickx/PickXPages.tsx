@@ -357,7 +357,10 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
           </div>
           <div className={`${grid} border-b border-line px-2 py-1.5 text-[11px] font-bold tracking-wide text-muted uppercase`}>
             <span>#</span>
-            <span>Entry</span>
+            <span className="flex min-w-0 items-center gap-4">
+              <span className="sm:w-44 sm:shrink-0 lg:w-52">Entry</span>
+              {locked && <span className="hidden sm:block">Remaining Teams</span>}
+            </span>
             {ROUNDS.map((r) => (
               <span key={r.round} className="hidden text-right sm:block">{r.short}</span>
             ))}
