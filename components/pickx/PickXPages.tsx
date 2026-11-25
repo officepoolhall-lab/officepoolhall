@@ -12,6 +12,9 @@ import { PickXTeamsTable, type PickXTeamRow } from "./PickXTeamsTable";
 import { PickXOwnership, type PickXOwnRow } from "./PickXOwnership";
 import type { BracketTeam } from "@/lib/brackets";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
+import { PickXBracket } from "./PickXBracket";
+import { getLiveBracket } from "@/lib/tourneyLive";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { ScoringInfo } from "@/components/ScoringInfo";
 import { ExpandAll } from "@/components/ExpandAll";
 import { FitText } from "@/components/FitText";
@@ -446,6 +449,27 @@ export async function PickXSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: str
       <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} lockAt={bracket.lockAt} locked={locked} />
       {head}
       {locked ? <PickXOwnership rows={rows} regions={bracket.regions} entries={n} /> : <p className="text-sm text-muted">How much of the pool picked each team shows here once picks lock.</p>}
+    </div>
+  );
+}
+
+/** The tournament bracket, live: every game with ESPN's score, clock or tip time, the First Four included. */
+export async function PickXBracketPage({ ctx }: { ctx: PoolBase }) {
+  const { bracket, entries } = await getPickX(ctx);
+  const tz = tzOf(ctx);
+  const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
+  if (!bracket) return (<div data-wide><PoolPageHeader title="Bracket" now={now} timezone={tz} /><Empty>{NO_FIELD}</Empty></div>);
+  const live = await getLiveBracket(bracket, tz, now);
+  const mine = entries.find((e) => e.userId === ctx.entryUserId)?.teamIds ?? [];
+  return (
+    <div data-wide>
+      <AutoRefresh active={live.live || live.soon} seconds={30} />
+      <PoolPageHeader title="Bracket" now={now} timezone={tz} />
+      <FitText min={8} className="-mt-3 mb-3 text-xs text-muted">
+        {live.fromEspn ? "Scores update live from ESPN." : "Scores show here when ESPN's scoreboard can be read; winners come from the pool's results."}
+        {mine.length ? " Your teams are in blue." : ""}
+      </FitText>
+      <PickXBracket b={live} mine={mine} />
     </div>
   );
 }
