@@ -18,7 +18,8 @@ const GOLD = "#b8860b";
 function TeamLine({ t, placeholder, mine }: { t: LiveTeam | null; placeholder: string | null; mine: Set<string> }) {
   if (!t)
     return (
-      <div data-line className="flex h-6 items-center gap-1.5 px-1.5 text-[12px] text-faint">
+      // A First Four game's two teams read like a team ("Texas / NC State"); an open line, faint "TBD".
+      <div data-line className={`flex h-6 items-center gap-1.5 px-1.5 text-[12px] ${placeholder ? "font-medium" : "text-faint"}`}>
         <span className="w-4 shrink-0" />
         {/* On paper the line stays blank, to write a team in. */}
         <span data-tbd className="min-w-0 flex-1">
@@ -195,7 +196,7 @@ function FirstFour({ b, mine, row = false }: { b: LiveBracket; mine: Set<string>
   );
 }
 
-type View = "ff" | "r0" | "r1" | "r2" | "r3" | "final";
+type View = "r0" | "r1" | "r2" | "r3" | "final";
 
 /** The round names and their days over a half's four columns (44px tall). */
 function Rounds({ b, flip = false }: { b: LiveBracket; flip?: boolean }) {
@@ -234,9 +235,10 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
   );
   return (
     <div className="relative grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-x-4">
-      {/* The First Four, all four games across the top: under the round headers, in the open space
+      {/* The printout's First Four (the bracket tab shows both play-in teams on their First Round
+          lines instead), all four games across the top: under the round headers, in the open space
           between the two Second Round columns (above each half's first Sweet 16 game). */}
-      {b.firstFour.length > 0 && (
+      {writeIn && b.firstFour.length > 0 && (
         <section className="absolute top-[48px] z-10 flex items-center gap-x-3" style={{ left: "calc((100% - 28rem) / 4 + 1rem)", right: "calc((100% - 28rem) / 4 + 1rem)" }}>
           <div className="shrink-0 text-center text-xs leading-tight font-extrabold tracking-widest text-muted uppercase">First<br />Four</div>
           <FirstFour b={b} mine={mine} row />
@@ -268,13 +270,11 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
 
 export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; mine: string[]; /** The printable page (opens in a new tab). */ printHref: string }) {
   const mine = new Set(mineIds);
-  // Narrow screens open on the region with a game being played, else the First Four before the
-  // First Round, else the East.
+  // Narrow screens open on the region with a game being played, else the East.
   const liveRegion = [0, 1, 2, 3].find((r) => [0, 1, 2, 3].some((i) => b.rounds[i].slice(r * (8 >> i), (r + 1) * (8 >> i)).some((g) => g.status === "in_progress")));
-  const firstRoundStarted = b.rounds[0].some((g) => g.status !== "scheduled");
   const titleTime = b.rounds[3].every((g) => g.status === "final");
-  const [view, setView] = useState<View>(liveRegion !== undefined ? (`r${liveRegion}` as View) : titleTime ? "final" : !firstRoundStarted && b.firstFour.length ? "ff" : "r0");
-  const views: [View, string][] = [...(b.firstFour.length ? [["ff", "First Four"] as [View, string]] : []), ...b.regions.map((name, r) => [`r${r}`, name] as [View, string]), ["final", "Final Four"]];
+  const [view, setView] = useState<View>(liveRegion !== undefined ? (`r${liveRegion}` as View) : titleTime ? "final" : "r0");
+  const views: [View, string][] = [...b.regions.map((name, r) => [`r${r}`, name] as [View, string]), ["final", "Final Four"]];
 
   return (
     <div className="@container">
@@ -303,9 +303,7 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
             </button>
           ))}
         </div>
-        {view === "ff" ? (
-          <FirstFour b={b} mine={mine} />
-        ) : view === "final" ? (
+        {view === "final" ? (
           <div className="mx-auto max-w-xs">
             <FinalFour b={b} mine={mine} />
           </div>
