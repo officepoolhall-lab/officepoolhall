@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OptionCards, SettingRow, SettingsSection, Toggle, settingInput } from "@/components/SettingsUI";
 import { ROUNDS } from "@/lib/bracket";
-import { SCORING_PRESETS, SEED_TIERS, pickXSettingsError, rulesSummary, scoringPreset, winPoints, type PickXSettings } from "@/lib/pickx";
+import { BY_ROUND, SCORING_PRESETS, SEED_TIERS, isByRound, pickXSettingsError, rulesSummary, scoringPreset, winPoints, type PickXSettings } from "@/lib/pickx";
 
 /**
  * Pick X rules: how many teams, the scoring (a preset or custom: seed or flat, a value per
@@ -90,6 +90,14 @@ export function PickXRulesFields({ initial, locked = false }: { initial: PickXSe
                 </label>
               ))}
             </div>
+          </SettingRow>
+        )}
+        {s.scoring.seed_tiers && !custom && presetId === "seed-tiers" && (
+          <SettingRow
+            label="Multiply by the round"
+            hint={isByRound(s.scoring.rounds) ? "On: a win is worth the tier's points times the round (First Round ×1 up to the title game ×6)." : "Off: a win is worth the tier's points in every round."}
+          >
+            <Toggle label="Multiply by the round" checked={isByRound(s.scoring.rounds)} onChange={(v) => setScoring({ rounds: v ? [...BY_ROUND] : [1, 1, 1, 1, 1, 1] })} />
           </SettingRow>
         )}
         {custom && (

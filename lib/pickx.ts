@@ -42,15 +42,21 @@ export const SCORING_PRESETS: { id: string; label: string; text: string; scoring
   { id: "seed-round", label: "Seed × round", text: "A win is worth the team's seed times the round (1 to 6).", scoring: { seed: true, seed_tiers: null, rounds: [1, 2, 3, 4, 5, 6], bonus: 0 } },
   { id: "seed-plus", label: "Seed + 3 per win", text: "A win is worth the team's seed, plus 3.", scoring: { seed: true, seed_tiers: null, rounds: [1, 1, 1, 1, 1, 1], bonus: 3 } },
   { id: "seed-wins", label: "Seed per win", text: "A win is worth the team's seed.", scoring: { seed: true, seed_tiers: null, rounds: [1, 1, 1, 1, 1, 1], bonus: 0 } },
-  { id: "seed-tiers", label: "Seed tiers", text: "1 and 2 seeds earn 1 point a win, 3 and 4 seeds 2, 5 and 6 seeds 3, and so on up to 8 for 15 and 16 seeds. You set each tier's points.", scoring: { seed: false, seed_tiers: [1, 2, 3, 4, 5, 6, 7, 8], rounds: [1, 1, 1, 1, 1, 1], bonus: 0 } },
+  { id: "seed-tiers", label: "Seed tiers", text: "1 and 2 seeds earn 1 point a win, 3 and 4 seeds 2, 5 and 6 seeds 3, and so on up to 8 for 15 and 16 seeds. You set each tier's points, and can multiply them by the round.", scoring: { seed: false, seed_tiers: [1, 2, 3, 4, 5, 6, 7, 8], rounds: [1, 1, 1, 1, 1, 1], bonus: 0 } },
   { id: "flat-double", label: "Flat, doubling", text: "Every team scores the same: 1, 2, 4, 8, 16, 32 by round.", scoring: { seed: false, seed_tiers: null, rounds: [1, 2, 4, 8, 16, 32], bonus: 0 } },
 ];
 
 /** The seed lines in each seed tier: "1-2", "3-4" … "15-16". */
 export const SEED_TIERS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => `${2 * i + 1}-${2 * i + 2}`);
-/** Which preset a scoring setup is: seed tiers with any points count as the Seed tiers preset. */
+/** Round values for "times the round": 1 (First Round) to 6 (title game). */
+export const BY_ROUND = [1, 2, 3, 4, 5, 6];
+export const isByRound = (rounds: number[]) => rounds.every((n, i) => n === BY_ROUND[i]);
+/**
+ * Which preset a scoring setup is: seed tiers with any points, flat or times the round, count as
+ * the Seed tiers preset.
+ */
 export function scoringPreset(sc: PickXScoring): string {
-  if (sc.seed_tiers && sc.rounds.every((n) => n === 1) && sc.bonus === 0) return "seed-tiers";
+  if (sc.seed_tiers && (sc.rounds.every((n) => n === 1) || isByRound(sc.rounds)) && sc.bonus === 0) return "seed-tiers";
   return SCORING_PRESETS.find((p) => p.id !== "seed-tiers" && JSON.stringify(p.scoring) === JSON.stringify(sc))?.id ?? "custom";
 }
 
@@ -97,7 +103,7 @@ export function pickXSettingsError(s: PickXSettings): string | null {
 /** "Seed × round (1–6)", for summaries. */
 export function scoringLabel(sc: PickXScoring): string {
   const id = scoringPreset(sc);
-  if (id === "seed-tiers") return `Seed tiers (${sc.seed_tiers!.join("/")} a win)`;
+  if (id === "seed-tiers") return `Seed tiers (${sc.seed_tiers!.join("/")} a win${isByRound(sc.rounds) ? ", times the round" : ""})`;
   const preset = SCORING_PRESETS.find((p) => p.id === id);
   if (preset) return preset.label;
   const r = sc.rounds.every((n) => n === sc.rounds[0]) ? String(sc.rounds[0]) : sc.rounds.join("/");
