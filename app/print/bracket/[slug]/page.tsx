@@ -41,8 +41,8 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
           .bracket-print { padding: 0 !important; zoom: 0.61; }
           /* Tighter on paper so the whole bracket fits one page: shorter lines, no clocks or tip times. */
           .bracket-print [data-line] { height: 21px; font-size: 13px; }
-          /* On paper each game has a 12px day-and-site line above it instead of the 16px clock line. */
-          .bracket-print { --g-off: 6px; }
+          /* On paper each game has a 12px day-and-city line under it instead of the 16px clock line above. */
+          .bracket-print { --g-off: -6px; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>

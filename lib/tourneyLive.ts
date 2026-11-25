@@ -145,10 +145,12 @@ export type LiveBracket = {
 export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.now()): Promise<LiveBracket> {
   const start = tourneyStart(bracket.lockAt);
   const lockAt = Date.parse(bracket.lockAt);
-  // Before the pool locks nothing has been played as far as the pool's concerned: ESPN's schedule
-  // (days, sites, tip times) still shows, but not its scores or winners.
+  // A pool whose lock isn't this tournament's First Round (a demo set back to before the tournament)
+  // is playing it back: until it locks, ESPN's schedule (days, sites, tip times) shows but not its
+  // scores or winners. A real pool keeps the First Four's results from before its lock.
+  const replay = now < lockAt && Math.abs(lockAt - start) > 7 * DAY;
   const games = (await tourneyGames(start, now)).map((g): EspnGame =>
-    now < lockAt ? { ...g, status: "scheduled", teams: g.teams.map((t) => ({ ...t, score: null, winner: false })) as [EspnTeam, EspnTeam] } : g,
+    replay ? { ...g, status: "scheduled", teams: g.teams.map((t) => ({ ...t, score: null, winner: false })) as [EspnTeam, EspnTeam] } : g,
   );
   const pairKey = (a: string, b: string) => [a, b].sort().join(":");
   const byPair = new Map(games.filter((g) => g.teams[0].espnId && g.teams[1].espnId).map((g) => [pairKey(g.teams[0].espnId, g.teams[1].espnId), g]));
@@ -276,6 +278,13 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
       // final, else "TEX/NCSU".
       const placeholders: [string | null, string | null] = [null, null];
       const sides = ids.map((id, i): LiveTeam | null => {
+        // A First Four game not decided yet: both its teams on the line ("TEX/NCSU"), even when
+        // the pool's field already has a team in that spot.
+        const ffOpen = round === 1 ? ffSlot.get(2 * g + i) : undefined;
+        if (ffOpen && !ffOpen.winnerTeam) {
+          placeholders[i] = ffOpen.teams.map((t) => t?.abbr ?? t?.name ?? "TBD").join("/");
+          return null;
+        }
         if (id) {
           const { t, slot } = teamOf.get(id)!;
           return { id, seed: SEED_ORDER[slot % 16], name: t.short_name ?? t.name, abbr: t.abbreviation, logo: t.logo_url, score: null, won: false, lost: false };

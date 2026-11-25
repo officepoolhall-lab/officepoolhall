@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FitText } from "@/components/FitText";
-import { TeamLogo, chipClass } from "@/components/ui";
+import { chipClass } from "@/components/ui";
 import type { LiveBracket, LiveGame, LiveTeam } from "@/lib/tourneyLive";
 
 // The live NCAA Tournament bracket for a Pick X pool. Wide screens: the whole bracket, the left
@@ -30,7 +30,6 @@ function TeamLine({ t, placeholder, mine }: { t: LiveTeam | null; placeholder: s
   return (
     <div data-line className={`flex h-6 items-center gap-1.5 px-1.5 text-[12px] ${t.lost ? "text-muted" : ""} ${isMine ? "bg-accent/10" : ""}`}>
       <span className="w-4 shrink-0 text-right text-[10px] font-bold tabular-nums text-muted">{t.seed ?? ""}</span>
-      <TeamLogo src={t.logo} abbr={t.abbr} className="size-4 shrink-0 dark:rounded-full dark:bg-white/90 dark:p-px" />
       <FitText min={9} className={`min-w-0 flex-1 ${t.won ? "font-bold" : "font-medium"} ${isMine ? "text-accent" : ""} ${t.lost ? "line-through decoration-1" : ""}`}>{t.name}</FitText>
       <span className={`shrink-0 tabular-nums ${t.won ? "font-bold" : ""}`}>{t.score ?? ""}</span>
     </div>
@@ -52,10 +51,6 @@ function Game({ g, mine, color, out, className = "" }: {
   const live = g.status === "in_progress";
   return (
     <div className={`w-full min-w-0 ${className}`}>
-      {/* On paper: the day and the site (the live clock and tip time line is for the screen). */}
-      <div data-meta className="hidden h-3 items-center px-1 text-[9px] leading-none font-semibold whitespace-nowrap text-muted print:flex">
-        {[g.date, g.site?.split(",")[0]].filter(Boolean).join(" · ")}
-      </div>
       <div data-detail className={`flex h-4 items-center gap-1 px-1 text-[9.5px] leading-none print:hidden ${live ? "font-semibold text-live" : "text-muted"}`}>
         {live && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-live" aria-hidden />}
         {/* A plain "Final" adds nothing (the winner is in bold); "Final/OT" and clocks and tip times show. */}
@@ -68,6 +63,10 @@ function Game({ g, mine, color, out, className = "" }: {
           <TeamLine t={g.teams[1]} placeholder={g.placeholders[1]} mine={mine} />
         </div>
         {out && <span aria-hidden className={`absolute top-1/2 w-4 border-t ${WIRE} ${out === "right" ? "left-full" : "right-full"}`} />}
+      </div>
+      {/* On paper, under the game: its day and city (the clock and tip time line above is for the screen). */}
+      <div data-meta className="hidden h-3 items-center px-1 text-[9px] leading-none font-semibold whitespace-nowrap text-muted print:flex">
+        {[g.date, g.site?.split(",")[0]].filter(Boolean).join(" · ")}
       </div>
     </div>
   );
