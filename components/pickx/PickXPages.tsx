@@ -8,6 +8,7 @@ import { pickXScoringGrid, pickXScoringTable, roundPointsOf, roundsStarted, type
 import { getPickX, pickXStandings, type PickXEntry, type PickXRow } from "@/lib/pickxData";
 import { PickXPicker } from "./PickXPicker";
 import { PickXTeamsTable, type PickXTeamRow } from "./PickXTeamsTable";
+import { PickXOwnership, type PickXOwnRow } from "./PickXOwnership";
 import type { BracketTeam } from "@/lib/brackets";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { PickXBracket } from "./PickXBracket";
@@ -136,6 +137,19 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
   // Teams still alive, by region (and how much of the pool has each).
   const statuses = bracket ? pickXStandings(bracket, [{ userId: "", name: "", teamIds: bracket.field.filter(Boolean).map((t) => t!.id), editedBy: null, tiebreak: null }], settings)[0]?.teams ?? [] : [];
   const alive = statuses.filter((t) => t.alive);
+  // Once picks lock: every team's share of the pool and what it has scored.
+  const ownRows: PickXOwnRow[] = own
+    ? statuses.map((t) => {
+        const team = field.get(t.teamId);
+        const c = own.count.get(t.teamId) ?? 0;
+        return {
+          teamId: t.teamId, seed: t.seed, name: nameOf(team), abbr: team?.abbreviation ?? null, logo: team?.logo_url ?? null,
+          region: regions[t.region] ?? "", count: c, own: Math.round((c / Math.max(1, own.entries)) * 1000) / 10, points: t.points, wins: t.wins.length, alive: t.alive,
+        };
+      })
+    : [];
+  const most = [...ownRows].sort((a, b) => b.count - a.count || a.seed - b.seed)[0];
+  const top = [...ownRows].sort((a, b) => b.points - a.points || b.count - a.count)[0];
 
   return (
     <div data-wide className="space-y-6">
@@ -211,8 +225,32 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
           </section>
         </FillColumn>
 
-        {/* The teams still alive. */}
+        {/* Once picks lock: the pool at a glance, every team's ownership and points, and the teams still alive. */}
         <div className="order-last space-y-8 lg:order-none lg:pl-6">
+          {bracket && locked && own && (
+            <section className="max-w-3xl">
+              <div className="border-b border-line pb-1">
+                <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-4 [&>*]:min-w-0">
+                <div>
+                  <FitText min={9} className="text-xs text-muted">Most Picked</FitText>
+                  <FitText min={12} className="mt-0.5 text-lg font-bold">{most && most.count ? `${most.name} · ${most.own.toFixed(0)}%` : "–"}</FitText>
+                </div>
+                <div>
+                  <FitText min={9} className="text-xs text-muted">Top Scoring Team</FitText>
+                  <FitText min={12} className="mt-0.5 text-lg font-bold">{top && top.points ? `${top.name} · ${top.points} pts` : "–"}</FitText>
+                </div>
+                <div>
+                  <FitText min={9} className="text-xs text-muted">Teams Alive</FitText>
+                  <FitText min={12} className="mt-0.5 text-lg font-bold">{alive.length}<span className="text-muted">/64</span></FitText>
+                </div>
+              </div>
+              <div className="mt-4">
+                <PickXOwnership rows={ownRows} regions={regions} entries={own.entries} />
+              </div>
+            </section>
+          )}
           {bracket && locked && (
             <section className="@container">
               <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
