@@ -378,6 +378,15 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
                       <span className="min-w-0 sm:w-44 sm:shrink-0 lg:w-52">
                         <FitText min={10} className={`block font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
                         {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">Tiebreaker: {r.tiebreak}</span>}
+                        {/* Phones: the teams still alive, small, under the name. */}
+                        {locked && r.alive > 0 && (
+                          <span className="mt-1 flex items-center gap-1 sm:hidden">
+                            {r.teams.filter((t) => t.alive).sort((a, b) => a.seed - b.seed).map((t) => {
+                              const team = field.get(t.teamId);
+                              return <TeamLogo key={t.teamId} src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />;
+                            })}
+                          </span>
+                        )}
                       </span>
                       {/* Desktop: the logos of the entry's teams still alive. */}
                       {locked && (
