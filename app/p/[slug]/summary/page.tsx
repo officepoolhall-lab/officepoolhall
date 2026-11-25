@@ -11,5 +11,5 @@ export default async function SummaryPage({ params }: PageProps<"/p/[slug]/summa
   const { slug } = await params;
   const ctx = await getPoolContext(slug);
   if (poolFormat(ctx.pool.settings) !== "playoff_fantasy") notFound();
-  return <PfSummaryPage ctx={ctx} />;
+  return <PfSummaryPage ctx={ctx} slug={slug} />;
 }
