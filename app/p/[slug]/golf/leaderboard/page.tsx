@@ -77,7 +77,12 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
   const majors = golfFormat(ctx.pool) === "majors";
   const lineups = majors ? (await getVisibleLineups(ctx)).filter((l) => l.event_id === event.id) : [];
   const pickedBy = new Map<string, number>();
-  for (const p of majors ? lineups : picks.filter((p) => p.event_id === event.id)) pickedBy.set(p.espn_golfer_id, (pickedBy.get(p.espn_golfer_id) ?? 0) + 1);
+  const eventPicks = majors ? lineups : picks.filter((p) => p.event_id === event.id);
+  for (const p of eventPicks) pickedBy.set(p.espn_golfer_id, (pickedBy.get(p.espn_golfer_id) ?? 0) + 1);
+  // Ownership: each golfer's share of the entries with a pick (or lineup) for this event. Only once
+  // it's under way; before that only the viewer's own picks are known.
+  const pickers = new Set(eventPicks.map((p) => p.user_id)).size;
+  const ownOf = (id: string) => (state === "scheduled" || !pickers || !pickedBy.get(id) ? null : Math.round(((pickedBy.get(id) ?? 0) / pickers) * 100));
   const mineSet = new Set(majors ? lineups.filter((l) => l.user_id === ctx.entryUserId).map((l) => l.espn_golfer_id) : (myPicks.filter((p) => p.event_id === event.id).map((p) => p.espn_golfer_id)));
   // Tee times: with the day before the tournament starts; once it's under way, just the time
   // (today's round), so it stays on one line.
@@ -140,6 +145,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
           today: started ? n!.toPar : today(g),
           earnings: g.earnings,
           pickedBy: pickedBy.get(g.id) ?? 0,
+          own: ownOf(g.id),
           mine: mineSet.has(g.id),
           _order: g.order ?? 9999,
           _tee: teeAt ?? "~",
@@ -158,6 +164,7 @@ export default async function GolfLeaderboardPage({ params, searchParams }: Page
         today: null,
         earnings: Number(r.earnings),
         pickedBy: pickedBy.get(r.espn_golfer_id) ?? 0,
+        own: ownOf(r.espn_golfer_id),
         mine: mineSet.has(r.espn_golfer_id),
         _order: 9999,
         _tee: r.tee_at ?? "~",

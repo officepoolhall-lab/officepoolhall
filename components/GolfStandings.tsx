@@ -90,6 +90,8 @@ export type WeekRow = {
   /** "T7", "MC"; or the live line ("T12 · −4 · Thru 9") while the event is under way. */
   finish: string;
   earned: number;
+  /** Share of the week's picks on this golfer (0-100); null when it isn't known yet. */
+  own: number | null;
 };
 
 function Golfer({ r, final }: { r: WeekRow; final: boolean }) {
@@ -104,6 +106,11 @@ function Golfer({ r, final }: { r: WeekRow; final: boolean }) {
     <>
       {r.golfer}
       {final && r.finish && <span className="ml-1.5 whitespace-nowrap text-xs tabular-nums text-muted">{r.finish}</span>}
+      {r.own !== null && (
+        <span className="ml-1.5 whitespace-nowrap text-xs tabular-nums text-muted" title={`${r.own}% of the pool picked ${r.golfer}`}>
+          · {r.own}% own
+        </span>
+      )}
     </>
   );
 }

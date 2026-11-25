@@ -23,6 +23,8 @@ export type LeaderRow = {
   projected?: number | null;
   /** How many entries picked this golfer (only counted once picks are visible). */
   pickedBy: number;
+  /** Share of the pool's entries with this golfer (0-100), once the event is under way. */
+  own?: number | null;
   mine: boolean;
 };
 
@@ -72,7 +74,7 @@ export function GolfLeaderboard({
             <tr className="text-left">
               <th className={`${th} w-12 pl-4 pr-1 sm:pl-2`}>{started ? "Pos" : ""}</th>
               <th className={`${th} px-2`}>Golfer</th>
-              <th className={`${th} w-12 px-1 text-center leading-tight`}>Pool Picks</th>
+              <th className={`${th} w-14 px-1 text-center leading-tight`} title="Share of the pool's entries with each golfer">Own</th>
               {started ? (
                 <>
                   <th className={`${th} w-14 px-1 text-right 2xl:w-20`}>To Par</th>
@@ -145,7 +147,7 @@ export function GolfLeaderboard({
                         className={`inline-grid min-w-6 place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums ${r.mine ? "bg-accent text-bg" : "bg-surface text-ink"}`}
                         title={`${r.pickedBy} ${r.pickedBy === 1 ? "entry" : "entries"} in the pool picked ${r.name}${r.mine ? ", including you" : ""}`}
                       >
-                        {r.pickedBy}
+                        {r.own != null ? `${r.own}%` : r.pickedBy}
                       </span>
                     )}
                   </td>

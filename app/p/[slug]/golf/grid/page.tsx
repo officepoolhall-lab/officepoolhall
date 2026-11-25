@@ -5,7 +5,7 @@ import { GolfGrid, type GridRow, type GridWeek } from "@/components/GolfGrid";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { redirect } from "next/navigation";
 import { getGolfContext, golfFormat, shortEventName } from "@/lib/golf";
-import { getGolfStandingsData } from "@/lib/golfStandings";
+import { getGolfStandingsData, golferShare } from "@/lib/golfStandings";
 
 export const metadata: Metadata = { title: "League Grid" };
 
@@ -50,6 +50,7 @@ export default async function GolfGridPage({ params, searchParams }: PageProps<"
         final: w.final,
         won: w.final && l?.finish === "1",
         topOfWeek: false,
+        own: isCurrent && r.thisWeek?.hidden ? null : golferShare(data.ownership, w.week, golfer),
       };
     }),
   }));
@@ -73,7 +74,7 @@ export default async function GolfGridPage({ params, searchParams }: PageProps<"
       final: w.final,
       live: data.current?.week === w.week && data.current.live,
       open,
-      popular: !open && golfer ? { golfer, count: count! } : null,
+      popular: !open && golfer ? { golfer, count: count!, own: Math.round((count! / Math.max(1, [...counts.values()].reduce((a, b) => a + b, 0))) * 100) } : null,
     };
   });
 

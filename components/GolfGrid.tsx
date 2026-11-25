@@ -17,10 +17,12 @@ export type GridCell = {
   won: boolean;
   /** The most money anyone earned that week. */
   topOfWeek: boolean;
+  /** Share of the week's picks on this golfer (0-100); null while picks are hidden. */
+  own: number | null;
 };
 
 export type GridRow = { userId: string; name: string; isMe: boolean; place: number; tied: boolean; total: number; cells: GridCell[] };
-export type GridWeek = { week: number; short: string; name: string; final: boolean; live: boolean; open: boolean; popular: { golfer: string; count: number } | null };
+export type GridWeek = { week: number; short: string; name: string; final: boolean; live: boolean; open: boolean; popular: { golfer: string; count: number; own: number } | null };
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const short$ = (n: number) =>
@@ -109,7 +111,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                     ) : !c.golfer ? (
                       <span className="text-[11px] text-faint">{w.final ? <><span aria-hidden>–</span><span className="sr-only">No pick</span></> : ""}</span>
                     ) : (
-                      <button type="button" onClick={() => setDetail(open ? null : id)} title={`${c.golfer}${c.finish ? ` · ${c.finish}` : ""}${c.final ? ` · ${money(c.earned)}` : ""}`} className="block h-full w-full px-1 leading-tight">
+                      <button type="button" onClick={() => setDetail(open ? null : id)} title={`${c.golfer}${c.finish ? ` · ${c.finish}` : ""}${c.final ? ` · ${money(c.earned)}` : ""}${c.own !== null ? ` · ${c.own}% own` : ""}`} className="block h-full w-full px-1 leading-tight">
                         <div className="flex items-center justify-center gap-0.5 text-[11px] font-medium text-ink">
                           {c.won && (
                             <span className="text-[#b8860b] dark:text-[#e0b84c]">
@@ -136,6 +138,7 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
                           {c.finish}
                           {c.final ? `${c.finish ? " · " : ""}${money(c.earned)}` : ""}
                         </div>
+                        {c.own !== null && <div className="tabular-nums opacity-80">{c.own}% of the pool picked him</div>}
                       </div>
                     )}
                   </td>
@@ -146,13 +149,13 @@ export function GolfGrid({ rows, weeks }: { rows: GridRow[]; weeks: GridWeek[] }
         </tbody>
         <tfoot>
           <tr>
-            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">Pool Picks</th>
+            <th className="sticky left-0 z-10 border-r border-t border-line bg-bg px-4 py-1.5 text-left text-xs font-medium text-muted">Most Picked</th>
             {weeks.map((w) => (
               <td key={w.week} className="border-t border-line bg-bg px-1 py-1.5 text-center text-xs leading-tight">
                 {w.popular ? (
                   <>
                     <div className="truncate text-muted">{lastName(w.popular.golfer)}</div>
-                    <div className="font-semibold tabular-nums">{w.popular.count}</div>
+                    <div className="font-semibold tabular-nums" title={`${w.popular.count} ${w.popular.count === 1 ? "entry" : "entries"}`}>{w.popular.own}%</div>
                   </>
                 ) : (
                   <LockIcon className="mx-auto size-3 text-muted" />
