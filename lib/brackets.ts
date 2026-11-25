@@ -38,8 +38,10 @@ export async function getBracket(ctx: PoolContext): Promise<Bracket | null> {
   const res = Array.isArray(data.bracket_results) ? data.bracket_results[0] : data.bracket_results;
   // The First Four, on its own (its column may not be there yet): its teams loaded by id.
   type FF = { slot: number; teams: string[]; winner: string | null };
-  const ffRow = await ctx.supabase.from("brackets").select("first_four").eq("id", data.id).maybeSingle();
-  const ffRaw = (!ffRow.error && Array.isArray((ffRow.data as { first_four?: unknown } | null)?.first_four) ? (ffRow.data as { first_four: FF[] }).first_four : []).filter(
+  // Untyped: the column comes with migration 070, after the generated types.
+  const db = ctx.supabase as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const ffRow: { data: { first_four?: unknown } | null; error: unknown } = await db.from("brackets").select("first_four").eq("id", data.id).maybeSingle();
+  const ffRaw = (!ffRow.error && Array.isArray(ffRow.data?.first_four) ? (ffRow.data!.first_four as FF[]) : []).filter(
     (g) => Number.isInteger(g?.slot) && g.slot >= 0 && g.slot < 64 && Array.isArray(g?.teams),
   );
   const ffIds = [...new Set(ffRaw.flatMap((g) => g.teams).filter(Boolean))];
