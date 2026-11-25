@@ -33,7 +33,7 @@ export function PickXPicker({
 }: {
   /** 64 slots (region * 16 + bracket position); null where the commissioner hasn't set a team. */
   field: (Team | null)[];
-  /** First Four games not played yet: either team can be picked for that spot. */
+  /** First Four games not played yet: the game is one pick (whoever wins it), saved as its first team. */
   playIn?: { slot: number; teams: Team[] }[];
   regions: string[];
   initial: string[];
@@ -48,7 +48,9 @@ export function PickXPicker({
   /** The pool's tiebreaker (the title game's total points): the saved guess; null when the pool has no tiebreaker. */
   tiebreak: { initial: number | null } | null;
 }) {
-  const [picked, setPicked] = useState<string[]>(initial);
+  // A First Four game picked as either team reads as the game (its first team).
+  const asGame = (ids: string[]) => [...new Set(ids.map((id) => playIn.find((g) => g.teams.some((t) => t.id === id))?.teams[0].id ?? id))];
+  const [picked, setPicked] = useState<string[]>(() => asGame(initial));
   const [tb, setTb] = useState<string>(tiebreak?.initial != null ? String(tiebreak.initial) : "");
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -56,11 +58,17 @@ export function PickXPicker({
   // One region at a time (the first to start), or every team by seed line.
   const [view, setView] = useState<number | "seeds">(0);
   const [pod, setPod] = useState<{ slot: number; team: Team } | null>(null);
-  const saved = useRef({ picks: [...initial].sort().join(","), tb: tiebreak?.initial != null ? String(tiebreak.initial) : "" });
+  const saved = useRef({ picks: asGame(initial).sort().join(","), tb: tiebreak?.initial != null ? String(tiebreak.initial) : "" });
 
-  // A spot's teams: its team, or both teams of its First Four game until that's played.
+  // A spot's team, or its First Four game until that's played: one line, both teams ("Texas / NC State").
   const playInAt = new Map(playIn.map((g) => [g.slot, g.teams]));
-  const optionsAt = (slot: number): Team[] => playInAt.get(slot) ?? (field[slot] ? [field[slot]!] : []);
+  const gameAt = new Map(
+    playIn.map((g) => [
+      g.slot,
+      { ...g.teams[0], name: g.teams.map(nameOf).join(" / "), short_name: null, abbreviation: null, logo_url: null } as Team,
+    ]),
+  );
+  const optionsAt = (slot: number): Team[] => (gameAt.has(slot) ? [gameAt.get(slot)!] : field[slot] ? [field[slot]!] : []);
   const teamById = new Map(Array.from({ length: field.length }, (_, i) => optionsAt(i)).flat().map((t) => [t.id, t]));
   const slotOf = new Map(Array.from({ length: field.length }, (_, i) => optionsAt(i).map((t) => [t.id, i] as const)).flat());
   const slots = picked.map((id) => slotOf.get(id)).filter((x): x is number => x !== undefined);
@@ -162,7 +170,7 @@ export function PickXPicker({
         return (
           <li key={t.id} className="flex h-10 items-center gap-2 text-sm">
             <span className="w-6 shrink-0 text-center text-xs font-bold tabular-nums text-muted">{seedAt(slot)}</span>
-            <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" />
+            {t.logo_url || t.abbreviation ? <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" /> : <span className="size-5 shrink-0" aria-hidden />}
             <FitText min={10} className="min-w-0 flex-1 font-semibold">{nameOf(t)}</FitText>
             <span className="shrink-0 text-[11px] text-muted">{regions[Math.floor(slot / 16)]}</span>
             <button type="button" onClick={() => toggle(t.id)} aria-label={`Drop ${nameOf(t)}`} className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full text-lg leading-none text-muted hover:bg-hover hover:text-ink">
@@ -252,7 +260,7 @@ export function PickXPicker({
                         {/* The team: opens its pod of the bracket. */}
                         <button type="button" onClick={() => setPod({ slot, team })} className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 text-left hover:bg-hover" aria-label={`${nameOf(team)}: see its pod`}>
                           <span className={`w-6 shrink-0 text-center text-xs font-bold tabular-nums ${on ? "text-accent" : "text-muted"}`}>{seedAt(slot)}</span>
-                          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 shrink-0 dark:rounded-full dark:bg-white/90 dark:p-0.5" />
+                          {team.logo_url || team.abbreviation ? <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 shrink-0 dark:rounded-full dark:bg-white/90 dark:p-0.5" /> : <span className="size-6 shrink-0" aria-hidden />}
                           <FitText min={10} className={`min-w-0 flex-1 text-sm font-semibold ${on ? "text-accent" : "text-ink"}`}>{nameOf(team)}</FitText>
                           {isPlayIn && <span className="shrink-0 rounded bg-hover px-1 text-[10px] font-semibold text-muted">First Four</span>}
                           {view === "seeds" && <span className="shrink-0 text-[11px] text-muted">{regions[Math.floor(slot / 16)]}</span>}
@@ -361,7 +369,7 @@ function PodDialog({ slot, team, field, playIn, regions, picked, settings, onTog
       onClose={onClose}
       header={
         <div className="flex items-center gap-3">
-          <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-12 shrink-0" />
+          {team.logo_url || team.abbreviation ? <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-12 shrink-0" /> : <span className="size-12 shrink-0" aria-hidden />}
           <div className="min-w-0">
             <h2 className="text-lg font-bold"><FitText min={12}>{nameOf(team)}</FitText></h2>
             <p className="text-xs text-muted">{seedAt(slot)} seed · {regions[Math.floor(slot / 16)]}</p>

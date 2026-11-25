@@ -22,13 +22,26 @@ export async function getPickX(ctx: PoolBase) {
   const list: PickXEntry[] = ((members ?? []) as { user_id: string; profile: { display_name: string } }[]).map((m) => ({
     userId: m.user_id,
     name: m.profile.display_name,
-    teamIds: byUser.get(m.user_id)?.team_ids ?? [],
+    teamIds: playInPicks(bracket, byUser.get(m.user_id)?.team_ids ?? []),
     editedBy: byUser.get(m.user_id)?.edited_by ?? null,
     tiebreak: byUser.get(m.user_id)?.tiebreak ?? null,
   }));
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of the lock
   const locked = bracket ? Date.parse(bracket.lockAt) <= Date.now() : false;
   return { settings, bracket, entries: list, locked };
+}
+
+/**
+ * A First Four game is one pick, saved as its first team: whoever wins the game. Once it has a
+ * winner the pick counts as that team (either of its teams saved reads as the game).
+ */
+export function playInPicks(bracket: Bracket | null, ids: string[]): string[] {
+  if (!bracket?.firstFour.length) return ids;
+  const out = ids.map((id) => {
+    const g = bracket.firstFour.find((x) => x.teams.some((t) => t?.id === id));
+    return g ? (g.winner ?? g.teams[0]?.id ?? id) : id;
+  });
+  return [...new Set(out)];
 }
 
 /** The entries, with the tiebreaker guess (without it until that column's migration is in). */
@@ -40,7 +53,7 @@ async function loadEntries(ctx: PoolBase) {
 }
 
 /** Standings: each entry's points from its teams' wins, how many teams are still alive, and the most it can still add. */
-/** The First Four's teams that aren't in the field (both, until a winner takes the spot). */
+/** First Four games not decided yet, by the team their pick is saved as (when it isn't in the field yet). */
 export function playInTeams(bracket: Bracket | null): PlayInTeams {
   const out: PlayInTeams = new Map();
   if (!bracket) return out;
