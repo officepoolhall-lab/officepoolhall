@@ -8,9 +8,11 @@ import { SEED_ORDER, gameKey, gamesIn, type Picks } from "./bracket";
 // headline ("Men's Basketball Championship - East Region - 1st Round"), and the First Four
 // games the same way. Read here for every pool with an NCAA Tournament bracket (lib/bracketAuto.ts).
 //
-// ESPN doesn't say which regions meet in the national semifinals until those games are set,
-// so the regions start in the order ESPN first lists them; `semifinalPairs` reads the actual
-// pairing once the Final Four games have their teams, and the bracket is re-paired then.
+// Which regions meet in the national semifinals comes from ESPN's posted bracket page, which
+// lays the regions out top-left, top-right, bottom-left, bottom-right with the left pair meeting
+// in one semifinal and the right pair in the other (2026: EAST, WEST, SOUTH, MIDWEST → East plays
+// South, West plays Midwest). If that page can't be read, the regions start in the order the
+// scoreboard lists them, and `semifinalPairs` corrects the pairing once the Final Four is set.
 
 const BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard";
 const HEADERS = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compatible; OfficePoolHall/1.0)" };
@@ -66,7 +68,7 @@ const isFirstFour = (h: string) => /first four|opening round/i.test(h);
 const isSemifinal = (h: string) => /final four|national semifinal/i.test(h);
 
 export type EspnField = {
-  /** The four regions, in the order ESPN first lists them (see semifinalPairs for the real pairing). */
+  /** The four regions in semifinal order (0 meets 1, 2 meets 3), from ESPN's bracket page when it can be read. */
   regions: string[];
   /** 64 slots (region * 16 + bracket position); null where a First Four game hasn't been played. */
   slots: (EspnTeam | null)[];
@@ -75,6 +77,32 @@ export type EspnField = {
   /** The first Round of 64 tip: when picks lock. */
   firstTip: string;
 };
+
+/**
+ * The regions in semifinal order (0 meets 1, 2 meets 3) from ESPN's bracket page, or null if
+ * it can't be read or doesn't show all four. The page labels each quadrant in capitals, in
+ * reading order: top-left, top-right, bottom-left, bottom-right.
+ */
+async function bracketPageOrder(year: number, regions: string[]): Promise<string[] | null> {
+  for (const url of [
+    `https://www.espn.com/mens-college-basketball/bracket/_/season/${year}/${year}-ncaa-tournament`,
+    "https://www.espn.com/mens-college-basketball/tournament/bracket",
+  ]) {
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": HEADERS["User-Agent"], Accept: "text/html" }, next: { revalidate: 3600 }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const html = await res.text();
+      // Each region's quadrant label: the name alone in capitals between tags (">EAST<").
+      const at = regions.map((r) => ({ r, i: html.search(new RegExp(`>\\s*${r.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*<`)) }));
+      if (at.some((x) => x.i < 0)) continue;
+      const [tl, tr, bl, br] = [...at].sort((a, b) => a.i - b.i).map((x) => x.r);
+      return [tl, bl, tr, br];
+    } catch {
+      // try the next page
+    }
+  }
+  return null;
+}
 
 /** Every tournament game ESPN lists from March 14 to March 24 of `year` (Selection Sunday through the first weekend). */
 async function openingGames(year: number): Promise<Game[]> {
@@ -94,6 +122,9 @@ export async function getEspnField(year: number): Promise<EspnField | null> {
     if (r && !regions.some((x) => x.toLowerCase() === r.toLowerCase())) regions.push(r);
   }
   if (regions.length !== 4) return null;
+  // The real semifinal pairing, from ESPN's posted bracket.
+  const paired = await bracketPageOrder(year, regions);
+  if (paired) regions.splice(0, 4, ...paired);
   const regionIndex = (h: string) => regions.findIndex((r) => r.toLowerCase() === (regionIn(h) ?? "").toLowerCase());
 
   const slots: (EspnTeam | null)[] = Array.from({ length: 64 }, () => null);
