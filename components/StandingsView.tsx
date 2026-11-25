@@ -1,7 +1,7 @@
 // The Standings page (/p/[slug]/standings), and with `embed` the landing page's copy of a real pool's.
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LazySplitTable } from "@/components/LazySplitTable";
-import { LiveTicker } from "@/components/LiveTicker";
+import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { OptionSwitcher, type SwitchOption } from "@/components/OptionSwitcher";
 import { FROZEN_HEAD, SeasonHeaderRow, SeasonStandings, type WeekScore } from "@/components/SeasonStandings";
 import { TournamentHeaderRow, TournamentStandings, type TournamentRow } from "@/components/TournamentStandings";
@@ -9,7 +9,7 @@ import { BracketHeaderRow, BracketStandings, type BracketRow } from "@/component
 import { scoreBracket } from "@/lib/bracket";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { MobileTabs, StandingsTabs, TabPanel } from "@/components/StandingsTabs";
-import { Empty, PageTitle, SectionLabel } from "@/components/ui";
+import { Empty, SectionLabel } from "@/components/ui";
 import { hasStarted, isGameLocked } from "@/lib/locks";
 import { getCurrentSlate, getPublishedSlates, getSlateGames, type PoolContext } from "@/lib/pool";
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
@@ -223,13 +223,8 @@ export async function StandingsView({
   return (
     // data-wide: full screen width on desktop.
     <div data-wide>
-      {/* Title on the left; the week's scores fill the space to its right (below it on phones). */}
-      <div className="sm:flex sm:items-start sm:gap-6">
-        <div className="shrink-0">
-          <PageTitle>Standings</PageTitle>
-        </div>
-        {!embed && games.length > 0 && <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />}
-      </div>
+      {/* Title on the left; the week's scores fill the space to its right (the shared header). */}
+      <PoolPageHeader title="Standings" games={embed ? [] : games} now={now} timezone={ctx.displayTz} />
       {!embed && <AutoRefresh active={anyLive} />}
 
       {!slates.length ? (
