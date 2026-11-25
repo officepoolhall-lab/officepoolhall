@@ -161,8 +161,8 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
         <div className={label}>🏆 Championship<br />{b.roundDates[5]}</div>
         <Game g={title} mine={mine} color={GOLD} className="rounded-md ring-2 ring-[#b8860b]/50 ring-offset-2" />
         {writeIn && (
-          // Out of the flow, above the Final Four, so the title game stays level with the semifinals.
-          <div className="absolute inset-x-[-3rem] bottom-full mb-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
+          // Out of the flow, below the Final Four, so the title game stays level with the semifinals.
+          <div className="absolute inset-x-[-3rem] top-full mt-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
             <div className="text-center text-[28px] leading-none">🏆</div>
             <div className="mt-1 text-center text-[13px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[#0b2a5b] uppercase">National Champion</div>
             {b.finalSite && <div className="text-center text-[10px] font-bold tracking-widest text-[#b8860b] uppercase">{b.roundDates[5]} · {b.finalSite}</div>}
@@ -247,7 +247,7 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
       <div className="relative flex flex-col justify-center pt-[20px]">
         <FinalFour b={b} mine={mine} row writeIn={writeIn} />
         {b.firstFour.length > 0 && (
-          <section className="absolute inset-x-0 bottom-0">
+          <section className="absolute inset-x-0 top-0">
             <div className="mb-1 text-center text-xs font-bold tracking-wide text-muted uppercase">First Four</div>
             <FirstFour b={b} mine={mine} />
           </section>
