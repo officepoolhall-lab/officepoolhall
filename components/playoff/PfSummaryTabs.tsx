@@ -28,7 +28,7 @@ export type SumGroup = {
   scoring: { p: SumPlayer; value: string; sub?: string | null }[];
 };
 
-type Tab = "own" | "top";
+type Tab = "own" | "top" | "perfect";
 type Sort = "name" | "own" | "count" | "points";
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
@@ -42,21 +42,21 @@ export function PfSummaryTabs({ owned, groups, positions, lineups, locked, start
   locked: boolean;
   /** A playoff game has started: "highest scoring" is playoff points, not the regular season. */
   started: boolean;
-  /** The perfect lineup, under Top Players. */
+  /** The perfect lineup (null until the Wild Card round starts), its own tab. */
   perfect: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>(locked ? "own" : "top");
   return (
     <>
       <div className="mb-4 inline-flex rounded-full bg-surface p-0.5" role="tablist">
-        {([["own", "Ownership %"], ["top", "Top Players"]] as [Tab, string][]).map(([id, label]) => (
+        {([["own", "Ownership %"], ["top", "Top Players"], ["perfect", "Perfect Lineup"]] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
             type="button"
             role="tab"
             aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`flex h-8 cursor-pointer items-center justify-center rounded-full px-4 text-sm font-medium whitespace-nowrap transition ${tab === id ? "bg-ink text-bg" : "text-muted hover:text-ink"}`}
+            className={`flex h-8 cursor-pointer items-center justify-center rounded-full px-3 text-[13px] sm:px-4 sm:text-sm font-medium whitespace-nowrap transition ${tab === id ? "bg-ink text-bg" : "text-muted hover:text-ink"}`}
           >
             {label}
           </button>
@@ -68,8 +68,10 @@ export function PfSummaryTabs({ owned, groups, positions, lineups, locked, start
         ) : (
           <p className="text-sm text-muted">Ownership shows once lineups lock.</p>
         )
+      ) : tab === "top" ? (
+        <TopPlayers groups={groups} locked={locked} started={started} />
       ) : (
-        <TopPlayers groups={groups} locked={locked} started={started} perfect={perfect} />
+        perfect ?? <p className="text-sm text-muted">The perfect lineup shows once the Wild Card round starts.</p>
       )}
     </>
   );
@@ -136,8 +138,8 @@ function Ownership({ owned, positions, lineups }: { owned: SumPlayer[]; position
   );
 }
 
-/** Each position: its most rostered and its highest scoring, side by side; then the perfect lineup. */
-function TopPlayers({ groups, locked, started, perfect }: { groups: SumGroup[]; locked: boolean; started: boolean; perfect: ReactNode }) {
+/** Each position: its most rostered and its highest scoring, side by side. */
+function TopPlayers({ groups, locked, started }: { groups: SumGroup[]; locked: boolean; started: boolean }) {
   const row = (p: SumPlayer, value: string, sub?: string | null) => (
     <li key={p.id} className={`flex h-8 items-center gap-1.5 text-[13px] ${p.out ? "text-muted" : ""}`}>
       <TeamLogo src={p.logo} abbr={p.team} className="size-4 shrink-0" />
@@ -149,8 +151,7 @@ function TopPlayers({ groups, locked, started, perfect }: { groups: SumGroup[]; 
     </li>
   );
   return (
-    <div className="space-y-8">
-      <div className="grid items-start gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid items-start gap-x-8 gap-y-6 md:grid-cols-2 xl:grid-cols-3">
         {groups.map((g) => (
           <section key={g.pos} className="min-w-0">
             <div className="border-b-2 border-line pb-1 text-sm font-bold">{g.name}</div>
@@ -174,8 +175,6 @@ function TopPlayers({ groups, locked, started, perfect }: { groups: SumGroup[]; 
             </div>
           </section>
         ))}
-      </div>
-      {perfect}
     </div>
   );
 }

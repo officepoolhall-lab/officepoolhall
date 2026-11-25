@@ -7,7 +7,7 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, optimalLineup, statColumns, rosterSize } from "@/lib/playoffFantasy";
+import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, statColumns, rosterSize } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
@@ -17,6 +17,7 @@ import { PfRosterTable, type PfRosterRow } from "./PfRoster";
 import { PfSummaryTabs, type SumGroup, type SumPlayer } from "./PfSummaryTabs";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { LiveTicker } from "@/components/LiveTicker";
+import { ExpandAll } from "@/components/ExpandAll";
 
 // The pages of an NFL Playoff Fantasy pool: Home, My Team and Standings. The pool routes reach
 // these when settings.format is "playoff_fantasy".
@@ -305,69 +306,73 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
  * name and points, then its players by position with their points (a player whose team is out
  * is crossed out). No lineup shows until lineups lock (your own is on My Team).
  */
-export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
+export async function PfStandingsPage({ ctx }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
   const standingsTicker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
   const me = ctx.entryUserId;
   const tz = tzOf(ctx);
-  // Before the lock, no lineups (yours included: it's on My Team), so the cards are just names.
-  const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
-  const cardRem = locked ? 30 : Math.max(14, Math.ceil((5.5 + longestEntry * 0.52) * 2) / 2);
   const own = locked ? ownership(entries) : null;
-
-  // Each entry's lineup as on My Team: position, player, ownership, points by round and in all;
-  // a player opens his playoff games.
-  const Players = ({ r }: { r: PfRow }) => {
-    if (!locked) return <p className="py-1.5 text-xs text-muted">Shows when lineups lock.</p>;
-    if (!r.playerIds.length) return <p className="py-1.5 text-xs text-muted">No lineup set.</p>;
-    return <PfRosterTable rows={rosterRows(r.playerIds, players, teams, pts, own)} roundTotals={r.rounds} started={pts.roundsStarted} compact />;
-  };
+  const started = pts.roundsStarted;
+  // Place | Entry | the four rounds (from sm) | Total | the open/close arrow.
+  const grid = "grid grid-cols-[2rem_minmax(0,1fr)_4.5rem_1.25rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_repeat(4,4.25rem)_5rem_1.25rem] items-center gap-x-2";
+  const round = (r: PfRow, i: number) => (i >= started ? "–" : fmt(r.rounds[i]));
 
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
       <PoolPageHeader title="Standings" games={standingsTicker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
-      {locked && rows.length > 0 && <FitText min={8} className="mb-2 text-xs text-muted">Tap a player to view game stats. Own % is the share of the pool&apos;s lineups with that player.</FitText>}
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
-        <>
-          {/* Desktop: every entry's lineup as a card, as many across as fit. */}
-          <ol className="hidden gap-2 lg:grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${cardRem}rem), 1fr))` }}>
-            {rows.map((r) => (
-              <li key={r.userId} className={`rounded-lg border px-2.5 py-2 ${r.userId === me ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : "border-line"}`}>
-                <div className="flex items-baseline gap-1.5 border-b border-line pb-1 text-sm">
-                  <span className="w-5 shrink-0 tabular-nums text-muted">{locked ? r.rank : ""}</span>
-                  <FitText min={11} className={`flex-1 font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
-                  <span className="shrink-0 font-bold tabular-nums">{fmt(r.points)}</span>
-                </div>
-                {locked && pts.roundsStarted > 0 && <p className="mt-0.5 text-[11px] tabular-nums text-muted">{r.alive} of {r.playerIds.length} still playing</p>}
-                <Players r={r} />
-              </li>
+        <section className="max-w-4xl">
+          <div className="mb-2 flex items-center gap-3">
+            <FitText min={8} className="min-w-0 flex-1 text-xs text-muted">
+              {locked ? "Tap an entry to see its lineup, and a player for his game stats." : "Lineups show here once they lock."}
+            </FitText>
+            {locked && <ExpandAll target="pf-standings" />}
+          </div>
+          <div className={`${grid} border-b border-line px-2 py-1.5 text-[11px] font-bold tracking-wide text-muted uppercase`}>
+            <span>#</span>
+            <span>Entry</span>
+            {ROUNDS.map((r) => (
+              <span key={r.short} className="hidden text-right sm:block">{r.short}</span>
             ))}
-          </ol>
-
-          {/* Phones and tablets: a list; tap an entry to see its lineup. */}
-          <div className="border-t border-line lg:hidden">
+            <span className="text-right">Total</span>
+            <span />
+          </div>
+          {/* Every entry one row; open it for the full lineup (the same table as My Team). */}
+          <div id="pf-standings">
             {rows.map((r) => (
-              <details key={r.userId} className={`group border-b border-line ${r.userId === me ? "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]" : ""}`}>
-                <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden">
-                  <span className="w-7 shrink-0 tabular-nums text-muted">{locked ? r.rank : ""}</span>
-                  <span className={`min-w-0 flex-1 truncate font-medium ${r.userId === me ? "text-accent" : ""}`}>{r.name}</span>
-                  <span className="shrink-0 font-semibold tabular-nums">{fmt(r.points)}</span>
-                  <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180">
+              <details key={r.userId} className={`group border-b border-line ${r.userId === me ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}>
+                <summary className={`${grid} cursor-pointer list-none px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden`}>
+                  <span className="tabular-nums text-muted">{locked ? r.rank : ""}</span>
+                  <FitText min={10} className={`font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
+                  {[0, 1, 2, 3].map((i) => (
+                    <span key={i} className={`hidden text-right tabular-nums sm:block ${i >= started ? "text-muted" : ""}`}>{round(r, i)}</span>
+                  ))}
+                  <span className="text-right font-bold tabular-nums">{fmt(r.points)}</span>
+                  <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-4 justify-self-end text-muted transition-transform group-open:rotate-180">
                     <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
                   </svg>
                 </summary>
-                <div className="px-2 pb-3">
-                  <Players r={r} />
+                <div className="px-2 pb-3 sm:pl-12">
+                  {!locked ? (
+                    <p className="py-1.5 text-xs text-muted">Shows when lineups lock.</p>
+                  ) : !r.playerIds.length ? (
+                    <p className="py-1.5 text-xs text-muted">No lineup set.</p>
+                  ) : (
+                    <>
+                      <p className="pb-1 text-[11px] tabular-nums text-muted">{r.alive} of {r.playerIds.length} still playing</p>
+                      <PfRosterTable rows={rosterRows(r.playerIds, players, teams, pts, own)} roundTotals={r.rounds} started={started} compact />
+                    </>
+                  )}
                 </div>
               </details>
             ))}
           </div>
-        </>
+        </section>
       )}
     </div>
   );
