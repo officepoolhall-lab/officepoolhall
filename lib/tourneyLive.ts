@@ -151,8 +151,12 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
   // is playing it back: until it locks, ESPN's schedule (days, sites, tip times) shows but not its
   // scores or winners. A real pool keeps the First Four's results from before its lock.
   const replay = now < lockAt && Math.abs(lockAt - start) > 7 * DAY;
+  // Long after the tournament (a demo replaying it), the pool's results are the bracket: ESPN's
+  // games past them show as not played yet. A real pool has every result in by then anyway.
+  const archived = now > start + 25 * DAY;
+  const unplayed = (g: EspnGame): EspnGame => ({ ...g, status: "scheduled", teams: g.teams.map((t) => ({ ...t, score: null, winner: false })) as [EspnTeam, EspnTeam] });
   const games = (await tourneyGames(start, now)).map((g): EspnGame =>
-    replay ? { ...g, status: "scheduled", teams: g.teams.map((t) => ({ ...t, score: null, winner: false })) as [EspnTeam, EspnTeam] } : g,
+    replay ? unplayed(g) : g,
   );
   const pairKey = (a: string, b: string) => [a, b].sort().join(":");
   const byPair = new Map(games.filter((g) => g.teams[0].espnId && g.teams[1].espnId).map((g) => [pairKey(g.teams[0].espnId, g.teams[1].espnId), g]));
@@ -317,10 +321,12 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
         return games.flatMap((x) => x.teams).find((x) => x.name === w.name && x.abbr === w.abbr)?.espnId ?? null;
       };
       const espnIds = sides.map((s, i) => (s?.id ? (teamOf.get(s.id)?.t.espn_id ?? null) : round === 1 ? ffEspn(2 * g + i) : null));
-      const eg = espnIds[0] && espnIds[1] ? byPair.get(pairKey(espnIds[0], espnIds[1])) : undefined;
+      const found = espnIds[0] && espnIds[1] ? byPair.get(pairKey(espnIds[0], espnIds[1])) : undefined;
+      const eg = found && archived && !winners[key] ? unplayed(found) : found;
       // Its day, place and tip time, matched by region and seeds when the teams aren't (First Round).
       const seeds = [SEED_ORDER[(2 * g) % 16], SEED_ORDER[(2 * g + 1) % 16]];
-      const sched = eg ?? (round === 1 ? r1BySeeds.get(`${Math.floor(g / 8)}:${Math.min(...seeds)}-${Math.max(...seeds)}`) : undefined);
+      const bySeeds = round === 1 ? r1BySeeds.get(`${Math.floor(g / 8)}:${Math.min(...seeds)}-${Math.max(...seeds)}`) : undefined;
+      const sched = eg ?? (bySeeds && archived && !winners[key] ? unplayed(bySeeds) : bySeeds);
       if (eg) for (const s of sides) if (s) {
         const espnId = s.id ? teamOf.get(s.id)?.t.espn_id : espnIds[sides.indexOf(s)];
         s.score = eg.teams.find((x) => x.espnId === espnId)?.score ?? null;

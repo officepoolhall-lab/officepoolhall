@@ -31,8 +31,21 @@ export type PickXTeamRow = {
 const FULL = "grid grid-cols-[2rem_minmax(0,1fr)_3rem_3.25rem] sm:grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_repeat(6,3rem)_3.75rem] items-center gap-x-2";
 const COMPACT = "grid grid-cols-[2rem_minmax(0,1fr)_3rem_3.25rem] sm:grid-cols-[1.75rem_minmax(0,1fr)_2.75rem_repeat(6,2.5rem)_3.25rem] items-center gap-x-1.5";
 
+const FULL_OPEN = "grid grid-cols-[2rem_minmax(0,1fr)_3rem_3.25rem_1rem] sm:grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_repeat(6,3rem)_3.75rem_1rem] items-center gap-x-2";
+const COMPACT_OPEN = "grid grid-cols-[2rem_minmax(0,1fr)_3rem_3.25rem_1rem] sm:grid-cols-[1.75rem_minmax(0,1fr)_2.75rem_repeat(6,2.5rem)_3.25rem_1rem] items-center gap-x-1.5";
+
+/** The open/close arrow on a row that opens. */
+export function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className={`size-4 justify-self-end text-muted transition-transform ${open ? "rotate-180" : ""}`}>
+      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 export function PickXTeamsTable({ rows, started, compact = false, totalRow = true, games }: { rows: PickXTeamRow[]; /** Rounds with results in (0-6). */ started: number; compact?: boolean; totalRow?: boolean; /** Each team's games: rows open to show them. */ games?: Record<string, TeamGame[]> }) {
-  const grid = compact ? COMPACT : FULL;
+  // With games, a last column for the open/close arrow.
+  const grid = games ? (compact ? COMPACT_OPEN : FULL_OPEN) : compact ? COMPACT : FULL;
   const [open, setOpen] = useState<string | null>(null);
   const cell = (t: PickXTeamRow, i: number) =>
     t.points[i] !== null ? { text: String(t.points[i]), cls: "" } : t.lostIn === i + 1 ? { text: "L", cls: "font-bold text-loss" } : { text: "–", cls: "text-muted" };
@@ -47,6 +60,7 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
           <span key={r.round} className="hidden text-right sm:block">{r.short}</span>
         ))}
         <span className="text-right">Total</span>
+        {games && <span />}
       </div>
       <ul className="divide-y divide-line">
         {rows.map((t) => {
@@ -77,6 +91,7 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
               );
             })}
             <span className={`text-right font-bold tabular-nums ${t.lostIn ? "" : "text-ink"}`}>{t.total}</span>
+            {games && <Chevron open={open === t.teamId} />}
           </Row>
           {games && open === t.teamId && (
             <div className={compact ? "pl-8" : "pl-10"}>
@@ -96,6 +111,7 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
             <span key={i} className={`text-right tabular-nums ${i >= started ? "text-muted" : ""}`}>{i >= started ? "–" : v}</span>
           ))}
           <span className="text-right tabular-nums">{sums.reduce((a, b) => a + b, 0)}</span>
+          {games && <span />}
         </div>
       )}
     </div>

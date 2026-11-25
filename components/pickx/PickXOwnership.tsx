@@ -5,6 +5,7 @@ import { FitText } from "@/components/FitText";
 import { TeamLogo, chipClass } from "@/components/ui";
 import type { TeamGame } from "@/lib/tourneyLive";
 import { TeamGames } from "./TeamGames";
+import { Chevron } from "./PickXTeamsTable";
 
 // Pick X Home, once picks lock: every team in the field with how much of the pool picked it and
 // what it has scored. Filter by region, sort by any column (tap again to flip it).
@@ -48,7 +49,7 @@ export function PickXOwnership({ rows, regions, entries, games }: { rows: PickXO
       <span aria-hidden className={`text-[9px] ${sort.by === by ? "" : "invisible"}`}>{sort.desc ? "▼" : "▲"}</span>
     </button>
   );
-  const grid = "grid grid-cols-[2.25rem_minmax(0,1fr)_3.75rem_2.25rem_3rem] sm:grid-cols-[2.75rem_minmax(0,1fr)_5.5rem_4.5rem_4.5rem_3rem_4rem] items-center gap-x-2";
+  const grid = "grid grid-cols-[2.25rem_minmax(0,1fr)_3.75rem_2.25rem_3rem_1rem] sm:grid-cols-[2.75rem_minmax(0,1fr)_5.5rem_4.5rem_4.5rem_3rem_4rem_1rem] items-center gap-x-2";
   return (
     <div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -70,6 +71,7 @@ export function PickXOwnership({ rows, regions, entries, games }: { rows: PickXO
         <span className="hidden text-right font-bold tracking-wide uppercase sm:block">Entries</span>
         {head("wins", "W", "justify-end")}
         {head("points", "Pts", "justify-end")}
+        <span />
       </div>
       {list.length === 0 ? (
         <p className="py-3 text-sm text-muted">No teams here were picked.</p>
@@ -93,6 +95,7 @@ export function PickXOwnership({ rows, regions, entries, games }: { rows: PickXO
               <span className="hidden text-right tabular-nums text-muted sm:block">{r.count}</span>
               <span className="text-right tabular-nums text-muted">{r.wins}</span>
               <span className="text-right tabular-nums">{r.points}</span>
+              <Chevron open={open === r.teamId} />
             </button>
             {open === r.teamId && (
               <div className="pl-12">
