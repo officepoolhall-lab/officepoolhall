@@ -241,33 +241,66 @@ function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
         </tfoot>
       </table>
 
-      {/* Phones: each game's line over its numbers. */}
-      <table className="w-full text-sm sm:hidden">
-        <thead>
-          {groupRow(0)}
-          {labels(null)}
-        </thead>
-        {games.map((r) => (
-          <tbody key={r.i} className="border-b border-line">
-            <tr>
-              <td colSpan={head.length + 1} className="pb-0.5 pt-2">
-                <span className="mr-2 inline-block w-9 text-xs font-bold">{ROUNDS[r.i].short}</span>
-                {r.game ? <Matchup g={r.game} /> : <span className="text-xs text-muted">Bye</span>}
-              </td>
-            </tr>
-            {r.game && (
-              <tr>
-                {head.map((_, j) => <td key={j} className={`${TD} pb-2 ${sep(j)}`}>{stat(r, j)}</td>)}
-                <td className={`${TD} pb-2 pr-0 font-bold`}>{fmt(r.points ?? 0)}</td>
-              </tr>
-            )}
-          </tbody>
-        ))}
-        <tfoot className="font-bold">
-          <tr><td colSpan={head.length + 1} className="pt-2 text-xs">Playoff total</td></tr>
-          <tr>{totalCells}</tr>
-        </tfoot>
-      </table>
+      {/* Phones: the playoff totals as three tiles, then each game with its numbers in a small
+          row of grouped columns (the same columns every game, so they line up). */}
+      <div className="sm:hidden">
+        <div className="grid grid-cols-3 gap-1.5 text-center">
+          {tiles(row, totals).map((t) => (
+            <div key={t.label} className="rounded-lg bg-surface px-1 py-1.5">
+              <div className="text-lg font-bold tabular-nums">{t.value}</div>
+              <div className="text-[11px] text-muted">{t.label}</div>
+            </div>
+          ))}
+        </div>
+        <ul className="mt-2">
+          {games.map((r) => (
+            <li key={r.i} className="border-t border-line py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="w-9 shrink-0 text-xs font-bold">{ROUNDS[r.i].short}</span>
+                  {r.game ? <Matchup g={r.game} /> : <span className="text-xs text-muted">Bye</span>}
+                </span>
+                <span className="shrink-0 font-bold tabular-nums">{r.game ? fmt(r.points ?? 0) : "–"}</span>
+              </div>
+              {r.game && (
+                <div className="mt-1.5 grid text-center tabular-nums" style={{ gridTemplateColumns: `repeat(${head.length}, minmax(0, 1fr))` }}>
+                  {runs.map((g, k) => (
+                    <span key={`g${k}`} className={`truncate border-b border-line pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted ${k > 0 ? "border-l" : ""}`} style={{ gridColumn: `span ${g.span}` }}>
+                      {g.group}
+                    </span>
+                  ))}
+                  {head.map((h, j) => (
+                    <span key={j} className={`pt-1 ${sep(j)}`}>
+                      <span className="block text-[15px] font-semibold leading-tight">{stat(r, j)}</span>
+                      <span className="block text-[10px] text-muted">{h.label}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
+}
+
+/** The three playoff totals for the top of the phone pop-up, by position. */
+function tiles(row: PfRosterRow, totals: (number | string)[]): { label: string; value: string }[] {
+  const col = (group: string, label: string) => {
+    const j = row.statHead.findIndex((h) => h.group === group && h.label === label);
+    return j < 0 ? 0 : totals[j];
+  };
+  const sum = (...v: (number | string)[]) => v.reduce<number>((t, x) => t + (Number(x) || 0), 0);
+  const tds = sum(...row.statHead.map((h, j) => (h.label === "TD" ? totals[j] : 0)));
+  const points = { label: "Points", value: fmt(row.total) };
+  const pick: Record<string, { label: string; value: number | string }[]> = {
+    QB: [{ label: "Pass yds", value: col("Passing", "YDS") }, { label: "Total TD", value: tds }],
+    RB: [{ label: "Rush yds", value: col("Rushing", "YDS") }, { label: "Total TD", value: tds }],
+    WR: [{ label: "Catches", value: col("Receiving", "REC") }, { label: "Rec yds", value: col("Receiving", "YDS") }],
+    TE: [{ label: "Catches", value: col("Receiving", "REC") }, { label: "Rec yds", value: col("Receiving", "YDS") }],
+    K: [{ label: "Field goals", value: col("Kicking", "FG") }, { label: "Long", value: col("Kicking", "LONG") }],
+    DEF: [{ label: "Sacks", value: col("Defense", "SACK") }, { label: "Takeaways", value: sum(col("Defense", "INT"), col("Defense", "FR")) }],
+  };
+  return [points, ...(pick[row.pos] ?? []).map((t) => ({ label: t.label, value: String(t.value) }))];
 }
