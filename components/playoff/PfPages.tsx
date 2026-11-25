@@ -102,7 +102,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
       {pts.live && <AutoRefresh active />}
       {/* Live scores across the top, as on every pool's Home. */}
       {ticker.games.length > 0 && <LiveTicker games={ticker.games} now={now} timezone={tzOf(ctx)} />}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         {/* The playoffs and where everyone stands (everything in it stays on one line, shrinking to fit). */}
         <FillColumn className="space-y-6 lg:pr-6">
           <section className="border-b border-line pb-4">
@@ -166,6 +166,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
                 <div className="mt-3 flex gap-1.5 whitespace-nowrap">
                   {!ctx.isGuest && <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Team</Link>}
                   <Link href={`/p/${slug}/standings`} className={chipClass(ctx.isGuest, "", "sm")}>Standings</Link>
+                  <Link href={`/p/${slug}/summary`} className={chipClass(false, "", "sm")}>Pool Summary</Link>
                 </div>
               </>
             )}
@@ -195,23 +196,14 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
         </FillColumn>
 
         {/* The playoff bracket (the field as it stands today until the season is over). */}
-        <div className="order-last lg:order-none lg:px-6">
+        <div className="order-last lg:order-none lg:pl-6">
           {picture ? (
             <PfBracket picture={picture} games={games} out={pts.out} projected={!fieldSet} />
           ) : (
             <Empty>The bracket shows here once ESPN&apos;s standings can be read.</Empty>
           )}
-          {locked && <RosterShare rows={rows} players={players} teams={teams} pts={pts} />}
         </div>
 
-        {/* The pool's numbers. */}
-        <div className="space-y-6 lg:pl-6">
-          <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
-            <StatsFit className="space-y-6">
-              <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} scoring={settings.scoring} />
-            </StatsFit>
-          </Suspense>
-        </div>
       </div>
     </div>
   );
@@ -293,6 +285,7 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
  * Never who has or hasn't entered a lineup.
  */
 async function PfSummary({ season, players, teams, rows, pts, locked, roster, scoring }: { season: number; players: PfPlayer[]; teams: PfTeam[]; rows: PfRow[]; pts: PfPoints; locked: boolean; roster: Record<Position, number>; scoring: PfScoring }) {
+  // The Pool Summary page: each part is a column of its own, under its own heading.
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
   const started = pts.roundsStarted > 0;
@@ -349,18 +342,19 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
 
   return (
     <>
-      <SectionLabel fit className={label}>Pool Summary</SectionLabel>
       {!started && producers.length > 0 && (
-        <section className="-mt-4">
-          <h3 className="mt-2" title="Regular-season fantasy points under this pool's scoring">
-            <FitText min={9} className="block text-xs font-semibold text-muted">Top regular-season scorers · pool scoring</FitText>
+        <section>
+          <SectionLabel fit className={label}>Top Scorers</SectionLabel>
+          <h3 title="Regular-season fantasy points under this pool's scoring">
+            <FitText min={9} className="block text-xs text-muted">Regular season, under this pool&apos;s scoring</FitText>
           </h3>
           <ul className="mt-1 divide-y divide-line">{producers.map((p) => who(p, fmt(stats[p.id].fp), stats[p.id].line || null))}</ul>
         </section>
       )}
       {leaders.length > 0 && (
-        <section className="-mt-4">
-          <h3 className="mt-2 text-xs font-semibold text-muted">Top scorers by position</h3>
+        <section>
+          <SectionLabel fit className={label}>Top Scorers</SectionLabel>
+          <h3 className="text-xs text-muted">Playoff points, by position</h3>
           <ul className="mt-1 divide-y divide-line">{leaders.map((p) => who(p, fmt(ptsOf(p.id))))}</ul>
         </section>
       )}
@@ -389,7 +383,7 @@ async function PfSummary({ season, players, teams, rows, pts, locked, roster, sc
           <ul className="mt-1 divide-y divide-line">{popular.map(([id, n]) => who(playerOf.get(id)!, `${Math.round((n / Math.max(1, rows.length)) * 100)}%`))}</ul>
         </section>
       )}
-      {!started && !producers.length && !popular.length && <p className="-mt-4 text-sm text-muted">Top scorers and the perfect lineup show here once the Wild Card round starts.</p>}
+      {!started && !producers.length && !popular.length && <p className="text-sm text-muted">Top scorers and the perfect lineup show here once the Wild Card round starts.</p>}
     </>
   );
 }
@@ -532,6 +526,33 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
               </details>
             ))}
           </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Pool Summary: top scorers, the perfect lineup, the most rostered players and everyone's roster share. */
+export async function PfSummaryPage({ ctx }: { ctx: PoolBase }) {
+  const { settings, teams, players, entries, locked } = await getPf(ctx);
+  const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
+  const rows = pfStandings(entries, players, teams, pts);
+  const ticker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
+  return (
+    <div data-wide>
+      {pts.live && <AutoRefresh active />}
+      <PoolPageHeader title="Pool Summary" games={ticker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tzOf(ctx)} />
+      {players.length === 0 ? (
+        <Empty>{NOT_READY}</Empty>
+      ) : (
+        <>
+          {/* Each part a column: three across on a laptop, stacked on phones. */}
+          <Suspense fallback={<p className="text-sm text-muted">Loading…</p>}>
+            <StatsFit className="grid items-start gap-x-8 gap-y-8 md:grid-cols-2 xl:grid-cols-3">
+              <PfSummary season={ctx.pool.season} players={players} teams={teams} rows={rows} pts={pts} locked={locked} roster={settings.roster} scoring={settings.scoring} />
+            </StatsFit>
+          </Suspense>
+          {locked && <RosterShare rows={rows} players={players} teams={teams} pts={pts} />}
         </>
       )}
     </div>

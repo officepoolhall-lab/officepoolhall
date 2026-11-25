@@ -37,6 +37,10 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false, for
             ? { href: `${base}/standings`, label: "League Grid", short: "Grid", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) }
             : { href: `${base}/standings`, label: "Standings", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) },
         ]),
+        // Playoff Fantasy: top scorers, the perfect lineup and roster shares on a page of their own.
+        ...(format === "playoff_fantasy" ? [
+          { href: `${base}/summary`, label: "Pool Summary", short: "Summary", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/summary`) },
+        ] : []),
         // Weekly pools: the Grid and the Scoreboard. Pools with their own format show everyone's
         // picks on Standings instead; Survivor keeps the Scoreboard (it runs on weekly games).
         ...(format ? [] : [
