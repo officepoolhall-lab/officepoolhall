@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { CheckIcon, TeamLogo, chipClass } from "@/components/ui";
 import { Shell } from "@/components/ProfileDialogs";
-import { ROUNDS } from "@/lib/bracket";
 import { FitText } from "@/components/FitText";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { SEED_ORDER } from "@/lib/bracket";
-import { blockedReason, picksError, seedAt, winPoints, type PickXSettings } from "@/lib/pickx";
+import { blockedReason, picksError, seedAt, type PickXSettings } from "@/lib/pickx";
 
 type Team = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null };
 const nameOf = (t: Team) => t.short_name ?? t.name;
@@ -60,7 +59,6 @@ export function PickXPicker({
   const slots = picked.map((id) => slotOf.get(id)).filter((x): x is number => x !== undefined);
   const seedTotal = slots.reduce((t, s) => t + seedAt(s), 0);
   const problem = picksError(slots, settings);
-  const firstWin = (slot: number) => winPoints(settings.scoring, 1, seedAt(slot));
 
   const toggle = (id: string) => {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -217,7 +215,7 @@ export function PickXPicker({
             </button>
           </div>
           <FitText min={9} className="mb-2 block text-sm text-muted">
-            Tap a team for its pod. The + button picks it (its first win&apos;s points).
+            Tap a team for its pod; tap + to pick it.
           </FitText>
 
           <div className={`grid gap-4 ${view === "seeds" ? "sm:grid-cols-2 xl:grid-cols-3 min-[1700px]:grid-cols-4" : ""}`}>
@@ -256,12 +254,11 @@ export function PickXPicker({
                           aria-pressed={on}
                           title={blocked ?? (on ? "Drop" : "Add")}
                           aria-label={`${on ? "Drop" : "Add"} ${nameOf(team)}`}
-                          className={`flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2 text-xs font-semibold tabular-nums transition disabled:cursor-not-allowed ${
+                          className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-base font-semibold transition disabled:cursor-not-allowed ${
                             on ? "bg-accent text-white hover:brightness-110" : "bg-bg text-ink ring-1 ring-line hover:ring-accent"
                           }`}
                         >
-                          {on ? <CheckIcon className="size-3.5" /> : <span aria-hidden>+</span>}
-                          {firstWin(slot)}
+                          {on ? <CheckIcon className="size-4" /> : <span aria-hidden>+</span>}
                         </button>
                       </li>
                     );
@@ -305,7 +302,7 @@ export function PickXPicker({
 
 /**
  * A team's pod: the four teams whose two First Round games meet in the Second Round, then the
- * pod its winner meets in the Sweet 16, and what the team's wins would be worth round by round.
+ * pod its winner meets in the Sweet 16.
  */
 function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, onClose }: {
   slot: number;
@@ -323,8 +320,6 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
   const next = (Math.floor(slot / 4) ^ 1) * 4;
   const on = picked.includes(team.id);
   const why = on ? null : blocked(slot);
-  let running = 0;
-  const path = ROUNDS.map((r) => ({ r, pts: winPoints(settings.scoring, r.round, seedAt(slot)), total: (running += winPoints(settings.scoring, r.round, seedAt(slot))) }));
   const line = (sl: number) => {
     const t = field[sl];
     const mine = !!t && picked.includes(t.id);
@@ -333,7 +328,6 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
         <span className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-muted">{seedAt(sl)}</span>
         {t ? <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" /> : <span className="size-5 shrink-0" />}
         <FitText min={10} className={`min-w-0 flex-1 ${mine ? "text-accent" : ""}`}>{t ? nameOf(t) : "To be set"}</FitText>
-        <span className="shrink-0 text-xs tabular-nums text-muted">+{winPoints(settings.scoring, 1, seedAt(sl))}</span>
       </div>
     );
   };
@@ -377,17 +371,6 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
           ))}{" "}
           pod.
         </p>
-
-        <div className="mt-4 mb-1 text-[11px] font-bold tracking-wide text-muted uppercase">If {nameOf(team)} keeps winning</div>
-        <div className="grid grid-cols-6 gap-1 text-center text-xs">
-          {path.map(({ r, pts, total }) => (
-            <div key={r.round} className="rounded-md bg-surface px-1 py-1.5">
-              <div className="text-[10px] font-semibold text-muted">{r.short}</div>
-              <div className="font-bold tabular-nums">+{pts}</div>
-              <div className="text-[10px] tabular-nums text-muted">{total}</div>
-            </div>
-          ))}
-        </div>
 
         <div className="mt-4 flex items-center justify-end gap-3">
           {why && <span className="text-xs text-loss">{why}</span>}
