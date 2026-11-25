@@ -39,8 +39,12 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
           html, body { background: #fff !important; }
           .bracket-print { padding: 0 !important; zoom: 0.66; }
           /* Tighter on paper so the whole bracket fits one page: shorter lines, no clocks or tip times. */
-          .bracket-print [data-line] { height: 19px; font-size: 11.5px; }
+          .bracket-print [data-line] { height: 25px; font-size: 13px; }
           .bracket-print [data-detail] { display: none; }
+          /* No clock line above the games on paper, so the bracket lines meet the games' middles. */
+          .bracket-print { --g-off: 0px; }
+          /* Games still to be decided print as blank lines, to fill in by hand. */
+          .bracket-print [data-tbd] { visibility: hidden; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
