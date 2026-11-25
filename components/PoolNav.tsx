@@ -37,9 +37,14 @@ export function PoolNav({ slug, sport, isCommissioner, week, majors = false, for
             ? { href: `${base}/standings`, label: "League Grid", short: "Grid", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) }
             : { href: `${base}/standings`, label: "Standings", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/standings`) },
         ]),
-        // Playoff Fantasy and Pick X: ownership and the pool's numbers on a page of their own.
+        // Pick X: the tournament bracket, live.
+        ...(format === "pick_x" ? [
+          { href: `${base}/bracket`, label: "Bracket", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/bracket`) },
+        ] : []),
+        // Playoff Fantasy and Pick X: ownership and the pool's numbers on a page of their own
+        // (Pick X's sits under More on phones, beside its Bracket).
         ...(format === "playoff_fantasy" || format === "pick_x" ? [
-          { href: `${base}/summary`, label: "Pool Summary", short: "Summary", phone: "main" as const, match: (p: string) => p.startsWith(`${base}/summary`) },
+          { href: `${base}/summary`, label: "Pool Summary", short: "Summary", phone: (format === "pick_x" ? "more" : "main") as "main" | "more", match: (p: string) => p.startsWith(`${base}/summary`) },
         ] : []),
         // Weekly pools: the Grid and the Scoreboard. Pools with their own format show everyone's
         // picks on Standings instead; Survivor keeps the Scoreboard (it runs on weekly games).

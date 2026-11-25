@@ -5,6 +5,8 @@ import { ChevronIcon, Empty, PageTitle } from "@/components/ui";
 import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { getPoolContext } from "@/lib/pool";
 import { BracketBoard } from "./BracketBoard";
+import { isPickX } from "@/lib/pickx";
+import { PickXBracketPage } from "@/components/pickx/PickXPages";
 
 export const metadata: Metadata = { title: "NCAA Bracket" };
 
@@ -17,6 +19,8 @@ export default async function BracketPage({ params, searchParams }: PageProps<"/
   const { slug } = await params;
   const { user: userParam, for: forParam } = await searchParams;
   const ctx = await getPoolContext(slug);
+  // A Pick X pool's bracket is the tournament itself, live (no bracket to fill out).
+  if (isPickX(ctx.pool.settings)) return <PickXBracketPage ctx={ctx} />;
   // Guests have no bracket of their own; they see others' from Standings once brackets lock.
   if (ctx.isGuest && typeof userParam !== "string") redirect(`/p/${slug}/standings`);
   const bracket = await getBracket(ctx);
