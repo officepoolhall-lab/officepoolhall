@@ -153,7 +153,7 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
   return (
     <div className="grid grid-cols-3 items-start gap-x-4">
       <div>
-        <div className={label}>Final Four · {b.roundDates[4]}<br />{b.regions[0]}/{b.regions[1]}</div>
+        <div className={label}>Final Four<br />{b.roundDates[4]}</div>
         <Game g={semi1} mine={mine} color={GOLD} out="right" />
       </div>
       <div className="relative">
@@ -167,14 +167,14 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
             {b.finalSite && <div className="text-center text-[10px] font-bold tracking-widest text-[#b8860b] uppercase">{b.roundDates[5]} · {b.finalSite}</div>}
             <div className="mt-4 space-y-4">
               <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
-              <div className="flex items-end gap-1.5"><span className="shrink-0">Total points in championship game:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Total Points in Championship Game:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
               <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
             </div>
           </div>
         )}
       </div>
       <div>
-        <div className={label}>Final Four · {b.roundDates[4]}<br />{b.regions[2]}/{b.regions[3]}</div>
+        <div className={label}>Final Four<br />{b.roundDates[4]}</div>
         <Game g={semi2} mine={mine} color={GOLD} out="left" />
       </div>
     </div>

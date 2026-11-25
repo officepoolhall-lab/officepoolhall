@@ -36,13 +36,15 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
         @page { size: landscape; margin: 0.25in; }
         /* Games still to be decided show as blank lines (to fill in by hand), on screen and on paper. */
         .bracket-print [data-tbd] { visibility: hidden; }
+        /* Each game's day and city under it, on screen as on paper (no clocks, tip times or TV). */
+        .bracket-print [data-detail] { display: none; }
+        .bracket-print [data-meta] { display: flex; }
+        .bracket-print { --g-off: -6px; }
         @media print {
           html, body { background: #fff !important; }
           .bracket-print { padding: 0 !important; zoom: 0.61; }
-          /* Tighter on paper so the whole bracket fits one page: shorter lines, no clocks or tip times. */
+          /* Tighter on paper so the whole bracket fits one page: shorter lines. */
           .bracket-print [data-line] { height: 21px; font-size: 13px; }
-          /* On paper each game has a 12px day-and-city line under it instead of the 16px clock line above. */
-          .bracket-print { --g-off: -6px; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>

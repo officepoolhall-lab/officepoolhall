@@ -15,7 +15,7 @@ const DAY = 86_400_000;
 /* eslint-disable @typescript-eslint/no-explicit-any -- ESPN's JSON is untyped */
 
 type EspnTeam = { espnId: string; name: string; abbr: string | null; logo: string | null; score: number | null; seed: number | null; winner: boolean };
-type EspnGame = { id: string; startAt: string; status: "scheduled" | "in_progress" | "final"; detail: string | null; tv: string | null; headline: string; /** "Buffalo, NY". */ venue: string | null; teams: [EspnTeam, EspnTeam] };
+type EspnGame = { id: string; startAt: string; status: "scheduled" | "in_progress" | "final"; detail: string | null; headline: string; /** "Buffalo, NY". */ venue: string | null; teams: [EspnTeam, EspnTeam] };
 
 async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
   try {
@@ -42,7 +42,6 @@ async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
         seed: seedOf(x),
         winner: x?.winner === true,
       });
-      const national = (c?.broadcasts ?? []).find((b: any) => b?.market === "national") ?? c?.broadcasts?.[0];
       // Home listed second, as ESPN shows a game.
       const [a, b] = [cs.find((x) => x?.homeAway === "away") ?? cs[0], cs.find((x) => x?.homeAway === "home") ?? cs[1]];
       out.push({
@@ -50,7 +49,6 @@ async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
         startAt: new Date(e?.date).toISOString(),
         status,
         detail: c?.status?.type?.shortDetail ?? e?.status?.type?.shortDetail ?? null,
-        tv: national?.names?.join("/") || null,
         headline: String(c?.notes?.[0]?.headline ?? ""),
         venue: c?.venue?.address?.city ? [c.venue.address.city, c.venue.address.state].filter(Boolean).join(", ") : null,
         teams: [team(a), team(b)],
@@ -155,7 +153,7 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
   const pairKey = (a: string, b: string) => [a, b].sort().join(":");
   const byPair = new Map(games.filter((g) => g.teams[0].espnId && g.teams[1].espnId).map((g) => [pairKey(g.teams[0].espnId, g.teams[1].espnId), g]));
   const when = (g: EspnGame) =>
-    g.status === "scheduled" ? [formatInTimeZone(g.startAt, tz, "EEE M/d · h:mm a"), g.tv].filter(Boolean).join(" · ") : g.detail;
+    g.status === "scheduled" ? formatInTimeZone(g.startAt, tz, "EEE M/d · h:mm a") : g.detail;
 
   const fieldIds = bracket.field.map((t) => t?.id ?? null);
   const teamOf = new Map(bracket.field.flatMap((t, slot) => (t ? [[t.id, { t, slot }] as const] : [])));
@@ -267,6 +265,14 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
 
   // Round by round: who's in each game (the pool's winners, then ESPN's finals for any the pool
   // hasn't entered yet), and ESPN's score and clock for it.
+  // First Round games by region and seed line too ("0:1-16"), for teams without an ESPN id on file.
+  const r1BySeeds = new Map<string, EspnGame>();
+  for (const x of games) {
+    if (roundOf(x.headline) !== 1) continue;
+    const r = regionOf(x.headline);
+    const [s1, s2] = [x.teams[0].seed, x.teams[1].seed];
+    if (r !== null && s1 && s2) r1BySeeds.set(`${r}:${Math.min(s1, s2)}-${Math.max(s1, s2)}`, x);
+  }
   const winners: Picks = { ...bracket.results };
   const rounds: LiveGame[][] = [];
   for (const { round } of ROUNDS) {
@@ -308,6 +314,9 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
       };
       const espnIds = sides.map((s, i) => (s?.id ? (teamOf.get(s.id)?.t.espn_id ?? null) : round === 1 ? ffEspn(2 * g + i) : null));
       const eg = espnIds[0] && espnIds[1] ? byPair.get(pairKey(espnIds[0], espnIds[1])) : undefined;
+      // Its day, place and tip time, matched by region and seeds when the teams aren't (First Round).
+      const seeds = [SEED_ORDER[(2 * g) % 16], SEED_ORDER[(2 * g + 1) % 16]];
+      const sched = eg ?? (round === 1 ? r1BySeeds.get(`${Math.floor(g / 8)}:${Math.min(...seeds)}-${Math.max(...seeds)}`) : undefined);
       if (eg) for (const s of sides) if (s) {
         const espnId = s.id ? teamOf.get(s.id)?.t.espn_id : espnIds[sides.indexOf(s)];
         s.score = eg.teams.find((x) => x.espnId === espnId)?.score ?? null;
@@ -322,16 +331,16 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
       if (winner) for (const s of sides) if (s) (s.won = s.id === winner), (s.lost = s.id !== winner);
       // Where: ESPN's game, else the pod's site (Second Round), the region's (Sweet 16, Elite 8) or the Final Four's.
       const site =
-        eg?.venue ??
+        sched?.venue ??
         (round === 2 ? (rounds[0][2 * g]?.site ?? rounds[0][2 * g + 1]?.site ?? null) : round <= 4 && round >= 3 ? regionSites[Math.floor(g / (gamesIn(round) / 4))] : round >= 5 ? finalSite : null);
       list.push({
         key,
         round,
         status: winner ? "final" : (eg?.status ?? "scheduled"),
-        detail: eg ? when(eg) : winner ? "Final" : null,
+        detail: eg ? when(eg) : winner ? "Final" : sched ? when(sched) : null,
         teams: sides,
         placeholders,
-        date: eg ? formatInTimeZone(eg.startAt, tz, "EEE M/d") : roundDates[round - 1],
+        date: sched ? formatInTimeZone(sched.startAt, tz, "EEE M/d") : roundDates[round - 1],
         site,
       });
     }
