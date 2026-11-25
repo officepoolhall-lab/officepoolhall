@@ -37,12 +37,11 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
         @page { size: landscape; margin: 0.25in; }
         @media print {
           html, body { background: #fff !important; }
-          .bracket-print { padding: 0 !important; zoom: 0.66; }
+          .bracket-print { padding: 0 !important; zoom: 0.61; }
           /* Tighter on paper so the whole bracket fits one page: shorter lines, no clocks or tip times. */
-          .bracket-print [data-line] { height: 25px; font-size: 13px; }
-          .bracket-print [data-detail] { display: none; }
-          /* No clock line above the games on paper, so the bracket lines meet the games' middles. */
-          .bracket-print { --g-off: 0px; }
+          .bracket-print [data-line] { height: 21px; font-size: 13px; }
+          /* On paper each game has a 12px day-and-site line above it instead of the 16px clock line. */
+          .bracket-print { --g-off: 6px; }
           /* Games still to be decided print as blank lines, to fill in by hand. */
           .bracket-print [data-tbd] { visibility: hidden; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -50,11 +49,21 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
       `}</style>
       <PrintNow />
       <div className="mx-auto w-[1500px]">
-        <header className="mb-4 grid grid-cols-[1fr_auto_1fr] items-end border-b-4 border-[#1d4ed8] pb-2">
+        {/* A navy banner with the logo (in white), the title and the site's address, over a gold rule. */}
+        <header
+          className="mb-1 grid grid-cols-[1fr_auto_1fr] items-center rounded-t-xl bg-[#0b2a5b] px-5 py-2 text-white"
+          style={{ ["--ink" as string]: "#ffffff", ["--bg" as string]: "#0b2a5b", ["--accent" as string]: "#f2c14e" }}
+        >
           <Wordmark className="text-2xl" />
-          <h1 className="text-center text-3xl font-extrabold tracking-[-0.03em]">{year} NCAA Tournament Bracket</h1>
-          <div className="text-right text-sm text-[#6e6e73]">theofficepoolhall.com</div>
+          <h1 className="text-center leading-none">
+            <span className="block text-[11px] font-bold tracking-[0.35em] text-[#f2c14e] uppercase">Fill it out · Pick a champion</span>
+            <span className="mt-1 block text-[34px] font-extrabold tracking-[-0.02em] uppercase">
+              <span className="text-[#f2c14e]">{year}</span> NCAA Tournament Bracket
+            </span>
+          </h1>
+          <div className="text-right text-sm font-semibold text-white/85">theofficepoolhall.com</div>
         </header>
+        <div className="mb-3 h-1.5 rounded-b-xl bg-[#f2c14e]" />
         <PrintableBracket b={live} mine={mine} />
         {mine.length > 0 && <p className="mt-3 text-[11px] text-[#6e6e73]">Teams highlighted are your picks.</p>}
       </div>
