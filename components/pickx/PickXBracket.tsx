@@ -80,11 +80,16 @@ function Region({ b, r, mine, flip = false, label = true }: { b: LiveBracket; r:
   );
 }
 
-function FinalFour({ b, mine }: { b: LiveBracket; mine: Set<string> }) {
+/**
+ * The Final Four and the title game. In the full bracket (`row`), each semifinal sits on its own
+ * half's side (the left half's beside its regions, the right half's beside its) with the title
+ * game between them; on its own (narrower screens), stacked.
+ */
+function FinalFour({ b, mine, row = false }: { b: LiveBracket; mine: Set<string>; row?: boolean }) {
   const [semi1, semi2] = b.rounds[4];
   const title = b.rounds[5][0];
   return (
-    <div className="flex flex-col justify-center gap-6">
+    <div className={row ? "grid grid-cols-3 items-center gap-3" : "flex flex-col justify-center gap-6"}>
       <div>
         <div className="mb-1 text-center text-[11px] font-bold tracking-wide text-[#b8860b] uppercase dark:text-[#e0b84c]">Final Four · {b.regions[0]}/{b.regions[1]}</div>
         <Game g={semi1} mine={mine} color={GOLD} />
@@ -127,12 +132,12 @@ function FullBracket({ b, mine }: { b: LiveBracket; mine: Set<string> }) {
           <FirstFour b={b} mine={mine} />
         </section>
       )}
-      <div className="grid grid-cols-[minmax(0,1fr)_12rem_minmax(0,1fr)] gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-4">
         <div className="space-y-6">
           <Region b={b} r={0} mine={mine} />
           <Region b={b} r={1} mine={mine} />
         </div>
-        <FinalFour b={b} mine={mine} />
+        <FinalFour b={b} mine={mine} row />
         <div className="space-y-6">
           <Region b={b} r={2} mine={mine} flip />
           <Region b={b} r={3} mine={mine} flip />
@@ -166,12 +171,12 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
       </div>
 
       {/* Wide: the whole bracket. */}
-      <div className="hidden @[76rem]:block">
+      <div className="hidden @[92rem]:block">
         <FullBracket b={b} mine={mine} />
       </div>
 
       {/* Narrower: one part at a time. */}
-      <div className="@[76rem]:hidden">
+      <div className="@[92rem]:hidden">
         <div className="mb-3 flex flex-wrap gap-1.5">
           {views.map(([id, label]) => (
             <button key={id} type="button" onClick={() => setView(id)} className={chipClass(view === id, "cursor-pointer whitespace-nowrap", "sm")}>

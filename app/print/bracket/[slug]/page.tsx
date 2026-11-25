@@ -24,6 +24,7 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
   if (!bracket) notFound();
   const tz = (ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago";
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
+  const year = formatInTimeZone(bracket.lockAt, tz, "yyyy");
   const live = await getLiveBracket(bracket, tz, now);
   const mine = entries.find((e) => e.userId === ctx.entryUserId)?.teamIds ?? [];
   return (
@@ -36,23 +37,19 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
         @page { size: landscape; margin: 0.25in; }
         @media print {
           html, body { background: #fff !important; }
-          .bracket-print { padding: 0 !important; zoom: 0.72; }
+          .bracket-print { padding: 0 !important; zoom: 0.66; }
           /* Tighter on paper so the whole bracket fits one page: shorter lines, no clocks or tip times. */
-          .bracket-print [data-line] { height: 17px; font-size: 11px; }
+          .bracket-print [data-line] { height: 19px; font-size: 11.5px; }
           .bracket-print [data-detail] { display: none; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
       <PrintNow />
-      <div className="mx-auto w-[1320px]">
-        <header className="mb-4 flex items-end justify-between border-b-4 border-[#1d4ed8] pb-2">
+      <div className="mx-auto w-[1500px]">
+        <header className="mb-4 grid grid-cols-[1fr_auto_1fr] items-end border-b-4 border-[#1d4ed8] pb-2">
           <Wordmark className="text-2xl" />
-          <div className="text-right">
-            <div className="text-lg font-extrabold">{ctx.pool.name}</div>
-            <div className="text-xs text-[#6e6e73]">
-              {bracket.name} · as of {formatInTimeZone(now, tz, "MMM d, yyyy · h:mm a")} · theofficepoolhall.com
-            </div>
-          </div>
+          <h1 className="text-center text-3xl font-extrabold tracking-[-0.03em]">{year} NCAA Tournament Bracket</h1>
+          <div className="text-right text-sm text-[#6e6e73]">theofficepoolhall.com</div>
         </header>
         <PrintableBracket b={live} mine={mine} />
         {mine.length > 0 && <p className="mt-3 text-[11px] text-[#6e6e73]">Teams highlighted are your picks.</p>}
