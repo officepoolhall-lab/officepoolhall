@@ -162,13 +162,13 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
         <Game g={title} mine={mine} color={GOLD} className="rounded-md ring-2 ring-[#b8860b]/50 ring-offset-2" />
         {writeIn && (
           // Out of the flow, below the Final Four, so the title game stays level with the semifinals.
-          <div className="absolute inset-x-[-3rem] top-full mt-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
+          <div className="absolute inset-x-[-5.5rem] top-full mt-6 rounded-xl border-2 border-[#b8860b] bg-[#fdf8ec] px-4 pt-2 pb-4 text-[12px] font-semibold">
             <div className="text-center text-[28px] leading-none">🏆</div>
             <div className="mt-1 text-center text-[13px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[#0b2a5b] uppercase">National Champion</div>
             {b.finalSite && <div className="text-center text-[10px] font-bold tracking-widest text-[#b8860b] uppercase">{b.roundDates[5]} · {b.finalSite}</div>}
             <div className="mt-4 space-y-4">
               <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
-              <div className="flex items-end gap-1.5"><span className="shrink-0">Tiebreaker (title game total):</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Total points in championship game:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
               <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
             </div>
           </div>
@@ -182,10 +182,10 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
   );
 }
 
-function FirstFour({ b, mine }: { b: LiveBracket; mine: Set<string> }) {
+function FirstFour({ b, mine, row = false }: { b: LiveBracket; mine: Set<string>; /** All four side by side. */ row?: boolean }) {
   if (!b.firstFour.length) return <p className="text-sm text-muted">{b.fromEspn ? "No First Four games." : "The First Four games show here when ESPN's scoreboard can be read."}</p>;
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+    <div className={row ? "grid flex-1 grid-cols-4 gap-x-4" : "grid grid-cols-2 gap-x-3 gap-y-2"}>
       {b.firstFour.map((g) => (
         <div key={g.key} className="min-w-0">
           <div className="px-1 text-[10px] font-semibold" style={{ color: REGION_COLORS[b.regions.indexOf(g.region ?? "")] ?? undefined }}>{[g.region, g.seed ? `${g.seed} seed` : null].filter(Boolean).join(" · ")}</div>
@@ -234,7 +234,15 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
     </>
   );
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-x-4">
+    <div className="relative grid grid-cols-[minmax(0,1fr)_26rem_minmax(0,1fr)] gap-x-4">
+      {/* The First Four, all four games across the top: under the round headers, in the open space
+          between the two Second Round columns (above each half's first Sweet 16 game). */}
+      {b.firstFour.length > 0 && (
+        <section className="absolute top-[48px] z-10 flex items-center gap-x-3" style={{ left: "calc((100% - 28rem) / 4 + 1rem)", right: "calc((100% - 28rem) / 4 + 1rem)" }}>
+          <div className="shrink-0 text-center text-xs leading-tight font-extrabold tracking-widest text-muted uppercase">First<br />Four</div>
+          <FirstFour b={b} mine={mine} row />
+        </section>
+      )}
       <div>
         <Rounds b={b} />
         <div className="relative space-y-6">
@@ -246,12 +254,6 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
       {/* Padded so the semifinals sit level with the lines from each half's Elite 8 games. */}
       <div className="relative flex flex-col justify-center pt-[20px]">
         <FinalFour b={b} mine={mine} row writeIn={writeIn} />
-        {b.firstFour.length > 0 && (
-          <section className="absolute inset-x-0 top-0">
-            <div className="mb-1 text-center text-xs font-bold tracking-wide text-muted uppercase">First Four</div>
-            <FirstFour b={b} mine={mine} />
-          </section>
-        )}
       </div>
       <div>
         <Rounds b={b} flip />

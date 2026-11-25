@@ -62,16 +62,26 @@ async function espnDay(date: string, today: boolean): Promise<EspnGame[]> {
   }
 }
 
-/** Every tournament game ESPN has, from three days before the lock (the First Four) to the title game. */
-async function tourneyGames(lockAt: string, now: number): Promise<EspnGame[]> {
+/**
+ * The First Round's first day in the bracket's year: the third Thursday of March (Mar 19 in 2026,
+ * Mar 20 in 2025, Mar 21 in 2024). Going by the year rather than the pool's lock keeps the dates
+ * right even when a pool's lock is set somewhere else (a demo set back to before the tournament).
+ */
+function tourneyStart(lockAt: string): number {
   const lock = Date.parse(lockAt);
-  if (!Number.isFinite(lock)) return [];
+  const year = Number(formatInTimeZone(Number.isFinite(lock) ? lock : Date.now(), "America/New_York", "yyyy"));
+  const firstThu = 1 + ((4 - new Date(Date.UTC(year, 2, 1)).getUTCDay() + 7) % 7);
+  return Date.UTC(year, 2, firstThu + 14, 16); // noon Eastern
+}
+
+/** Every tournament game ESPN has, from the First Four (two days before the First Round) to the title game. */
+async function tourneyGames(start: number, now: number): Promise<EspnGame[]> {
   const day = (t: number) => formatInTimeZone(t, "America/New_York", "yyyyMMdd");
   const today = day(now);
   // The whole tournament, scheduled games included (tip times and networks show ahead of time).
-  const last = lock + 24 * DAY;
+  const last = start + 19 * DAY;
   const dates: string[] = [];
-  for (let t = lock - 3 * DAY; t <= last; t += DAY) if (!dates.includes(day(t))) dates.push(day(t));
+  for (let t = start - 3 * DAY; t <= last; t += DAY) if (!dates.includes(day(t))) dates.push(day(t));
   const days = await Promise.all(dates.map((d) => espnDay(d, d === today)));
   return days.flat();
 }
@@ -124,7 +134,7 @@ export type LiveBracket = {
   soon: boolean;
   /** ESPN answered (scores and times are showing). */
   fromEspn: boolean;
-  /** Each round's days ("Mar 19–20"), from ESPN's games, else the usual schedule from the lock. */
+  /** Each round's days ("Mar 19–20"), from ESPN's games, else the usual schedule for the bracket's year. */
   roundDates: string[];
   /** Each region's Sweet 16 and Elite 8 site, and the Final Four's. */
   regionSites: (string | null)[];
@@ -133,7 +143,13 @@ export type LiveBracket = {
 
 /** The pool's bracket with ESPN's games laid over it. */
 export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.now()): Promise<LiveBracket> {
-  const games = await tourneyGames(bracket.lockAt, now);
+  const start = tourneyStart(bracket.lockAt);
+  const lockAt = Date.parse(bracket.lockAt);
+  // Before the pool locks nothing has been played as far as the pool's concerned: ESPN's schedule
+  // (days, sites, tip times) still shows, but not its scores or winners.
+  const games = (await tourneyGames(start, now)).map((g): EspnGame =>
+    now < lockAt ? { ...g, status: "scheduled", teams: g.teams.map((t) => ({ ...t, score: null, winner: false })) as [EspnTeam, EspnTeam] } : g,
+  );
   const pairKey = (a: string, b: string) => [a, b].sort().join(":");
   const byPair = new Map(games.filter((g) => g.teams[0].espnId && g.teams[1].espnId).map((g) => [pairKey(g.teams[0].espnId, g.teams[1].espnId), g]));
   const when = (g: EspnGame) =>
@@ -146,7 +162,6 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
   // The First Four: the pool's own record of it (Commissioner → Bracket, or ESPN's sync), with
   // ESPN's score, clock or tip time laid over each game; plus any First Four game only ESPN has
   // (its headline says First Four, or it's before the first Round of 64 tip).
-  const lock = Date.parse(bracket.lockAt);
   const regionOf = (headline: string) => {
     const i = bracket.regions.findIndex((r) => new RegExp(`\\b${r.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(headline));
     return i < 0 ? null : i;
@@ -189,7 +204,7 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
   }
   const knownSlots = new Set(firstFourGames.map((g) => g.slot));
   for (const g of games) {
-    if (usedEspn.has(g.id) || !(/first four/i.test(g.headline) || (!g.headline && Date.parse(g.startAt) < lock - 60 * 60 * 1000))) continue;
+    if (usedEspn.has(g.id) || !(/first four/i.test(g.headline) || (!g.headline && Date.parse(g.startAt) < start - 60 * 60 * 1000))) continue;
     const inField = g.teams.map((x) => idOfEspn.get(x.espnId)).find(Boolean);
     const seed = g.teams[0].seed ?? g.teams[1].seed;
     const region = regionOf(g.headline);
@@ -239,10 +254,10 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
       if (i >= 0) regionSites[i] ??= g.venue;
     }
   }
-  // Each round's days: ESPN's, else the usual schedule (First Round on the lock day and the next).
+  // Each round's days: ESPN's, else the usual schedule (First Round on the third Thursday of March and the Friday).
   const OFFSETS = [[0, 1], [2, 3], [7, 8], [9, 10], [16, 16], [18, 18]];
   const roundDates = OFFSETS.map((off, i) => {
-    const days = roundDays[i].length ? [Math.min(...roundDays[i]), Math.max(...roundDays[i])] : off.map((d) => lock + d * 86_400_000);
+    const days = roundDays[i].length ? [Math.min(...roundDays[i]), Math.max(...roundDays[i])] : off.map((d) => start + d * DAY);
     const [a, b] = days.map((t) => formatInTimeZone(t, tz, "MMM d"));
     if (a === b) return a;
     return a.slice(0, 3) === b.slice(0, 3) ? `${a}–${b.slice(4)}` : `${a} – ${b}`;
@@ -307,7 +322,7 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
         detail: eg ? when(eg) : winner ? "Final" : null,
         teams: sides,
         placeholders,
-        date: eg ? formatInTimeZone(eg.startAt, tz, "EEE M/d") : null,
+        date: eg ? formatInTimeZone(eg.startAt, tz, "EEE M/d") : roundDates[round - 1],
         site,
       });
     }

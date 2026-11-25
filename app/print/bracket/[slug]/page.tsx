@@ -34,6 +34,8 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
     >
       <style>{`
         @page { size: landscape; margin: 0.25in; }
+        /* Games still to be decided show as blank lines (to fill in by hand), on screen and on paper. */
+        .bracket-print [data-tbd] { visibility: hidden; }
         @media print {
           html, body { background: #fff !important; }
           .bracket-print { padding: 0 !important; zoom: 0.61; }
@@ -41,8 +43,6 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
           .bracket-print [data-line] { height: 21px; font-size: 13px; }
           /* On paper each game has a 12px day-and-site line above it instead of the 16px clock line. */
           .bracket-print { --g-off: 6px; }
-          /* Games still to be decided print as blank lines, to fill in by hand. */
-          .bracket-print [data-tbd] { visibility: hidden; }
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
@@ -56,10 +56,10 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
           <Wordmark className="text-2xl" />
           <h1 className="text-center leading-none">
             <span className="block text-[34px] font-extrabold tracking-[-0.02em] uppercase">
-              <span className="text-[#f2c14e]">{year}</span> NCAA Tournament Bracket
+              <span className="text-[#f2c14e]">{year}</span> NCAA Tournament
             </span>
           </h1>
-          <div className="text-right text-sm font-semibold text-white/85">theofficepoolhall.com</div>
+          <div className="text-right text-sm font-semibold text-white/85">officepoolhall.com</div>
         </header>
         <div className="mb-3 h-1.5 rounded-b-xl bg-[#f2c14e]" />
         <PrintableBracket b={live} />
