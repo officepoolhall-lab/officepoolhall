@@ -134,7 +134,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
   const stat = "mt-0.5 text-4xl font-extrabold tracking-[-0.03em] tabular-nums";
-  // Teams still alive, by region (and how much of the pool has each).
+  // Every team in the field: its points and whether it is still alive.
   const statuses = bracket ? pickXStandings(bracket, [{ userId: "", name: "", teamIds: bracket.field.filter(Boolean).map((t) => t!.id), editedBy: null, tiebreak: null }], settings)[0]?.teams ?? [] : [];
   const alive = statuses.filter((t) => t.alive);
   // Once picks lock: every team's share of the pool and what it has scored.
@@ -226,7 +226,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
           </section>
         </FillColumn>
 
-        {/* Once picks lock: the pool at a glance, every team's ownership and points, and the teams still alive. */}
+        {/* The Pool Summary: once picks lock, every team's ownership and points. */}
         <div className="order-last space-y-8 lg:order-none lg:pl-6">
           {bracket && !(locked && own) && (
             <section className="max-w-3xl">
@@ -243,42 +243,6 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
               </div>
               <div className="mt-3">
                 <PickXOwnership rows={ownRows} regions={regions} entries={own.entries} games={games} />
-              </div>
-            </section>
-          )}
-          {bracket && locked && (
-            <section className="@container">
-              <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
-                <SectionLabel fit className="!text-sm lg:!text-base">Still Alive</SectionLabel>
-                <span className="shrink-0 text-xs text-muted tabular-nums">{alive.length} teams · % of entries</span>
-              </div>
-              <div className="mt-2 grid gap-x-6 gap-y-4 @[30rem]:grid-cols-2 @[56rem]:grid-cols-4">
-                {regions.map((name, r) => {
-                  const list = alive.filter((t) => t.region === r).sort((a, b) => a.seed - b.seed);
-                  return (
-                    <div key={name} className="min-w-0">
-                      <div className="border-b border-line pb-1 text-xs font-bold tracking-wide text-muted">{name}</div>
-                      {list.length === 0 ? (
-                        <p className="py-1.5 text-xs text-muted">None left</p>
-                      ) : (
-                        <ul className="divide-y divide-line">
-                          {list.map((t) => {
-                            const team = field.get(t.teamId);
-                            const isMine = mine?.teamIds.includes(t.teamId);
-                            return (
-                              <li key={t.teamId} className="flex h-7 items-center gap-1.5 text-[13px]">
-                                <span className="w-5 shrink-0 text-right text-[11px] font-bold tabular-nums text-muted">{t.seed}</span>
-                                <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-4 shrink-0" />
-                                <FitText min={10} className={`min-w-0 flex-1 ${isMine ? "font-bold text-accent" : "font-medium"}`}>{nameOf(team)}</FitText>
-                                <span className="shrink-0 text-xs tabular-nums text-muted">{own?.own.get(t.teamId) ?? 0}%</span>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             </section>
           )}
