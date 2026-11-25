@@ -9,8 +9,8 @@ import { TeamGames } from "./TeamGames";
 
 // One entry's Pick X teams as a table, like Playoff Fantasy's lineup: seed, team, how much of the
 // pool has it, the points from each round's win (a red L in the round it lost), and in all.
-// Phones: the round columns don't fit, so the rounds go on a line under the team. With games, a
-// team's row opens to show its tournament games.
+// Phones: a simpler row (logo, seed and team, its rounds on a line under it, points and ownership
+// on the right). With games, a team's row opens to show its tournament games.
 
 export type PickXTeamRow = {
   teamId: string;
@@ -50,9 +50,11 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
   const cell = (t: PickXTeamRow, i: number) =>
     t.points[i] !== null ? { text: String(t.points[i]), cls: "" } : t.lostIn === i + 1 ? { text: "L", cls: "font-bold text-loss" } : { text: "–", cls: "text-muted" };
   const sums = ROUNDS.map((_, i) => rows.reduce((s, t) => s + (t.points[i] ?? 0), 0));
+  // Desktop's table rows (phones get their own layout).
+  const desk = grid.replace(/^grid /, "hidden sm:grid ");
   return (
     <div className={compact ? "text-sm sm:text-[13px]" : "text-sm"}>
-      <div className={`${grid} border-b border-line py-1.5 ${compact ? "text-[10px]" : "text-[11px]"} font-bold tracking-wide text-muted uppercase`}>
+      <div className={`${desk} border-b border-line py-1.5 ${compact ? "text-[10px]" : "text-[11px]"} font-bold tracking-wide text-muted uppercase`}>
         <span className="text-center">Seed</span>
         <span>Team</span>
         <span className="text-right">Own %</span>
@@ -69,19 +71,39 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
           <li key={t.teamId}>
           <Row
             {...(games ? { type: "button" as const, onClick: () => setOpen(open === t.teamId ? null : t.teamId), "aria-expanded": open === t.teamId } : {})}
-            className={`${grid} w-full text-left ${compact ? "py-1.5" : "py-2"} ${t.lostIn ? "text-muted" : ""} ${games ? "cursor-pointer hover:bg-hover" : ""}`}
+            className={`block w-full text-left ${t.lostIn ? "text-muted" : ""} ${games ? "cursor-pointer hover:bg-hover" : ""}`}
           >
-            <span className="text-center text-xs font-bold tabular-nums text-muted">{t.seed}</span>
-            <span className="flex min-w-0 flex-col">
-              <span className="flex min-w-0 items-center gap-2">
-                <TeamLogo src={t.logo} abbr={t.abbr} className={`${compact ? "size-4" : "size-5"} shrink-0`} />
-                <FitText min={10} className={`min-w-0 flex-1 font-semibold ${t.lostIn ? "line-through decoration-1" : "text-ink"}`}>{t.name}</FitText>
-              </span>
-              {started > 0 && (
-                <FitText min={8} className={`${compact ? "pl-6" : "pl-7"} text-[11px] tabular-nums text-muted sm:hidden`}>
-                  {ROUNDS.slice(0, t.lostIn ? Math.min(t.lostIn, started) : started).map((r, i) => `${r.short} ${cell(t, i).text}`).join(" · ")}
+            {/* Phones */}
+            <span className="flex items-center gap-3 py-2.5 sm:hidden">
+              <TeamLogo src={t.logo} abbr={t.abbr} className={`size-8 shrink-0 ${t.lostIn ? "opacity-50" : ""}`} />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="shrink-0 text-xs font-bold tabular-nums text-muted">{t.seed}</span>
+                  <FitText min={11} className={`min-w-0 flex-1 text-[15px] font-semibold ${t.lostIn ? "line-through decoration-1" : "text-ink"}`}>{t.name}</FitText>
+                </span>
+                <FitText min={9} className="text-xs tabular-nums text-muted">
+                  {started > 0
+                    ? ROUNDS.slice(0, t.lostIn ? Math.min(t.lostIn, started) : started).map((r, i) => (
+                        <span key={r.round}>
+                          {i > 0 && <span className="px-1 text-faint">·</span>}
+                          {r.short} <span className={cell(t, i).cls || "text-ink"}>{cell(t, i).text}</span>
+                        </span>
+                      ))
+                    : t.region}
                 </FitText>
-              )}
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-0.5">
+                <span className={`text-lg leading-none font-bold tabular-nums ${t.lostIn ? "" : "text-ink"}`}>{t.total}</span>
+                <span className="text-[11px] leading-none tabular-nums text-muted">{t.own === null ? "" : `${t.own}% own`}</span>
+              </span>
+              {games && <Chevron open={open === t.teamId} />}
+            </span>
+            {/* Desktop */}
+            <span className={`${desk} ${compact ? "py-1.5" : "py-2"}`}>
+            <span className="text-center text-xs font-bold tabular-nums text-muted">{t.seed}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <TeamLogo src={t.logo} abbr={t.abbr} className={`${compact ? "size-4" : "size-5"} shrink-0`} />
+              <FitText min={10} className={`min-w-0 flex-1 font-semibold ${t.lostIn ? "line-through decoration-1" : "text-ink"}`}>{t.name}</FitText>
             </span>
             <span className="text-right text-xs tabular-nums text-muted">{t.own === null ? "–" : `${t.own}%`}</span>
             {ROUNDS.map((_, i) => {
@@ -92,9 +114,10 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
             })}
             <span className={`text-right font-bold tabular-nums ${t.lostIn ? "" : "text-ink"}`}>{t.total}</span>
             {games && <Chevron open={open === t.teamId} />}
+            </span>
           </Row>
           {games && open === t.teamId && (
-            <div className={compact ? "pl-8" : "pl-10"}>
+            <div className={`mb-2.5 rounded-lg bg-surface px-3 sm:mb-2 sm:ml-10 ${compact ? "sm:ml-8" : ""}`}>
               <TeamGames games={games[t.teamId]} />
             </div>
           )}

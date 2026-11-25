@@ -154,7 +154,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
   return (
     <div data-wide className="space-y-6">
       <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} lockAt={bracket?.lockAt ?? null} locked={locked} />
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         {/* The tournament and where everyone stands (everything in it stays on one line). */}
         <FillColumn className="space-y-6 lg:pr-6">
           <section className="border-b border-line pb-4">
@@ -231,7 +231,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
           {bracket && !(locked && own) && (
             <section className="max-w-3xl">
               <div className="border-b border-line pb-1">
-                <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
+                <SectionLabel fit className="!text-base lg:!text-lg">Pool Summary</SectionLabel>
               </div>
               <p className="py-3 text-sm text-muted">Available once picks lock.</p>
             </section>
@@ -239,7 +239,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
           {bracket && locked && own && (
             <section className="max-w-3xl">
               <div className="border-b border-line pb-1">
-                <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
+                <SectionLabel fit className="!text-base lg:!text-lg">Pool Summary</SectionLabel>
               </div>
               <div className="mt-3">
                 <PickXOwnership rows={ownRows} regions={regions} entries={own.entries} games={games} />
@@ -347,7 +347,7 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
           <div className="mb-2 flex items-center gap-3">
             <FitText min={8} className="min-w-0 flex-1 text-xs text-muted">
               {locked
-                ? `Tap an entry to see its teams, and a team for its games.${tb ? (settings.title_total !== null ? ` Ties go to the closest guess of the title game's total (${settings.title_total}).` : " Ties go to the closest guess of the title game's total.") : ""}`
+                ? "Tap an entry for its teams, and a team for its games."
                 : "Everyone's teams show here once picks lock."}
             </FitText>
             {locked && <ExpandAll target="pickx-standings" />}
@@ -396,6 +396,11 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
               );
             })}
           </div>
+          {locked && tb && (
+            <FitText min={8} className="mt-2 text-xs text-muted">
+              {`Ties go to the closest guess of the championship game's total points${settings.title_total !== null ? ` (${settings.title_total})` : ""}.`}
+            </FitText>
+          )}
         </section>
       )}
     </div>
