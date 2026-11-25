@@ -39,14 +39,17 @@ export type PfRosterRow = {
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 // Pos | Player | Own | rounds (from sm) | Total
-const GRID = "grid grid-cols-[2.25rem_minmax(0,1fr)_2.75rem_3.5rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_3.25rem_repeat(4,3.75rem)_4.25rem] items-center gap-x-2";
+const GRID_FULL = "grid grid-cols-[2.25rem_minmax(0,1fr)_2.75rem_3.5rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_3.25rem_repeat(4,3.75rem)_4.25rem] items-center gap-x-2";
+// The Standings cards: the same columns, tighter, so three entries fit across a laptop.
+const GRID_COMPACT = "grid grid-cols-[2.25rem_minmax(0,1fr)_2.75rem_3.5rem] sm:grid-cols-[1.75rem_minmax(0,1fr)_2.25rem_repeat(4,2.75rem)_3.25rem] items-center gap-x-1.5";
 
-export function PfRosterTable({ rows, roundTotals, started }: { rows: PfRosterRow[]; roundTotals: number[]; started: number }) {
+export function PfRosterTable({ rows, roundTotals, started, compact = false }: { rows: PfRosterRow[]; roundTotals: number[]; started: number; /** Standings: tighter columns, smaller type, no note under it. */ compact?: boolean }) {
   const [open, setOpen] = useState<PfRosterRow | null>(null);
+  const GRID = compact ? GRID_COMPACT : GRID_FULL;
   const cell = (r: PfLogRound, i: number) => (i >= started || !r.game ? "–" : fmt(r.points ?? 0));
   return (
-    <div className="text-sm">
-      <div className={`${GRID} border-b border-line py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted`}>
+    <div className={compact ? "text-sm sm:text-[13px]" : "text-sm"}>
+      <div className={`${GRID} border-b border-line py-1.5 ${compact ? "text-[10px]" : "text-[11px]"} font-bold uppercase tracking-wide text-muted`}>
         <span className="text-center">Pos</span>
         <span>Player</span>
         <span className="text-right">Own</span>
@@ -61,18 +64,18 @@ export function PfRosterTable({ rows, roundTotals, started }: { rows: PfRosterRo
             <button
               type="button"
               onClick={() => setOpen(p)}
-              className={`${GRID} w-full cursor-pointer py-2 text-left hover:bg-surface ${p.out ? "opacity-55" : ""}`}
+              className={`${GRID} w-full cursor-pointer ${compact ? "py-1.5" : "py-2"} text-left hover:bg-surface ${p.out ? "opacity-55" : ""}`}
               aria-label={`${p.name}: playoff games`}
             >
               <span className="text-center text-[11px] font-bold text-muted">{p.pos}</span>
               <span className="flex min-w-0 flex-col">
                 <span className="flex min-w-0 items-center gap-2">
-                  <TeamLogo src={p.logo} abbr={p.team} className="size-5 shrink-0" />
+                  <TeamLogo src={p.logo} abbr={p.team} className={`${compact ? "size-4" : "size-5"} shrink-0`} />
                   <FitText min={10} className={`min-w-0 flex-1 font-semibold ${p.out ? "line-through" : ""}`}>{p.name}</FitText>
                 </span>
                 {/* Below sm the round columns don't fit: the rounds go on a line under the name. */}
                 {started > 0 && (
-                  <FitText min={8} className="pl-7 text-[11px] tabular-nums text-muted sm:hidden">
+                  <FitText min={8} className={`${compact ? "pl-6" : "pl-7"} text-[11px] tabular-nums text-muted sm:hidden`}>
                     {ROUNDS.slice(0, started).map((r, i) => `${r.short} ${cell(p.rounds[i], i)}`).join(" · ")}
                   </FitText>
                 )}
@@ -97,7 +100,7 @@ export function PfRosterTable({ rows, roundTotals, started }: { rows: PfRosterRo
           <span className="text-right tabular-nums">{fmt(roundTotals.reduce((a, b) => a + b, 0))}</span>
         </div>
       )}
-      <p className="mt-2 text-xs text-muted">Own is the share of the pool&apos;s lineups with that player. Tap a player for his playoff games.</p>
+      {!compact && <FitText min={8} className="mt-2 text-xs text-muted">Own is the share of the pool&apos;s lineups with that player. Tap a player for his playoff games.</FitText>}
       {open && <PlayoffLog row={open} started={started} onClose={() => setOpen(null)} />}
     </div>
   );
