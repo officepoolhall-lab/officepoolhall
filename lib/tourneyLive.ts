@@ -114,7 +114,7 @@ export type LiveGame = {
   status: "scheduled" | "in_progress" | "final";
   /** "8:44 - 2nd Half", "Final/OT", or the tip time and network ("Thu 11:15 AM · CBS"). */
   detail: string | null;
-  /** A side not decided yet: a placeholder ("Winner of TEX/NCSU") or null. */
+  /** A side not decided yet: both teams of its First Four game ("Texas / NC State") or null. */
   teams: [LiveTeam | null, LiveTeam | null];
   placeholders: [string | null, string | null];
   /** The day it's played ("Thu 3/19"), when ESPN has the game; and where ("Buffalo, NY"). */
@@ -281,14 +281,14 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
       const key = gameKey(round, g);
       const ids = gameTeams(round, g, fieldIds, winners);
       // A First Round side still waiting on its First Four game: that game's winner once it's
-      // final, else "TEX/NCSU".
+      // final, else both its teams ("Texas / NC State").
       const placeholders: [string | null, string | null] = [null, null];
       const sides = ids.map((id, i): LiveTeam | null => {
-        // A First Four game not decided yet: both its teams on the line ("TEX/NCSU"), even when
+        // A First Four game not decided yet: both its teams on the line ("Texas / NC State"), even when
         // the pool's field already has a team in that spot.
         const ffOpen = round === 1 ? ffSlot.get(2 * g + i) : undefined;
         if (ffOpen && !ffOpen.winnerTeam) {
-          placeholders[i] = ffOpen.teams.map((t) => t?.abbr ?? t?.name ?? "TBD").join("/");
+          placeholders[i] = ffOpen.teams.map((t) => t?.name ?? "TBD").join(" / ");
           return null;
         }
         if (id) {
@@ -300,7 +300,7 @@ export async function getLiveBracket(bracket: Bracket, tz: string, now = Date.no
           if (ff) {
             const w = ff.winnerTeam;
             if (w) return { ...w, seed: SEED_ORDER[(2 * g + i) % 16], score: null, won: false, lost: false };
-            placeholders[i] = ff.teams.map((t) => t?.abbr ?? t?.name ?? "TBD").join("/");
+            placeholders[i] = ff.teams.map((t) => t?.name ?? "TBD").join(" / ");
           }
         }
         return null;
