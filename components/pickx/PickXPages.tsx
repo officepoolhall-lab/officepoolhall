@@ -347,7 +347,9 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
           <div className="mb-2 flex items-center gap-3">
             <FitText min={8} className="min-w-0 flex-1 text-xs text-muted">
               {locked
-                ? "Tap an entry for its teams, and a team for its games."
+                ? tb
+                  ? `Tiebreaker: closest to title game total${settings.title_total !== null ? ` (${settings.title_total})` : ""}`
+                  : ""
                 : "Everyone's teams show here once picks lock."}
             </FitText>
             {locked && <ExpandAll target="pickx-standings" />}
@@ -396,11 +398,6 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
               );
             })}
           </div>
-          {locked && tb && (
-            <FitText min={8} className="mt-2 text-xs text-muted">
-              {`Ties go to the closest guess of the championship game's total points${settings.title_total !== null ? ` (${settings.title_total})` : ""}.`}
-            </FitText>
-          )}
         </section>
       )}
     </div>
