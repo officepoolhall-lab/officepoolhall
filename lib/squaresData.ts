@@ -66,7 +66,7 @@ export async function getSquares(ctx: SquaresSource) {
       if (!placeholder(sum.home.name) && !placeholder(sum.away.name)) names = { home: sum.home.name, away: sum.away.name };
       if (sum.status.state && sum.status.state !== "pre") {
         const total = (v: string | null) => (v !== null && Number.isFinite(Number(v)) ? Number(v) : null);
-        espn = scoresFromLines(sum.home.linescores, sum.away.linescores, sum.status.state === "post", total(sum.home.score), total(sum.away.score));
+        espn = scoresFromLines(sum.home.linescores, sum.away.linescores, sum.status.state === "post", total(sum.home.score), total(sum.away.score), sum.status.detail);
         if (sum.status.state === "in") live = sum.status.detail;
       }
     }

@@ -87,11 +87,12 @@ export function winningSquare(colDigits: number[] | null, rowDigits: number[] | 
  * The score at the end of each quarter from ESPN's line scores (points per period). A quarter
  * counts once a later period has begun or the game is over; the final includes overtime.
  */
-export function scoresFromLines(homeLines: string[], awayLines: string[], over: boolean, homeTotal: number | null, awayTotal: number | null): (Score | null)[] {
+export function scoresFromLines(homeLines: string[], awayLines: string[], over: boolean, homeTotal: number | null, awayTotal: number | null, /** ESPN's status ("Halftime", "End of 1st Quarter"): a quarter just ended counts before the next starts. */ detail: string | null = null): (Score | null)[] {
+  const ended = /^halftime/i.test(detail ?? "") ? 2 : Number(/^end of (\d)/i.exec(detail ?? "")?.[1] ?? 0);
   const n = (v: string | undefined) => (v !== undefined && v !== "" && Number.isFinite(Number(v)) ? Number(v) : 0);
   const periods = Math.max(homeLines.length, awayLines.length);
   const at = (q: number): Score | null => {
-    if (!(over || periods > q)) return null;
+    if (!(over || periods > q || (ended >= q && periods >= q))) return null;
     let home = 0;
     let away = 0;
     for (let i = 0; i < q; i++) {
