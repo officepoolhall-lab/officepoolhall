@@ -99,7 +99,7 @@ function LockReminder({ ctx, slug, settings, entries, lockAt, locked }: { ctx: P
 }
 
 /** One entry's line in Home's standings. */
-function StandingRow({ r, me, locked, picks, pin = false, className = "" }: { r: PickXRow; me: boolean; locked: boolean; picks: number; pin?: boolean; className?: string }) {
+function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PickXRow; me: boolean; locked: boolean; pin?: boolean; className?: string }) {
   return (
     <li
       {...(me && !pin ? { "data-fill-me": "" } : {})}
@@ -110,13 +110,12 @@ function StandingRow({ r, me, locked, picks, pin = false, className = "" }: { r:
       <span className="min-w-0 flex-1">
         <FitText min={10} className={`block ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</FitText>
       </span>
-      {locked ? (
+      {/* Before the lock just the names: not whether each entry's picks are in. */}
+      {locked && (
         <>
           <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted">{r.alive}/{r.teams.length}</span>
           <span className="w-10 shrink-0 pr-1 text-right font-bold tabular-nums">{r.points}</span>
         </>
-      ) : (
-        <span className={`shrink-0 pr-1 text-xs font-semibold tabular-nums ${r.teamIds.length >= picks ? "text-win" : "text-muted"}`}>{r.teamIds.length >= picks ? "Picks in" : `${r.teamIds.length}/${picks}`}</span>
       )}
     </li>
   );
@@ -130,7 +129,6 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
   const mineAt = mine ? rows.indexOf(mine) : -1;
   const field = fieldOf(bracket);
   const regions = bracket?.regions ?? [];
-  const started = roundsStarted(bracket?.results ?? {});
   const own = locked ? ownership(entries) : null;
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
@@ -200,12 +198,12 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
             ) : (
               <ul data-fill-list className="mt-2 divide-y divide-line border-y border-line">
                 {rows.map((r, i) => (
-                  <StandingRow key={r.userId} r={r} me={r.userId === ctx.entryUserId} locked={locked} picks={settings.picks} className={i >= 10 ? "max-lg:hidden" : ""} />
+                  <StandingRow key={r.userId} r={r} me={r.userId === ctx.entryUserId} locked={locked} className={i >= 10 ? "max-lg:hidden" : ""} />
                 ))}
                 {mineAt >= 3 && mine && (
                   <>
                     <li aria-hidden data-fill-pin="block" className={`py-1 text-center text-xs leading-none text-faint lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`}>···</li>
-                    <StandingRow r={mine} me locked={locked} picks={settings.picks} pin className={`lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`} />
+                    <StandingRow r={mine} me locked={locked} pin className={`lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`} />
                   </>
                 )}
               </ul>
@@ -213,21 +211,8 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
           </section>
         </FillColumn>
 
-        {/* My teams, then the teams still alive. */}
+        {/* The teams still alive. */}
         <div className="order-last space-y-8 lg:order-none lg:pl-6">
-          {bracket && mine && (
-            <section className="max-w-4xl">
-              <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
-                <SectionLabel fit className="!text-sm lg:!text-base">My Teams</SectionLabel>
-                {locked && <span className="shrink-0 text-lg font-extrabold tabular-nums">{mine.points}</span>}
-              </div>
-              {mine.teams.length ? (
-                <PickXTeamsTable rows={teamRows(mine.teams, field, regions, settings, own?.own ?? null)} started={started} />
-              ) : (
-                <p className="py-3 text-sm text-muted">No teams picked yet.</p>
-              )}
-            </section>
-          )}
           {bracket && locked && (
             <section className="@container">
               <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
@@ -264,7 +249,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
               </div>
             </section>
           )}
-          {bracket && !locked && <p className="text-sm text-muted">Everyone&apos;s teams, the pool&apos;s favorites and the teams still alive show here once picks lock.</p>}
+          {bracket && !locked && <p className="text-sm text-muted">The teams still alive, and how much of the pool has each, show here once picks lock.</p>}
         </div>
       </div>
     </div>
