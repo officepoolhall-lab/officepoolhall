@@ -162,3 +162,32 @@ export function rulesSummary(s: PickXSettings): string[] {
   if (s.tiebreaker === "title_total") out.push("Tiebreaker: the closest guess of the championship game's total points.");
   return out;
 }
+
+/** The scoring rules as a table for the info pop-up: points for a win in each round, examples, and the pick rules. */
+export function pickXScoringTable(s: PickXSettings): { group: string; rows: [string, string][] }[] {
+  const sc = s.scoring;
+  const value = (r: number) => `${sc.seed ? `seed × ${sc.rounds[r]}` : sc.rounds[r]}${sc.bonus ? ` + ${sc.bonus}` : ""}`;
+  const lim: [string, string][] = [];
+  if (s.limits.one_per_seed) lim.push(["One team per seed line", "✓"]);
+  if (s.limits.max_per_region !== null) lim.push(["Most from one region", String(s.limits.max_per_region)]);
+  if (s.limits.min_seed_total !== null) lim.push(["Seeds add up to at least", String(s.limits.min_seed_total)]);
+  if (s.tiebreaker === "title_total") lim.push(["Tiebreaker", "Title game total"]);
+  return [
+    { group: "Points for a win", rows: ROUNDS.map((r, i) => [r.name, value(i)] as [string, string]) },
+    ...(sc.seed
+      ? [{ group: "For example", rows: [["1 seed, First Round win", String(winPoints(sc, 1, 1))], ["12 seed, First Round win", String(winPoints(sc, 1, 12))], ["12 seed, Sweet 16 win", String(winPoints(sc, 3, 12))]] as [string, string][] }]
+      : []),
+    ...(lim.length ? [{ group: "Rules", rows: lim }] : []),
+  ];
+}
+
+/** Points by round for a team (null where it didn't win that round), and the round it lost in (0 = still alive). */
+export function roundPointsOf(t: TeamStatus, sc: PickXScoring): { points: (number | null)[]; lostIn: number } {
+  const points = ROUNDS.map(({ round }) => (t.wins.includes(round) ? winPoints(sc, round, t.seed) : null));
+  return { points, lostIn: t.alive ? 0 : (t.wins.length ? Math.max(...t.wins) : 0) + 1 };
+}
+
+/** How many rounds have a result in (0-6): the round columns to fill in. */
+export function roundsStarted(results: Picks): number {
+  return Object.keys(results).reduce((m, k) => Math.max(m, Number(k.split("-")[0]) || 0), 0);
+}

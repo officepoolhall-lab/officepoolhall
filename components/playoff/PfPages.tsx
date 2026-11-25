@@ -8,7 +8,7 @@ import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
 import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
-import { PfScoringInfo } from "./PfScoringInfo";
+import { ScoringInfo as ScoringPopup } from "@/components/ScoringInfo";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfEntry, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
@@ -77,7 +77,7 @@ function ownership(entries: { playerIds: string[] }[]): Map<string, number> {
 /** The scoring pop-up's "i", with this pool's rules. */
 function ScoringInfo({ settings }: { settings: PfSettings }) {
   const roster = POSITIONS.filter((p) => settings.roster[p] > 0).map((p) => `${settings.roster[p]} ${p}`).join(", ");
-  return <PfScoringInfo groups={pfScoringTable(settings)} roster={roster} />;
+  return <ScoringPopup groups={pfScoringTable(settings)} intro={`Lineup: ${roster}. Every player scores every round through the Super Bowl.`} />;
 }
 
 /**
