@@ -315,25 +315,34 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
   onClose: () => void;
 }) {
   const team = field[slot]!;
-  const base = Math.floor(slot / 4) * 4;
-  const games = [[base, base + 1], [base + 2, base + 3]];
-  const next = (Math.floor(slot / 4) ^ 1) * 4;
+  // Its half of the region: its pod (its First Round game and the one it meets in the Second
+  // Round) and the other pod, whose winner it would meet in the Sweet 16.
+  const half = Math.floor(slot / 8) * 8;
+  const myPod = Math.floor(slot / 4) * 4;
+  const games = [0, 1, 2, 3].map((i) => [half + 2 * i, half + 2 * i + 1]);
   const on = picked.includes(team.id);
   const why = on ? null : blocked(slot);
+  const short = (sl: number) => field[sl]?.abbreviation ?? (field[sl] ? nameOf(field[sl]!) : "TBD");
   const line = (sl: number) => {
     const t = field[sl];
     const mine = !!t && picked.includes(t.id);
     return (
-      <div className={`flex h-8 items-center gap-2 px-2 text-sm ${sl === slot ? "bg-accent/10 font-bold" : ""}`}>
-        <span className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-muted">{seedAt(sl)}</span>
-        {t ? <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" /> : <span className="size-5 shrink-0" />}
-        <FitText min={10} className={`min-w-0 flex-1 ${mine ? "text-accent" : ""}`}>{t ? nameOf(t) : "To be set"}</FitText>
+      <div className={`flex h-7 items-center gap-1.5 px-1.5 text-[13px] ${sl === slot ? "bg-accent/15 font-bold" : ""}`}>
+        <span className="w-4 shrink-0 text-right text-[11px] font-bold tabular-nums text-muted">{seedAt(sl)}</span>
+        {t ? <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-4 shrink-0" /> : <span className="size-4 shrink-0" />}
+        <FitText min={9} className={`min-w-0 flex-1 ${mine ? "text-accent" : ""}`}>{t ? nameOf(t) : "To be set"}</FitText>
       </div>
     );
   };
+  const later = (label: string, sub: string, ours: boolean) => (
+    <div className={`rounded-md border px-1.5 py-1 text-[11px] leading-tight ${ours ? "border-accent" : "border-line"}`}>
+      <div className="font-semibold text-ink">{label}</div>
+      <div className="text-muted">{sub}</div>
+    </div>
+  );
   return (
     <Shell
-      label={`${nameOf(team)}: pod`}
+      label={`${nameOf(team)}: its side of the bracket`}
       onClose={onClose}
       header={
         <div className="flex items-center gap-3">
@@ -346,30 +355,32 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
       }
     >
       <div className="mt-4">
-        <div className="mb-1 text-[11px] font-bold tracking-wide text-muted uppercase">Its pod · First and Second Rounds</div>
-        {/* The two First Round games, bracketed into the Second Round. */}
-        <div className="grid grid-cols-[minmax(0,1fr)_1.25rem_6.5rem] items-center">
-          <div className="space-y-2">
-            {games.map((g) => (
-              <div key={g[0]} className="overflow-hidden rounded-md border border-line">
+        {/* The half of the region: four First Round games into two Second Round games into the Sweet 16. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5rem] gap-x-2 text-[10px] font-bold tracking-wide text-muted uppercase">
+          <span>First Round</span>
+          <span>Second Round</span>
+          <span>Sweet 16</span>
+        </div>
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_5.5rem_5rem] gap-x-2">
+          <div className="space-y-1.5">
+            {games.map((g, i) => (
+              <div key={g[0]} className={`overflow-hidden rounded-md border ${g[0] >= myPod && g[0] < myPod + 4 ? "border-accent/60" : "border-line"} ${i === 2 ? "mt-3" : ""}`}>
                 {line(g[0])}
                 <div className="border-t border-line" />
                 {line(g[1])}
               </div>
             ))}
           </div>
-          <div className="h-[calc(50%+1rem)] border-y border-r border-line" aria-hidden />
-          <div className="pl-2 text-xs text-muted">Second Round: the two winners</div>
+          <div className="flex flex-col justify-around">
+            {[0, 1].map((p) => {
+              const s0 = half + 4 * p;
+              return <div key={p}>{later(`${short(s0)}/${short(s0 + 1)}`, `vs ${short(s0 + 2)}/${short(s0 + 3)}`, s0 === myPod)}</div>;
+            })}
+          </div>
+          <div className="flex flex-col justify-center">{later("Pod winners", "meet here", true)}</div>
         </div>
         <p className="mt-3 text-xs text-muted">
-          <span className="font-semibold text-ink">Sweet 16:</span> the winner meets the{" "}
-          {[0, 1, 2, 3].map((i) => field[next + i]).filter(Boolean).map((t, i, all) => (
-            <span key={t!.id}>
-              {seedAt(next + [0, 1, 2, 3].find((j) => field[next + j]?.id === t!.id)!)} {nameOf(t!)}
-              {i < all.length - 1 ? " / " : ""}
-            </span>
-          ))}{" "}
-          pod.
+          {nameOf(team)}&apos;s pod is outlined in blue. The other four teams are who it could meet in the Sweet 16.
         </p>
 
         <div className="mt-4 flex items-center justify-end gap-3">
