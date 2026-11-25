@@ -7,10 +7,11 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, statColumns, rosterSize } from "@/lib/playoffFantasy";
+import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
+import { PfScoringInfo } from "./PfScoringInfo";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
-import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
+import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfEntry, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 import { PfBracket } from "./PfBracket";
 import { PfRosterTable, type PfRosterRow } from "./PfRoster";
@@ -73,6 +74,41 @@ function ownership(entries: { playerIds: string[] }[]): Map<string, number> {
 }
 
 
+/** The scoring pop-up's "i", with this pool's rules. */
+function ScoringInfo({ settings }: { settings: PfSettings }) {
+  const roster = POSITIONS.filter((p) => settings.roster[p] > 0).map((p) => `${settings.roster[p]} ${p}`).join(", ");
+  return <PfScoringInfo groups={pfScoringTable(settings)} roster={roster} />;
+}
+
+/**
+ * Before the lock, for anyone whose lineup isn't full: how many are picked, when it locks and a
+ * link to finish. Red in the last day.
+ */
+function LockReminder({ ctx, slug, settings, entries, locked }: { ctx: PoolBase; slug: string; settings: PfSettings; entries: PfEntry[]; locked: boolean }) {
+  if (locked || ctx.isGuest || !settings.lock_at) return null;
+  const mine = entries.find((e) => e.userId === ctx.entryUserId);
+  const size = rosterSize(settings);
+  if (!mine || mine.playerIds.length >= size) return null;
+  const left = Date.parse(settings.lock_at) - Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
+  if (left <= 0) return null;
+  const soon = left < 24 * 60 * 60 * 1000;
+  return (
+    <div className={`mb-4 flex items-center gap-3 rounded-xl border-2 px-4 py-2.5 text-sm ${soon ? "border-loss bg-[color-mix(in_srgb,var(--color-loss)_8%,transparent)]" : "border-accent bg-surface"}`}>
+      <div className="min-w-0 flex-1">
+        <FitText min={10} className="block font-semibold">
+          {mine.playerIds.length ? `Your lineup has ${mine.playerIds.length} of ${size} players.` : "You haven't picked a lineup yet."}
+        </FitText>
+        <FitText min={9} className="block text-xs text-muted">
+          Locks in <Countdown to={settings.lock_at} done="moments" /> · {lockLabel(settings.lock_at, tzOf(ctx))}<span className="hidden sm:inline">. Empty spots score nothing.</span>
+        </FitText>
+      </div>
+      <Link href={`/p/${slug}/picks`} className={`flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-semibold whitespace-nowrap text-white transition hover:brightness-110 ${soon ? "bg-loss" : "bg-accent"}`}>
+        {mine.playerIds.length ? "Finish" : "Pick"} <span className="ml-1 hidden sm:inline">my lineup</span> <span aria-hidden className="ml-1">→</span>
+      </Link>
+    </div>
+  );
+}
+
 const NOT_READY = "Rosters open as soon as the playoff field is set, at the end of the regular season. The 14 teams and their players load here by themselves.";
 
 
@@ -100,6 +136,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   return (
     <div data-wide className="space-y-6">
       {pts.live && <AutoRefresh active />}
+      <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
       {/* Live scores across the top, as on every pool's Home. */}
       {ticker.games.length > 0 && <LiveTicker games={ticker.games} now={now} timezone={tzOf(ctx)} />}
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
@@ -264,7 +301,10 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
         ) : (
           <section className="mt-4 sm:max-w-2xl">
             <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
-              <SectionLabel fit className="!text-sm lg:!text-base">My Lineup</SectionLabel>
+              <span className="flex min-w-0 items-center gap-1.5">
+                <SectionLabel fit className="!text-sm lg:!text-base">My Lineup</SectionLabel>
+                <ScoringInfo settings={settings} />
+              </span>
               <span className="shrink-0 text-lg font-extrabold tabular-nums">{fmt(row.points)}</span>
             </div>
             <PfRosterTable rows={rosterRows(entry.playerIds, players, teams, pts, ownership(entries))} roundTotals={row.rounds} started={pts.roundsStarted} />
@@ -293,6 +333,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
           save={savePfLineup.bind(null, slug, behalf ? target : null)}
           forName={behalf ? entry.name : undefined}
           lockText={settings.lock_at ? `Locks ${lockLabel(settings.lock_at, tz)}` : "Locks at the first Wild Card kickoff"}
+          scoringInfo={<ScoringInfo settings={settings} />}
           timezone={tz}
         />
       )}
@@ -306,7 +347,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
  * name and points, then its players by position with their points (a player whose team is out
  * is crossed out). No lineup shows until lineups lock (your own is on My Team).
  */
-export async function PfStandingsPage({ ctx }: { ctx: PoolBase; slug: string }) {
+export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
@@ -322,7 +363,8 @@ export async function PfStandingsPage({ ctx }: { ctx: PoolBase; slug: string }) 
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
-      <PoolPageHeader title="Standings" games={standingsTicker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
+      <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
+      <PoolPageHeader title={<span className="inline-flex items-center gap-2">Standings <ScoringInfo settings={settings} /></span>} games={standingsTicker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
@@ -379,7 +421,7 @@ export async function PfStandingsPage({ ctx }: { ctx: PoolBase; slug: string }) 
 }
 
 /** Pool Summary: two tabs, Ownership % (every rostered player, by position, sortable) and Top Players (each position's most rostered and highest scoring, and the perfect lineup). */
-export async function PfSummaryPage({ ctx }: { ctx: PoolBase }) {
+export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
@@ -462,6 +504,7 @@ export async function PfSummaryPage({ ctx }: { ctx: PoolBase }) {
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
+      <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
       <PoolPageHeader title="Pool Summary" games={ticker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tzOf(ctx)} />
       {players.length === 0 ? (
         <Empty>{NOT_READY}</Empty>

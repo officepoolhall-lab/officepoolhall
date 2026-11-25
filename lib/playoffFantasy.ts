@@ -486,3 +486,41 @@ export function statColumns(pos: Position, lines: (PlayerLine | DefLine | null)[
     rows: lines.map((l) => (l ? cols.map((c) => c.get(l as PlayerLine & DefLine)) : null)),
   };
 }
+
+/** The scoring rules as a table for the info pop-up: groups of [what, points]. */
+export function pfScoringTable(s: PfSettings): { group: string; rows: [string, string][] }[] {
+  const sc = s.scoring;
+  const pt = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+  const per = (yds: number) => `+1 per ${yds} yds`;
+  const bonus = (n: number, what: string): [string, string][] => (n ? [[what, pt(n)]] : []);
+  return [
+    {
+      group: "Passing",
+      rows: [["Yards", per(sc.pass_yds_per_pt)], ["Touchdown", pt(sc.pass_td)], ["Interception", pt(sc.pass_int)], ...bonus(sc.bonus_pass_300, "300+ yard game")],
+    },
+    {
+      group: "Rushing and receiving",
+      rows: [
+        ["Yards", per(sc.yds_per_pt)],
+        ["Rushing touchdown", pt(sc.rush_td)],
+        ["Receiving touchdown", pt(sc.rec_td)],
+        ["Reception", sc.rec ? pt(sc.rec) : "0"],
+        ...bonus(sc.bonus_rush_100, "100+ rushing yard game"),
+        ...bonus(sc.bonus_rec_100, "100+ receiving yard game"),
+      ],
+    },
+    { group: "Other", rows: [["Fumble lost", pt(sc.fum_lost)], ["Two-point conversion", pt(sc.two_pt)]] },
+    { group: "Kicking", rows: [["Field goal, under 40", pt(sc.fg)], ["Field goal, 40-49", pt(sc.fg_40)], ["Field goal, 50+", pt(sc.fg_50)], ["Extra point", pt(sc.xp)]] },
+    {
+      group: "Defense",
+      rows: [
+        ["Sack", pt(sc.def_sack)],
+        ["Interception", pt(sc.def_int)],
+        ["Fumble recovery", pt(sc.def_fum_rec)],
+        ["Touchdown", pt(sc.def_td)],
+        ["Safety", pt(sc.def_safety)],
+        ...(sc.def_points_allowed ? ([["0 points allowed", "+10"], ["1-6 allowed", "+7"], ["7-13 allowed", "+4"], ["14-20 allowed", "+1"], ["21-27 allowed", "0"], ["28-34 allowed", "-1"], ["35+ allowed", "-4"]] as [string, string][]) : []),
+      ],
+    },
+  ];
+}

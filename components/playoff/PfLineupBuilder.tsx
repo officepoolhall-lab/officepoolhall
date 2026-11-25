@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CheckIcon, TeamLogo, chipClass } from "@/components/ui";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
@@ -28,6 +28,7 @@ export function PfLineupBuilder({
   save,
   forName,
   lockText,
+  scoringInfo,
   timezone = "America/Chicago",
   stats = {},
   injuries = {},
@@ -40,6 +41,8 @@ export function PfLineupBuilder({
   forName?: string;
   /** "Locks Sat, Jan 16 · 3:30 PM". */
   lockText?: string | null;
+  /** The scoring rules' "i", beside the lock time. */
+  scoringInfo?: ReactNode;
   timezone?: string;
   /** Regular-season line ("812 yds · 7 TD", a kicker's "23/25 FG · 13 XP", a defense's "37 sacks · 17 takeaways"), shown on desktop, and yards (for ranking). */
   stats?: Record<string, { line: string; vol: number }>;
@@ -240,6 +243,7 @@ export function PfLineupBuilder({
                   {mine.length} <span className="text-muted">of {total} picked</span>
                 </span>
                 {lockText && <span className="text-sm text-muted">{lockText}</span>}
+                {scoringInfo && <span className="inline-flex items-center gap-1 self-center text-sm text-muted">{scoringInfo} Scoring</span>}
               </div>
               {/* Each tap saves on its own. */}
               <div role="status" aria-live="polite" className={`mt-0.5 flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
