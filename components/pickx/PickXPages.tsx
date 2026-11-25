@@ -154,7 +154,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
   return (
     <div data-wide className="space-y-6">
       <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} lockAt={bracket?.lockAt ?? null} locked={locked} />
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         {/* The tournament and where everyone stands (everything in it stays on one line). */}
         <FillColumn className="space-y-6 lg:pr-6">
           <section className="border-b border-line pb-4">

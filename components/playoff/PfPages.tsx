@@ -139,7 +139,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
       <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
       {/* Live scores across the top, as on every pool's Home. */}
       {ticker.games.length > 0 && <LiveTicker games={ticker.games} now={now} timezone={tzOf(ctx)} />}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         {/* The playoffs and where everyone stands (everything in it stays on one line, shrinking to fit). */}
         <FillColumn className="space-y-6 lg:pr-6">
           <section className="border-b border-line pb-4">
