@@ -195,10 +195,6 @@ export function PickXPicker({
             <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl">
               {picked.length} <span className="text-muted">of {settings.picks} picked</span>
             </span>
-            <span className="text-sm text-muted tabular-nums">
-              Seeds total {seedTotal}
-              {settings.limits.min_seed_total !== null && ` (at least ${settings.limits.min_seed_total})`}
-            </span>
             {lockText && <span className="text-sm text-muted">{lockText}</span>}
             {scoringInfo && <span className="inline-flex items-center gap-1 text-sm text-muted">{scoringInfo} Scoring</span>}
           </section>
