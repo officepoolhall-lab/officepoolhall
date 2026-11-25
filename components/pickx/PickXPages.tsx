@@ -444,7 +444,7 @@ export async function PickXSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: str
 }
 
 /** The tournament bracket, live: every game with ESPN's score, clock or tip time, the First Four included. */
-export async function PickXBracketPage({ ctx }: { ctx: PoolBase }) {
+export async function PickXBracketPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { bracket, entries } = await getPickX(ctx);
   const tz = tzOf(ctx);
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
@@ -455,7 +455,7 @@ export async function PickXBracketPage({ ctx }: { ctx: PoolBase }) {
     <div data-wide>
       <AutoRefresh active={live.live || live.soon} seconds={30} />
       <PoolPageHeader title="Bracket" now={now} timezone={tz} />
-      <PickXBracket b={live} mine={mine} />
+      <PickXBracket b={live} mine={mine} printHref={`/print/bracket/${slug}`} />
     </div>
   );
 }
