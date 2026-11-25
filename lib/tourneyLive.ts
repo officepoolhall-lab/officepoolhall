@@ -430,3 +430,23 @@ export function tourneyTicker(b: LiveBracket): SlateGame[] {
     })
     .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
 }
+
+/** The bracket before any game: the First Round's teams and nothing else (no scores or winners). */
+export function blankBracket(b: LiveBracket): LiveBracket {
+  const clear = (t: LiveTeam | null): LiveTeam | null => (t ? { ...t, score: null, won: false, lost: false } : null);
+  return {
+    ...b,
+    live: false,
+    soon: false,
+    rounds: b.rounds.map((games, r) =>
+      games.map((g) => ({
+        ...g,
+        status: "scheduled" as const,
+        detail: null,
+        teams: r === 0 ? [clear(g.teams[0]), clear(g.teams[1])] : [null, null],
+        placeholders: r === 0 ? g.placeholders : [null, null],
+      })),
+    ),
+    firstFour: b.firstFour.map((g) => ({ ...g, status: "scheduled" as const, detail: null, teams: [clear(g.teams[0]), clear(g.teams[1])] })),
+  };
+}

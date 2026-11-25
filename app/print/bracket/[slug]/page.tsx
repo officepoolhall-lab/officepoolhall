@@ -4,7 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { getPoolContext } from "@/lib/pool";
 import { isPickX } from "@/lib/pickx";
 import { getPickX } from "@/lib/pickxData";
-import { getLiveBracket } from "@/lib/tourneyLive";
+import { blankBracket, getLiveBracket } from "@/lib/tourneyLive";
 import { PrintableBracket } from "@/components/pickx/PickXBracket";
 import { Wordmark } from "@/components/ui";
 import { PrintNow } from "./PrintNow";
@@ -13,11 +13,13 @@ export const metadata: Metadata = { title: "Bracket" };
 
 /**
  * The whole NCAA Tournament bracket on one landscape page, to print or save as a PDF: the site's
- * name and logo along the top, then the bracket as it stands (scores, winners, the First Four).
+ * name and logo along the top, then the bracket as it stands (scores, winners, the First Four), or
+ * with ?blank=1 an empty one (just the First Round's teams) to fill in.
  * Outside the pool's layout, so nothing but the bracket prints. Opens the print dialog by itself.
  */
-export default async function PrintBracketPage({ params }: PageProps<"/print/bracket/[slug]">) {
+export default async function PrintBracketPage({ params, searchParams }: PageProps<"/print/bracket/[slug]">) {
   const { slug } = await params;
+  const blank = (await searchParams).blank === "1";
   const ctx = await getPoolContext(slug);
   if (!isPickX(ctx.pool.settings)) notFound();
   const { bracket } = await getPickX(ctx);
@@ -25,7 +27,8 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
   const tz = (ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago";
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
   const year = formatInTimeZone(bracket.lockAt, tz, "yyyy");
-  const live = await getLiveBracket(bracket, tz, now);
+  const current = await getLiveBracket(bracket, tz, now);
+  const live = blank ? blankBracket(current) : current;
   return (
     // Always the light colors, on screen and on paper.
     <div

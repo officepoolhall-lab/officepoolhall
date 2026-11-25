@@ -280,13 +280,18 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
     <div className="@container">
       {/* Print (or save as PDF) the whole bracket, on one landscape page with the site's name and logo. */}
       <div className="mb-3 flex justify-end print:hidden">
-        <a href={printHref} target="_blank" rel="noopener" className={chipClass(false, "cursor-pointer", "sm")}>
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden>
+        {/* Print an empty bracket to fill in, or the bracket as it stands. */}
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <span className="flex items-center gap-1 text-xs text-muted">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden>
             <path d="M5.5 7V3h9v4M5.5 14.5h-2v-6a1.5 1.5 0 0 1 1.5-1.5h10a1.5 1.5 0 0 1 1.5 1.5v6h-2" strokeLinejoin="round" />
             <path d="M5.5 11.5h9V17h-9z" strokeLinejoin="round" />
           </svg>
-          Print / Save PDF
-        </a>
+            Print / Save PDF:
+          </span>
+          <a href={`${printHref}?blank=1`} target="_blank" rel="noopener" className={chipClass(false, "cursor-pointer", "sm")}>Empty bracket</a>
+          <a href={printHref} target="_blank" rel="noopener" className={chipClass(false, "cursor-pointer", "sm")}>Current bracket</a>
+        </div>
       </div>
 
       {/* Wide: the whole bracket. */}
