@@ -4,7 +4,8 @@ import { formatInTimeZone } from "date-fns-tz";
 import { getPoolContext } from "@/lib/pool";
 import { isPickX } from "@/lib/pickx";
 import { getPickX } from "@/lib/pickxData";
-import { getLiveBracket } from "@/lib/tourneyLive";
+import { blankBracket, getLiveBracket, picksBracket } from "@/lib/tourneyLive";
+import { getBracket, getBracketEntries } from "@/lib/brackets";
 import { PrintableBracket } from "@/components/pickx/PickXBracket";
 import { Wordmark } from "@/components/ui";
 import { PrintNow } from "./PrintNow";
@@ -13,19 +14,36 @@ export const metadata: Metadata = { title: "Bracket" };
 
 /**
  * The whole NCAA Tournament bracket on one landscape page, to print or save as a PDF: the site's
- * name and logo along the top, then the bracket as it stands (scores, winners, the First Four).
+ * name and logo along the top, then an empty bracket (the First Round's teams, the First Four) to
+ * fill in by hand. In a pool where players fill out brackets, ?user=<id> prints that entry's
+ * bracket instead (its picks, champion and name; others' only once brackets lock). Pick X pools
+ * print only the empty one.
  * Outside the pool's layout, so nothing but the bracket prints. Opens the print dialog by itself.
  */
-export default async function PrintBracketPage({ params }: PageProps<"/print/bracket/[slug]">) {
+export default async function PrintBracketPage({ params, searchParams }: PageProps<"/print/bracket/[slug]">) {
   const { slug } = await params;
+  const { user } = await searchParams;
   const ctx = await getPoolContext(slug);
-  if (!isPickX(ctx.pool.settings)) notFound();
-  const { bracket } = await getPickX(ctx);
+  const pickX = isPickX(ctx.pool.settings);
+  const bracket = pickX ? (await getPickX(ctx)).bracket : await getBracket(ctx);
   if (!bracket) notFound();
   const tz = (ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago";
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
   const year = formatInTimeZone(bracket.lockAt, tz, "yyyy");
-  const live = await getLiveBracket(bracket, tz, now);
+  const empty = blankBracket(await getLiveBracket(bracket, tz, now));
+  // An entry's bracket (not in Pick X pools): its picks; nothing if it can't be seen yet.
+  let live = empty;
+  let filled: { champion: string | null; name: string } | undefined;
+  if (!pickX && typeof user === "string") {
+    const [[entry], { data: profile }] = await Promise.all([
+      getBracketEntries(ctx, bracket.id, user),
+      ctx.supabase.from("profiles").select("display_name").eq("id", user).maybeSingle(),
+    ]);
+    if (!entry) notFound();
+    const p = picksBracket(empty, entry.picks);
+    live = p.b;
+    filled = { champion: p.champion, name: profile?.display_name ?? "" };
+  }
   return (
     // Always the light colors, on screen and on paper.
     <div
@@ -64,7 +82,7 @@ export default async function PrintBracketPage({ params }: PageProps<"/print/bra
           <div className="text-right text-sm font-semibold text-white/85">officepoolhall.com</div>
         </header>
         <div className="mb-3 h-1.5 rounded-b-xl bg-[#f2c14e]" />
-        <PrintableBracket b={live} />
+        <PrintableBracket b={live} filled={filled} />
       </div>
     </div>
   );

@@ -430,3 +430,40 @@ export function tourneyTicker(b: LiveBracket): SlateGame[] {
     })
     .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
 }
+
+/** The bracket before any game: the First Round's teams and nothing else (no scores or winners). */
+export function blankBracket(b: LiveBracket): LiveBracket {
+  const clear = (t: LiveTeam | null): LiveTeam | null => (t ? { ...t, score: null, won: false, lost: false } : null);
+  return {
+    ...b,
+    live: false,
+    soon: false,
+    rounds: b.rounds.map((games, r) =>
+      games.map((g) => ({
+        ...g,
+        status: "scheduled" as const,
+        detail: null,
+        teams: r === 0 ? [clear(g.teams[0]), clear(g.teams[1])] : [null, null],
+        placeholders: r === 0 ? g.placeholders : [null, null],
+      })),
+    ),
+    firstFour: b.firstFour.map((g) => ({ ...g, status: "scheduled" as const, detail: null, teams: [clear(g.teams[0]), clear(g.teams[1])] })),
+  };
+}
+
+/**
+ * An entry's filled-out bracket on an empty one: each game after the First Round holds the teams
+ * the entry picked to get there. Also its champion's name.
+ */
+export function picksBracket(empty: LiveBracket, picks: Picks): { b: LiveBracket; champion: string | null } {
+  const teams = new Map<string, LiveTeam>();
+  for (const g of [...empty.rounds[0], ...empty.firstFour]) for (const t of g.teams) if (t?.id) teams.set(t.id, t);
+  const at = (round: number, game: number) => {
+    const id = picks[`${round}-${game}`];
+    return id ? (teams.get(id) ?? null) : null;
+  };
+  const rounds = empty.rounds.map((games, i) =>
+    i === 0 ? games : games.map((g, n) => ({ ...g, teams: [at(i, 2 * n), at(i, 2 * n + 1)] as [LiveTeam | null, LiveTeam | null], placeholders: [null, null] as [null, null] })),
+  );
+  return { b: { ...empty, rounds }, champion: at(6, 0)?.name ?? null };
+}

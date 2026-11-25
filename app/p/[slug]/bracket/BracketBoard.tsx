@@ -1,5 +1,6 @@
 "use client";
 
+import { PrintLinks } from "@/components/pickx/PickXBracket";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { LockIcon, TeamLogo, chipClass } from "@/components/ui";
@@ -29,6 +30,7 @@ export function BracketBoard({
   timezone,
   forUserId,
   title,
+  print = [],
 }: {
   slug: string;
   bracketId: string;
@@ -42,6 +44,8 @@ export function BracketBoard({
   /** Saving for another entry (co-manager or commissioner). */
   forUserId?: string;
   title: string;
+  /** Print buttons: an empty bracket, and this entry's filled-out one. */
+  print?: { href: string; label: string }[];
 }) {
   const [picks, setPicks] = useState<Picks>(initialPicks);
   const [view, setView] = useState(0); // 0–3 regions, 4 Final Four
@@ -181,6 +185,7 @@ export function BracketBoard({
 
   return (
     <div data-wide>
+      {print.length > 0 && <PrintLinks className="mb-2" links={print} />}
       <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <h1 className="text-2xl font-extrabold tracking-[-0.03em]">{title}</h1>
         <span className="text-sm text-muted tabular-nums">

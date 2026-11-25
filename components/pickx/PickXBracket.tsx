@@ -121,12 +121,16 @@ function Region({ b, r, mine, flip = false, label = true }: { b: LiveBracket; r:
  * half's side (the left half's beside its regions, the right half's beside its) with the title
  * game between them; on its own (narrower screens), stacked.
  */
-function FinalFour({ b, mine, row = false, writeIn = false }: {
+/** A filled-out bracket's write-in lines: its champion and whose bracket it is. */
+type Filled = { champion: string | null; name: string };
+
+function FinalFour({ b, mine, row = false, writeIn = false, filled }: {
   b: LiveBracket;
   mine: Set<string>;
   row?: boolean;
   /** The printout: lines under the title game to write in a champion and a tiebreaker. */
   writeIn?: boolean;
+  filled?: Filled;
 }) {
   const [semi1, semi2] = b.rounds[4];
   const title = b.rounds[5][0];
@@ -167,9 +171,9 @@ function FinalFour({ b, mine, row = false, writeIn = false }: {
             <div className="mt-1 text-center text-[13px] font-extrabold tracking-[0.12em] whitespace-nowrap text-[#0b2a5b] uppercase">National Champion</div>
             {b.finalSite && <div className="text-center text-[10px] font-bold tracking-widest text-[#b8860b] uppercase">{b.roundDates[5]} · {b.finalSite}</div>}
             <div className="mt-4 space-y-4">
-              <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Champion:</span><span className="min-w-0 flex-1 border-b-2 border-[#0a0a0a] text-center text-[13px] font-extrabold">{filled?.champion}</span></div>
               <div className="flex items-end gap-1.5"><span className="shrink-0">Total Points in Championship Game:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
-              <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="flex-1 border-b-2 border-[#0a0a0a]" /></div>
+              <div className="flex items-end gap-1.5"><span className="shrink-0">Name:</span><span className="min-w-0 flex-1 border-b-2 border-[#0a0a0a] text-center text-[13px] font-bold">{filled?.name}</span></div>
             </div>
           </div>
         )}
@@ -219,7 +223,7 @@ function Rounds({ b, flip = false }: { b: LiveBracket; flip?: boolean }) {
  * Four under the Final Four. Bracket lines join every game to the next, including each half's
  * Elite 8 games to its semifinal.
  */
-function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<string>; writeIn?: boolean }) {
+function FullBracket({ b, mine, writeIn = false, filled }: { b: LiveBracket; mine: Set<string>; writeIn?: boolean; filled?: Filled }) {
   // The line from a half's two Elite 8 games to its semifinal. A region is its 30px label and its
   // games (the Elite 8 game centered); the two regions sit 24px apart, so their Elite 8 games are
   // at 25% + 9px and 75% + 21px of the half (plus the games' clock line, --g-off), meeting at 50% + 15px.
@@ -254,7 +258,7 @@ function FullBracket({ b, mine, writeIn = false }: { b: LiveBracket; mine: Set<s
       </div>
       {/* Padded so the semifinals sit level with the lines from each half's Elite 8 games. */}
       <div className="relative flex flex-col justify-center pt-[20px]">
-        <FinalFour b={b} mine={mine} row writeIn={writeIn} />
+        <FinalFour b={b} mine={mine} row writeIn={writeIn} filled={filled} />
       </div>
       <div>
         <Rounds b={b} flip />
@@ -278,16 +282,8 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
 
   return (
     <div className="@container">
-      {/* Print (or save as PDF) the whole bracket, on one landscape page with the site's name and logo. */}
-      <div className="mb-3 flex justify-end print:hidden">
-        <a href={printHref} target="_blank" rel="noopener" className={chipClass(false, "cursor-pointer", "sm")}>
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden>
-            <path d="M5.5 7V3h9v4M5.5 14.5h-2v-6a1.5 1.5 0 0 1 1.5-1.5h10a1.5 1.5 0 0 1 1.5 1.5v6h-2" strokeLinejoin="round" />
-            <path d="M5.5 11.5h9V17h-9z" strokeLinejoin="round" />
-          </svg>
-          Print / Save PDF
-        </a>
-      </div>
+      {/* Print (or save as PDF) an empty bracket to fill in by hand: Pick X pools don't print the results. */}
+      <PrintLinks className="mb-3" links={[{ href: `${printHref}`, label: "Print / Save PDF" }]} />
 
       {/* Wide: the whole bracket. */}
       <div className="hidden @[92rem]:block">
@@ -325,7 +321,29 @@ export function PickXBracket({ b, mine: mineIds, printHref }: { b: LiveBracket; 
 }
 
 /** The whole bracket for the printable page (/print/bracket/[slug]). */
-export function PrintableBracket({ b }: { b: LiveBracket }) {
-  // The same for everyone: nobody's picks are marked on the printout.
-  return <FullBracket b={b} mine={new Set()} writeIn />;
+/** The bracket on paper: empty to fill in, or (filled) an entry's picks, its champion and name. */
+export function PrintableBracket({ b, filled }: { b: LiveBracket; filled?: Filled }) {
+  return <FullBracket b={b} mine={new Set()} writeIn filled={filled} />;
+}
+
+const PRINTER = (
+  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4" aria-hidden>
+    <path d="M5.5 7V3h9v4M5.5 14.5h-2v-6a1.5 1.5 0 0 1 1.5-1.5h10a1.5 1.5 0 0 1 1.5 1.5v6h-2" strokeLinejoin="round" />
+    <path d="M5.5 11.5h9V17h-9z" strokeLinejoin="round" />
+  </svg>
+);
+
+/** Print buttons for the bracket (each opens the printable page in a new tab). */
+export function PrintLinks({ links, className = "" }: { links: { href: string; label: string }[]; className?: string }) {
+  return (
+    <div className={`flex flex-wrap items-center justify-end gap-1.5 print:hidden ${className}`}>
+      {links.length > 1 && <span className="flex items-center gap-1 text-xs text-muted">{PRINTER} Print / Save PDF:</span>}
+      {links.map((l) => (
+        <a key={l.href} href={l.href} target="_blank" rel="noopener" className={chipClass(false, "cursor-pointer", "sm")}>
+          {links.length === 1 && PRINTER}
+          {l.label}
+        </a>
+      ))}
+    </div>
+  );
 }

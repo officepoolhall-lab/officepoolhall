@@ -154,10 +154,11 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
   return (
     <div data-wide className="space-y-6">
       <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} lockAt={bracket?.lockAt ?? null} locked={locked} />
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-5 lg:gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3 lg:gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         {/* The tournament and where everyone stands (everything in it stays on one line). */}
         <FillColumn className="space-y-6 lg:pr-6">
-          <section className="border-b border-line pb-4">
+          {/* Phones: no gap under it (the standings below are desktop-only). */}
+          <section className="border-b border-line pb-4 max-lg:!mb-0">
             <div className="flex items-center gap-1.5">
               <FitText min={12} className="text-lg font-bold text-ink">{bracket?.name ?? "NCAA Tournament"}</FitText>
               <Scoring settings={settings} />
@@ -343,7 +344,7 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
-        <section className="max-w-4xl">
+        <section className="max-w-6xl">
           <div className="mb-2 flex items-center gap-3">
             <FitText min={8} className="min-w-0 flex-1 text-xs text-muted">
               {locked
@@ -370,9 +371,20 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
                 <details key={r.userId} className={`group border-b border-line ${r.userId === me ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}>
                   <summary className={`${grid} cursor-pointer list-none px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden`}>
                     <span className="tabular-nums text-muted">{locked ? r.rank : ""}</span>
-                    <span className="min-w-0">
-                      <FitText min={10} className={`block font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
-                      {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">Tiebreaker: {r.tiebreak}</span>}
+                    <span className="flex min-w-0 items-center gap-4">
+                      <span className="min-w-0 sm:w-44 sm:shrink-0 lg:w-52">
+                        <FitText min={10} className={`block font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
+                        {locked && tb && r.tiebreak !== null && <span className="block text-[11px] text-muted tabular-nums">Tiebreaker: {r.tiebreak}</span>}
+                      </span>
+                      {/* Desktop: the logos of the entry's teams still alive. */}
+                      {locked && (
+                        <span className="hidden min-w-0 flex-1 items-center gap-1.5 overflow-hidden sm:flex">
+                          {r.teams.filter((t) => t.alive).sort((a, b) => a.seed - b.seed).map((t) => {
+                            const team = field.get(t.teamId);
+                            return <TeamLogo key={t.teamId} src={team?.logo_url} abbr={team?.abbreviation} className="size-6 shrink-0" />;
+                          })}
+                        </span>
+                      )}
                     </span>
                     {byRound.map((v, i) => (
                       <span key={i} className={`hidden text-right tabular-nums sm:block ${i >= started || !locked ? "text-muted" : ""}`}>{i >= started || !locked ? "–" : v}</span>

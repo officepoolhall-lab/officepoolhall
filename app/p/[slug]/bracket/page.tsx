@@ -85,6 +85,10 @@ export default async function BracketPage({ params, searchParams }: PageProps<"/
         timezone={ctx.displayTz}
         forUserId={forUserId ?? (mine && ctx.managing ? ctx.entryUserId : undefined)}
         title={title}
+        print={[
+          { href: `/print/bracket/${slug}`, label: "Empty bracket" },
+          ...(Object.keys(entry?.picks ?? {}).length ? [{ href: `/print/bracket/${slug}?user=${viewing}`, label: mine ? "My bracket" : `${name}'s bracket` }] : []),
+        ]}
       />
     </>
   );
