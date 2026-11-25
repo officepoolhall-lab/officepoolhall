@@ -227,6 +227,14 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
 
         {/* Once picks lock: the pool at a glance, every team's ownership and points, and the teams still alive. */}
         <div className="order-last space-y-8 lg:order-none lg:pl-6">
+          {bracket && !(locked && own) && (
+            <section className="max-w-3xl">
+              <div className="border-b border-line pb-1">
+                <SectionLabel fit className="!text-sm lg:!text-base">Pool Summary</SectionLabel>
+              </div>
+              <p className="py-3 text-sm text-muted">Available once picks lock.</p>
+            </section>
+          )}
           {bracket && locked && own && (
             <section className="max-w-3xl">
               <div className="border-b border-line pb-1">
@@ -287,7 +295,6 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
               </div>
             </section>
           )}
-          {bracket && !locked && <p className="text-sm text-muted">The teams still alive, and how much of the pool has each, show here once picks lock.</p>}
         </div>
       </div>
     </div>
