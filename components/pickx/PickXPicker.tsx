@@ -214,14 +214,13 @@ export function PickXPicker({
               Seeds
             </button>
           </div>
-          <FitText min={9} className="mb-2 block text-sm text-muted">
-            Tap a team for its pod; tap + to pick it.
-          </FitText>
 
           <div className={`grid gap-4 ${view === "seeds" ? "sm:grid-cols-2 xl:grid-cols-3 min-[1700px]:grid-cols-4" : ""}`}>
             {groups.map((reg) => (
-              <section key={reg.name} className="min-w-0">
-                <h3 className="mb-1 flex items-baseline justify-between border-b-2 border-line pb-1 text-sm font-bold">
+              // Seeds: each seed line's four teams in a blue outline.
+              <section key={reg.name} className={`min-w-0 ${view === "seeds" ? "rounded-xl border-2 border-accent/50 p-1.5" : ""}`}>
+                {/* The header, as on the other pools' My Picks: a blue bar down its left edge. */}
+                <h3 className="mb-1 flex items-baseline justify-between gap-2 border-l-4 border-accent bg-surface px-3 py-1 text-sm font-bold text-ink rounded-r-md">
                   {reg.name}
                   <span className="text-xs font-normal text-muted tabular-nums">{reg.teams.filter((t) => t.team && picked.includes(t.team.id)).length} picked</span>
                 </h3>
@@ -238,7 +237,7 @@ export function PickXPicker({
                     const on = picked.includes(team.id);
                     const blocked = blockedReason(slot, slots, settings);
                     return (
-                      <li key={slot} className={`flex h-10 items-center gap-1 rounded-lg pr-1 transition ${on ? "bg-accent/15 ring-2 ring-accent" : "bg-surface"} ${!on && blocked ? "opacity-45" : ""}`}>
+                      <li key={slot} className={`flex h-10 items-center gap-1 rounded-[10px] transition ${on ? "bg-accent/15 ring-1 ring-accent" : "bg-surface"} ${!on && blocked ? "opacity-45" : ""}`}>
                         {/* The team: opens its pod of the bracket. */}
                         <button type="button" onClick={() => setPod(slot)} className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 text-left hover:bg-hover" aria-label={`${nameOf(team)}: see its pod`}>
                           <span className={`w-6 shrink-0 text-center text-xs font-bold tabular-nums ${on ? "text-accent" : "text-muted"}`}>{seedAt(slot)}</span>
@@ -254,11 +253,10 @@ export function PickXPicker({
                           aria-pressed={on}
                           title={blocked ?? (on ? "Drop" : "Add")}
                           aria-label={`${on ? "Drop" : "Add"} ${nameOf(team)}`}
-                          className={`grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-base font-semibold transition disabled:cursor-not-allowed ${
-                            on ? "bg-accent text-white hover:brightness-110" : "bg-bg text-ink ring-1 ring-line hover:ring-accent"
-                          }`}
+                          className="grid h-full w-10 shrink-0 cursor-pointer place-items-center rounded-lg transition hover:bg-hover disabled:cursor-not-allowed"
                         >
-                          {on ? <CheckIcon className="size-4" /> : <span aria-hidden>+</span>}
+                          {/* As on the other pools' pick cells: an empty circle, a check once picked. */}
+                          {on ? <CheckIcon className="size-5 text-accent" /> : <span className="block size-4 rounded-full border-2 border-faint" />}
                         </button>
                       </li>
                     );
@@ -356,12 +354,12 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
     >
       <div className="mt-4">
         {/* The half of the region: four First Round games into two Second Round games into the Sweet 16. */}
-        <div className="grid grid-cols-[minmax(0,1fr)_5.5rem_5rem] gap-x-2 text-[10px] font-bold tracking-wide text-muted uppercase">
+        <div className="grid grid-cols-[minmax(0,1fr)_4.75rem_4.5rem] gap-x-2 sm:grid-cols-[minmax(0,10.5rem)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-3 text-[10px] font-bold tracking-wide text-muted uppercase">
           <span>First Round</span>
-          <span>Second Round</span>
+          <span className="whitespace-nowrap">2nd Round</span>
           <span>Sweet 16</span>
         </div>
-        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_5.5rem_5rem] gap-x-2">
+        <div className="mt-1 grid grid-cols-[minmax(0,1fr)_4.75rem_4.5rem] gap-x-2 sm:grid-cols-[minmax(0,10.5rem)_minmax(0,1fr)_minmax(0,1fr)] sm:gap-x-3">
           <div className="space-y-1.5">
             {games.map((g, i) => (
               <div key={g[0]} className={`overflow-hidden rounded-md border ${g[0] >= myPod && g[0] < myPod + 4 ? "border-accent/60" : "border-line"} ${i === 2 ? "mt-3" : ""}`}>
@@ -379,9 +377,6 @@ function PodDialog({ slot, field, regions, picked, settings, onToggle, blocked, 
           </div>
           <div className="flex flex-col justify-center">{later("Pod winners", "meet here", true)}</div>
         </div>
-        <p className="mt-3 text-xs text-muted">
-          {nameOf(team)}&apos;s pod is outlined in blue. The other four teams are who it could meet in the Sweet 16.
-        </p>
 
         <div className="mt-4 flex items-center justify-end gap-3">
           {why && <span className="text-xs text-loss">{why}</span>}

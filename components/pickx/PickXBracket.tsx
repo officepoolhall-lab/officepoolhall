@@ -144,7 +144,7 @@ export function PickXBracket({ b, mine: mineIds }: { b: LiveBracket; mine: strin
 
       {/* Narrower: one part at a time. */}
       <div className="@[76rem]:hidden">
-        <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+        <div className="mb-3 flex flex-wrap gap-1.5">
           {views.map(([id, label]) => (
             <button key={id} type="button" onClick={() => setView(id)} className={chipClass(view === id, "cursor-pointer whitespace-nowrap", "sm")}>
               {label}
