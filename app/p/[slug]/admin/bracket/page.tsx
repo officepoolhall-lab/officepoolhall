@@ -99,8 +99,9 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
     return (
       <div className="space-y-4 lg:max-w-6xl">
         <p className="text-sm text-muted">
-          Set up the NCAA Tournament once the field is announced. Players fill out a bracket from the First Round on; points grow by round and
-          by seed, so upsets pay more.
+          Nothing to do here: the bracket sets itself up from ESPN once the field is announced on Selection Sunday (the 64 teams by region and
+          seed, the First Four and the lock at the first Round of 64 tip), and winners fill in from ESPN as games finish. To set one up early
+          or by hand, fill it in below.
         </p>
         <Panel className="p-4 sm:p-5">{setup}</Panel>
       </div>
@@ -119,6 +120,7 @@ export default async function BracketAdminPage({ params }: PageProps<"/p/[slug]/
           {locked && <> · {entries.length} bracket{entries.length === 1 ? "" : "s"}</>}
         </span>
         <Link href={`/p/${slug}/bracket`} className="text-sm font-medium text-accent">Open my bracket</Link>
+        <span className="w-full text-xs text-muted">Kept up from ESPN: First Four winners and every game&apos;s winner fill in by themselves. Changes here are kept.</span>
         <span className="ml-auto">
           <ActionButton action={deleteBracket.bind(null, slug, bracket.id)} kind="danger" className="!px-3 !text-sm" pendingLabel="Deleting…">
             Delete bracket

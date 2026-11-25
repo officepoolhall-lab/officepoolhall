@@ -27,7 +27,7 @@ import { Countdown } from "@/components/Countdown";
 
 const tzOf = (ctx: PoolBase) => ((ctx.pool.settings as { timezone?: string } | null)?.timezone ?? "America/Chicago");
 const lockLabel = (iso: string, tz: string) => formatInTimeZone(iso, tz, "EEE, MMM d · h:mm a");
-const NO_FIELD = "The tournament field isn't set yet. Picks open once the commissioner sets the bracket.";
+const NO_FIELD = "The bracket fills in from ESPN once the field is announced on Selection Sunday. Picks open then.";
 
 type Field = Map<string, BracketTeam>;
 const fieldOf = (bracket: { field: (BracketTeam | null)[] } | null): Field =>
@@ -314,7 +314,7 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
     <>
       <h1 className="sr-only">{behalf && entry ? `Picks for ${entry.name}` : "My Picks"}</h1>
       {behalf && entry && <p className="mb-3 text-lg font-bold">Picks <span className="text-accent">for {entry.name}</span></p>}
-      {filled < 64 && <p className="mb-4 rounded-xl bg-surface px-3 py-2 text-sm text-muted">{64 - filled} spots in the field aren&apos;t set yet (First Four games, or the commissioner is still filling the bracket).</p>}
+      {filled < 64 && <p className="mb-4 rounded-xl bg-surface px-3 py-2 text-sm text-muted">{64 - filled} spots in the field aren&apos;t set yet: they fill in from ESPN as the First Four games finish.</p>}
       {ctx.isGuest ? (
         <Empty>Guests can&apos;t make picks.</Empty>
       ) : (

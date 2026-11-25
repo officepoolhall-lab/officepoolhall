@@ -28,7 +28,7 @@ export default async function BracketPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <PageTitle>NCAA Bracket</PageTitle>
-        <Empty>The NCAA Tournament bracket shows up here once the field is set.</Empty>
+        <Empty>The NCAA Tournament bracket fills in from ESPN once the field is announced on Selection Sunday.</Empty>
       </>
     );
   }
