@@ -7,7 +7,7 @@ import { SurvivorPicksPage } from "@/components/survivor/SurvivorPages";
 import { PfPicksPage } from "@/components/playoff/PfPages";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
-import { LiveTicker } from "@/components/LiveTicker";
+import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { chipClass, Empty, PageTitle } from "@/components/ui";
 import { hasStarted } from "@/lib/locks";
 import { getCurrentSlate, getPoolContext, getPublishedSlates, getSlateGames, getUpcomingSlate } from "@/lib/pool";
@@ -142,18 +142,19 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   return (
     // Desktop: the page scrolls as one; My Picks and the games sit side by side, the same length.
     <div>
-      <div className="shrink-0">
-        {/* Week and dates on the left; live scores fill the space to their right. */}
-        <div className="sm:flex sm:items-start sm:gap-6">
-          <div className="shrink-0">
-            <PageTitle>
-              {slate.label ?? `Week ${slate.week}`}
-              {forName && <span className="text-accent"> for {forName}</span>}
-          {!forName && ctx.managing && <span className="text-accent"> · {ctx.managing.ownerName}&apos;s entry</span>}
-            </PageTitle>
-          </div>
-          <LiveTicker games={games} now={now} timezone={ctx.displayTz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
-        </div>
+      {/* Week on the left; live scores fill the space to its right (the shared header). */}
+      <PoolPageHeader
+        title={
+          <>
+            {slate.label ?? `Week ${slate.week}`}
+            {forName && <span className="text-accent"> for {forName}</span>}
+            {!forName && ctx.managing && <span className="text-accent"> · {ctx.managing.ownerName}&apos;s entry</span>}
+          </>
+        }
+        games={games}
+        now={now}
+        timezone={ctx.displayTz}
+      >
         {weekChips}
         {showUpcoming && !ctx.isGuest && (
           <UpcomingWeekNote
@@ -166,7 +167,7 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
           />
         )}
         <AutoRefresh active={anyLive} />
-      </div>
+      </PoolPageHeader>
       <PickBoard
         // A fresh board per week and player: its draft state belongs to one slate.
         key={`${slate.id}:${userId}`}

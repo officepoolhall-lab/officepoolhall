@@ -20,6 +20,7 @@ import { NewsList } from "@/components/NewsList";
 import { getNews } from "@/lib/news";
 import { NEWS_TITLE } from "@/lib/sports";
 import { LiveTicker } from "@/components/LiveTicker";
+import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { getSlateGames, type PoolContext, type SlateGame } from "@/lib/pool";
 import { withLiveClocks } from "@/lib/liveClock";
 
@@ -342,15 +343,17 @@ export async function SurvivorPicksPage({ ctx, slug, forUserId, weekParam }: { c
     <div>
       {/* The week on the left; live scores fill the space to their right. Earlier weeks' picks
           are in the left column; their games are on the Scores page. */}
-      <div className="sm:flex sm:items-start sm:gap-6">
-        <div className="shrink-0">
-          <PageTitle>
+      <PoolPageHeader
+        title={
+          <>
             {week.label}
             {behalf ? <span className="text-accent"> for {row.name}</span> : null}
-          </PageTitle>
-        </div>
-        <LiveTicker games={games} now={now} timezone={tz} className="-mt-2 mb-4 sm:mt-1.5 sm:mb-0 sm:flex-1" />
-      </div>
+          </>
+        }
+        games={games}
+        now={now}
+        timezone={tz}
+      />
       <AutoRefresh active={anyLive([week])} />
       <SurvivorBoard
         key={`${week.slateId}:${target}`}

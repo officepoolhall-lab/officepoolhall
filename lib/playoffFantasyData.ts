@@ -1,7 +1,7 @@
 import "server-only";
 import { getBenchedIds } from "./bench";
 import { getGameSummary } from "./gameSummary";
-import type { PoolBase } from "./pool";
+import type { PoolBase, SlateGame } from "./pool";
 import { fresh } from "./microCache";
 import { getPlayoffField, getPlayoffGames, getPlayoffPicture, getProjectedField, type PlayoffGame } from "./nflPlayoffs";
 import { simulatePlayoffs } from "./playoffFantasyDemo";
@@ -517,4 +517,32 @@ export async function getPfInjuries(teams: PfTeam[]): Promise<Record<string, PfI
     }),
   );
   return out;
+}
+
+/**
+ * Playoff games in the shape the live-score ticker uses (the same ticker as every pool's pages):
+ * the round being played, or the next one to start (the last round once it's all over).
+ */
+export function playoffTicker(games: PlayoffGame[]): { label: string | null; games: SlateGame[] } {
+  if (!games.length) return { label: null, games: [] };
+  const open = games.filter((g) => g.state !== "post").map((g) => g.round);
+  const round = open.length ? Math.min(...open) : Math.max(...games.map((g) => g.round));
+  const team = (t: PlayoffGame["teams"][number]) => ({ id: `espn-${t.espnId}`, espn_id: t.espnId, name: t.name, short_name: t.name, abbreviation: t.abbreviation, logo_url: t.logo, conference: null });
+  const list = games
+    .filter((g) => g.round === round)
+    .map((g) => {
+      const home = g.teams.find((t) => t.homeAway === "home") ?? g.teams[1];
+      const away = g.teams.find((t) => t.homeAway === "away") ?? g.teams[0];
+      return {
+        id: g.id, startAt: g.date ?? new Date().toISOString(), timeTbd: !g.date, manualTime: false, lockAt: null, effectiveLockAt: g.date,
+        status: g.state === "post" ? "final" : g.state === "in" ? "in_progress" : "scheduled",
+        homeScore: g.state === "pre" ? null : (home?.score ?? null), awayScore: g.state === "pre" ? null : (away?.score ?? null),
+        overridden: false, neutral: round === 3, venue: null, tv: null, homeRank: null, awayRank: null, spread: null, voided: false,
+        espnId: /^\d+$/.test(g.id) ? g.id : null, clock: null, lastPlay: null, situation: null, possession: null,
+        home: team(home), away: team(away),
+      } as unknown as SlateGame;
+    })
+    .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
+  const NAMES = ["Wild Card Round", "Divisional Round", "Conference Championships", "Super Bowl"];
+  return { label: NAMES[round] ?? null, games: list };
 }

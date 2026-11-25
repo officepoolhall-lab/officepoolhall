@@ -12,9 +12,11 @@ import type { PoolBase } from "@/lib/pool";
 import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
-import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
+import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 import { PfBracket } from "./PfBracket";
+import { PoolPageHeader } from "@/components/PoolPageHeader";
+import { LiveTicker } from "@/components/LiveTicker";
 
 // The pages of an NFL Playoff Fantasy pool: Home, My Team and Standings. The pool routes reach
 // these when settings.format is "playoff_fantasy".
@@ -77,6 +79,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   // The Wild Card matchups (as the standings stand today until the season is over).
   const [picture, games] = await Promise.all([getPlayoffPicture(ctx.pool.season).catch(() => null), getPfGames(ctx.pool.season, players, teams, settings.demo_sim)]);
   const fieldSet = games.filter((g) => g.round === 0).length >= 6;
+  const ticker = playoffTicker(games);
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
   const teamsLeft = teams.filter((t) => !pts.out.has(t.espnId ?? "")).length;
@@ -85,6 +88,8 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   return (
     <div data-wide className="space-y-6">
       {pts.live && <AutoRefresh active />}
+      {/* Live scores across the top, as on every pool's Home. */}
+      {ticker.games.length > 0 && <LiveTicker games={ticker.games} now={now} timezone={tzOf(ctx)} />}
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)_minmax(0,17rem)] xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)_minmax(0,20rem)] 2xl:grid-cols-[minmax(0,23.5rem)_minmax(0,1fr)_minmax(0,23.5rem)] lg:gap-x-0 lg:divide-x lg:divide-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
         {/* The playoffs and where everyone stands (everything in it stays on one line, shrinking to fit). */}
         <FillColumn className="space-y-6 lg:pr-6">
@@ -384,6 +389,18 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
   const target = behalf ? forUserId! : ctx.entryUserId;
   const entry = entries.find((e) => e.userId === target);
   const title = behalf && entry ? <>Roster <span className="text-accent">for {entry.name}</span></> : "My Team";
+  // The top of the page, as on every pool's My Picks: the round on the left, its live scores beside it.
+  const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
+  const ticker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
+  const head = (sub?: ReactNode) => (
+    <PoolPageHeader
+      title={<>{ticker.label ?? "NFL Playoffs"}{behalf && entry ? <span className="text-accent"> for {entry.name}</span> : null}</>}
+      sub={sub}
+      games={ticker.games}
+      now={now}
+      timezone={tz}
+    />
+  );
   if (players.length === 0) return (<><PageTitle>{title}</PageTitle><Empty>{NOT_READY}</Empty></>);
   if (!entry) return (<><PageTitle>{title}</PageTitle><Empty>{ctx.isGuest ? "Guests can't build a roster." : "This entry isn't playing."}</Empty></>);
 
@@ -392,18 +409,19 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
     const row = pfStandings([entry], players, teams, pts)[0];
     return (
       <>
-        <PageTitle sub={`Rosters locked ${lockLabel(settings.lock_at!, tz)}.`}>{title}</PageTitle>
+        {head()}
         {pts.live && <AutoRefresh active />}
         {entry.playerIds.length === 0 ? (
           <Empty>No roster was set for this entry.</Empty>
         ) : (
-          <div className={card}>
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-base font-bold">Your players</h2>
-              <span className="text-lg font-bold tabular-nums">{fmt(row.points)} pts</span>
+          <section className="mt-4 lg:max-w-3xl">
+            <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
+              <SectionLabel fit className="!text-sm lg:!text-base">My Lineup</SectionLabel>
+              <span className="shrink-0 text-lg font-extrabold tabular-nums">{fmt(row.points)}</span>
             </div>
             <RosterTable ids={entry.playerIds} players={players} teams={teams} pts={pts} />
-          </div>
+            <p className="mt-2 text-xs text-muted">Lineups locked {lockLabel(settings.lock_at!, tz)}.</p>
+          </section>
         )}
       </>
     );
@@ -413,6 +431,7 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
   return (
     <>
       <h1 className="sr-only">{title}</h1>
+      {ticker.games.length > 0 && <LiveTicker games={ticker.games} now={now} timezone={tz} className="mb-4" />}
       {ctx.isGuest ? (
         <Empty>Guests can&apos;t build a roster.</Empty>
       ) : (
@@ -443,6 +462,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
   const rows = pfStandings(entries, players, teams, pts);
+  const standingsTicker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
   const me = ctx.entryUserId;
   const tz = tzOf(ctx);
   const playerOf = new Map(players.map((p) => [p.id, p]));
@@ -485,15 +505,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
-      <PageTitle
-        sub={
-          locked
-            ? `Total fantasy points, Wild Card round through the Super Bowl${pts.live ? " · Live" : ""}.`
-            : `Lineups show here once they lock${settings.lock_at ? `, ${lockLabel(settings.lock_at, tz)}` : ""}.`
-        }
-      >
-        Standings
-      </PageTitle>
+      <PoolPageHeader title="Standings" games={standingsTicker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
