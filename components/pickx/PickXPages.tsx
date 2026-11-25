@@ -4,11 +4,10 @@ import { Empty, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { savePickXPicks } from "@/app/p/[slug]/pickx/actions";
 import type { PoolBase } from "@/lib/pool";
 import { ROUNDS } from "@/lib/bracket";
-import { pickXScoringGrid, pickXScoringTable, roundPointsOf, roundsStarted, seedAt, type PickXSettings, type TeamStatus } from "@/lib/pickx";
+import { pickXScoringGrid, pickXScoringTable, roundPointsOf, roundsStarted, type PickXSettings, type TeamStatus } from "@/lib/pickx";
 import { getPickX, pickXStandings, type PickXEntry, type PickXRow } from "@/lib/pickxData";
 import { PickXPicker } from "./PickXPicker";
 import { PickXTeamsTable, type PickXTeamRow } from "./PickXTeamsTable";
-import { PickXOwnership, type PickXOwnRow } from "./PickXOwnership";
 import type { BracketTeam } from "@/lib/brackets";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { PickXBracket } from "./PickXBracket";
@@ -20,7 +19,7 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { Countdown } from "@/components/Countdown";
 
-// The pages of an NCAA Pick X pool: Home, My Picks, Standings and Pool Summary. The pool routes
+// The pages of an NCAA Pick X pool: Home, My Picks, Standings and Bracket. The pool routes
 // reach these when settings.format is "pick_x". Laid out like the other pools (Playoff Fantasy's
 // pages in particular): the shared page header, a lock reminder, the scoring "i", and each
 // entry's teams in the same table everywhere.
@@ -30,8 +29,9 @@ const lockLabel = (iso: string, tz: string) => formatInTimeZone(iso, tz, "EEE, M
 const NO_FIELD = "The bracket fills in from ESPN once the field is announced on Selection Sunday. Picks open then.";
 
 type Field = Map<string, BracketTeam>;
-const fieldOf = (bracket: { field: (BracketTeam | null)[] } | null): Field =>
-  new Map((bracket?.field ?? []).filter((t): t is BracketTeam => Boolean(t)).map((t) => [t.id, t]));
+/** Every team that can be picked, by id: the field, plus the First Four's teams. */
+const fieldOf = (bracket: { field: (BracketTeam | null)[]; firstFour?: { teams: (BracketTeam | null)[] }[] } | null): Field =>
+  new Map([...(bracket?.field ?? []), ...(bracket?.firstFour ?? []).flatMap((g) => g.teams)].filter((t): t is BracketTeam => Boolean(t)).map((t) => [t.id, t]));
 const nameOf = (t?: BracketTeam | null) => t?.short_name ?? t?.name ?? "";
 
 /** Each team's share of the entries that made picks (0-100, rounded). */
@@ -185,7 +185,7 @@ export async function PickXHome({ ctx, slug }: { ctx: PoolBase; slug: string }) 
                 <div className="mt-3 flex gap-1.5 whitespace-nowrap">
                   {!ctx.isGuest && <Link href={`/p/${slug}/picks`} className={chipClass(true, "", "sm")}>My Picks</Link>}
                   <Link href={`/p/${slug}/standings`} className={chipClass(ctx.isGuest, "", "sm")}>Standings</Link>
-                  <Link href={`/p/${slug}/summary`} className={chipClass(false, "", "sm")}>Pool Summary</Link>
+                  <Link href={`/p/${slug}/bracket`} className={chipClass(false, "", "sm")}>Bracket</Link>
                 </div>
               </>
             )}
@@ -281,7 +281,8 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
   const title = behalf && entry ? <>Picks <span className="text-accent">for {entry.name}</span></> : "My Picks";
   if (!bracket) return (<><PoolPageHeader title={title} now={now} timezone={tz} /><Empty>{NO_FIELD}</Empty></>);
-  const filled = bracket.field.filter(Boolean).length;
+  // Spots with a team, or a First Four game whose two teams can both be picked.
+  const filled = bracket.field.filter((t, slot) => t || bracket.firstFour.some((g) => g.slot === slot)).length;
 
   if (locked && !behalf) {
     // Locked: the entry's teams, round by round.
@@ -320,6 +321,7 @@ export async function PickXPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; 
       ) : (
         <PickXPicker
           field={bracket.field}
+          playIn={bracket.firstFour.filter((g) => !g.winner && g.teams[0] && g.teams[1]).map((g) => ({ slot: g.slot, teams: g.teams as BracketTeam[] }))}
           regions={bracket.regions}
           initial={entry?.teamIds ?? []}
           settings={settings}
@@ -417,32 +419,6 @@ export async function PickXStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: s
 }
 
 /** Pool Summary: every picked team, how much of the pool has it and what it has scored (sortable, by region). */
-export async function PickXSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
-  const { settings, bracket, entries, locked } = await getPickX(ctx);
-  const tz = tzOf(ctx);
-  const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
-  const head = <PoolPageHeader title={<span className="inline-flex items-center gap-2">Pool Summary <Scoring settings={settings} /></span>} now={now} timezone={tz} />;
-  if (!bracket) return (<div data-wide>{head}<Empty>{NO_FIELD}</Empty></div>);
-  const { count, entries: n } = ownership(entries);
-  const field = fieldOf(bracket);
-  const all = pickXStandings(bracket, [{ userId: "", name: "", teamIds: [...field.keys()], editedBy: null, tiebreak: null }], settings)[0]?.teams ?? [];
-  const rows: PickXOwnRow[] = all.map((t) => {
-    const team = field.get(t.teamId);
-    const c = count.get(t.teamId) ?? 0;
-    return {
-      teamId: t.teamId, seed: seedAt(t.slot), name: nameOf(team), abbr: team?.abbreviation ?? null, logo: team?.logo_url ?? null,
-      region: bracket.regions[t.region] ?? "", count: c, own: Math.round((c / Math.max(1, n)) * 1000) / 10, points: t.points, wins: t.wins.length, alive: t.alive,
-    };
-  });
-  return (
-    <div data-wide>
-      <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} lockAt={bracket.lockAt} locked={locked} />
-      {head}
-      {locked ? <PickXOwnership rows={rows} regions={bracket.regions} entries={n} /> : <p className="text-sm text-muted">How much of the pool picked each team shows here once picks lock.</p>}
-    </div>
-  );
-}
-
 /** The tournament bracket, live: every game with ESPN's score, clock or tip time, the First Four included. */
 export async function PickXBracketPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { bracket, entries } = await getPickX(ctx);

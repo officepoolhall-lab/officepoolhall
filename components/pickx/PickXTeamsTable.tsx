@@ -35,7 +35,7 @@ export function PickXTeamsTable({ rows, started, compact = false, totalRow = tru
       <div className={`${grid} border-b border-line py-1.5 ${compact ? "text-[10px]" : "text-[11px]"} font-bold tracking-wide text-muted uppercase`}>
         <span className="text-center">Seed</span>
         <span>Team</span>
-        <span className="text-right">Own</span>
+        <span className="text-right">Own %</span>
         {ROUNDS.map((r) => (
           <span key={r.round} className="hidden text-right sm:block">{r.short}</span>
         ))}

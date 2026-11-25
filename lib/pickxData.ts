@@ -1,7 +1,7 @@
 import "server-only";
 import { getBracket, type Bracket } from "./brackets";
 import type { PoolBase, PoolContext } from "./pool";
-import { pickXSettings, teamStatus, teamUpside, type PickXSettings, type TeamStatus } from "./pickx";
+import { pickXSettings, teamStatus, teamUpside, type PickXSettings, type PlayInTeams, type TeamStatus } from "./pickx";
 import { getActiveMembers } from "./bench";
 
 // Pick X data for the pool pages: the bracket (field, lock, winners), every entry's teams that
@@ -40,11 +40,22 @@ async function loadEntries(ctx: PoolBase) {
 }
 
 /** Standings: each entry's points from its teams' wins, how many teams are still alive, and the most it can still add. */
+/** The First Four's teams that aren't in the field (both, until a winner takes the spot). */
+export function playInTeams(bracket: Bracket | null): PlayInTeams {
+  const out: PlayInTeams = new Map();
+  if (!bracket) return out;
+  const inField = new Set(bracket.field.map((t) => t?.id).filter(Boolean));
+  for (const g of bracket.firstFour)
+    for (const t of g.teams) if (t && !inField.has(t.id)) out.set(t.id, { slot: g.slot, lost: g.winner !== null && g.winner !== t.id });
+  return out;
+}
+
 export function pickXStandings(bracket: Bracket | null, entries: PickXEntry[], s: PickXSettings): PickXRow[] {
   const field = bracket ? bracket.field.map((t) => t?.id ?? null) : [];
   const results = bracket?.results ?? {};
+  const playIn = playInTeams(bracket);
   const rows = entries.map((e) => {
-    const teams = e.teamIds.map((id) => teamStatus(id, field, results, s.scoring)).filter((t): t is TeamStatus => t !== null);
+    const teams = e.teamIds.map((id) => teamStatus(id, field, results, s.scoring, playIn)).filter((t): t is TeamStatus => t !== null);
     return {
       ...e,
       teams,
