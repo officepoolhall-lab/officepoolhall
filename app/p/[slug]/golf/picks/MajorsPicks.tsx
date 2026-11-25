@@ -36,6 +36,13 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
   // The purse: the commissioner's, else ESPN's. Shown up top, and projected earnings come from it.
   const purse = purseOverride(ctx.pool.settings, event.id) ?? info.get(event.id)?.purse ?? null;
   const mine = lineups.filter((l) => l.event_id === event.id && l.user_id === ctx.entryUserId);
+  // Ownership once the major is under way (everyone's lineups are visible then): each golfer's
+  // share of the lineups set for it.
+  const eventLineups = lineups.filter((l) => l.event_id === event.id);
+  const lineupCount = new Set(eventLineups.map((l) => l.user_id)).size;
+  const ownCount = new Map<string, number>();
+  for (const l of eventLineups) ownCount.set(l.espn_golfer_id, (ownCount.get(l.espn_golfer_id) ?? 0) + 1);
+  const ownOf = (id: string) => Math.round(((ownCount.get(id) ?? 0) / Math.max(1, lineupCount)) * 100);
   const open = isOpen(event);
   const started = event.status === "in_progress" || event.status === "final" || (!!event.start_at && Date.parse(event.start_at) <= now);
   const who = ctx.managing ? `${ctx.managing.ownerName}'s Lineup` : "My Lineup";
@@ -103,6 +110,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
               <tr className="border-b border-line text-left">
                 <th className={`${th} ${salary ? "w-16" : "w-10 text-center"}`}>{salary ? "Salary" : "Tier"}</th>
                 <th className={`${th} px-1.5`}>Golfer</th>
+                <th className={`${th} w-12 text-center sm:w-20`} title="Share of the pool's lineups with this golfer">Own</th>
                 <th className={`${th} w-12 text-center sm:w-20`}>Pos</th>
                 <th className={`${th} w-14 text-center sm:w-20`}>{salary ? "Pts" : "Score"}</th>
                 <th className={`${th} w-[5.5rem] pr-1 text-right sm:w-32`}>
@@ -145,7 +153,8 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                             today: null,
                             earnings: final ? (r?.earnings ?? 0) : 0,
                             projected: final ? null : (r?.earnings ?? null),
-                            pickedBy: 0,
+                            pickedBy: ownCount.get(l.espn_golfer_id) ?? 0,
+                            own: ownOf(l.espn_golfer_id),
                             mine: true,
                           }}
                           tournamentId={tournamentId}
@@ -153,6 +162,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
                           live={event.status === "in_progress"}
                         />
                       </td>
+                      <td className="whitespace-nowrap py-2 text-center text-xs tabular-nums text-muted">{ownOf(l.espn_golfer_id)}%</td>
                       <td className="whitespace-nowrap py-2 text-center text-xs tabular-nums text-muted">{posLabel(r)}</td>
                       <td className="whitespace-nowrap py-2 text-center font-semibold tabular-nums">{shown(l.espn_golfer_id)}</td>
                       <td className="whitespace-nowrap py-2 pr-1 text-right tabular-nums">{cash(l.espn_golfer_id)}</td>
@@ -162,7 +172,7 @@ export async function MajorsPicks({ slug, ctx, events, eventParam }: { slug: str
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-ink/25">
-                <td colSpan={3} className="py-2 text-xs text-muted">
+                <td colSpan={4} className="py-2 text-xs text-muted">
                   {counts.size && countedIds.length < mine.length ? `Total (the ${countedIds.length} that count)` : "Total"}
                 </td>
                 <td className="whitespace-nowrap py-2 text-center font-bold tabular-nums">{salary ? formatShown({ kind: "points", value: score.total }) : formatToPar(toParTotal)}</td>
