@@ -465,10 +465,6 @@ export async function PickXBracketPage({ ctx }: { ctx: PoolBase }) {
     <div data-wide>
       <AutoRefresh active={live.live || live.soon} seconds={30} />
       <PoolPageHeader title="Bracket" now={now} timezone={tz} />
-      <FitText min={8} className="-mt-3 mb-3 text-xs text-muted">
-        {live.fromEspn ? "Scores update live from ESPN." : "Scores show here when ESPN's scoreboard can be read; winners come from the pool's results."}
-        {mine.length ? " Your teams are in blue." : ""}
-      </FitText>
       <PickXBracket b={live} mine={mine} />
     </div>
   );
