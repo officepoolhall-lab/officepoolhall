@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 // A small "i" beside a page title: hover (desktop) or tap (phones) for the pool's scoring rules.
+// Any pool type: the rules come in as groups of [what, points] with a line above them.
 
-export type PfScoringGroups = { group: string; rows: [string, string][] }[];
+export type ScoringGroups = { group: string; rows: [string, string][] }[];
 
-export function PfScoringInfo({ groups, roster }: { groups: PfScoringGroups; /** "1 QB, 1 RB, 3 WR…" */ roster: string }) {
+export function ScoringInfo({ groups, intro }: { groups: ScoringGroups; /** A line under the heading ("Lineup: 1 QB, …"). */ intro?: string }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [at, setAt] = useState<{ top: number; left: number } | null>(null);
@@ -66,7 +67,7 @@ export function PfScoringInfo({ groups, roster }: { groups: PfScoringGroups; /**
           className="fixed z-40 block w-[min(22rem,calc(100vw-2rem))] sm:w-[min(38rem,calc(100vw-2rem))] rounded-xl border-2 border-accent bg-bg p-4 text-left text-sm font-normal tracking-normal text-ink shadow-xl before:absolute before:inset-x-0 before:-top-3 before:h-3 before:content-['']"
         >
           <span className="block text-base font-bold">Scoring</span>
-          <span className="mt-0.5 block text-xs text-muted">Lineup: {roster}. Every player scores every round through the Super Bowl.</span>
+          {intro && <span className="mt-0.5 block text-xs text-muted">{intro}</span>}
           <span className="mt-2 block max-h-[65vh] overflow-y-auto overscroll-contain sm:max-h-none sm:columns-2 sm:gap-6">
             {groups.map((g) => (
               <span key={g.group} className="mb-2 block break-inside-avoid">
