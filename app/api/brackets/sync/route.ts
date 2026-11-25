@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { espnBracketResults, saveTitleTotal } from "@/lib/bracketSync";
+import { autoBrackets } from "@/lib/bracketAuto";
 import { getBracket } from "@/lib/brackets";
 import type { PoolContext } from "@/lib/pool";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Vercel Cron, every 15 minutes in March and April: fills in NCAA Tournament winners from ESPN
+ * Vercel Cron, every 15 minutes in March and April. First sets up every college basketball
+ * pool's bracket from ESPN once the field is announced, fills First Four winners in, and re-pairs
+ * the regions once the semifinals are set (lib/bracketAuto.ts). Then fills in NCAA Tournament winners from ESPN
  * for every bracket that has locked and isn't finished, so brackets and Pick X standings keep
  * themselves. Winners a commissioner set are never changed. Exits at once when no bracket is
  * being played. When CRON_SECRET is set, only Vercel Cron may call it.
@@ -19,6 +22,8 @@ export async function GET(req: Request) {
   // Read loosely: the joined shape and grade_bracket aren't in the generated types.
   const db = admin as unknown as { from: (t: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const now = Date.now();
+  // Brackets from ESPN: created, filled in and paired (no commissioner needed).
+  const auto = await autoBrackets(admin, now).catch(() => ({ field: false, pools: [] }));
   // Brackets that locked within the last 30 days: a tournament under way (or just over).
   const { data: brackets } = await db
     .from("brackets")
@@ -39,5 +44,5 @@ export async function GET(req: Request) {
     await saveTitleTotal(admin, b.pool, sync.titleTotal);
     out.push({ bracket: b.id, added: sync.added });
   }
-  return NextResponse.json({ ok: true, brackets: out });
+  return NextResponse.json({ ok: true, auto, brackets: out });
 }
