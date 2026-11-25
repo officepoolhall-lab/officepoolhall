@@ -9,12 +9,13 @@ import { StatsFit } from "@/components/StatsFit";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
+import { POSITIONS, POSITION_NAME, optimalLineup, statColumns, rosterSize, type PfScoring, type Position } from "@/lib/playoffFantasy";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
 import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, type PfPlayer, type PfPoints, type PfRow, type PfTeam } from "@/lib/playoffFantasyData";
 import { PfLineupBuilder } from "./PfLineupBuilder";
 import { PfBracket } from "./PfBracket";
+import { PfRosterTable, type PfRosterRow } from "./PfRoster";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
 import { LiveTicker } from "@/components/LiveTicker";
 
@@ -27,37 +28,48 @@ const lockLabel = (iso: string, tz: string) => formatInTimeZone(iso, tz, "EEE, M
 /** Points, always to two decimals (12.40, 0.00). */
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 
-/** One entry's roster, position by position, with each player's points and whether his team is still in. */
-function RosterTable({ ids, players, teams, pts }: { ids: string[]; players: PfPlayer[]; teams: PfTeam[]; pts: PfPoints }) {
+/** One entry's roster for the locked My Team table: position by position, each player's pool ownership, points by round and his playoff games. */
+function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: PfPoints, own: Map<string, number> | null): PfRosterRow[] {
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
   const mine = ids.map((id) => playerOf.get(id)).filter((p): p is PfPlayer => Boolean(p));
   const order = (p: PfPlayer) => POSITIONS.indexOf(p.pos);
-  return (
-    <ul className="divide-y divide-line">
-      {[...mine].sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name)).map((p) => {
-        const team = teamOf.get(p.teamId);
-        const out = pts.out.has(team?.espnId ?? "");
-        const score = pts.byPlayer.get(p.id);
-        return (
-          <li key={p.id} className={`flex items-center gap-2 py-2 text-sm ${out ? "opacity-50" : ""}`}>
-            <span className="w-8 shrink-0 text-center text-[11px] font-bold text-muted">{p.pos}</span>
-            <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">
-              <span className={`font-semibold ${out ? "line-through" : ""}`}>{p.name}</span>
-              <span className="ml-1.5 text-xs text-muted">{team?.abbreviation}{out ? " · out" : ""}</span>
-            </span>
-            {pts.roundsStarted > 1 && (
-              <span className="hidden text-xs tabular-nums text-muted sm:inline">
-                {ROUNDS.slice(0, pts.roundsStarted).map((r, i) => `${r.short} ${fmt(score?.rounds[i] ?? 0)}`).join(" · ")}
-              </span>
-            )}
-            <span className="w-14 shrink-0 text-right font-bold tabular-nums">{fmt(score?.total ?? 0)}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
+  return [...mine]
+    .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
+    .map((p) => {
+      const team = teamOf.get(p.teamId);
+      const espn = team?.espnId ?? "";
+      const score = pts.byPlayer.get(p.id);
+      const games = pts.games.get(espn) ?? [];
+      const log = statColumns(p.pos, [0, 1, 2, 3].map((i) => pts.lines.get(p.id)?.[i] ?? null));
+      return {
+        id: p.id,
+        name: p.name,
+        pos: p.pos,
+        team: team?.abbreviation ?? null,
+        logo: team?.logo_url ?? null,
+        out: pts.out.has(espn),
+        own: own ? (own.get(p.id) ?? 0) : null,
+        total: score?.total ?? 0,
+        statHead: log.head,
+        rounds: [0, 1, 2, 3].map((i) => {
+          const g = games[i] ?? null;
+          return {
+            game: g ? { oppAbbr: g.oppAbbr, oppLogo: g.oppLogo, home: g.home, us: g.us, them: g.them, state: g.state } : null,
+            stats: log.rows[i],
+            points: g ? (score?.rounds[i] ?? 0) : null,
+          };
+        }),
+      };
+    });
+}
+
+/** Each player's share of the pool's lineups (0-100, rounded), counting entries that set one. */
+function ownership(entries: { playerIds: string[] }[]): Map<string, number> {
+  const set = entries.filter((e) => e.playerIds.length > 0);
+  const count = new Map<string, number>();
+  for (const e of set) for (const id of new Set(e.playerIds)) count.set(id, (count.get(id) ?? 0) + 1);
+  return new Map([...count].map(([id, n]) => [id, Math.round((n / Math.max(1, set.length)) * 100)]));
 }
 
 
@@ -414,12 +426,12 @@ export async function PfPicksPage({ ctx, slug, forUserId }: { ctx: PoolBase; slu
         {entry.playerIds.length === 0 ? (
           <Empty>No roster was set for this entry.</Empty>
         ) : (
-          <section className="mt-4 lg:max-w-3xl">
+          <section className="mt-4 sm:max-w-2xl">
             <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
               <SectionLabel fit className="!text-sm lg:!text-base">My Lineup</SectionLabel>
               <span className="shrink-0 text-lg font-extrabold tabular-nums">{fmt(row.points)}</span>
             </div>
-            <RosterTable ids={entry.playerIds} players={players} teams={teams} pts={pts} />
+            <PfRosterTable rows={rosterRows(entry.playerIds, players, teams, pts, ownership(entries))} roundTotals={row.rounds} started={pts.roundsStarted} />
             <p className="mt-2 text-xs text-muted">Lineups locked {lockLabel(settings.lock_at!, tz)}.</p>
           </section>
         )}
@@ -465,47 +477,24 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
   const standingsTicker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
   const me = ctx.entryUserId;
   const tz = tzOf(ctx);
-  const playerOf = new Map(players.map((p) => [p.id, p]));
-  const teamOf = new Map(teams.map((t) => [t.id, t]));
-  const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
-  const lineup = (r: PfRow) =>
-    r.playerIds
-      .map((id) => playerOf.get(id))
-      .filter((p): p is PfPlayer => Boolean(p))
-      .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id) || a.name.localeCompare(b.name));
-  // The narrowest card that shows everything: position, logo, points and gaps (about 7rem) plus
-  // the longest player name at 13px (~0.45rem a letter), or the entry's name along the top.
-  const longestPlayer = Math.max(0, ...rows.filter(() => locked).flatMap((r) => lineup(r).map((p) => p.name.length)));
+  // Before the lock, no lineups (yours included: it's on My Team), so the cards are just names.
   const longestEntry = Math.max(0, ...rows.map((r) => r.name.length));
-  const cardRem = Math.max(14, Math.ceil(Math.max(7.5 + longestPlayer * 0.45, 5.5 + longestEntry * 0.52) * 2) / 2);
+  const cardRem = locked ? 30 : Math.max(14, Math.ceil((5.5 + longestEntry * 0.52) * 2) / 2);
+  const own = locked ? ownership(entries) : null;
 
+  // Each entry's lineup as on My Team: position, player, ownership, points by round and in all;
+  // a player opens his playoff games.
   const Players = ({ r }: { r: PfRow }) => {
-    // No lineups here until they lock, yours included (it's on My Team), so every card matches.
     if (!locked) return <p className="py-1.5 text-xs text-muted">Shows when lineups lock.</p>;
-    const list = lineup(r);
-    if (!list.length) return <p className="py-1.5 text-xs text-muted">No lineup yet.</p>;
-    return (
-      <ul className="mt-1">
-        {list.map((p) => {
-          const t = teamOf.get(p.teamId);
-          const out = pts.out.has(t?.espnId ?? "");
-          return (
-            <li key={p.id} className={`flex h-6 items-center gap-1.5 text-[13px] ${out ? "text-muted" : "text-ink"}`}>
-              <span className="w-7 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
-              <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
-              <span className={`min-w-0 flex-1 truncate ${out ? "line-through decoration-1" : ""}`}>{p.name}</span>
-              <span className="shrink-0 tabular-nums">{fmt(ptsOf(p.id))}</span>
-            </li>
-          );
-        })}
-      </ul>
-    );
+    if (!r.playerIds.length) return <p className="py-1.5 text-xs text-muted">No lineup set.</p>;
+    return <PfRosterTable rows={rosterRows(r.playerIds, players, teams, pts, own)} roundTotals={r.rounds} started={pts.roundsStarted} compact />;
   };
 
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
       <PoolPageHeader title="Standings" games={standingsTicker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tz} />
+      {locked && rows.length > 0 && <FitText min={8} className="mb-2 text-xs text-muted">Own is the share of the pool&apos;s lineups with that player. Tap a player for his playoff games.</FitText>}
       {rows.length === 0 ? (
         <Empty>No entries yet.</Empty>
       ) : (
@@ -537,7 +526,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
                     <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clipRule="evenodd" />
                   </svg>
                 </summary>
-                <div className="px-2 pb-3 pl-11">
+                <div className="px-2 pb-3">
                   <Players r={r} />
                 </div>
               </details>
