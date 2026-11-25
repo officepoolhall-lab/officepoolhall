@@ -342,9 +342,6 @@ function PodDialog({ slot, team, field, playIn, regions, picked, settings, onTog
   const games = [0, 1, 2, 3].map((i) => [half + 2 * i, half + 2 * i + 1]);
   const on = picked.includes(team.id);
   const why = on ? null : blocked(slot);
-  // A First Four spot shows both its teams ("TEX/NCSU").
-  const abbrOf = (t: Team) => t.abbreviation ?? nameOf(t);
-  const short = (sl: number) => playIn.get(sl)?.map(abbrOf).join("/") ?? (field[sl] ? abbrOf(field[sl]!) : "TBD");
   const line = (sl: number) => {
     const pair = playIn.get(sl);
     const t = pair ? null : field[sl];
@@ -397,7 +394,7 @@ function PodDialog({ slot, team, field, playIn, regions, picked, settings, onTog
           <div className="flex flex-col justify-around">
             {[0, 1].map((p) => {
               const s0 = half + 4 * p;
-              return <div key={p}>{later(`${short(s0)}/${short(s0 + 1)}`, `vs ${short(s0 + 2)}/${short(s0 + 3)}`, s0 === myPod)}</div>;
+              return <div key={p}>{later("Game winners", "meet here", s0 === myPod)}</div>;
             })}
           </div>
           <div className="flex flex-col justify-center">{later("Pod winners", "meet here", true)}</div>
