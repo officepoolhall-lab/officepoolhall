@@ -4,7 +4,7 @@ import { Empty, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { savePickXPicks } from "@/app/p/[slug]/pickx/actions";
 import type { PoolBase } from "@/lib/pool";
 import { ROUNDS } from "@/lib/bracket";
-import { pickXScoringTable, roundPointsOf, roundsStarted, seedAt, type PickXSettings, type TeamStatus } from "@/lib/pickx";
+import { pickXScoringGrid, pickXScoringTable, roundPointsOf, roundsStarted, seedAt, type PickXSettings, type TeamStatus } from "@/lib/pickx";
 import { getPickX, pickXStandings, type PickXEntry, type PickXRow } from "@/lib/pickxData";
 import { PickXPicker } from "./PickXPicker";
 import { PickXTeamsTable, type PickXTeamRow } from "./PickXTeamsTable";
@@ -58,7 +58,15 @@ const entryRounds = (r: PickXRow, s: PickXSettings) => ROUNDS.map((_, i) => r.te
 
 /** The scoring pop-up's "i", with this pool's rules. */
 function Scoring({ settings }: { settings: PickXSettings }) {
-  return <ScoringInfo groups={pickXScoringTable(settings)} intro={`Pick ${settings.picks} teams. Every time one of them wins, you score.`} />;
+  // The points table (seeds down the left, rounds across, the most a team can earn on the right), then the pick rules.
+  const rules = pickXScoringTable(settings).filter((g) => g.group === "Rules");
+  return (
+    <ScoringInfo
+      table={pickXScoringGrid(settings)}
+      groups={rules}
+      intro={`Pick ${settings.picks} teams. Every time one of them wins, you score the points for its seed and that round${settings.scoring.bonus ? ` (bonus of ${settings.scoring.bonus} included)` : ""}.`}
+    />
+  );
 }
 
 /**

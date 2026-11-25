@@ -6,6 +6,7 @@ import { Shell } from "@/components/ProfileDialogs";
 import { ROUNDS } from "@/lib/bracket";
 import { FitText } from "@/components/FitText";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
+import { SEED_ORDER } from "@/lib/bracket";
 import { blockedReason, picksError, seedAt, winPoints, type PickXSettings } from "@/lib/pickx";
 
 type Team = { id: string; name: string; short_name: string | null; abbreviation: string | null; logo_url: string | null };
@@ -50,8 +51,8 @@ export function PickXPicker({
   const [status, setStatus] = useState<"idle" | "saved" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
-  const [regionFilter, setRegionFilter] = useState<number | null>(null);
-  const [seedFilter, setSeedFilter] = useState<number | null>(null);
+  // One region at a time (the first to start), or every team by seed line.
+  const [view, setView] = useState<number | "seeds">(0);
   const [pod, setPod] = useState<number | null>(null);
   const saved = useRef({ picks: [...initial].sort().join(","), tb: tiebreak?.initial != null ? String(tiebreak.initial) : "" });
 
@@ -105,7 +106,7 @@ export function PickXPicker({
       <span className="flex items-center gap-3">
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-bold">Tiebreaker</span>
-          <span className="block text-xs text-muted">Total points in the title game, both teams added together. Closest guess wins a tie.</span>
+          <span className="block text-xs text-muted">Total points scored in the national championship game</span>
         </span>
         <input
           type="number" min={0} max={999} inputMode="numeric" placeholder="141" aria-label="Tiebreaker: championship game total points" value={tb}
@@ -127,17 +128,21 @@ export function PickXPicker({
     </button>
   );
 
-  // Each region's teams in seed order (1 through 16), filtered.
-  const byRegion = regions
-    .map((name, r) => ({
-      r,
-      name,
-      teams: Array.from({ length: 16 }, (_, i) => r * 16 + i)
-        .filter((slot) => seedFilter === null || seedAt(slot) === seedFilter)
-        .map((slot) => ({ slot, team: field[slot] }))
-        .sort((a, b) => seedAt(a.slot) - seedAt(b.slot)),
-    }))
-    .filter((reg) => regionFilter === null || reg.r === regionFilter);
+  // The teams shown: a region's 16 in seed order, or all 64 grouped by seed line (1 seeds, 2 seeds …).
+  const groups =
+    view === "seeds"
+      ? Array.from({ length: 16 }, (_, i) => i + 1).map((seed) => ({
+          name: `${seed} seeds`,
+          teams: [0, 1, 2, 3].map((r) => r * 16 + SEED_ORDER.indexOf(seed as (typeof SEED_ORDER)[number])).map((slot) => ({ slot, team: field[slot] })),
+        }))
+      : [
+          {
+            name: regions[view],
+            teams: Array.from({ length: 16 }, (_, i) => view * 16 + i)
+              .map((slot) => ({ slot, team: field[slot] }))
+              .sort((a, b) => seedAt(a.slot) - seedAt(b.slot)),
+          },
+        ];
 
   // The picks so far, best seed first, with an open spot for each one still to make.
   const mine = [...slots].sort((a, b) => seedAt(a) - seedAt(b));
@@ -200,43 +205,30 @@ export function PickXPicker({
             {scoringInfo && <span className="inline-flex items-center gap-1 text-sm text-muted">{scoringInfo} Scoring</span>}
           </section>
           {tiebreakBox && <div className="mb-4 lg:hidden">{tiebreakBox}</div>}
-          {/* Filters: a region, a seed line, or both. */}
+          {/* One region at a time, or Seeds: every team grouped by seed line. */}
           <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            <button type="button" onClick={() => setRegionFilter(null)} className={chipClass(regionFilter === null, "cursor-pointer", "sm")}>All regions</button>
             {regions.map((name, r) => (
-              <button key={name} type="button" onClick={() => setRegionFilter(regionFilter === r ? null : r)} className={chipClass(regionFilter === r, "cursor-pointer", "sm")}>
+              <button key={name} type="button" onClick={() => setView(r)} className={chipClass(view === r, "cursor-pointer", "sm")}>
                 {name}
               </button>
             ))}
-            <select
-              aria-label="Seed line"
-              value={seedFilter ?? ""}
-              onChange={(e) => setSeedFilter(e.target.value ? Number(e.target.value) : null)}
-              className="h-7 cursor-pointer rounded-full bg-surface px-2.5 text-xs font-medium text-ink outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              <option value="">All seeds</option>
-              {Array.from({ length: 16 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>{n} seeds</option>
-              ))}
-            </select>
-            {(regionFilter !== null || seedFilter !== null) && (
-              <button type="button" onClick={() => (setRegionFilter(null), setSeedFilter(null))} className="cursor-pointer rounded-full px-2 text-xs font-medium text-accent hover:bg-hover">
-                Clear
-              </button>
-            )}
+            <button type="button" onClick={() => setView("seeds")} className={chipClass(view === "seeds", "cursor-pointer", "sm")}>
+              Seeds
+            </button>
           </div>
           <FitText min={9} className="mb-2 block text-sm text-muted">
             Tap a team for its pod. The + button picks it (its first win&apos;s points).
           </FitText>
 
-          <div className={`grid gap-4 ${byRegion.length > 1 ? "sm:grid-cols-2" : ""} ${byRegion.length > 2 ? "2xl:grid-cols-4" : ""} ${seedFilter !== null && byRegion.length > 1 ? "2xl:grid-cols-4" : ""}`}>
-            {byRegion.map((reg) => (
+          <div className={`grid gap-4 ${view === "seeds" ? "sm:grid-cols-2 xl:grid-cols-3 min-[1700px]:grid-cols-4" : ""}`}>
+            {groups.map((reg) => (
               <section key={reg.name} className="min-w-0">
                 <h3 className="mb-1 flex items-baseline justify-between border-b-2 border-line pb-1 text-sm font-bold">
                   {reg.name}
                   <span className="text-xs font-normal text-muted tabular-nums">{reg.teams.filter((t) => t.team && picked.includes(t.team.id)).length} picked</span>
                 </h3>
-                <ul className="space-y-1">
+                {/* A region: two columns of eight on wider screens (1-8 seeds, then 9-16). */}
+                <ul className={view === "seeds" ? "space-y-1" : "space-y-1 sm:grid sm:grid-flow-col sm:grid-rows-8 sm:gap-x-4 sm:gap-y-1 sm:space-y-0"}>
                   {reg.teams.map(({ slot, team }) => {
                     if (!team) {
                       return (
@@ -254,6 +246,7 @@ export function PickXPicker({
                           <span className={`w-6 shrink-0 text-center text-xs font-bold tabular-nums ${on ? "text-accent" : "text-muted"}`}>{seedAt(slot)}</span>
                           <TeamLogo src={team.logo_url} abbr={team.abbreviation} className="size-6 shrink-0 dark:rounded-full dark:bg-white/90 dark:p-0.5" />
                           <FitText min={10} className={`min-w-0 flex-1 text-sm font-semibold ${on ? "text-accent" : "text-ink"}`}>{nameOf(team)}</FitText>
+                          {view === "seeds" && <span className="shrink-0 text-[11px] text-muted">{regions[Math.floor(slot / 16)]}</span>}
                         </button>
                         {/* Add or drop it. */}
                         <button
