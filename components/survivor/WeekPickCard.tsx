@@ -287,8 +287,7 @@ export function SplitCard({
       </div>
       <div className="mt-1 flex items-end justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <FitText min={14} className={`font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>The pot was split</FitText>
-          <FitText min={10} className="mt-0.5 text-sm text-muted">Split {names.length} ways</FitText>
+          <FitText min={14} className={`font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>The Pot was Split {names.length} Ways</FitText>
         </div>
         {amount && (
           <div className="shrink-0 text-right">
