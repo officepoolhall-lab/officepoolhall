@@ -275,7 +275,7 @@ export function SplitCard({
   className?: string;
 }) {
   const amount = each?.replace(/ (each|per entry)$/, "");
-  // Every line stays on one line, shrinking to fit the card; the names go two to a row.
+  // Every line but the title stays on one line, shrinking to fit the card; the names go two to a row.
   return (
     <section
       className={`rounded-2xl border-2 border-win/70 bg-[var(--win-fill)] ${compact ? "px-4 py-3" : "px-4 py-3.5 sm:px-5"} ${className}`}
@@ -285,9 +285,10 @@ export function SplitCard({
         <TrophyIcon className="size-3.5 shrink-0" />
         <FitText min={9} className="min-w-0 flex-1">Pool over{week ? ` · Week ${week}` : ""}</FitText>
       </div>
-      <div className="mt-1 flex items-end justify-between gap-3">
+      <div className="mt-1 flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <FitText min={14} className={`font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>The Pot was Split {names.length} Ways</FitText>
+          {/* The title can take two lines. */}
+          <div className={`font-extrabold leading-[1.1] tracking-[-0.02em] text-ink ${compact ? "text-[1.75rem]" : "text-3xl sm:text-4xl"}`}>The Pot was Split {names.length} Ways</div>
         </div>
         {amount && (
           <div className="shrink-0 text-right">
