@@ -347,7 +347,7 @@ function SplitBar({ split }: { split: SplitState }) {
       <div className="flex shrink-0 flex-col gap-0.5 text-sm sm:ml-auto sm:items-end sm:text-right" role="status">
         <span className="font-semibold text-win">Pot split · the pool is over</span>
         <span className="text-muted">
-          All {split.alive} remaining entries agreed{split.each ? <> · <span className="font-semibold text-ink">{split.each}</span></> : null}
+          Split {split.alive} ways{split.each ? <> · <span className="font-semibold text-ink">{split.each}</span></> : null}
         </span>
       </div>
     );

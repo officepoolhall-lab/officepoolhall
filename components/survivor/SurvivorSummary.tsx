@@ -100,7 +100,9 @@ export function SurvivorSummary({
   // The split only moves once a week is final: entries still in coming into the current week
   // (the first week with a game not yet final; after the last week, everyone still alive).
   const current = [...weeks].sort((a, b) => a.week - b.week).find((w) => w.games.some((g) => !g.final && !g.voided)) ?? null;
-  const splitWays = current ? rows.filter((r) => r.outWeek === null || r.outWeek >= current.week).length : alive;
+  // Once the pot is split, it's shared by the entries in the split (which can include one that's out).
+  const agreed = split?.userIds.length ?? 0;
+  const splitWays = agreed || (current ? rows.filter((r) => r.outWeek === null || r.outWeek >= current.week).length : alive);
 
   const scoreOf = (t: TeamRow) => {
     const g = t.game;
@@ -150,7 +152,7 @@ export function SurvivorSummary({
                   <div className="text-lg font-bold tabular-nums text-win">
                     {money((entryFee * total) / splitWays)} <span className="text-sm font-semibold">/ entry</span>
                   </div>
-                  <div className="text-[11px] font-medium text-muted">If Split Today</div>
+                  <div className="text-[11px] font-medium text-muted">{agreed ? "Pot split" : "If Split Today"}</div>
                 </>
               )}
             </div>
