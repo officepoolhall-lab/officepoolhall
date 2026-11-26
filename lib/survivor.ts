@@ -175,13 +175,15 @@ export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvM
   const counted = weeks.filter((w) => w.week >= s.start_week && (cut === null || w.week <= cut)).sort((a, b) => a.week - b.week);
   const pickOf = new Map(picks.map((p) => [`${p.slateId}:${p.userId}`, p]));
   const rows = members.map((m): SvRow => {
+    // An entry in the split shares the pot even if it went out before (added to the split later).
+    const inSplit = split?.userIds.includes(m.userId) ?? false;
     let losses = 0;
     let outWeek: number | null = null;
     const used = new Map<string, number>();
     const cells = counted.map((w): SvCell => {
       const base = { week: w.week, slateId: w.slateId };
+      if (cut !== null && w.week >= cut) return { ...base, team: null, state: inSplit ? "split" : "out" };
       if (outWeek !== null) return { ...base, team: null, state: "out" };
-      if (cut !== null && w.week >= cut) return { ...base, team: null, state: split?.userIds.includes(m.userId) ? "split" : "out" };
       const p = pickOf.get(`${w.slateId}:${m.userId}`);
       const live = w.games.filter((g) => !g.voided);
       const lastStart = live.map((g) => g.startAt).sort().pop() ?? null;
@@ -202,7 +204,7 @@ export function survivorStandings(weeks: SvWeek[], picks: SvPick[], members: SvM
       }
       return { ...base, team, gameId: p.gameId, state };
     });
-    return { userId: m.userId, name: m.name, cells, losses, livesLeft: Math.max(0, s.lives - losses), alive: outWeek === null, outWeek, used, rank: 0 };
+    return { userId: m.userId, name: m.name, cells, losses, livesLeft: Math.max(0, s.lives - losses), alive: inSplit || outWeek === null, outWeek: inSplit ? null : outWeek, used, rank: 0 };
   });
   // Alive first (most lives left), then whoever lasted longest.
   rows.sort((a, b) => Number(b.alive) - Number(a.alive) || b.livesLeft - a.livesLeft || (b.outWeek ?? 0) - (a.outWeek ?? 0) || a.name.localeCompare(b.name));
