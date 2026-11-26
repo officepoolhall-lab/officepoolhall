@@ -166,16 +166,42 @@ export async function getPlayoffField(season: number): Promise<PlayoffField | nu
  * This week's games on ESPN, NFL or college football (FBS), for choosing a board's game
  * without typing an id. Cached ten minutes; never rejects.
  */
-export async function getThisWeeksGames(sport: "nfl" | "ncaaf" = "nfl"): Promise<{ id: string; label: string; date: string | null }[]> {
-  try {
-    const url = sport === "nfl" ? `${ESPN}/scoreboard` : "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80&limit=300";
-    const res = await fetch(url, { headers: HEADERS, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return [];
-    const data = (await res.json()) as Row;
-    return ((data?.events ?? []) as Row[])
-      .map((e) => ({ id: String(e?.id ?? ""), label: String(e?.name ?? e?.shortName ?? ""), date: typeof e?.date === "string" ? e.date : null }))
-      .filter((g) => g.id && g.label);
-  } catch {
-    return [];
+/**
+ * The games a Squares board can follow: this week's, plus the postseason's (bowls and the College
+ * Football Playoff for college boards, every playoff round for NFL ones) so a board can be set up
+ * weeks ahead. Bowl names lead the label ("Rose Bowl: Ohio State at Oregon · Thu 1/1"). By date.
+ * Never rejects.
+ */
+export async function getThisWeeksGames(sport: "nfl" | "ncaaf" = "nfl", season?: number, tz = "America/Chicago"): Promise<{ id: string; label: string; date: string | null }[]> {
+  const base = sport === "nfl" ? `${ESPN}/scoreboard` : "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
+  const extra = sport === "nfl" ? "" : "&groups=80&limit=300";
+  const urls = [
+    `${base}?${extra.slice(1)}`,
+    ...(season ? (sport === "nfl" ? PLAYOFF_ROUNDS.map((r) => `${base}?seasontype=3&week=${r.week}&dates=${season}`) : [`${base}?seasontype=3&week=1&dates=${season}${extra}`]) : []),
+  ];
+  const lists = await Promise.all(
+    urls.map(async (url) => {
+      try {
+        const res = await fetch(url, { headers: HEADERS, next: { revalidate: 600 }, signal: AbortSignal.timeout(5000) });
+        if (!res.ok) return [];
+        return ((((await res.json()) as Row)?.events ?? []) as Row[]);
+      } catch {
+        return [];
+      }
+    }),
+  );
+  const seen = new Set<string>();
+  const out: { id: string; label: string; date: string | null }[] = [];
+  for (const e of lists.flat()) {
+    const id = String(e?.id ?? "");
+    const name = String(e?.name ?? e?.shortName ?? "");
+    if (!id || !name || seen.has(id)) continue;
+    seen.add(id);
+    const date = typeof e?.date === "string" ? e.date : null;
+    // The bowl's (or playoff round's) name, from ESPN's note on the game.
+    const note = String(e?.competitions?.[0]?.notes?.[0]?.headline ?? "").replace(/\s+presented by.*$/i, "").replace(/\s+-\s+.*$/, "").trim();
+    const day = date ? new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short", month: "numeric", day: "numeric" }).format(new Date(date)).replace(",", "") : "";
+    out.push({ id, date, label: [note ? `${note}: ${name}` : name, day].filter(Boolean).join(" · ") });
   }
+  return out.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
 }

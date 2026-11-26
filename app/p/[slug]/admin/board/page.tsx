@@ -24,7 +24,8 @@ export default async function SquaresBoardAdminPage({ params }: PageProps<"/p/[s
   if (poolFormat(ctx.pool.settings) !== "squares") notFound();
   const source = { supabase: ctx.supabase, pool: ctx.pool };
   const college = ctx.pool.sport !== "nfl";
-  const games = await getThisWeeksGames(college ? "ncaaf" : "nfl");
+  // This week's games and the postseason's (bowls, playoffs), so a board can be set up ahead.
+  const games = await getThisWeeksGames(college ? "ncaaf" : "nfl", ctx.pool.season, ctx.displayTz);
   let data = await getSquares(source);
   // The board's row (and with it the share link) is made the first time the commissioner opens this page.
   if (!data.board.shareToken) {

@@ -31,7 +31,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
     scores,
     winners,
     payouts: settings.payouts.map((p) => (p > 0 && pot > 0 ? money((pot * p) / 100) : null)),
-    footer: `The Office Pool Hall · ${formatInTimeZone(new Date(), pool.settings?.timezone ?? "America/Chicago", "MMM d, yyyy h:mm a")}`,
+    footer: `officepoolhall.com · ${formatInTimeZone(new Date(), pool.settings?.timezone ?? "America/Chicago", "MMM d, yyyy h:mm a")}`,
   });
   return new Response(pdf as unknown as BodyInit, {
     headers: {

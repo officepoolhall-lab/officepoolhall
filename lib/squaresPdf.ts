@@ -37,6 +37,13 @@ const latin = (s: string) =>
     .replace(/[^\x20-\x7e\xa0-\xff]/g, "?");
 const width = (s: string, size: number, bold = false) => ([...s].reduce((t, ch) => t + (W[ch.charCodeAt(0) - 32] ?? 556), 0) / 1000) * size * (bold ? 1.06 : 1);
 const esc = (s: string) => s.replace(/([\\()])/g, "\\$1");
+/** The font size (down to `min`) at which the text fits a width; `min` when nothing fits. */
+function fitSize(s: string, max: number, size: number, min: number, bold = false): number {
+  let z = size;
+  while (z > min && width(s, z, bold) > max) z -= 0.25;
+  return z;
+}
+
 /** The text cut to fit a width, ending in "." when it had to be shortened. */
 function fit(s: string, max: number, size: number, bold = false): string {
   if (width(s, size, bold) <= max) return s;
@@ -138,7 +145,10 @@ export function squaresPdf(b: PdfBoard): Uint8Array {
     text(q, px, py, 9.5, { bold: true });
     if (b.payouts[i]) text(b.payouts[i]!, px + pw, py, 9.5, { align: "right" });
     py -= 12;
-    text(s ? fit(`${b.awayName} ${s.away}, ${b.homeName} ${s.home}`, pw, 8) : "Not played yet", px, py, 8, { gray: 0.4 });
+    // The score line shrinks to fit (long team names) before anything is cut.
+    const line = s ? `${b.awayName} ${s.away}, ${b.homeName} ${s.home}` : "Not played yet";
+    const z = fitSize(line, pw, 8, 6);
+    text(fit(line, pw, z), px, py, z, { gray: 0.4 });
     py -= 12;
     if (s) {
       const who = w === null ? "Numbers not set" : (b.names[w] ?? "Open square");
