@@ -1,3 +1,4 @@
+import { FitText } from "@/components/FitText";
 import { LockIcon, TeamLogo, TrophyIcon } from "@/components/ui";
 import { shortGameTime } from "@/lib/format";
 import type { SlateGame } from "@/lib/pool";
@@ -274,36 +275,32 @@ export function SplitCard({
   className?: string;
 }) {
   const amount = each?.replace(/ (each|per entry)$/, "");
+  // Every line stays on one line, shrinking to fit the card; the names go two to a row.
   return (
     <section
       className={`rounded-2xl border-2 border-win/70 bg-[var(--win-fill)] ${compact ? "px-4 py-3" : "px-4 py-3.5 sm:px-5"} ${className}`}
       aria-label="Pot split"
     >
-      <div className={`flex gap-x-4 gap-y-2 ${compact ? "items-end justify-between" : "flex-col sm:flex-row sm:items-center sm:justify-between sm:gap-x-6"}`}>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-win">
-            <TrophyIcon className="size-3.5" />
-            Pool over{week ? ` · Week ${week}` : ""}
-          </div>
-          <div className={`mt-0.5 font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>
-            The pot was split
-          </div>
-          <div className="mt-0.5 text-sm text-muted">
-            All {names.length} remaining {compact ? "agreed" : "entries agreed"}
-          </div>
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-win">
+        <TrophyIcon className="size-3.5 shrink-0" />
+        <FitText min={9} className="min-w-0 flex-1">Pool over{week ? ` · Week ${week}` : ""}</FitText>
+      </div>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <FitText min={14} className={`font-extrabold leading-tight tracking-[-0.02em] text-ink ${compact ? "text-2xl" : "text-2xl sm:text-3xl"}`}>The pot was split</FitText>
+          <FitText min={10} className="mt-0.5 text-sm text-muted">Split {names.length} ways</FitText>
         </div>
         {amount && (
-          <div className={`shrink-0 ${compact ? "text-right" : "sm:text-right"}`}>
+          <div className="shrink-0 text-right">
             <div className={`font-extrabold leading-none tabular-nums text-win ${compact ? "text-[1.75rem]" : "text-3xl sm:text-4xl"}`}>{amount}</div>
-            <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">per entry</div>
+            <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap text-muted">per entry</div>
           </div>
         )}
       </div>
-      <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-0.5 border-t border-win/30 pt-2 text-[13px] leading-snug text-ink">
+      <ul className="mt-3 grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-win/30 pt-2 text-[13px] leading-snug text-ink">
         {names.map((n, i) => (
-          <li key={n + i} className={n === you ? "font-semibold text-accent" : ""}>
-            {n}
-            {i < names.length - 1 && <span className="text-muted">,</span>}
+          <li key={n + i} className="min-w-0">
+            <FitText min={9} className={n === you ? "font-semibold text-accent" : ""}>{n}</FitText>
           </li>
         ))}
       </ul>
