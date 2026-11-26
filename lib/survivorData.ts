@@ -84,7 +84,10 @@ export async function getSurvivor(ctx: PoolBase, revealFor?: string) {
   // Who has asked to split, and for which week (requests don't carry over).
   const splitRequests = new Map(((reqRows ?? []) as Row[]).map((r) => [r.user_id as string, r.slate_id as string | null]));
   const s0 = ((splitRows ?? []) as Row[])[0];
-  const split: SvSplit | null = s0 ? { userIds: s0.user_ids as string[], week: (s0.week as number | null) ?? null } : null;
+  // The split's entries: only ones still in the pool (not benched, not gone), each once, so the
+  // pot is divided by the same names the pages list.
+  const inPool = new Set(members.map((m) => m.userId));
+  const split: SvSplit | null = s0 ? { userIds: [...new Set(s0.user_ids as string[])].filter((id) => inPool.has(id)), week: (s0.week as number | null) ?? null } : null;
   // Once the pot is split the pool is over: nothing after that week, and no picks in it.
   if (split?.week != null) {
     const cut = split.week;
