@@ -7,7 +7,7 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
+import { FLEX_POS, POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterText, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
 import { ScoringInfo as ScoringPopup } from "@/components/ScoringInfo";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
@@ -98,7 +98,7 @@ function ownership(entries: { playerIds: string[] }[]): Map<string, number> {
 
 /** The scoring pop-up's "i", with this pool's rules. */
 function ScoringInfo({ settings }: { settings: PfSettings }) {
-  const roster = POSITIONS.filter((p) => settings.roster[p] > 0).map((p) => `${settings.roster[p]} ${p}`).join(", ");
+  const roster = rosterText(settings);
   const intro =
     settings.style === "weekly"
       ? `Lineup each round: ${roster}. A player's points are multiplied by the rounds in a row he's been in your lineup: 2x, 3x, up to 4x.`
@@ -360,6 +360,7 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
           injuries={injuries}
           teams={teams}
           roster={settings.roster}
+          flex={settings.flex}
           initial={entry.playerIds}
           save={savePfLineup.bind(null, slug, behalf ? target : null)}
           forName={behalf ? entry.name : undefined}
@@ -467,6 +468,7 @@ async function PfWeeklyPicks({
           injuries={injuries}
           teams={playing}
           roster={settings.roster}
+          flex={settings.flex}
           initial={row.lineups[r] ?? []}
           save={savePfWeekly.bind(null, slug, behalf ? target : null, r)}
           forName={behalf ? entry.name : undefined}
@@ -575,6 +577,18 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
   );
 }
 
+/** The perfect lineup in the pool's lineup order: each position's spots (best first), then any
+ *  running backs, receivers and tight ends past their spots as FLEX, then kicker and defense. */
+function perfectSlots(list: PfPlayer[], ptsOf: (id: string) => number, roster: Record<string, number>) {
+  const order = ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"];
+  const out: { p: PfPlayer; slot: string }[] = [];
+  for (const pos of POSITIONS) {
+    const at = list.filter((p) => p.pos === pos).sort((a, b) => ptsOf(b.id) - ptsOf(a.id));
+    at.forEach((p, i) => out.push({ p, slot: i < (roster[pos] ?? 0) ? pos : "FLEX" }));
+  }
+  return out.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot) || ptsOf(b.p.id) - ptsOf(a.p.id));
+}
+
 /** Pool Summary: two tabs, Ownership % (every rostered player, by position, sortable) and Top Players (each position's most rostered and highest scoring, and the perfect lineup). */
 export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
@@ -628,9 +642,11 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
     : settings.style === "weekly"
       ? (() => {
           const ids = positions.flatMap((pos) => players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.roster[pos]).map((p) => p.id));
+          // Then the flex spots: the best running backs, receivers and tight ends left.
+          ids.push(...players.filter((p) => FLEX_POS.includes(p.pos) && !ids.includes(p.id) && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.flex).map((p) => p.id));
           return { ids, total: Math.round(ids.reduce((t, id) => t + ptsOf(id), 0) * 100) / 100 };
         })()
-      : optimalLineup(players, ptsOf, settings.roster);
+      : optimalLineup(players, ptsOf, settings.roster, settings.flex);
   const best = rows[0];
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const perfectNode =
@@ -646,14 +662,12 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
           </FitText>
         )}
         <ul className="mt-1 divide-y divide-line">
-          {perfect.ids
-            .map((id) => playerOf.get(id)!)
-            .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id))
-            .map((p) => {
+          {perfectSlots(perfect.ids.map((id) => playerOf.get(id)!), ptsOf, settings.roster)
+            .map(({ p, slot }) => {
               const t = teamOf.get(p.teamId);
               return (
                 <li key={p.id} className="flex h-8 items-center gap-1.5 text-[13px]">
-                  <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
+                  <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{slot}</span>
                   <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
                   <FitText min={10} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
                   <span className="shrink-0 font-semibold tabular-nums">{fmt(ptsOf(p.id))}</span>

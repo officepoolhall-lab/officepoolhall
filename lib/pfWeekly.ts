@@ -4,7 +4,7 @@
 // and the save action (which checks a change against the same locks the pages show).
 
 import type { PlayoffGame } from "./nflPlayoffs";
-import type { PfWeeklyLock, Position } from "./playoffFantasy";
+import { lineupFits, type PfWeeklyLock, type Position } from "./playoffFantasy";
 
 export const WEEKLY_ROUNDS = 4;
 /** The most a player's points are multiplied by (his fourth straight round). */
@@ -123,20 +123,15 @@ export function weeklyChangeError(
   before: string[],
   after: string[],
   r: number,
-  o: { games: PlayoffGame[]; players: Map<string, WeeklyPlayer>; roster: Record<Position, number>; now: number; mode: PfWeeklyLock; names?: Map<string, string> },
+  o: { games: PlayoffGame[]; players: Map<string, WeeklyPlayer>; roster: Record<Position, number>; flex?: number; now: number; mode: PfWeeklyLock; names?: Map<string, string> },
 ): string | null {
   if (r < 0 || r >= WEEKLY_ROUNDS) return "That round doesn't exist.";
   if (!roundOpen(o.games, r, o.now, o.mode)) return r < currentRound(o.games) ? "That round is over." : o.mode === "week" ? "This round's lineups have locked." : "That round isn't open yet.";
   if (new Set(after).size !== after.length) return "A player is in the lineup twice.";
   const name = (id: string) => o.names?.get(id) ?? "That player";
   const lost = lostIn(o.games);
-  const count = new Map<Position, number>();
-  for (const id of after) {
-    const p = o.players.get(id);
-    if (!p) return "That player isn't in the pool's player list.";
-    count.set(p.pos, (count.get(p.pos) ?? 0) + 1);
-    if ((count.get(p.pos) ?? 0) > (o.roster[p.pos] ?? 0)) return `The lineup only has ${o.roster[p.pos] ?? 0} ${p.pos} spot${o.roster[p.pos] === 1 ? "" : "s"}.`;
-  }
+  const err = spotsError(after, o.players, o.roster, o.flex ?? 0);
+  if (err) return err;
   for (const id of after.filter((x) => !before.includes(x))) {
     const p = o.players.get(id)!;
     if (!aliveAt(lost, p.team, r) || (r > 0 && !teamGame(o.games, r, p.team))) return `${name(id)}'s team isn't playing this round.`;
@@ -145,6 +140,23 @@ export function weeklyChangeError(
   for (const id of before.filter((x) => !after.includes(x))) {
     const p = o.players.get(id);
     if (p && playerLocked(p, r, o.games, o.now, o.mode)) return `${name(id)}'s game has started, so he can't be taken out.`;
+  }
+  return null;
+}
+
+/** Why a lineup doesn't fit the roster's spots (null: it fits), flex spots included. */
+export function spotsError(ids: string[], players: Map<string, WeeklyPlayer>, roster: Record<Position, number>, flex: number): string | null {
+  const count: Partial<Record<Position, number>> = {};
+  for (const id of ids) {
+    const p = players.get(id);
+    if (!p) return "That player isn't in the pool's player list.";
+    count[p.pos] = (count[p.pos] ?? 0) + 1;
+    if (!lineupFits(count, roster, flex)) {
+      const spots = roster[p.pos] ?? 0;
+      return flex && ["RB", "WR", "TE"].includes(p.pos)
+        ? `The ${p.pos} and flex spots are full.`
+        : `The lineup only has ${spots} ${p.pos} spot${spots === 1 ? "" : "s"}.`;
+    }
   }
   return null;
 }

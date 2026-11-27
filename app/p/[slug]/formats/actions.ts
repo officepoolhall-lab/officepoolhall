@@ -6,7 +6,7 @@ import type { ActionState } from "@/components/ActionForm";
 import { poolFormat } from "@/lib/formats";
 import { pfSettings, pfSettingsError, rosterSize } from "@/lib/playoffFantasy";
 import { getPf, getPfGames, setupFromEspn } from "@/lib/playoffFantasyData";
-import { WEEKLY_ROUNDS, currentRound, effectiveLineups, lostIn, weeklyChangeError, type WeeklyPlayer } from "@/lib/pfWeekly";
+import { WEEKLY_ROUNDS, currentRound, effectiveLineups, lostIn, spotsError, weeklyChangeError, type WeeklyPlayer } from "@/lib/pfWeekly";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPoolBase, requireCommissioner, requirePoolCommissioner } from "@/lib/pool";
 import { squaresSettings, squaresSettingsError } from "@/lib/squares";
@@ -242,18 +242,9 @@ export async function savePfWeekly(slug: string, forUserId: string | null, round
   let problem: string | null;
   if (behalf) {
     // The commissioner: any round so far; the spots still apply.
-    const count = new Map<string, number>();
-    problem = round > cur ? "That round isn't open yet." : new Set(ids).size !== ids.length ? "A player is in the lineup twice." : null;
-    for (const id of ids) {
-      const p = wp.get(id);
-      if (!p) problem ??= "That player isn't in the pool's player list.";
-      else {
-        count.set(p.pos, (count.get(p.pos) ?? 0) + 1);
-        if ((count.get(p.pos) ?? 0) > settings.roster[p.pos]) problem ??= `The lineup only has ${settings.roster[p.pos]} ${p.pos} spot${settings.roster[p.pos] === 1 ? "" : "s"}.`;
-      }
-    }
+    problem = round > cur ? "That round isn't open yet." : new Set(ids).size !== ids.length ? "A player is in the lineup twice." : spotsError(ids, wp, settings.roster, settings.flex);
   } else {
-    problem = weeklyChangeError(before, ids, round, { games, players: wp, roster: settings.roster, now: Date.now(), mode: settings.weekly_lock, names: new Map(players.map((p) => [p.id, p.name])) });
+    problem = weeklyChangeError(before, ids, round, { games, players: wp, roster: settings.roster, flex: settings.flex, now: Date.now(), mode: settings.weekly_lock, names: new Map(players.map((p) => [p.id, p.name])) });
   }
   if (problem) return { error: problem };
 
