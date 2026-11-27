@@ -2,7 +2,7 @@
 // - "roster" (the default): each entry builds one roster before the Wild Card round, one player
 //   from each playoff team, and scores fantasy points through the Super Bowl. Every player on
 //   the roster counts every week; a player stops scoring when his team is out.
-// - "weekly" (the old NFL.com Playoff Challenge): a lineup each round, any players (no team
+// - "weekly": a lineup each round, any players (no team
 //   limit). A player's points are multiplied by how many rounds in a row he's been in the
 //   lineup (2x his second straight round, up to 4x); swapping him out starts him over. Last
 //   round's lineup carries over, less players whose team is out. Lineups lock player by player
@@ -105,8 +105,8 @@ export const PF_DEFAULT: PfSettings = {
   },
 };
 
-/** The NFL.com Playoff Challenge lineup: QB, 2 RB, 2 WR, TE, K, DEF (8 players). */
-export const NFL_COM_ROSTER: Record<Position, number> = { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 };
+/** The weekly style's starting lineup: QB, 2 RB, 2 WR, TE, K, DEF (8 players). */
+export const WEEKLY_ROSTER: Record<Position, number> = { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 };
 
 export function pfSettings(settings: unknown): PfSettings {
   const s = block(settings, "playoff_fantasy");
@@ -164,7 +164,7 @@ export function pfSettingsError(s: PfSettings): string | null {
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
 /** "PPR", "Half PPR" or "Standard". */
-export const recLabel = (rec: number) => (rec === 1 ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "Standard (no points per catch)" : `${rec} per catch`);
+export const recLabel = (rec: number) => (rec === 1 ? "PPR" : rec === 0.5 ? "Half PPR" : rec === 0 ? "Standard (no points per catch)" : "custom");
 
 /** The rules in plain words, for Home and the settings summary. */
 export function pfRules(s: PfSettings): string[] {
@@ -189,11 +189,19 @@ export function pfRules(s: PfSettings): string[] {
           "Only one player from each playoff team.",
           "Every player counts every week, from the Wild Card round through the Super Bowl. Most total points wins.",
         ];
+  // Every scoring value, as chosen: the box reads back exactly what the settings say.
+  const pts = (n: number) => `${n}`;
+  const yds = (n: number) => `1 point per ${n} yards`;
   return [
     ...how,
-    `Scoring: ${recLabel(sc.rec)}, ${sc.pass_td} per passing touchdown, ${sc.rush_td} per rushing or receiving touchdown, 1 point per ${sc.pass_yds_per_pt} passing yards and per ${sc.yds_per_pt} rushing or receiving yards.`,
+    `Passing: ${yds(sc.pass_yds_per_pt)}, ${pts(sc.pass_td)} per touchdown, ${pts(sc.pass_int)} per interception.`,
+    `Rushing and receiving: ${yds(sc.yds_per_pt)}, ${pts(sc.rush_td)} per rushing touchdown, ${pts(sc.rec_td)} per receiving touchdown, ${sc.rec ? `${pts(sc.rec)} per catch (${recLabel(sc.rec)})` : "no points per catch (non-PPR)"}.`,
+    `Fumble lost: ${pts(sc.fum_lost)}. Two-point conversion: ${pts(sc.two_pt)}.`,
     ...(bonuses.length ? [`Yardage bonuses: ${bonuses.join(", ")}.`] : []),
-    `Kickers: ${sc.fg} for a field goal under 40 yards, ${sc.fg_40} from 40-49, ${sc.fg_50} from 50 or more, ${sc.xp} per extra point. Two-point conversions: ${sc.two_pt}.`,
+    `Kickers: ${pts(sc.fg)} for a field goal under 40 yards, ${pts(sc.fg_40)} from 40-49, ${pts(sc.fg_50)} from 50 or more, ${pts(sc.xp)} per extra point.`,
+    `Defense: ${pts(sc.def_sack)} per sack, ${pts(sc.def_int)} per interception, ${pts(sc.def_fum_rec)} per fumble recovered, ${pts(sc.def_td)} per touchdown, ${pts(sc.def_safety)} per safety${
+      sc.def_points_allowed ? ", and points allowed (10 for a shutout down to -4 for 35 or more)" : "; points allowed don't count"
+    }.`,
   ];
 }
 
