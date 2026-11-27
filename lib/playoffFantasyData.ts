@@ -22,6 +22,7 @@ import {
   type Position,
 } from "./playoffFantasy";
 import { createAdminClient } from "./supabase/admin";
+import { WEEKLY_ROUNDS, currentRound, effectiveLineups, lostIn, multipliers, playerLocked, weeklyPoints, type WeeklyPlayer } from "./pfWeekly";
 
 // A Playoff Fantasy pool's data: the playoff teams and player list the commissioner set up,
 // the lineups the viewer can see, and everyone's points, worked out from ESPN's box scores for
@@ -34,7 +35,14 @@ const HEADERS = { Accept: "application/json", "User-Agent": "Mozilla/5.0 (compat
 
 export type PfTeam = { id: string; espnId: string | null; name: string; abbreviation: string | null; logo_url: string | null };
 export type PfPlayer = { id: string; name: string; pos: Position; teamId: string; /** 1 = the starter at his position (ESPN's depth chart); null if unlisted. */ depth?: number | null };
-export type PfEntry = { userId: string; name: string; playerIds: string[] };
+export type PfEntry = {
+  userId: string;
+  name: string;
+  /** The roster (season style); weekly style: the current round's lineup, as far as the viewer may see it. */
+  playerIds: string[];
+  /** Weekly style: each round's saved lineup (null: none saved, last round's carries over). Server-side only. */
+  weekly?: (string[] | null)[];
+};
 
 /**
  * The pool's setup and lineups. The first time it's read after the playoff field is set, the
@@ -67,9 +75,28 @@ async function readPf(ctx: PoolBase) {
     .sort((a, b) => a.name.localeCompare(b.name));
   const players: PfPlayer[] = ((playerRows ?? []) as Row[]).map((p) => ({ id: p.espn_id, name: p.name, pos: p.pos, teamId: p.team_id, depth: p.depth ?? null }));
   const lineupOf = new Map<string, string[]>(((lineupRows ?? []) as Row[]).map((l) => [l.user_id, l.player_ids ?? []]));
+  // Weekly style: every entry's saved round lineups (read by the server; what shows of others' is
+  // trimmed to locked players by weeklyView).
+  const weeklyOf = new Map<string, (string[] | null)[]>();
+  if (settings.style === "weekly") {
+    const { data } = await (createAdminClient() as unknown as { from: (t: string) => any }) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .from("pf_weekly_lineups")
+      .select("user_id, round, player_ids")
+      .eq("pool_id", ctx.pool.id);
+    for (const r of (data ?? []) as Row[]) {
+      const row = weeklyOf.get(r.user_id) ?? Array.from({ length: WEEKLY_ROUNDS }, () => null);
+      row[r.round] = r.player_ids ?? [];
+      weeklyOf.set(r.user_id, row);
+    }
+  }
   const entries: PfEntry[] = ((memberRows ?? []) as Row[])
     .filter((m) => !benched.has(m.user_id))
-    .map((m) => ({ userId: m.user_id, name: m.profile.display_name, playerIds: lineupOf.get(m.user_id) ?? [] }));
+    .map((m) => ({
+      userId: m.user_id,
+      name: m.profile.display_name,
+      playerIds: lineupOf.get(m.user_id) ?? [],
+      ...(settings.style === "weekly" ? { weekly: weeklyOf.get(m.user_id) ?? Array.from({ length: WEEKLY_ROUNDS }, () => null) } : {}),
+    }));
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot of the lock
   const locked = settings.lock_at ? Date.parse(settings.lock_at) <= Date.now() : false;
   return { settings, teams, players, entries, locked };
@@ -223,6 +250,57 @@ export function pfStandings(entries: PfEntry[], players: PfPlayer[], teams: PfTe
     }
     const clean = rounds.map((v) => Math.round(v * 100) / 100);
     return { ...e, rounds: clean, points: Math.round(clean.reduce((a, b) => a + b, 0) * 100) / 100, alive, rank: 0 };
+  });
+  rows.sort((a, b) => b.points - a.points || b.alive - a.alive || a.name.localeCompare(b.name));
+  rows.forEach((r, i) => {
+    r.rank = i > 0 && rows[i - 1].points === r.points ? rows[i - 1].rank : i + 1;
+  });
+  return rows;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Weekly style
+// ---------------------------------------------------------------------------------------------
+
+export type PfWeeklyRow = PfRow & {
+  /** Each round's lineup as the viewer may see it (others': only players who have locked). */
+  lineups: string[][];
+  /** Each round's multiplier per player shown. */
+  mult: Map<string, number>[];
+  /** Each round's points per player shown (already multiplied). */
+  pts: Map<string, number>[];
+};
+
+/**
+ * Weekly-style standings: each entry's round lineups (saved, or carried over), points multiplied
+ * by consecutive rounds, and what the viewer may see. `full` lists the entries the viewer sees
+ * whole (their own, ones they manage, all of them for the commissioner); everyone else's players
+ * show only once each has locked.
+ */
+export function weeklyView(entries: PfEntry[], players: PfPlayer[], teams: PfTeam[], pts: PfPoints, games: PlayoffGame[], o: { now: number; mode: "player" | "week"; full: (userId: string) => boolean }): PfWeeklyRow[] {
+  const espnOf = new Map(teams.map((t) => [t.id, t.espnId ?? ""]));
+  const wp = new Map<string, WeeklyPlayer>(players.map((p) => [p.id, { id: p.id, pos: p.pos, team: espnOf.get(p.teamId) ?? "" }]));
+  const lost = lostIn(games);
+  const cur = currentRound(games);
+  const rows = entries.map((e) => {
+    const lineups = effectiveLineups(e.weekly ?? [], (id) => wp.get(id)?.team, lost, cur);
+    const scored = weeklyPoints(lineups, (id, r) => pts.byPlayer.get(id)?.rounds[r] ?? 0);
+    const mult = multipliers(lineups);
+    const seen = o.full(e.userId)
+      ? lineups
+      : lineups.map((ids, r) => ids.filter((id) => wp.has(id) && playerLocked(wp.get(id)!, r, games, o.now, o.mode)));
+    const current = seen[cur] ?? [];
+    return {
+      ...e,
+      playerIds: current,
+      lineups: seen,
+      mult: mult.map((m, r) => new Map([...m].filter(([id]) => seen[r].includes(id)))),
+      pts: scored.byPlayer.map((m, r) => new Map([...m].filter(([id]) => seen[r].includes(id)))),
+      rounds: scored.rounds,
+      points: scored.total,
+      alive: (lineups[cur] ?? []).filter((id) => !pts.out.has(wp.get(id)?.team ?? "")).length,
+      rank: 0,
+    };
   });
   rows.sort((a, b) => b.points - a.points || b.alive - a.alive || a.name.localeCompare(b.name));
   rows.forEach((r, i) => {

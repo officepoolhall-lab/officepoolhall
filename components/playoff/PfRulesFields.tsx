@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Segmented, SettingRow, SettingsSection, Toggle, settingInput } from "@/components/SettingsUI";
-import { PF_DEFAULT, POSITIONS, POSITION_NAME, pfRules, pfSettingsError, rosterSize, type PfScoring, type PfSettings } from "@/lib/playoffFantasy";
+import { NFL_COM_ROSTER, PF_DEFAULT, POSITIONS, POSITION_NAME, pfRules, pfSettingsError, rosterSize, type PfScoring, type PfSettings } from "@/lib/playoffFantasy";
 
 /** Every scoring value, for the "all values" grid: label, key, and the step its input moves by. */
 const VALUES: { group: string; rows: [keyof PfScoring, string, number][] }[] = [
@@ -75,7 +75,53 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
         {locked && <p className="mt-2 text-xs text-muted">Rosters have locked, so the roster spots can&apos;t change. Scoring changes re-score everyone.</p>}
       </div>
 
-      {lockLocal !== undefined && (
+      <SettingsSection title="Style" description="One roster for the whole playoffs, or a new lineup every round like the old NFL.com Playoff Challenge.">
+        <SettingRow
+          label="Format"
+          locked={locked}
+          hint={
+            s.style === "weekly"
+              ? "Weekly lineups (NFL.com style): any players, no team limit. Keep a player in your lineup and his points multiply, 2x his second straight round up to 4x; swap him out and he starts over."
+              : "Season roster: one lineup before the Wild Card round, one player from each playoff team, every player scoring every round."
+          }
+        >
+          <Segmented
+            ariaLabel="Format"
+            value={s.style}
+            onChange={(v) =>
+              !locked &&
+              setS((p) =>
+                v === p.style
+                  ? p
+                  : // Each style starts from its usual lineup and catch scoring (both stay editable).
+                    { ...p, style: v, roster: v === "weekly" ? { ...NFL_COM_ROSTER } : { ...PF_DEFAULT.roster }, scoring: { ...p.scoring, rec: v === "weekly" ? 0 : 1 } },
+              )
+            }
+            options={[
+              { value: "roster" as const, label: "Season roster" },
+              { value: "weekly" as const, label: "Weekly (NFL.com)" },
+            ]}
+          />
+        </SettingRow>
+        {s.style === "weekly" && (
+          <SettingRow
+            label="Lineups lock"
+            hint={s.weekly_lock === "player" ? "Each player locks when his own game kicks off, so a Sunday player can still be swapped after Saturday's games start." : "The whole lineup locks when the round's first game kicks off."}
+          >
+            <Segmented
+              ariaLabel="When lineups lock"
+              value={s.weekly_lock}
+              onChange={(v) => setS((p) => ({ ...p, weekly_lock: v }))}
+              options={[
+                { value: "player" as const, label: "At each kickoff" },
+                { value: "week" as const, label: "At the round's first game" },
+              ]}
+            />
+          </SettingRow>
+        )}
+      </SettingsSection>
+
+      {lockLocal !== undefined && s.style === "roster" && (
         <SettingsSection title="Lock" description="Rosters can be changed until this moment, then everyone's roster shows.">
           <SettingRow label="Rosters lock" hint="Set by itself to the first Wild Card kickoff when the playoff field loads. Change it here if you want another time (pool time).">
             <input name="lock_at_local" type="datetime-local" aria-label="Rosters lock" defaultValue={lockLocal} className={`${settingInput} tabular-nums`} />
@@ -85,7 +131,11 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
 
       <SettingsSection
         title="Roster"
-        description={`How many players at each position. ${size} spots in all: with one player per team, ${size === 14 ? "that's exactly one from each of the 14 playoff teams." : `${14 - size} of the 14 playoff teams go unused.`}`}
+        description={
+          s.style === "weekly"
+            ? `How many players at each position, every round. ${size} spots in all (NFL.com used 8: QB, 2 RB, 2 WR, TE, K, DEF).`
+            : `How many players at each position. ${size} spots in all: with one player per team, ${size === 14 ? "that's exactly one from each of the 14 playoff teams." : `${14 - size} of the 14 playoff teams go unused.`}`
+        }
       >
         <SettingRow stack label="Spots" locked={locked}>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -106,7 +156,7 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
       <SettingsSection title="Scoring" description="Starts from the most common league scoring. The usual choices are here; every value is below.">
         <SettingRow label="Catches" hint={sc.rec === 1 ? "PPR: a point for every reception." : sc.rec === 0.5 ? "Half PPR: half a point for every reception." : sc.rec === 0 ? "Standard: no points for a reception." : `${sc.rec} points for every reception.`}>
           <Segmented
-            ariaLabel="Points per catch"
+            ariaLabel="Points per catch (PPR or non-PPR)"
             value={sc.rec === 1 || sc.rec === 0.5 || sc.rec === 0 ? sc.rec : -1}
             onChange={(v) => v >= 0 && setScoring({ rec: v })}
             options={[
