@@ -138,18 +138,26 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
         }
       >
         <SettingRow stack label="Spots" locked={locked}>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-            {POSITIONS.map((p) => (
-              <label key={p} className="flex flex-col items-center gap-1 rounded-xl bg-bg p-2" title={POSITION_NAME[p]}>
-                <span className="text-xs font-semibold text-muted">{p}</span>
-                <input
-                  type="number" min={0} max={10} aria-label={`${POSITION_NAME[p]} spots`} value={s.roster[p]}
-                  onChange={(e) => setS((prev) => ({ ...prev, roster: { ...prev.roster, [p]: Math.max(0, Math.min(10, Math.round(Number(e.target.value) || 0))) } }))}
-                  className="h-9 w-full rounded-lg bg-surface text-center text-[15px] font-semibold tabular-nums text-accent outline-none focus:ring-2 focus:ring-accent"
-                />
-              </label>
-            ))}
+          {/* Each position, with FLEX (a running back, receiver or tight end) after the tight ends. */}
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {([...(["QB", "RB", "WR", "TE"] as const), "FLEX", ...(["K", "DEF"] as const)] as const).map((p) => {
+              const flexSpot = p === "FLEX";
+              return (
+                <label key={p} className="flex flex-col items-center gap-1 rounded-xl bg-bg p-2" title={flexSpot ? "Flex: a running back, wide receiver or tight end" : POSITION_NAME[p]}>
+                  <span className="text-xs font-semibold text-muted">{p}</span>
+                  <input
+                    type="number" min={0} max={flexSpot ? 5 : 10} aria-label={flexSpot ? "Flex spots (RB, WR or TE)" : `${POSITION_NAME[p]} spots`} value={flexSpot ? s.flex : s.roster[p]}
+                    onChange={(e) => {
+                      const n = Math.max(0, Math.min(flexSpot ? 5 : 10, Math.round(Number(e.target.value) || 0)));
+                      setS((prev) => (flexSpot ? { ...prev, flex: n } : { ...prev, roster: { ...prev.roster, [p]: n } }));
+                    }}
+                    className="h-9 w-full rounded-lg bg-surface text-center text-[15px] font-semibold tabular-nums text-accent outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </label>
+              );
+            })}
           </div>
+          <p className="mt-2 text-xs text-muted">FLEX: a spot for a running back, wide receiver or tight end.</p>
         </SettingRow>
       </SettingsSection>
 

@@ -15,6 +15,35 @@ export const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF"] as const;
 export type Position = (typeof POSITIONS)[number];
 export const POSITION_NAME: Record<Position, string> = { QB: "Quarterback", RB: "Running back", WR: "Wide receiver", TE: "Tight end", K: "Kicker", DEF: "Defense" };
 
+/** The positions a flex spot can take. */
+export const FLEX_POS: readonly Position[] = ["RB", "WR", "TE"];
+
+/**
+ * A lineup fits the roster: no more at a position than its spots, except running backs, wide
+ * receivers and tight ends beyond theirs, which can fill the flex spots.
+ */
+export function lineupFits(count: Partial<Record<Position, number>>, roster: Record<Position, number>, flex: number): boolean {
+  let over = 0;
+  for (const p of POSITIONS) {
+    const extra = (count[p] ?? 0) - roster[p];
+    if (extra <= 0) continue;
+    if (!FLEX_POS.includes(p)) return false;
+    over += extra;
+  }
+  return over <= flex;
+}
+
+/** One more player at this position would still fit (his own spots, or a flex spot). */
+export function canAdd(count: Partial<Record<Position, number>>, pos: Position, roster: Record<Position, number>, flex: number): boolean {
+  return lineupFits({ ...count, [pos]: (count[pos] ?? 0) + 1 }, roster, flex);
+}
+
+/** "1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX (RB/WR/TE), 1 K, 1 DEF". */
+export function rosterText(s: { roster: Record<Position, number>; flex: number }): string {
+  const part = (p: Position) => (s.roster[p] > 0 ? [`${s.roster[p]} ${p}`] : []);
+  return [...(["QB", "RB", "WR", "TE"] as Position[]).flatMap(part), ...(s.flex > 0 ? [`${s.flex} FLEX (RB/WR/TE)`] : []), ...(["K", "DEF"] as Position[]).flatMap(part)].join(", ");
+}
+
 export type PfScoring = {
   /** Passing yards for one point (25 = 0.04 a yard). */
   pass_yds_per_pt: number;
@@ -70,6 +99,8 @@ export type PfSettings = {
   /** When lineups lock (the first Wild Card kickoff), ISO; null until the commissioner sets it. */
   lock_at: string | null;
   roster: Record<Position, number>;
+  /** Flex spots: each takes a running back, wide receiver or tight end. */
+  flex: number;
   scoring: PfScoring;
 };
 
@@ -79,6 +110,7 @@ export const PF_DEFAULT: PfSettings = {
   weekly_lock: "player",
   lock_at: null,
   roster: { QB: 2, RB: 4, WR: 4, TE: 2, K: 1, DEF: 1 },
+  flex: 0,
   scoring: {
     pass_yds_per_pt: 25,
     pass_td: 4,
@@ -124,6 +156,7 @@ export function pfSettings(settings: unknown): PfSettings {
         : null,
     lock_at: typeof s.lock_at === "string" && !Number.isNaN(Date.parse(s.lock_at)) ? s.lock_at : null,
     roster: Object.fromEntries(POSITIONS.map((p) => [p, int(r[p], 0, 10) ?? PF_DEFAULT.roster[p]])) as Record<Position, number>,
+    flex: int(s.flex, 0, 5) ?? 0,
     scoring: {
       pass_yds_per_pt: n("pass_yds_per_pt", 1, 100),
       pass_td: n("pass_td", 0, 20),
@@ -151,7 +184,7 @@ export function pfSettings(settings: unknown): PfSettings {
   };
 }
 
-export const rosterSize = (s: PfSettings) => POSITIONS.reduce((t, p) => t + s.roster[p], 0);
+export const rosterSize = (s: { roster: Record<Position, number>; flex?: number }) => POSITIONS.reduce((t, p) => t + s.roster[p], 0) + (s.flex ?? 0);
 
 export function pfSettingsError(s: PfSettings): string | null {
   const size = rosterSize(s);
@@ -169,7 +202,7 @@ export const recLabel = (rec: number) => (rec === 1 ? "PPR" : rec === 0.5 ? "Hal
 /** The rules in plain words, for Home and the settings summary. */
 export function pfRules(s: PfSettings): string[] {
   const sc = s.scoring;
-  const spots = POSITIONS.filter((p) => s.roster[p] > 0).map((p) => `${s.roster[p]} ${p}`).join(", ");
+  const spots = rosterText(s);
   const bonuses = [
     sc.bonus_pass_300 ? `${signed(sc.bonus_pass_300)} for 300 passing yards` : null,
     sc.bonus_rush_100 ? `${signed(sc.bonus_rush_100)} for 100 rushing yards` : null,
@@ -435,36 +468,40 @@ export function optimalLineup(
   players: { id: string; pos: Position; teamId: string }[],
   points: (id: string) => number,
   roster: Record<Position, number>,
+  flex = 0,
 ): { ids: string[]; total: number } {
-  // Each team's best player at each position.
-  const best = new Map<string, Map<Position, { id: string; pts: number }>>();
+  // The slots: each position's spots, then the flex spots (a team's best RB, WR or TE).
+  type Slot = Position | "FLEX";
+  const spots: Record<Slot, number> = { ...roster, FLEX: flex };
+  const best = new Map<string, Map<Slot, { id: string; pts: number }>>();
   for (const p of players) {
     const v = points(p.id);
-    if (!(v > 0) || !roster[p.pos]) continue;
-    const t = best.get(p.teamId) ?? new Map();
-    if (!t.has(p.pos) || t.get(p.pos)!.pts < v) t.set(p.pos, { id: p.id, pts: v });
+    if (!(v > 0)) continue;
+    const t = best.get(p.teamId) ?? new Map<Slot, { id: string; pts: number }>();
+    const slots: Slot[] = [...(roster[p.pos] ? [p.pos] : []), ...(flex && FLEX_POS.includes(p.pos) ? (["FLEX"] as Slot[]) : [])];
+    for (const sl of slots) if (!t.has(sl) || t.get(sl)!.pts < v) t.set(sl, { id: p.id, pts: v });
     best.set(p.teamId, t);
   }
-  const pos = POSITIONS.filter((p) => roster[p] > 0);
+  const pos = ([...POSITIONS, "FLEX"] as Slot[]).filter((p) => spots[p] > 0);
   const key = (used: number[]) => used.join(",");
-  // state: positions used so far → best total and the picks that got there.
+  // state: slots used so far → best total and the picks that got there (one player per team).
   let states = new Map<string, { used: number[]; total: number; ids: string[] }>([[key(pos.map(() => 0)), { used: pos.map(() => 0), total: 0, ids: [] }]]);
   for (const t of best.values()) {
     const next = new Map(states);
-    for (const s of states.values()) {
+    for (const st of states.values()) {
       pos.forEach((p, i) => {
         const c = t.get(p);
-        if (!c || s.used[i] >= roster[p]) return;
-        const used = s.used.map((u, j) => (j === i ? u + 1 : u));
+        if (!c || st.used[i] >= spots[p]) return;
+        const used = st.used.map((u, j) => (j === i ? u + 1 : u));
         const k = key(used);
-        const total = s.total + c.pts;
-        if (!next.has(k) || next.get(k)!.total < total) next.set(k, { used, total, ids: [...s.ids, c.id] });
+        const total = st.total + c.pts;
+        if (!next.has(k) || next.get(k)!.total < total) next.set(k, { used, total, ids: [...st.ids, c.id] });
       });
     }
     states = next;
   }
   let top = { total: 0, ids: [] as string[] };
-  for (const s of states.values()) if (s.total > top.total) top = s;
+  for (const st of states.values()) if (st.total > top.total) top = st;
   return { ids: top.ids, total: Math.round(top.total * 100) / 100 };
 }
 

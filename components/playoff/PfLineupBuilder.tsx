@@ -5,7 +5,7 @@ import { CheckIcon, TeamLogo, chipClass } from "@/components/ui";
 import { GridPanelDrawer } from "@/components/GridPanelDrawer";
 import { PlayerDialog, TeamHistoryDialog } from "@/components/ProfileDialogs";
 import { FitText } from "@/components/FitText";
-import { POSITIONS, type Position } from "@/lib/playoffFantasy";
+import { FLEX_POS, POSITIONS, canAdd, type Position } from "@/lib/playoffFantasy";
 
 type Player = { id: string; name: string; pos: Position; teamId: string; depth?: number | null };
 type Team = { id: string; espnId?: string | null; name: string; abbreviation: string | null; logo_url: string | null };
@@ -26,6 +26,7 @@ export function PfLineupBuilder({
   players,
   teams,
   roster,
+  flex = 0,
   initial,
   save,
   forName,
@@ -42,6 +43,8 @@ export function PfLineupBuilder({
   players: Player[];
   teams: Team[];
   roster: Record<Position, number>;
+  /** Flex spots: each takes a running back, wide receiver or tight end beyond their own spots. */
+  flex?: number;
   initial: string[];
   save: (ids: string[]) => Promise<{ error?: string }>;
   forName?: string;
@@ -83,9 +86,14 @@ export function PfLineupBuilder({
   const [error, setError] = useState<string | null>(null);
 
   const open = POSITIONS.filter((p) => roster[p] > 0);
-  const total = open.reduce((t, p) => t + roster[p], 0);
+  const total = open.reduce((t, p) => t + roster[p], 0) + flex;
   const mine: Player[] = picked.flatMap((id) => (byId.has(id) ? [byId.get(id) as Player] : []));
   const countAt = (p: Position) => mine.filter((x) => x.pos === p).length;
+  const counts = Object.fromEntries(POSITIONS.map((p) => [p, countAt(p)])) as Record<Position, number>;
+  // Room for one more at a position: its own spots, or (RB, WR, TE) a flex spot.
+  const room = (p: Position) => canAdd(counts, p, roster, flex);
+  // Running backs, receivers and tight ends beyond their own spots, in the flex spots.
+  const inFlex = FLEX_POS.flatMap((p) => mine.filter((x) => x.pos === p).slice(roster[p]));
   // Season roster: a team, once used, is out of reach. Weekly style has no team limit.
   const usedTeams = new Map(oneTeam ? mine.map((p) => [p.teamId, p]) : []);
 
@@ -182,17 +190,20 @@ export function PfLineupBuilder({
   // fit: the desktop column, whose rows shrink to fit the screen's height.
   const lineupList = (fit: boolean) => (
     <ul
-      style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], countAt(p)), 0) } as CSSProperties}
+      style={{ "--rows": open.reduce((n, p) => n + Math.max(roster[p], FLEX_POS.includes(p) && flex ? Math.min(countAt(p), roster[p]) : countAt(p)), 0) + Math.max(flex, inFlex.length) } as CSSProperties}
       className={`relative divide-y divide-line border-y border-line ${fit ? "lg:grid lg:min-h-0 lg:shrink lg:grid-rows-[repeat(var(--rows),minmax(1.25rem,2.25rem))] lg:overflow-y-auto" : ""}`}
     >
-      {open.flatMap((p) => {
-        const at = mine.filter((x) => x.pos === p);
-        return Array.from({ length: Math.max(roster[p], at.length) }, (_, i) => {
+      {/* The flex row sits after the tight ends, before the kicker and defense. */}
+      {(flex ? [...open.filter((p) => p !== "K" && p !== "DEF"), "FLEX" as const, ...open.filter((p) => p === "K" || p === "DEF")] : open).flatMap((p) => {
+        // A position's own spots; the FLEX row holds the running backs, receivers and tight ends past theirs.
+        const at = p === "FLEX" ? inFlex : mine.filter((x) => x.pos === p).slice(0, flex && FLEX_POS.includes(p) ? roster[p] : undefined);
+        const slots = p === "FLEX" ? flex : roster[p];
+        return Array.from({ length: Math.max(slots, at.length) }, (_, i) => {
           const pl = at[i];
           const team = pl ? teamOf.get(pl.teamId) : null;
           return (
             <li key={`${p}${i}`} className={`flex min-h-9 items-center gap-2 py-0.5 ${fit ? "lg:min-h-0 lg:py-0" : ""}`}>
-              <span className="w-8 shrink-0 text-xs font-bold text-muted">{p}</span>
+              <span className={`w-8 shrink-0 font-bold text-muted ${p === "FLEX" ? "text-[10px]" : "text-xs"}`}>{p}</span>
               {pl ? (
                 <>
                   <TeamLogo src={team?.logo_url} abbr={team?.abbreviation} className="size-5 shrink-0" />
@@ -219,8 +230,8 @@ export function PfLineupBuilder({
                   )}
                 </>
               ) : (
-                <button type="button" onClick={() => setPos(p)} className="-mx-1.5 flex-1 rounded-md px-1.5 py-1 text-left text-sm text-faint transition hover:bg-hover hover:text-accent">
-                  Open
+                <button type="button" onClick={() => setPos(p === "FLEX" ? "ALL" : p)} className="-mx-1.5 flex-1 rounded-md px-1.5 py-1 text-left text-sm text-faint transition hover:bg-hover hover:text-accent">
+                  {p === "FLEX" ? "Open · RB, WR or TE" : "Open"}
                 </button>
               )}
             </li>
@@ -318,7 +329,7 @@ export function PfLineupBuilder({
               {open.map((p) => (
                 <button key={p} type="button" onClick={() => setPos(pos === p ? "ALL" : p)} className={chipClass(pos === p, "flex-col justify-center !gap-0 !px-1 leading-tight max-sm:!h-auto max-sm:py-1 sm:flex-row sm:!px-3", "sm")}>
                   <span>{p}</span>
-                  <span className={`text-[10px] tabular-nums sm:ml-1 sm:text-xs ${countAt(p) >= roster[p] ? "" : "opacity-70"}`}>{countAt(p)}/{roster[p]}</span>
+                  <span className={`text-[10px] tabular-nums sm:ml-1 sm:text-xs ${room(p) ? "opacity-70" : ""}`}>{countAt(p)}/{roster[p]}</span>
                 </button>
               ))}
             </div>
@@ -369,7 +380,7 @@ export function PfLineupBuilder({
                     <ul className="divide-y divide-line">
                       {list.map((p) => {
                         const on = picked.includes(p.id);
-                        const blocked = lockedSet.has(p.id) ? "Locked" : on ? null : used ? "Team used" : countAt(p.pos) >= roster[p.pos] ? `${p.pos} full` : null;
+                        const blocked = lockedSet.has(p.id) ? "Locked" : on ? null : used ? "Team used" : !room(p.pos) ? (flex && FLEX_POS.includes(p.pos) ? `${p.pos} & flex full` : `${p.pos} full`) : null;
                         return (
                           <li key={p.id} className="flex min-h-8 items-center gap-2 py-0.5">
                             <span className="w-7 shrink-0 text-[11px] font-bold text-muted">{p.pos}</span>

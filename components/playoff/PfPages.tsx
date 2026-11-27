@@ -7,7 +7,7 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
+import { FLEX_POS, POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterText, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
 import { ScoringInfo as ScoringPopup } from "@/components/ScoringInfo";
 import type { ReactNode } from "react";
 import { getPlayoffPicture } from "@/lib/nflPlayoffs";
@@ -98,7 +98,7 @@ function ownership(entries: { playerIds: string[] }[]): Map<string, number> {
 
 /** The scoring pop-up's "i", with this pool's rules. */
 function ScoringInfo({ settings }: { settings: PfSettings }) {
-  const roster = POSITIONS.filter((p) => settings.roster[p] > 0).map((p) => `${settings.roster[p]} ${p}`).join(", ");
+  const roster = rosterText(settings);
   const intro =
     settings.style === "weekly"
       ? `Lineup each round: ${roster}. A player's points are multiplied by the rounds in a row he's been in your lineup: 2x, 3x, up to 4x.`
@@ -360,6 +360,7 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
           injuries={injuries}
           teams={teams}
           roster={settings.roster}
+          flex={settings.flex}
           initial={entry.playerIds}
           save={savePfLineup.bind(null, slug, behalf ? target : null)}
           forName={behalf ? entry.name : undefined}
@@ -467,6 +468,7 @@ async function PfWeeklyPicks({
           injuries={injuries}
           teams={playing}
           roster={settings.roster}
+          flex={settings.flex}
           initial={row.lineups[r] ?? []}
           save={savePfWeekly.bind(null, slug, behalf ? target : null, r)}
           forName={behalf ? entry.name : undefined}
@@ -628,9 +630,11 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
     : settings.style === "weekly"
       ? (() => {
           const ids = positions.flatMap((pos) => players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.roster[pos]).map((p) => p.id));
+          // Then the flex spots: the best running backs, receivers and tight ends left.
+          ids.push(...players.filter((p) => FLEX_POS.includes(p.pos) && !ids.includes(p.id) && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.flex).map((p) => p.id));
           return { ids, total: Math.round(ids.reduce((t, id) => t + ptsOf(id), 0) * 100) / 100 };
         })()
-      : optimalLineup(players, ptsOf, settings.roster);
+      : optimalLineup(players, ptsOf, settings.roster, settings.flex);
   const best = rows[0];
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const perfectNode =
