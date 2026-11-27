@@ -1,7 +1,13 @@
-// NFL Playoff Fantasy: each entry builds one roster before the Wild Card round, taking exactly
-// one player from each playoff team, and scores fantasy points through the Super Bowl. Every
-// player on the roster counts every week; a player stops scoring when his team is out. The
-// rules live in pools.settings.playoff_fantasy (settings.format = "playoff_fantasy").
+// NFL Playoff Fantasy, two styles (settings.playoff_fantasy.style):
+// - "roster" (the default): each entry builds one roster before the Wild Card round, one player
+//   from each playoff team, and scores fantasy points through the Super Bowl. Every player on
+//   the roster counts every week; a player stops scoring when his team is out.
+// - "weekly" (the old NFL.com Playoff Challenge): a lineup each round, any players (no team
+//   limit). A player's points are multiplied by how many rounds in a row he's been in the
+//   lineup (2x his second straight round, up to 4x); swapping him out starts him over. Last
+//   round's lineup carries over, less players whose team is out. Lineups lock player by player
+//   at each one's kickoff, or all at once at the round's first game (weekly_lock).
+// The rules live in pools.settings.playoff_fantasy (settings.format = "playoff_fantasy").
 
 import { block, int, num } from "./formats";
 
@@ -44,7 +50,13 @@ export type PfScoring = {
   def_points_allowed: boolean;
 };
 
+export type PfStyle = "roster" | "weekly";
+/** Weekly style: each player locks at his own game's kickoff, or the whole lineup at the round's first. */
+export type PfWeeklyLock = "player" | "week";
+
 export type PfSettings = {
+  style: PfStyle;
+  weekly_lock: PfWeeklyLock;
   /**
    * Demo pools only (set in the database, not on Settings): before the real playoff field is
    * set, use the teams that would be in if the season ended today.
@@ -63,6 +75,8 @@ export type PfSettings = {
 
 /** The most common league scoring (full PPR), on a 14-player roster: one from each playoff team. */
 export const PF_DEFAULT: PfSettings = {
+  style: "roster",
+  weekly_lock: "player",
   lock_at: null,
   roster: { QB: 2, RB: 4, WR: 4, TE: 2, K: 1, DEF: 1 },
   scoring: {
@@ -91,6 +105,9 @@ export const PF_DEFAULT: PfSettings = {
   },
 };
 
+/** The NFL.com Playoff Challenge lineup: QB, 2 RB, 2 WR, TE, K, DEF (8 players). */
+export const NFL_COM_ROSTER: Record<Position, number> = { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 };
+
 export function pfSettings(settings: unknown): PfSettings {
   const s = block(settings, "playoff_fantasy");
   const r = (s.roster ?? {}) as Record<string, unknown>;
@@ -98,6 +115,8 @@ export function pfSettings(settings: unknown): PfSettings {
   const d = PF_DEFAULT.scoring;
   const n = (k: keyof PfScoring, lo: number, hi: number) => num(sc[k], lo, hi) ?? (d[k] as number);
   return {
+    style: s.style === "weekly" ? "weekly" : "roster",
+    weekly_lock: s.weekly_lock === "week" ? "week" : "player",
     demo_projected: s.demo_projected === true,
     demo_sim:
       s.demo_sim && typeof s.demo_sim === "object"
@@ -137,7 +156,8 @@ export const rosterSize = (s: PfSettings) => POSITIONS.reduce((t, p) => t + s.ro
 export function pfSettingsError(s: PfSettings): string | null {
   const size = rosterSize(s);
   if (size < 1) return "The roster needs at least one spot.";
-  if (size > 14) return `The roster has ${size} spots, but only 14 teams make the playoffs (one player per team).`;
+  if (s.style === "roster" && size > 14) return `The roster has ${size} spots, but only 14 teams make the playoffs (one player per team).`;
+  if (size > 20) return `The lineup has ${size} spots; 20 is the most.`;
   return null;
 }
 
@@ -155,10 +175,22 @@ export function pfRules(s: PfSettings): string[] {
     sc.bonus_rush_100 ? `${signed(sc.bonus_rush_100)} for 100 rushing yards` : null,
     sc.bonus_rec_100 ? `${signed(sc.bonus_rec_100)} for 100 receiving yards` : null,
   ].filter(Boolean);
+  const how =
+    s.style === "weekly"
+      ? [
+          `Set a lineup of ${rosterSize(s)} each round: ${spots}. Any players, no limit per team.`,
+          "Keep a player in your lineup and his points multiply: 2x his second straight round, 3x his third, 4x his fourth. Swap him out and he starts over at 1x.",
+          "Your lineup carries over to the next round; players whose team is out drop off.",
+          s.weekly_lock === "player" ? "Each player locks when his game kicks off." : "The whole lineup locks when the round's first game kicks off.",
+          "Most total points through the Super Bowl wins.",
+        ]
+      : [
+          `Build one roster of ${rosterSize(s)}: ${spots}.`,
+          "Only one player from each playoff team.",
+          "Every player counts every week, from the Wild Card round through the Super Bowl. Most total points wins.",
+        ];
   return [
-    `Build one roster of ${rosterSize(s)}: ${spots}.`,
-    "Only one player from each playoff team.",
-    "Every player counts every week, from the Wild Card round through the Super Bowl. Most total points wins.",
+    ...how,
     `Scoring: ${recLabel(sc.rec)}, ${sc.pass_td} per passing touchdown, ${sc.rush_td} per rushing or receiving touchdown, 1 point per ${sc.pass_yds_per_pt} passing yards and per ${sc.yds_per_pt} rushing or receiving yards.`,
     ...(bonuses.length ? [`Yardage bonuses: ${bonuses.join(", ")}.`] : []),
     `Kickers: ${sc.fg} for a field goal under 40 yards, ${sc.fg_40} from 40-49, ${sc.fg_50} from 50 or more, ${sc.xp} per extra point. Two-point conversions: ${sc.two_pt}.`,

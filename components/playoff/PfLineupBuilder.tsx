@@ -16,7 +16,9 @@ const STARTERS: Record<Position, number> = { QB: 1, RB: 1, WR: 3, TE: 1, K: 1, D
 /**
  * Build the lineup, laid out like the other pools' My Picks: the lineup on the left (a spot for
  * every position), the playoff teams on the right as cards of their players, starters first.
- * One player per team (a used team's card dims) and no more at a position than it has spots.
+ * One player per team (a used team's card dims; weekly style: any number) and no more at a
+ * position than it has spots. Weekly style also marks players whose game has kicked off (they
+ * can't come in or out) and each player's multiplier this round (2x his second straight round).
  * Filter by position or team, or search; tap a name for his game log and season stats (a
  * defense: the team's recent games). Saves the whole lineup at once; it can be part-filled.
  */
@@ -32,6 +34,10 @@ export function PfLineupBuilder({
   timezone = "America/Chicago",
   stats = {},
   injuries = {},
+  oneTeam = true,
+  lockedIds = [],
+  mult = {},
+  title,
 }: {
   players: Player[];
   teams: Team[];
@@ -48,7 +54,23 @@ export function PfLineupBuilder({
   stats?: Record<string, { line: string; vol: number }>;
   /** Injury designations: Q, D or O. */
   injuries?: Record<string, "Q" | "D" | "O">;
+  /** One player per team (season roster). Weekly style: false. */
+  oneTeam?: boolean;
+  /** Weekly style: players whose game has kicked off (they can't come in or out of the lineup). */
+  lockedIds?: string[];
+  /** Weekly style: each player's multiplier this round if he's in the lineup (2 = his second straight round). */
+  mult?: Record<string, number>;
+  /** The lineup's heading (default "My Lineup"). */
+  title?: string;
 }) {
+  const lockedSet = useMemo(() => new Set(lockedIds), [lockedIds]);
+  // "2x" beside a player who'd score double (or more) this round.
+  const multTag = (id: string) =>
+    (mult[id] ?? 1) > 1 ? (
+      <span title={`${mult[id]}x: in the lineup ${mult[id]} rounds in a row`} className="shrink-0 rounded bg-[var(--win-fill)] px-1 text-[10px] font-extrabold leading-4 tabular-nums text-win">
+        {mult[id]}x
+      </span>
+    ) : null;
   const byId = useMemo(() => new Map(players.map((p) => [p.id, p])), [players]);
   const teamOf = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
   const [picked, setPicked] = useState<string[]>(initial.filter((id) => byId.has(id)));
@@ -64,7 +86,8 @@ export function PfLineupBuilder({
   const total = open.reduce((t, p) => t + roster[p], 0);
   const mine: Player[] = picked.flatMap((id) => (byId.has(id) ? [byId.get(id) as Player] : []));
   const countAt = (p: Position) => mine.filter((x) => x.pos === p).length;
-  const usedTeams = new Map(mine.map((p) => [p.teamId, p]));
+  // Season roster: a team, once used, is out of reach. Weekly style has no team limit.
+  const usedTeams = new Map(oneTeam ? mine.map((p) => [p.teamId, p]) : []);
 
   // Every tap saves at once. Saves run one after another (the last one wins); one that fails puts
   // the lineup back to what was last saved.
@@ -181,11 +204,19 @@ export function PfLineupBuilder({
                   >
                     <span className="min-w-0 truncate text-sm font-semibold text-ink">{pl.name}</span>
                     {injuryTag(pl)}
+                    {multTag(pl.id)}
                     <span className="shrink-0 text-xs text-muted">{team?.abbreviation}</span>
                   </button>
-                  <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
-                    ×
-                  </button>
+                  {lockedSet.has(pl.id) ? (
+                    <span title="His game has kicked off" className="grid size-7 shrink-0 place-items-center text-muted lg:size-6">
+                      <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-3.5"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clipRule="evenodd" /></svg>
+                      <span className="sr-only">Locked</span>
+                    </span>
+                  ) : (
+                    <button type="button" onClick={() => toggle(pl)} aria-label={`Remove ${pl.name}`} className="grid size-7 shrink-0 place-items-center rounded-full text-lg leading-none text-muted transition hover:bg-hover hover:text-loss lg:size-6">
+                      ×
+                    </button>
+                  )}
                 </>
               ) : (
                 <button type="button" onClick={() => setPos(p)} className="-mx-1.5 flex-1 rounded-md px-1.5 py-1 text-left text-sm text-faint transition hover:bg-hover hover:text-accent">
@@ -228,7 +259,7 @@ export function PfLineupBuilder({
         {/* Desktop: the lineup on the left (phones: View My Lineup at the bottom of the screen). */}
         <aside aria-label="My lineup" className="hidden lg:flex lg:min-h-0 lg:flex-col">
           <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-            <h2 className="mb-1 shrink-0 text-lg font-extrabold tracking-[-0.03em]">{forName ? "Their lineup" : "My Lineup"}</h2>
+            <h2 className="mb-1 shrink-0 text-lg font-extrabold tracking-[-0.03em]">{title ?? (forName ? "Their lineup" : "My Lineup")}</h2>
             {lineupList(true)}
           </div>
         </aside>
@@ -262,7 +293,7 @@ export function PfLineupBuilder({
             </div>
             {/* The 14 teams: one row when there's room; two even rows of seven on phones. In dark mode
                 each logo sits on a light circle, so dark logos (Texans, Raiders) stay visible. */}
-            <div className="w-full lg:w-auto" aria-label="Teams still free">
+            <div className={`w-full lg:w-auto ${oneTeam ? "" : "hidden"}`} aria-label="Teams still free">
               <span className="mb-1 block text-xs font-medium text-muted tabular-nums lg:hidden">{teams.length - usedTeams.size} teams left</span>
               <div className="grid grid-cols-7 justify-items-center gap-1 sm:grid-cols-14 lg:flex lg:items-center">
                 <span className="mr-1 hidden text-xs font-medium text-muted tabular-nums lg:inline">{teams.length - usedTeams.size} teams left</span>
@@ -338,7 +369,7 @@ export function PfLineupBuilder({
                     <ul className="divide-y divide-line">
                       {list.map((p) => {
                         const on = picked.includes(p.id);
-                        const blocked = on ? null : used ? "Team used" : countAt(p.pos) >= roster[p.pos] ? `${p.pos} full` : null;
+                        const blocked = lockedSet.has(p.id) ? "Locked" : on ? null : used ? "Team used" : countAt(p.pos) >= roster[p.pos] ? `${p.pos} full` : null;
                         return (
                           <li key={p.id} className="flex min-h-8 items-center gap-2 py-0.5">
                             <span className="w-7 shrink-0 text-[11px] font-bold text-muted">{p.pos}</span>
@@ -351,6 +382,7 @@ export function PfLineupBuilder({
                             >
                               <span className={`shrink-0 whitespace-nowrap text-[13px] ${on ? "font-bold text-accent" : "font-semibold text-ink"}`}>{p.name}</span>
                               {injuryTag(p)}
+                              {multTag(p.id)}
                               {/* Desktop: his season so far in his main category. */}
                               {/* The whole line always shows: it shrinks to fit rather than being cut off. */}
                               {stats[p.id] && (
@@ -394,13 +426,13 @@ export function PfLineupBuilder({
             {lockText && <span className="ml-3 hidden font-normal text-muted lg:inline">{lockText}</span>}
           </span>
           <span className={`flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
-            {status === "saving" ? "Saving…" : status === "error" ? "Not saved" : status === "saved" ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : `${teams.length - usedTeams.size} teams left`}
+            {status === "saving" ? "Saving…" : status === "error" ? "Not saved" : status === "saved" ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : oneTeam ? `${teams.length - usedTeams.size} teams left` : ""}
           </span>
         </div>
       </div>
       <GridPanelDrawer title="My Lineup" tabId="pf-lineup-button" tabClassName="lg:hidden !bottom-[calc(2.5rem+2px+env(safe-area-inset-bottom))] !pb-1.5">
         <p className="mb-2 text-sm text-muted tabular-nums">
-          {mine.length} of {total} picked · {teams.length - usedTeams.size} teams left
+          {mine.length} of {total} picked{oneTeam ? ` · ${teams.length - usedTeams.size} teams left` : ""}
         </p>
         {lineupList(false)}
       </GridPanelDrawer>

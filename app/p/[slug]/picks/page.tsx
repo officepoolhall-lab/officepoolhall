@@ -31,7 +31,8 @@ export default async function PicksPage({ params, searchParams }: PageProps<"/p/
   if (isPickX(ctx.pool.settings)) return <PickXPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} />;
   const format = poolFormat(ctx.pool.settings);
   if (format === "survivor") return <SurvivorPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} weekParam={typeof weekParam === "string" ? weekParam : undefined} />;
-  if (format === "playoff_fantasy") return <PfPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} />;
+  if (format === "playoff_fantasy")
+    return <PfPicksPage ctx={ctx} slug={slug} forUserId={typeof forParam === "string" ? forParam : undefined} round={typeof weekParam === "string" && /^\d$/.test(weekParam) ? Number(weekParam) : undefined} />;
   // Squares are taken on the board itself.
   if (format === "squares") redirect(`/p/${slug}`);
   const [slates, current, upcoming] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), getUpcomingSlate(ctx)]);

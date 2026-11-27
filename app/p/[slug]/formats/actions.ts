@@ -5,7 +5,9 @@ import { fromZonedTime } from "date-fns-tz";
 import type { ActionState } from "@/components/ActionForm";
 import { poolFormat } from "@/lib/formats";
 import { pfSettings, pfSettingsError, rosterSize } from "@/lib/playoffFantasy";
-import { setupFromEspn } from "@/lib/playoffFantasyData";
+import { getPf, getPfGames, setupFromEspn } from "@/lib/playoffFantasyData";
+import { WEEKLY_ROUNDS, currentRound, effectiveLineups, lostIn, weeklyChangeError, type WeeklyPlayer } from "@/lib/pfWeekly";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getPoolBase, requireCommissioner, requirePoolCommissioner } from "@/lib/pool";
 import { squaresSettings, squaresSettingsError } from "@/lib/squares";
 import { survivorSettings, survivorSettingsError } from "@/lib/survivor";
@@ -53,7 +55,12 @@ export async function saveFormatSettings(slug: string, _: ActionState, form: For
     s.lock_at = local ? fromZonedTime(local, ctx.settings.timezone).toISOString() : null;
     if (local && Number.isNaN(Date.parse(s.lock_at!))) return { error: "That lock time isn't a date." };
     // Once rosters have locked, the spots stay as they were (everyone built to them).
-    if (before.lock_at && Date.parse(before.lock_at) <= Date.now()) s.roster = before.roster;
+    if (before.lock_at && Date.parse(before.lock_at) <= Date.now()) {
+      s.roster = before.roster;
+      s.style = before.style;
+    }
+    // A weekly pool's lock is the first Wild Card kickoff (set by itself); its field isn't shown.
+    if (s.style === "weekly" && !local) s.lock_at = before.lock_at;
     [rules, problem] = [s, pfSettingsError(s)];
   }
   if (problem) return { error: problem };
@@ -202,6 +209,57 @@ export async function saveSquaresBoard(slug: string, _: ActionState, form: FormD
 export async function savePfLineup(slug: string, forUserId: string | null, playerIds: string[]): Promise<{ error?: string }> {
   const ctx = await getPoolBase(slug);
   const { error } = await dbOf(ctx).rpc("submit_pf_lineup", { p_pool_id: ctx.pool.id, p_player_ids: playerIds, p_user_id: forUserId ?? ctx.entryUserId });
+  if (error) return { error: error.message };
+  refresh(slug);
+  return {};
+}
+
+/**
+ * Weekly style: save one round's lineup (all of it each time; it can be part-filled). Checked here
+ * against the playoff schedule: only the current round, only players whose teams play in it, the
+ * position spots, and nobody in or out once his game (or, by the pool's setting, the round) has
+ * kicked off. The commissioner, setting another entry's lineup, can change any round so far
+ * (spots still checked). Saved with the service key: the table has no write access otherwise.
+ */
+export async function savePfWeekly(slug: string, forUserId: string | null, round: number, playerIds: string[]): Promise<{ error?: string }> {
+  const ctx = await getPoolBase(slug);
+  if (ctx.isGuest) return { error: "Guests can't set a lineup." };
+  const behalf = Boolean(forUserId && forUserId !== ctx.entryUserId);
+  if (behalf && !ctx.isCommissioner) return { error: "Only the commissioner can set another entry's lineup." };
+  const target = behalf ? forUserId! : ctx.entryUserId;
+  const { settings, players, teams, entries } = await getPf(ctx);
+  if (settings.style !== "weekly") return { error: "This pool uses one roster for the playoffs." };
+  const entry = entries.find((e) => e.userId === target);
+  if (!entry) return { error: "This entry isn't playing." };
+  if (!Number.isInteger(round) || round < 0 || round >= WEEKLY_ROUNDS) return { error: "That round doesn't exist." };
+
+  const games = await getPfGames(ctx.pool.season, players, teams, settings.demo_sim);
+  const espnOf = new Map(teams.map((t) => [t.id, t.espnId ?? ""]));
+  const wp = new Map<string, WeeklyPlayer>(players.map((p) => [p.id, { id: p.id, pos: p.pos, team: espnOf.get(p.teamId) ?? "" }]));
+  const cur = currentRound(games);
+  const before = effectiveLineups(entry.weekly ?? [], (id) => wp.get(id)?.team, lostIn(games), cur)[round] ?? [];
+  const ids = [...playerIds];
+  let problem: string | null;
+  if (behalf) {
+    // The commissioner: any round so far; the spots still apply.
+    const count = new Map<string, number>();
+    problem = round > cur ? "That round isn't open yet." : new Set(ids).size !== ids.length ? "A player is in the lineup twice." : null;
+    for (const id of ids) {
+      const p = wp.get(id);
+      if (!p) problem ??= "That player isn't in the pool's player list.";
+      else {
+        count.set(p.pos, (count.get(p.pos) ?? 0) + 1);
+        if ((count.get(p.pos) ?? 0) > settings.roster[p.pos]) problem ??= `The lineup only has ${settings.roster[p.pos]} ${p.pos} spot${settings.roster[p.pos] === 1 ? "" : "s"}.`;
+      }
+    }
+  } else {
+    problem = weeklyChangeError(before, ids, round, { games, players: wp, roster: settings.roster, now: Date.now(), mode: settings.weekly_lock, names: new Map(players.map((p) => [p.id, p.name])) });
+  }
+  if (problem) return { error: problem };
+
+  const { error } = await (createAdminClient() as unknown as Db)
+    .from("pf_weekly_lineups")
+    .upsert({ pool_id: ctx.pool.id, user_id: target, round, player_ids: ids, edited_by: ctx.user.id, updated_at: new Date().toISOString() }, { onConflict: "pool_id,user_id,round" });
   if (error) return { error: error.message };
   refresh(slug);
   return {};
