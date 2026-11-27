@@ -33,6 +33,24 @@ export function lineupFits(count: Partial<Record<Position, number>>, roster: Rec
   return over <= flex;
 }
 
+/** The lineup's spots in order: QB, RB, WR, TE, then FLEX, then K and DEF. */
+export const SLOT_ORDER = ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"] as const;
+
+/**
+ * Each player's spot in a lineup: his position, or FLEX for a running back, receiver or tight end
+ * past his position's spots (the ones picked last, as in the lineup builder). In lineup order,
+ * keeping the given order within a spot.
+ */
+export function lineupSlots<T extends { pos: Position }>(list: T[], roster: Record<Position, number>, flex: number): { p: T; slot: string }[] {
+  const seen: Partial<Record<Position, number>> = {};
+  const out = list.map((p) => {
+    const n = (seen[p.pos] = (seen[p.pos] ?? 0) + 1);
+    return { p, slot: flex > 0 && FLEX_POS.includes(p.pos) && n > roster[p.pos] ? "FLEX" : p.pos };
+  });
+  const at = (s: string) => (SLOT_ORDER as readonly string[]).indexOf(s);
+  return out.map((x, i) => ({ x, i })).sort((a, b) => at(a.x.slot) - at(b.x.slot) || a.i - b.i).map(({ x }) => x);
+}
+
 /** One more player at this position would still fit (his own spots, or a flex spot). */
 export function canAdd(count: Partial<Record<Position, number>>, pos: Position, roster: Record<Position, number>, flex: number): boolean {
   return lineupFits({ ...count, [pos]: (count[pos] ?? 0) + 1 }, roster, flex);

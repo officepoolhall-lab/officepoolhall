@@ -7,7 +7,7 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { FLEX_POS, POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterText, pfScoringTable, rosterSize, statColumns, type PfDemoSeeds, type PfSettings } from "@/lib/playoffFantasy";
+import { FLEX_POS, POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, lineupSlots, SLOT_ORDER, rosterText, pfScoringTable, rosterSize, statColumns, type PfDemoSeeds, type PfSettings } from "@/lib/playoffFantasy";
 import { ScoringInfo as ScoringPopup } from "@/components/ScoringInfo";
 import type { ReactNode } from "react";
 import { NO_POINTS, pfPicture, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, weeklyView, type PfEntry, type PfPlayer, type PfPoints, type PfRow, type PfTeam, type PfWeeklyRow } from "@/lib/playoffFantasyData";
@@ -51,13 +51,16 @@ async function standingsFor(ctx: PoolBase, settings: PfSettings, players: PfPlay
 }
 
 /** One entry's roster for the locked My Team table: position by position, each player's pool ownership, points by round and his playoff games. */
-function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: PfPoints, own: Map<string, number> | null): PfRosterRow[] {
+function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: PfPoints, own: Map<string, number> | null, settings: PfSettings): PfRosterRow[] {
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
   const mine = ids.map((id) => playerOf.get(id)).filter((p): p is PfPlayer => Boolean(p));
-  const order = (p: PfPlayer) => POSITIONS.indexOf(p.pos);
+  // Spot by spot (a flex player labelled FLEX), by name within a spot.
+  const slots = lineupSlots(mine, settings.roster, settings.flex);
+  const slotOf = new Map(slots.map((x) => [x.p.id, x.slot]));
+  const rank = (p: PfPlayer) => SLOT_ORDER.indexOf(slotOf.get(p.id) as (typeof SLOT_ORDER)[number]);
   return [...mine]
-    .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name))
+    .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
     .map((p) => {
       const team = teamOf.get(p.teamId);
       const espn = team?.espnId ?? "";
@@ -68,6 +71,7 @@ function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: Pf
         id: p.id,
         name: p.name,
         pos: p.pos,
+        slot: slotOf.get(p.id) === "FLEX" ? "FLEX" : undefined,
         team: team?.abbreviation ?? null,
         logo: team?.logo_url ?? null,
         out: pts.out.has(espn),
@@ -378,7 +382,7 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
               </span>
               <span className="shrink-0 text-lg font-extrabold tabular-nums">{fmt(row.points)}</span>
             </div>
-            <PfRosterTable rows={rosterRows(entry.playerIds, players, teams, pts, ownership(entries))} roundTotals={row.rounds} started={pts.roundsStarted} />
+            <PfRosterTable rows={rosterRows(entry.playerIds, players, teams, pts, ownership(entries), settings)} roundTotals={row.rounds} started={pts.roundsStarted} />
             <p className="mt-2 text-xs text-muted">Lineups locked {lockLabel(settings.lock_at!, tz)}.</p>
           </section>
         )}
@@ -484,7 +488,7 @@ async function PfWeeklyPicks({
         {pts.live && <AutoRefresh active />}
         {chips}
         <section className="sm:max-w-xl">
-          <PfWeeklyRounds row={row} players={players} teams={teams} pts={pts} rounds={[r]} />
+          <PfWeeklyRounds row={row} players={players} teams={teams} pts={pts} rounds={[r]} roster={settings.roster} flex={settings.flex} />
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <ScoringInfo settings={settings} /> {r < cur ? "This round is over." : "This round's lineup has locked."} A player&apos;s points are multiplied by the rounds in a row he&apos;s been in the lineup.
           </p>
@@ -599,14 +603,14 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
                     <p className="py-1.5 text-xs text-muted">Shows when lineups lock.</p>
                   ) : weekly && "lineups" in r ? (
                     <div className="pt-1">
-                      <PfWeeklyRounds row={r} players={players} teams={teams} pts={pts} rounds={Array.from({ length: weekly.cur + 1 }, (_, i) => i)} hidden={r.userId !== me && !ctx.isCommissioner} compact />
+                      <PfWeeklyRounds row={r} players={players} teams={teams} pts={pts} rounds={Array.from({ length: weekly.cur + 1 }, (_, i) => i)} hidden={r.userId !== me && !ctx.isCommissioner} compact roster={settings.roster} flex={settings.flex} />
                     </div>
                   ) : !r.playerIds.length ? (
                     <p className="py-1.5 text-xs text-muted">No lineup set.</p>
                   ) : (
                     <>
                       <p className="pb-1 text-[11px] tabular-nums text-muted">{r.alive} of {r.playerIds.length} still playing</p>
-                      <PfRosterTable rows={rosterRows(r.playerIds, players, teams, pts, own)} roundTotals={r.rounds} started={started} compact />
+                      <PfRosterTable rows={rosterRows(r.playerIds, players, teams, pts, own, settings)} roundTotals={r.rounds} started={started} compact />
                     </>
                   )}
                 </div>

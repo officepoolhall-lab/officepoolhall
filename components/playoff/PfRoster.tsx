@@ -26,6 +26,8 @@ export type PfRosterRow = {
   id: string;
   name: string;
   pos: string;
+  /** His lineup spot when it isn't his position: "FLEX". */
+  slot?: string;
   team: string | null;
   logo: string | null;
   out: boolean;
@@ -67,7 +69,7 @@ export function PfRosterTable({ rows, roundTotals, started, compact = false }: {
               className={`${GRID} w-full cursor-pointer ${compact ? "py-1.5" : "py-2"} text-left hover:bg-surface ${p.out ? "opacity-55" : ""}`}
               aria-label={`${p.name}: playoff games`}
             >
-              <span className="text-center text-[11px] font-bold text-muted">{p.pos}</span>
+              <span className="text-center text-[11px] font-bold text-muted">{p.slot ?? p.pos}</span>
               <span className="flex min-w-0 flex-col">
                 <span className="flex min-w-0 items-center gap-2">
                   <TeamLogo src={p.logo} abbr={p.team} className={`${compact ? "size-4" : "size-5"} shrink-0`} />
