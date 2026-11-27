@@ -37,6 +37,11 @@ export type PfRosterRow = {
   /** The game log's stat columns for his position. */
   statHead: { group: string; label: string }[];
   rounds: PfLogRound[];
+  /**
+   * Weekly style: his multiplier each round in this entry's lineup (null: not in it that round).
+   * The pop-out then shows each round's multiplier and the points it scored for the entry.
+   */
+  mult?: (number | null)[];
 };
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
@@ -105,6 +110,19 @@ export function PfRosterTable({ rows, roundTotals, started, compact = false }: {
       {!compact && <FitText min={8} className="mt-2 text-xs text-muted">Tap a player to view game stats. Own % is the share of the pool&apos;s lineups with that player.</FitText>}
       {open && <PlayoffLog row={open} started={started} onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+/** A player's name (or any row) that opens his playoff games: for lineups outside the roster table. */
+export function PfPlayerButton({ row, started, className = "", children }: { row: PfRosterRow; started: number; className?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-label={`${row.name}: playoff games`} className={`cursor-pointer text-left transition hover:bg-hover ${className}`}>
+        {children}
+      </button>
+      {open && <PlayoffLog row={row} started={started} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
@@ -187,6 +205,13 @@ const TD = "px-1.5 text-right tabular-nums";
  */
 function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
   const head = row.statHead;
+  // Weekly style: each round's multiplier in the entry's lineup and the points it scored there.
+  const mult = row.mult;
+  const multOf = (r: LogGame) => mult?.[r.i] ?? null;
+  const lineupPts = (r: LogGame) => (multOf(r) === null || !r.game ? null : (r.points ?? 0) * multOf(r)!);
+  const lineupTotal = games.reduce((t, r) => t + (lineupPts(r) ?? 0), 0);
+  const multTag = (m: number | null) =>
+    m === null ? <span className="text-muted">–</span> : m > 1 ? <span className="rounded bg-[var(--win-fill)] px-1 text-[11px] font-extrabold tabular-nums text-win">{m}x</span> : <span className="text-[11px] tabular-nums text-muted">1x</span>;
   const runs = groupRuns(head);
   // Each group's first column gets a divider on its left.
   const starts = new Set(runs.slice(1).map((r) => r.start));
@@ -202,19 +227,24 @@ function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
         <th key={k} colSpan={r.span} className={`${TH} border-b border-line pb-1 text-center ${k > 0 ? "border-l" : ""}`}>{r.group}</th>
       ))}
       <th />
+      {mult && <th colSpan={2} />}
     </tr>
   );
   const labels = (lead: ReactNode) => (
     <tr className="border-b border-line">
       {lead}
       {head.map((h, j) => <th key={j} className={`${TH} py-1 text-right ${sep(j)}`}>{h.label}</th>)}
-      <th className={`${TH} py-1 pr-0 text-right`}>PTS</th>
+      <th className={`${TH} py-1 ${mult ? "" : "pr-0"} text-right`}>PTS</th>
+      {mult && <th className={`${TH} py-1 text-center`}>MULT</th>}
+      {mult && <th className={`${TH} py-1 pr-0 text-right`}>LINEUP</th>}
     </tr>
   );
   const totalCells = (
     <>
       {totals.map((v, j) => <td key={j} className={`${TD} py-2 ${sep(j)}`}>{v}</td>)}
-      <td className={`${TD} py-2 pr-0`}>{fmt(row.total)}</td>
+      <td className={`${TD} py-2 ${mult ? "" : "pr-0"}`}>{fmt(row.total)}</td>
+      {mult && <td />}
+      {mult && <td className={`${TD} py-2 pr-0`}>{fmt(lineupTotal)}</td>}
     </>
   );
   return (
@@ -231,7 +261,9 @@ function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
               <td className="whitespace-nowrap py-2 pr-1.5 font-semibold">{ROUNDS[r.i].name}</td>
               <td className="px-1.5 py-2">{r.game ? <Matchup g={r.game} /> : <span className="text-muted">Bye</span>}</td>
               {head.map((_, j) => <td key={j} className={`${TD} py-2 ${sep(j)}`}>{r.game ? stat(r, j) : ""}</td>)}
-              <td className={`${TD} py-2 pr-0 font-bold`}>{r.game ? fmt(r.points ?? 0) : "–"}</td>
+              <td className={`${TD} py-2 ${mult ? "" : "pr-0 font-bold"}`}>{r.game ? fmt(r.points ?? 0) : "–"}</td>
+              {mult && <td className="px-1.5 py-2 text-center">{r.game ? multTag(multOf(r)) : ""}</td>}
+              {mult && <td className={`${TD} py-2 pr-0 font-bold`}>{lineupPts(r) === null ? "–" : fmt(lineupPts(r)!)}</td>}
             </tr>
           ))}
         </tbody>
@@ -254,6 +286,12 @@ function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
             </div>
           ))}
         </div>
+        {mult && (
+          <div className="mt-1.5 flex items-center justify-between rounded-lg bg-surface px-2.5 py-1.5 text-sm">
+            <span className="text-muted">In this lineup, with multipliers</span>
+            <span className="font-bold tabular-nums">{fmt(lineupTotal)}</span>
+          </div>
+        )}
         <ul className="mt-2">
           {games.map((r) => (
             <li key={r.i} className="border-t border-line py-2">
@@ -262,7 +300,15 @@ function GameLog({ row, games }: { row: PfRosterRow; games: LogGame[] }) {
                   <span className="w-9 shrink-0 text-xs font-bold">{ROUNDS[r.i].short}</span>
                   {r.game ? <Matchup g={r.game} /> : <span className="text-xs text-muted">Bye</span>}
                 </span>
-                <span className="shrink-0 font-bold tabular-nums">{r.game ? fmt(r.points ?? 0) : "–"}</span>
+                {mult && r.game && multOf(r) !== null ? (
+                  <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
+                    <span className="text-xs text-muted">{fmt(r.points ?? 0)}</span>
+                    {multTag(multOf(r))}
+                    <span className="font-bold">{fmt(lineupPts(r)!)}</span>
+                  </span>
+                ) : (
+                  <span className="shrink-0 font-bold tabular-nums">{r.game ? fmt(r.points ?? 0) : "–"}</span>
+                )}
               </div>
               {r.game && (
                 <div className="mt-1.5 grid text-center tabular-nums" style={{ gridTemplateColumns: `repeat(${head.length}, minmax(0, 1fr))` }}>
