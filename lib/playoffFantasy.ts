@@ -2,7 +2,7 @@
 // - "roster" (the default): each entry builds one roster before the Wild Card round, one player
 //   from each playoff team, and scores fantasy points through the Super Bowl. Every player on
 //   the roster counts every week; a player stops scoring when his team is out.
-// - "weekly" (the old NFL.com Playoff Challenge): a lineup each round, any players (no team
+// - "weekly": a lineup each round, any players (no team
 //   limit). A player's points are multiplied by how many rounds in a row he's been in the
 //   lineup (2x his second straight round, up to 4x); swapping him out starts him over. Last
 //   round's lineup carries over, less players whose team is out. Lineups lock player by player
@@ -105,8 +105,8 @@ export const PF_DEFAULT: PfSettings = {
   },
 };
 
-/** The NFL.com Playoff Challenge lineup: QB, 2 RB, 2 WR, TE, K, DEF (8 players). */
-export const NFL_COM_ROSTER: Record<Position, number> = { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 };
+/** The weekly style's starting lineup: QB, 2 RB, 2 WR, TE, K, DEF (8 players). */
+export const WEEKLY_ROSTER: Record<Position, number> = { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 };
 
 export function pfSettings(settings: unknown): PfSettings {
   const s = block(settings, "playoff_fantasy");

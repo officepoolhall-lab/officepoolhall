@@ -3,7 +3,7 @@ import { TeamLogo } from "@/components/ui";
 import { POSITIONS, ROUNDS } from "@/lib/playoffFantasy";
 import type { PfPlayer, PfPoints, PfTeam, PfWeeklyRow } from "@/lib/playoffFantasyData";
 
-// Weekly style (NFL.com Playoff Challenge): an entry's lineup round by round, each player with his
+// Weekly style: an entry's lineup round by round, each player with his
 // multiplier and points (already multiplied), the round's total in its heading. Rounds side by
 // side on wide screens, one under another on phones.
 

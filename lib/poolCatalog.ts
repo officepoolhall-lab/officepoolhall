@@ -30,7 +30,7 @@ export const LEAGUES: CatalogLeague[] = [
       { live: true, id: "confidence", name: "Confidence", template: "nfl_confidence", text: "Pick every game and rank them by how sure you are. Your surest pick is worth the most." },
       { live: true, id: "squares", name: "Super Bowl Squares", template: "nfl_squares", text: "Claim squares on a 10-by-10 grid for the Super Bowl. The score at the end of each quarter pays a square." },
       { live: false, id: "guillotine", name: "Guillotine Fantasy", text: "A fantasy league where the lowest-scoring team is cut each week and its players go back up for grabs." },
-      { live: true, id: "playoff-fantasy", name: "Playoff Fantasy", template: "nfl_playoff_fantasy", text: "Pick NFL players for the playoffs: one roster for the whole postseason, or a new lineup each round with NFL.com-style multipliers." },
+      { live: true, id: "playoff-fantasy", name: "Playoff Fantasy", template: "nfl_playoff_fantasy", text: "Pick NFL players for the playoffs: one roster for the whole postseason, or a new lineup each round where keeping a player multiplies his points." },
     ],
   },
   {

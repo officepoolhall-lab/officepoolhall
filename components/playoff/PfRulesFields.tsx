@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Segmented, SettingRow, SettingsSection, Toggle, settingInput } from "@/components/SettingsUI";
-import { NFL_COM_ROSTER, PF_DEFAULT, POSITIONS, POSITION_NAME, pfRules, pfSettingsError, rosterSize, type PfScoring, type PfSettings } from "@/lib/playoffFantasy";
+import { WEEKLY_ROSTER, PF_DEFAULT, POSITIONS, POSITION_NAME, pfRules, pfSettingsError, rosterSize, type PfScoring, type PfSettings } from "@/lib/playoffFantasy";
 
 /** Every scoring value, for the "all values" grid: label, key, and the step its input moves by. */
 const VALUES: { group: string; rows: [keyof PfScoring, string, number][] }[] = [
@@ -75,13 +75,13 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
         {locked && <p className="mt-2 text-xs text-muted">Rosters have locked, so the roster spots can&apos;t change. Scoring changes re-score everyone.</p>}
       </div>
 
-      <SettingsSection title="Format" description="One roster for the full playoffs, or a new lineup every round like the old NFL.com Playoff Challenge.">
+      <SettingsSection title="Format" description="One roster for the full playoffs, or a new lineup every round.">
         <SettingRow
           label="Format"
           locked={locked}
           hint={
             s.style === "weekly"
-              ? "Weekly (like the old NFL.com Playoff Challenge): a new lineup every round, any players, no team limit. Keep a player in your lineup and his points multiply, 2x his second straight round up to 4x; swap him out and he starts over."
+              ? "Weekly: a new lineup every round, any players, no team limit. Keep a player in your lineup and his points multiply, 2x his second straight round up to 4x; swap him out and he starts over."
               : "Full Playoffs: one roster before the Wild Card round, one player from each playoff team, every player scoring every round."
           }
         >
@@ -94,7 +94,7 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
                 v === p.style
                   ? p
                   : // Each style starts from its usual lineup and catch scoring (both stay editable).
-                    { ...p, style: v, roster: v === "weekly" ? { ...NFL_COM_ROSTER } : { ...PF_DEFAULT.roster }, scoring: { ...p.scoring, rec: v === "weekly" ? 0 : 1 } },
+                    { ...p, style: v, roster: v === "weekly" ? { ...WEEKLY_ROSTER } : { ...PF_DEFAULT.roster }, scoring: { ...p.scoring, rec: v === "weekly" ? 0 : 1 } },
               )
             }
             options={[
@@ -133,7 +133,7 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
         title="Roster"
         description={
           s.style === "weekly"
-            ? `How many players at each position, every round. ${size} spots in all (NFL.com used 8: QB, 2 RB, 2 WR, TE, K, DEF).`
+            ? `How many players at each position, every round. ${size} spots in all (it starts at 8: QB, 2 RB, 2 WR, TE, K, DEF).`
             : `How many players at each position. ${size} spots in all: with one player per team, ${size === 14 ? "that's exactly one from each of the 14 playoff teams." : `${14 - size} of the 14 playoff teams go unused.`}`
         }
       >

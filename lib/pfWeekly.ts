@@ -1,4 +1,4 @@
-// Playoff Fantasy, weekly style (the old NFL.com Playoff Challenge): a lineup each round, last
+// Playoff Fantasy, weekly style: a lineup each round, last
 // round's carrying over, points multiplied by how many rounds in a row a player has been in it.
 // Everything here is plain logic on the playoff games and the saved lineups, shared by the pages
 // and the save action (which checks a change against the same locks the pages show).
