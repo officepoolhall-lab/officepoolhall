@@ -75,14 +75,14 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
         {locked && <p className="mt-2 text-xs text-muted">Rosters have locked, so the roster spots can&apos;t change. Scoring changes re-score everyone.</p>}
       </div>
 
-      <SettingsSection title="Style" description="One roster for the whole playoffs, or a new lineup every round like the old NFL.com Playoff Challenge.">
+      <SettingsSection title="Format" description="One roster for the full playoffs, or a new lineup every round like the old NFL.com Playoff Challenge.">
         <SettingRow
           label="Format"
           locked={locked}
           hint={
             s.style === "weekly"
-              ? "Weekly lineups (NFL.com style): any players, no team limit. Keep a player in your lineup and his points multiply, 2x his second straight round up to 4x; swap him out and he starts over."
-              : "Season roster: one lineup before the Wild Card round, one player from each playoff team, every player scoring every round."
+              ? "Weekly (like the old NFL.com Playoff Challenge): a new lineup every round, any players, no team limit. Keep a player in your lineup and his points multiply, 2x his second straight round up to 4x; swap him out and he starts over."
+              : "Full Playoffs: one roster before the Wild Card round, one player from each playoff team, every player scoring every round."
           }
         >
           <Segmented
@@ -98,8 +98,8 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
               )
             }
             options={[
-              { value: "roster" as const, label: "Season roster" },
-              { value: "weekly" as const, label: "Weekly (NFL.com)" },
+              { value: "roster" as const, label: "Full Playoffs" },
+              { value: "weekly" as const, label: "Weekly" },
             ]}
           />
         </SettingRow>
