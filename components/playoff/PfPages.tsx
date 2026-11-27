@@ -297,6 +297,45 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
 }
 
 
+/**
+ * Each team's opponent in round r, for My Team: "vs PIT" at home, "@ DEN" away, "Bye" for a No. 1
+ * seed in the Wild Card round. From the playoff games once they're set; before that (a demo
+ * pool), the Wild Card matchups if the season ended today (2 hosts 7, 3 hosts 6, 4 hosts 5).
+ */
+async function opponentsFor(season: number, games: PlayoffGame[], teams: PfTeam[], r: number): Promise<Record<string, string>> {
+  const idOf = new Map(teams.map((t) => [t.espnId ?? "", t.id]));
+  const abbr = (t: { abbreviation: string | null; name: string }) => t.abbreviation ?? t.name;
+  const out: Record<string, string> = {};
+  const here = games.filter((g) => g.round === r && g.teams.length === 2);
+  if (here.length) {
+    for (const g of here)
+      for (const [a, b] of [[g.teams[0], g.teams[1]], [g.teams[1], g.teams[0]]]) {
+        const id = idOf.get(a.espnId);
+        if (id) out[id] = `${a.homeAway === "home" ? "vs" : "@"} ${abbr(b)}`;
+      }
+    // The Wild Card round: a playoff team with no game has the bye.
+    if (r === 0 && here.length >= 6) for (const t of teams) if (!out[t.id]) out[t.id] = "Bye";
+    return out;
+  }
+  if (r !== 0) return out;
+  const picture = await getPlayoffPicture(season).catch(() => null);
+  if (!picture) return out;
+  for (const seeds of [picture.AFC, picture.NFC]) {
+    const at = (n: number) => seeds.find((s) => s.seed === n);
+    const top = at(1);
+    if (top && idOf.has(top.espnId)) out[idOf.get(top.espnId)!] = "Bye";
+    for (const [h, a] of [[2, 7], [3, 6], [4, 5]]) {
+      const home = at(h);
+      const away = at(a);
+      // Only matchups between two of the pool's teams (its field may be from an earlier week).
+      if (!home || !away || !idOf.has(home.espnId) || !idOf.has(away.espnId)) continue;
+      out[idOf.get(home.espnId)!] = `vs ${abbr(away)}`;
+      out[idOf.get(away.espnId)!] = `@ ${abbr(home)}`;
+    }
+  }
+  return out;
+}
+
 export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBase; slug: string; forUserId?: string; /** Weekly style: which round to show (default: the current one). */ round?: number }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const tz = tzOf(ctx);
@@ -306,7 +345,8 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
   const title = behalf && entry ? <>Roster <span className="text-accent">for {entry.name}</span></> : "My Team";
   // The top of the page, as on every pool's My Picks: the round on the left, its live scores beside it.
   const now = Date.now(); // eslint-disable-line react-hooks/purity -- render-time snapshot
-  const ticker = playoffTicker(await getPfGames(ctx.pool.season, players, teams, settings.demo_sim));
+  const allGames = await getPfGames(ctx.pool.season, players, teams, settings.demo_sim);
+  const ticker = playoffTicker(allGames);
   const head = (sub?: ReactNode) => (
     <PoolPageHeader
       title={<>{ticker.label ?? "NFL Playoffs"}{behalf && entry ? <span className="text-accent"> for {entry.name}</span> : null}</>}
@@ -346,7 +386,7 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
     );
   }
 
-  const [stats, injuries] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams)]);
+  const [stats, injuries, opponents] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams), opponentsFor(ctx.pool.season, allGames, teams, 0)]);
   return (
     <>
       <h1 className="sr-only">{title}</h1>
@@ -367,6 +407,7 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
           lockText={settings.lock_at ? `Locks ${lockLabel(settings.lock_at, tz)}` : "Locks at the first Wild Card kickoff"}
           scoringInfo={<ScoringInfo settings={settings} />}
           timezone={tz}
+          opponents={opponents}
         />
       )}
     </>
@@ -452,7 +493,7 @@ async function PfWeeklyPicks({
     );
   }
 
-  const [stats, injuries] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams)]);
+  const [stats, injuries, opponents] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams), opponentsFor(ctx.pool.season, games, playing, r)]);
   return (
     <>
       <h1 className="sr-only">My Team</h1>
@@ -479,6 +520,7 @@ async function PfWeeklyPicks({
           oneTeam={false}
           lockedIds={lockedIds}
           mult={mult}
+          opponents={opponents}
         />
       )}
     </>

@@ -39,6 +39,7 @@ export function PfLineupBuilder({
   lockedIds = [],
   mult = {},
   title,
+  opponents = {},
 }: {
   players: Player[];
   teams: Team[];
@@ -65,6 +66,8 @@ export function PfLineupBuilder({
   mult?: Record<string, number>;
   /** The lineup's heading (default "My Lineup"). */
   title?: string;
+  /** Each team's opponent this round, by team id: "vs PIT", "@ DEN" or "Bye". */
+  opponents?: Record<string, string>;
 }) {
   const lockedSet = useMemo(() => new Set(lockedIds), [lockedIds]);
   // "2x" beside a player who'd score double (or more) this round.
@@ -166,7 +169,10 @@ export function PfLineupBuilder({
     }
     return keep;
   }, [players, stats, picked]);
+  // Only positions the pool's lineup has (its own spots, or RB/WR/TE with flex spots).
+  const usable = (p: Player) => roster[p.pos] > 0 || (flex > 0 && FLEX_POS.includes(p.pos));
   const shown = (p: Player) => {
+    if (!usable(p)) return false;
     if (pos !== "ALL" && p.pos !== pos) return false;
     if (picked.includes(p.id)) return true;
     if (q) return p.name.toLowerCase().includes(q) || (teamOf.get(p.teamId)?.name ?? "").toLowerCase().includes(q);
@@ -275,53 +281,8 @@ export function PfLineupBuilder({
           </div>
         </aside>
 
-        {/* Desktop: the progress bar and filters stay put; the team cards scroll under them. */}
+        {/* Desktop: the filters stay put; the team cards scroll under them. */}
         <div className="min-w-0 lg:flex lg:min-h-0 lg:flex-col">
-          {/* Above the players: how far along, when it locks, and which teams are still free (beside the lineup, so the whole lineup fits on screen). */}
-          <section className="mb-5 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 border-accent bg-surface px-4 py-2.5 lg:[@media(max-height:800px)]:mb-3 lg:[@media(max-height:800px)]:py-1.5">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-3">
-                <span className="text-xl font-extrabold tabular-nums tracking-[-0.02em] sm:text-2xl lg:[@media(max-height:800px)]:text-xl">
-                  {mine.length} <span className="text-muted">of {total} picked</span>
-                </span>
-                {lockText && <span className="text-sm text-muted">{lockText}</span>}
-                {scoringInfo && <span className="inline-flex items-center gap-1 self-center text-sm text-muted">{scoringInfo} Scoring</span>}
-              </div>
-              {/* Each tap saves on its own. */}
-              <div role="status" aria-live="polite" className={`mt-0.5 flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
-                {status === "saving" ? (
-                  "Saving…"
-                ) : status === "error" ? (
-                  error
-                ) : status === "saved" ? (
-                  <>
-                    <CheckIcon className="size-3.5 text-win" /> Saved
-                  </>
-                ) : (
-                  "Your picks save as you tap them."
-                )}
-              </div>
-            </div>
-            {/* The 14 teams: one row when there's room; two even rows of seven on phones. In dark mode
-                each logo sits on a light circle, so dark logos (Texans, Raiders) stay visible. */}
-            <div className={`w-full lg:w-auto ${oneTeam ? "" : "hidden"}`} aria-label="Teams still free">
-              <span className="mb-1 block text-xs font-medium text-muted tabular-nums lg:hidden">{teams.length - usedTeams.size} teams left</span>
-              <div className="grid grid-cols-7 justify-items-center gap-1 sm:grid-cols-14 lg:flex lg:items-center">
-                <span className="mr-1 hidden text-xs font-medium text-muted tabular-nums lg:inline">{teams.length - usedTeams.size} teams left</span>
-                {teams.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTeamId(teamId === t.id ? "ALL" : t.id)}
-                    title={usedTeams.has(t.id) ? `${t.name}: ${usedTeams.get(t.id)!.name}` : `${t.name}: free`}
-                    className={`grid place-items-center rounded-full p-1 transition hover:bg-hover dark:bg-white/90 dark:hover:bg-white ${usedTeams.has(t.id) ? "opacity-30 grayscale" : ""} ${teamId === t.id ? "ring-2 ring-accent" : ""}`}
-                  >
-                    <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-7 lg:size-6" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
           {/* Filters: position (one line that wraps, never scrolls), then team, search, backups. */}
           <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 lg:[@media(max-height:800px)]:mb-2">
             <div className="grid w-full grid-cols-7 gap-1 sm:flex sm:w-auto sm:gap-1.5">
@@ -359,6 +320,7 @@ export function PfLineupBuilder({
               <input type="checkbox" checked={backups} onChange={(e) => setBackups(e.target.checked)} className="size-4 accent-[var(--accent)]" />
               Show backups
             </label>
+            {scoringInfo && <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-muted">{scoringInfo} Scoring</span>}
           </div>
 
           {/* One line on any screen: the text shrinks to fit. */}
@@ -374,7 +336,9 @@ export function PfLineupBuilder({
                   <section key={t.id} className="min-w-0">
                     <h3 className="mb-0.5 flex items-center gap-2 border-l-4 border-accent bg-surface px-3 py-1 text-sm font-bold text-ink lg:rounded-r-md">
                       <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                      <span className="min-w-0 truncate">{t.name}</span>
+                      {opponents[t.id] && <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted">{opponents[t.id]}</span>}
+                      <span className="flex-1" />
                       {used && <span className="shrink-0 truncate text-xs font-semibold text-loss">Used · {used.name}</span>}
                     </h3>
                     <ul className="divide-y divide-line">
@@ -436,8 +400,8 @@ export function PfLineupBuilder({
             {mine.length} <span className="font-normal text-muted">of {total} picked</span>
             {lockText && <span className="ml-3 hidden font-normal text-muted lg:inline">{lockText}</span>}
           </span>
-          <span className={`flex items-center gap-1 text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
-            {status === "saving" ? "Saving…" : status === "error" ? "Not saved" : status === "saved" ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : oneTeam ? `${teams.length - usedTeams.size} teams left` : ""}
+          <span role="status" aria-live="polite" className={`flex min-w-0 items-center gap-1 truncate text-xs ${status === "error" ? "font-semibold text-loss" : "text-muted"}`}>
+            {status === "saving" ? "Saving…" : status === "error" ? (error ?? "Not saved") : status === "saved" ? (<><CheckIcon className="size-3.5 text-win" /> Saved</>) : oneTeam ? `${teams.length - usedTeams.size} teams left` : ""}
           </span>
         </div>
       </div>
