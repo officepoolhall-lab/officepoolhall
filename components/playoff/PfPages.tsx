@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { AutoRefresh } from "@/components/AutoRefresh";
-import { Empty, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
+import { Empty, Medal, PageTitle, SectionLabel, TeamLogo, chipClass } from "@/components/ui";
 import { Countdown } from "@/components/Countdown";
 import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
@@ -37,6 +37,9 @@ const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
  * viewer may see them (their own entry whole; the commissioner sees all; others' players as each
  * locks). Season-roster pools get their usual rows.
  */
+/** The playoffs are over (the Super Bowl is final): standings are final, and the top three get medals. */
+const playoffsOver = (games: PlayoffGame[]) => games.some((g) => g.round === 3 && g.state === "post");
+
 async function standingsFor(ctx: PoolBase, settings: PfSettings, players: PfPlayer[], teams: PfTeam[], entries: PfEntry[], locked: boolean) {
   const games = await getPfGames(ctx.pool.season, players, teams, settings.demo_sim);
   const pts = locked ? await getPfPoints(ctx.pool.season, settings.scoring, players, teams, settings.demo_sim) : NO_POINTS;
@@ -156,6 +159,7 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const mineAt = mine ? rows.indexOf(mine) : -1;
   const size = rosterSize(settings);
   const fieldSet = games.filter((g) => g.round === 0).length >= 6;
+  const over = playoffsOver(games);
   const ticker = playoffTicker(games);
   // eslint-disable-next-line react-hooks/purity -- render-time snapshot; the countdown ticks client-side
   const now = Date.now();
@@ -252,12 +256,12 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
               // columns (FillColumn). Your own row is pinned under the list whenever it's cut.
               <ul data-fill-list className="mt-2 divide-y divide-line border-y border-line">
                 {rows.map((r, i) => (
-                  <StandingRow key={r.userId} r={r} me={r.userId === ctx.entryUserId} locked={locked} size={size} progress={ctx.isCommissioner} className={i >= 10 ? "max-lg:hidden" : ""} />
+                  <StandingRow key={r.userId} r={r} me={r.userId === ctx.entryUserId} locked={locked} final={over} size={size} progress={ctx.isCommissioner} className={i >= 10 ? "max-lg:hidden" : ""} />
                 ))}
                 {mineAt >= 3 && mine && (
                   <>
                     <li aria-hidden data-fill-pin="block" className={`py-1 text-center text-xs leading-none text-faint lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`}>···</li>
-                    <StandingRow r={mine} me locked={locked} size={size} progress={ctx.isCommissioner} pin className={`lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`} />
+                    <StandingRow r={mine} me locked={locked} final={over} size={size} progress={ctx.isCommissioner} pin className={`lg:hidden ${mineAt >= 10 ? "" : "max-lg:hidden"}`} />
                   </>
                 )}
               </ul>
@@ -281,14 +285,14 @@ export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
 
 
 /** One entry's line in Home's standings. */
-function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow; me: boolean; locked: boolean; size: number; progress: boolean; pin?: boolean; className?: string }) {
+function StandingRow({ r, me, locked, final = false, pin = false, className = "" }: { r: PfRow; me: boolean; locked: boolean; /** The playoffs are over: medals for the top three. */ final?: boolean; size: number; progress: boolean; pin?: boolean; className?: string }) {
   return (
     <li
       {...(me && !pin ? { "data-fill-me": "" } : {})}
       {...(pin ? { "data-fill-pin": "flex" } : {})}
       className={`flex items-center gap-2.5 py-1.5 text-sm ${me ? "bg-accent/10 shadow-[inset_2px_0_0_var(--accent)]" : ""} ${className}`}
     >
-      <span className="w-6 shrink-0 pl-1 text-right text-xs tabular-nums text-muted">{locked ? r.rank : ""}</span>
+      <span className="flex w-6 shrink-0 justify-end pl-1 text-xs tabular-nums text-muted">{locked ? final ? <Medal place={r.rank} className="size-6" /> : r.rank : ""}</span>
       {/* The whole name on one line: it shrinks to fit rather than being cut off. */}
       <span className="min-w-0 flex-1">
         <FitText min={10} className={`block ${me ? "font-semibold text-accent" : "font-medium"}`}>{r.name}</FitText>
@@ -588,7 +592,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
             {rows.map((r) => (
               <details key={r.userId} className={`group border-b border-line ${r.userId === me ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}>
                 <summary className={`${grid} cursor-pointer list-none px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden`}>
-                  <span className="tabular-nums text-muted">{locked ? r.rank : ""}</span>
+                  <span className="flex tabular-nums text-muted">{locked ? playoffsOver(games) ? <Medal place={r.rank} className="size-6" /> : r.rank : ""}</span>
                   <FitText min={10} className={`font-semibold ${r.userId === me ? "text-accent" : ""}`}>{r.name}</FitText>
                   {[0, 1, 2, 3].map((i) => (
                     <span key={i} className={`hidden text-right tabular-nums sm:block ${i >= started ? "text-muted" : ""}`}>{round(r, i)}</span>
