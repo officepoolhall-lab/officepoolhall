@@ -1,6 +1,6 @@
 import { FitText } from "@/components/FitText";
 import { TeamLogo } from "@/components/ui";
-import { POSITIONS, ROUNDS } from "@/lib/playoffFantasy";
+import { ROUNDS, lineupSlots, type Position } from "@/lib/playoffFantasy";
 import type { PfPlayer, PfPoints, PfTeam, PfWeeklyRow } from "@/lib/playoffFantasyData";
 
 // Weekly style: an entry's lineup round by round, each player with his
@@ -17,6 +17,8 @@ export function PfWeeklyRounds({
   rounds,
   hidden = false,
   compact = false,
+  roster,
+  flex = 0,
 }: {
   row: PfWeeklyRow;
   players: PfPlayer[];
@@ -27,15 +29,21 @@ export function PfWeeklyRounds({
   /** Others' lineups: players show only as each locks; say so under a round with spots still hidden. */
   hidden?: boolean;
   compact?: boolean;
+  /** The pool's lineup spots, to label the flex spots FLEX. */
+  roster: Record<Position, number>;
+  flex?: number;
 }) {
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
   return (
     <div className={`grid gap-x-5 gap-y-4 ${compact ? "sm:grid-cols-2" : "md:grid-cols-2"}`}>
       {rounds.map((r) => {
-        const ids = [...(row.lineups[r] ?? [])]
-          .filter((id) => playerOf.has(id))
-          .sort((a, b) => POSITIONS.indexOf(playerOf.get(a)!.pos) - POSITIONS.indexOf(playerOf.get(b)!.pos) || (row.pts[r].get(b) ?? 0) - (row.pts[r].get(a) ?? 0));
+        // Spot by spot (a flex player labelled FLEX), the best scorer first within a spot.
+        const slots = lineupSlots((row.lineups[r] ?? []).filter((id) => playerOf.has(id)).map((id) => playerOf.get(id)!), roster, flex);
+        const ids = slots.map((x) => x.p.id);
+        const slotOf = new Map(slots.map((x) => [x.p.id, x.slot]));
+        const rank = (s: string) => slots.findIndex((x) => x.slot === s);
+        ids.sort((a, b) => rank(slotOf.get(a)!) - rank(slotOf.get(b)!) || (row.pts[r].get(b) ?? 0) - (row.pts[r].get(a) ?? 0));
         return (
           <section key={r} className="min-w-0">
             <div className="flex items-baseline justify-between gap-2 border-b border-line pb-0.5">
@@ -54,7 +62,7 @@ export function PfWeeklyRounds({
                   const out = pts.out.has(t?.espnId ?? "") && !pts.games.get(t?.espnId ?? "")?.[r];
                   return (
                     <li key={id} className={`flex h-8 items-center gap-1.5 text-[13px] ${out ? "text-muted" : ""}`}>
-                      <span className="w-7 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
+                      <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{slotOf.get(id)}</span>
                       <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
                       <FitText min={8} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
                       {m > 1 && (
