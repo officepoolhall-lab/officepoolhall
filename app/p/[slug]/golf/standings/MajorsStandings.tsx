@@ -2,7 +2,7 @@ import { FitText } from "@/components/FitText";
 import Link from "next/link";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { GolfEventSelect } from "@/components/GolfEventSelect";
-import { Empty, PageTitle, chipClass } from "@/components/ui";
+import { Empty, Medal, PageTitle, chipClass } from "@/components/ui";
 import { type GolfContext, type GolfEvent, getGolfMembers, money } from "@/lib/golf";
 import { formatShown, formatToPar, golferShown, isSingleTournament, type MajorsSettings, posLabel } from "@/lib/golfMajors";
 import { getMajorsScoreboard } from "@/lib/golfMajorsData";
@@ -92,6 +92,15 @@ export async function MajorsStandings({
     return kind === "points" ? pts(v) : kind === "money" ? money(v) : formatToPar(v);
   };
   const shownSort: Sort = sort === "name" ? ownSort : sort;
+  // Every major final: the pool's standings are final, and its top three get medals (the pool's
+  // own scoring, across all the majors).
+  const counted = events.filter((e) => e.status !== "canceled");
+  const medals = counted.length > 0 && counted.every((e) => e.status === "final") && !each && (sort === ownSort || sort === "name");
+  const placeNode = (r: { user_id: string; v: number | null }) => {
+    if (r.v === null && sort !== "name") return "";
+    const p = place.get(r.user_id);
+    return medals && p && p <= 3 ? <Medal place={p} className="size-6" /> : p;
+  };
   const me = ctx.entryUserId;
   const href = (by: Sort) => `/p/${slug}/golf/standings?${new URLSearchParams({ ...(focus ? { event: focus.id } : {}), ...(by === ownSort ? {} : { sort: by }) })}`;
 
@@ -131,7 +140,7 @@ export async function MajorsStandings({
         {rows.map((r) => (
           <li key={r.user_id} className={`rounded-lg border px-2.5 py-2 ${r.user_id === me ? "border-accent bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : "border-line"}`}>
             <div className="flex items-baseline gap-1.5 border-b border-line pb-1 text-sm">
-              <span className="w-5 shrink-0 tabular-nums text-muted">{r.v === null && sort !== "name" ? "" : place.get(r.user_id)}</span>
+              <span className="flex w-6 shrink-0 self-center tabular-nums text-muted">{placeNode(r)}</span>
               <FitText min={11} className={`flex-1 font-semibold ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</FitText>
               <span className="shrink-0 font-bold tabular-nums">{fmt(shownSort, r.v)}</span>
             </div>
@@ -147,7 +156,7 @@ export async function MajorsStandings({
         {rows.map((r) => (
           <details key={r.user_id} className={`group border-b border-line ${r.user_id === me ? "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]" : ""}`}>
             <summary className="flex cursor-pointer list-none items-center gap-2 px-2 py-2 text-sm hover:bg-surface [&::-webkit-details-marker]:hidden">
-              <span className="w-7 shrink-0 tabular-nums text-muted">{r.v === null && sort !== "name" ? "" : place.get(r.user_id)}</span>
+              <span className="flex w-7 shrink-0 tabular-nums text-muted">{placeNode(r)}</span>
               <span className={`min-w-0 flex-1 truncate font-medium ${r.user_id === me ? "text-accent" : ""}`}>{r.name}</span>
               <span className="shrink-0 font-semibold tabular-nums">{fmt(shownSort, r.v)}</span>
               {/* Tap to show the lineup: a small arrow that turns when it's open. */}

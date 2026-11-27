@@ -65,6 +65,8 @@ export type GolfStandingsData = {
   played: { week: number; name: string; final: boolean }[];
   lastFinal: { name: string; week: number } | null;
   finalCount: number;
+  /** Every event of the season is final: the standings are final (medals for the top three). */
+  seasonFinal: boolean;
   /**
    * Week → golfer name → share of the entries with a pick that week who picked him (0-100,
    * rounded). Not for an event still open for picks: only the viewer's own pick is known then.
@@ -214,6 +216,7 @@ export async function getGolfStandingsData(ctx: GolfContext, now: number): Promi
     current: current ? { name: current.name, week: weekOf.get(current.id)!, open: currentOpen, live: current.status === "in_progress" } : null,
     lastFinal: lastFinal ? { name: lastFinal.name, week: weekOf.get(lastFinal.id)! } : null,
     finalCount: finals.length,
+    seasonFinal: counted.length > 0 && finals.length === counted.length,
     ownership: weekOwnership(rows, current && !currentOpen ? weekOf.get(current.id)! : null),
   };
 }

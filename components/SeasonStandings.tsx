@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Medal } from "@/components/ui";
 import { points } from "@/lib/format";
 import { winPct } from "@/lib/record";
 import type { StandingRow } from "@/lib/standings";
@@ -26,6 +27,7 @@ export function SeasonStandings({
   weekly = false,
   header = true,
   pointsLead = false,
+  medals = false,
 }: {
   rows: StandingRow[];
   me: string;
@@ -44,6 +46,8 @@ export function SeasonStandings({
   header?: boolean;
   /** A pool ranked by points: a Pts column first, then the record and win %. */
   pointsLead?: boolean;
+  /** Final standings: medals for 1st, 2nd and 3rd. */
+  medals?: boolean;
 }) {
   const total = rows.reduce(
     (t, r) => ({ wins: t.wins + r.wins, losses: t.losses + r.losses, pushes: t.pushes + r.pushes }),
@@ -59,7 +63,7 @@ export function SeasonStandings({
         const b = bonus?.records.get(r.userId);
         return (
           <li key={r.userId} className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-2.5"}`}>
-            <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
+            <span className="flex w-6 shrink-0 justify-end text-sm tabular-nums text-muted">{medals ? <Medal place={r.rank} className="size-6" /> : r.rank}</span>
             <span className="min-w-0 flex-1 truncate font-medium">
               {playerHref ? (
                 <Link href={playerHref(r.userId)} className={`-mx-1.5 -my-0.5 rounded-md px-1.5 py-0.5 transition hover:bg-hover ${mine ? "text-accent" : ""}`}>{r.name}</Link>

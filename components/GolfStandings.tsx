@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { StandingRow } from "@/lib/golfStandings";
-import { LockIcon } from "./ui";
+import { LockIcon, Medal } from "./ui";
 
 // The golf Standings columns, laid out like the football and basketball ones
 // (SeasonStandings): place, entry, the numbers right-aligned. Names wrap rather than being
@@ -19,7 +19,13 @@ function Player({ r, href }: { r: { userId: string; name: string; isMe: boolean 
   );
 }
 
-function Place({ place, tied }: { place: number | null; tied: boolean }) {
+function Place({ place, tied, medal = false }: { place: number | null; tied: boolean; /** Final standings: a medal for 1st-3rd. */ medal?: boolean }) {
+  if (medal && place !== null && place <= 3)
+    return (
+      <span className="flex w-7 shrink-0 justify-end" title={tied ? `Tied for ${place}` : undefined}>
+        <Medal place={place} className="size-6" />
+      </span>
+    );
   return <span className="w-7 shrink-0 text-right text-sm tabular-nums text-muted">{place === null ? "" : `${tied ? "T" : ""}${place}`}</span>;
 }
 
@@ -36,12 +42,12 @@ export function GolfSeasonHeaderRow() {
 }
 
 /** The season: everyone by prize money, with cuts made. */
-export function GolfSeasonStandings({ rows, playerHref }: { rows: StandingRow[]; playerHref: (userId: string) => string }) {
+export function GolfSeasonStandings({ rows, playerHref, medals = false }: { rows: StandingRow[]; playerHref: (userId: string) => string; /** The season is final: medals for the top three. */ medals?: boolean }) {
   return (
     <ul className="divide-y divide-line border-b border-line">
       {rows.map((r) => (
         <li key={r.userId} className="flex min-h-9 items-center gap-3 py-1.5 text-sm">
-          <Place place={r.place} tied={r.tied} />
+          <Place place={r.place} tied={r.tied} medal={medals} />
           <span className="min-w-0 flex-1 break-words font-medium leading-snug">
             <Player r={r} href={playerHref} />
             {r.missed > 0 && <span className="ml-1.5 whitespace-nowrap text-xs font-normal text-muted">{r.missed} Missed</span>}

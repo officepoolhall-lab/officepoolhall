@@ -1,4 +1,5 @@
 // The Standings page (/p/[slug]/standings), and with `embed` the landing page's copy of a real pool's.
+import { weeklySeasonFinal } from "@/lib/seasonFinal";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LazySplitTable } from "@/components/LazySplitTable";
 import { PoolPageHeader } from "@/components/PoolPageHeader";
@@ -55,7 +56,7 @@ export async function StandingsView({
   const splits = ctx.settings.pick_type === "ats" ? SPLITS : SPLITS.filter((x) => x.id === "all");
   const split: Split = splits.find((x) => x.id === splitParam)?.id ?? "all";
   // Both come from one cached query of the published weeks (newest first).
-  const [slates, current] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx)]);
+  const [slates, current, seasonFinal] = await Promise.all([getPublishedSlates(ctx), getCurrentSlate(ctx), embed ? Promise.resolve(false) : weeklySeasonFinal(ctx)]);
 
   const latestWeek = slates[0]?.week;
   // Segments that have begun; all of them before any week is out.
@@ -182,7 +183,7 @@ export async function StandingsView({
   const splitIds = splits.map((x) => x.id as string);
   const seasonViews = each(splitIds, (id) =>
     id === "all" ? (
-      <SeasonStandings pointsLead={pointsLead} rows={seasonRows} me={me} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} compact header={false} />
+      <SeasonStandings pointsLead={pointsLead} rows={seasonRows} me={me} flat={flat} week={weekColumn} bonus={bonusColumn} playerHref={playerHref} compact header={false} medals={seasonFinal} />
     ) : (
       <LazySplitTable slug={slug} split={id as Exclude<Split, "all">} me={me} flat={flat} pointsLead={pointsLead} />
     ),
