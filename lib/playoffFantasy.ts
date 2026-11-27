@@ -623,8 +623,9 @@ export function pfScoringTable(s: PfSettings): { group: string; rows: [string, s
       ],
     },
     { group: "Other", rows: [["Fumble lost", pt(sc.fum_lost)], ["Two-point conversion", pt(sc.two_pt)]] },
-    { group: "Kicking", rows: [["Field goal, under 40", pt(sc.fg)], ["Field goal, 40-49", pt(sc.fg_40)], ["Field goal, 50+", pt(sc.fg_50)], ["Extra point", pt(sc.xp)]] },
-    {
+    // Kicking and defense only when the lineup has those spots.
+    ...(s.roster.K > 0 ? [{ group: "Kicking", rows: [["Field goal, under 40", pt(sc.fg)], ["Field goal, 40-49", pt(sc.fg_40)], ["Field goal, 50+", pt(sc.fg_50)], ["Extra point", pt(sc.xp)]] as [string, string][] }] : []),
+    ...(s.roster.DEF > 0 ? [{
       group: "Defense",
       rows: [
         ["Sack", pt(sc.def_sack)],
@@ -633,7 +634,7 @@ export function pfScoringTable(s: PfSettings): { group: string; rows: [string, s
         ["Touchdown", pt(sc.def_td)],
         ["Safety", pt(sc.def_safety)],
         ...(sc.def_points_allowed ? ([["0 points allowed", "+10"], ["1-6 allowed", "+7"], ["7-13 allowed", "+4"], ["14-20 allowed", "+1"], ["21-27 allowed", "0"], ["28-34 allowed", "-1"], ["35+ allowed", "-4"]] as [string, string][]) : []),
-      ],
-    },
+      ] as [string, string][],
+    }] : []),
   ];
 }

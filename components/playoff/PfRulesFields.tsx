@@ -207,13 +207,16 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
             </div>
           </SettingRow>
         )}
-        <SettingRow label="Defense: points allowed" hint="10 for a shutout, 7 for 1-6, 4 for 7-13, 1 for 14-20, 0 for 21-27, -1 for 28-34, -4 for 35 or more.">
-          <Toggle label="Score defenses on points allowed" checked={sc.def_points_allowed} onChange={(v) => setScoring({ def_points_allowed: v })} />
-        </SettingRow>
+        {s.roster.DEF > 0 && (
+          <SettingRow label="Defense: points allowed" hint="10 for a shutout, 7 for 1-6, 4 for 7-13, 1 for 14-20, 0 for 21-27, -1 for 28-34, -4 for 35 or more.">
+            <Toggle label="Score defenses on points allowed" checked={sc.def_points_allowed} onChange={(v) => setScoring({ def_points_allowed: v })} />
+          </SettingRow>
+        )}
         <details className="py-3">
           <summary className="cursor-pointer text-[15px] font-semibold text-accent">All scoring values</summary>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
-            {VALUES.map((g) => (
+            {/* Kicker and defense values only when the lineup has those spots. */}
+            {VALUES.filter((g) => (g.group === "Kicker" ? s.roster.K > 0 : g.group === "Defense" ? s.roster.DEF > 0 : true)).map((g) => (
               <div key={g.group}>
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{g.group}</div>
                 <ul className="space-y-1.5">
