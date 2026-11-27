@@ -394,7 +394,7 @@ export function PfLineupBuilder({
       {/* Phones: the lineup in a drawer from the bottom, like the other pools' Pool Summary. */}
       {/* A bar fixed along the bottom, as on every pool's My Picks: the count and save status. On
           phones the View My Lineup tab sits on its top edge and opens the lineup drawer. */}
-      <div ref={footer} className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <div ref={footer} data-bottom-bar className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="flex h-10 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-sm">
           <span className="font-semibold tabular-nums">
             {mine.length} <span className="font-normal text-muted">of {total} picked</span>

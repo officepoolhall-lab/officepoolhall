@@ -3,7 +3,7 @@ import { getBenchedIds } from "./bench";
 import { getGameSummary } from "./gameSummary";
 import type { PoolBase, SlateGame } from "./pool";
 import { fresh } from "./microCache";
-import { getPlayoffField, getPlayoffGames, getPlayoffPicture, getProjectedField, type PlayoffGame } from "./nflPlayoffs";
+import { getPlayoffField, getPlayoffGames, getPlayoffPicture, getProjectedField, type PlayoffGame, type Seeded } from "./nflPlayoffs";
 import { simulatePlayoffs } from "./playoffFantasyDemo";
 import {
   applyExtras,
@@ -18,6 +18,7 @@ import {
   type BoxTeam,
   type DefLine,
   type PfScoring,
+  type PfDemoSeeds,
   type PlayerLine,
   type Position,
 } from "./playoffFantasy";
@@ -148,20 +149,37 @@ function teamGames(games: PlayoffGame[]): Map<string, (PfTeamGame | null)[]> {
  * conversions, safeties). `players` and `teams` are the pool's list, for matching the names in
  * the scoring summary. Never rejects: what can't be read counts as nothing yet.
  */
-/** A demo pool's made-up playoffs (settings.playoff_fantasy.demo_sim), from today's standings' seeds. */
-async function demoSim(season: number, players: PfPlayer[], teams: PfTeam[], demo: { through: number; seed: number }) {
-  const [picture, stats] = await Promise.all([getPlayoffPicture(season).catch(() => null), getPfSeasonStats(season, players)]);
+/**
+ * The Wild Card seeding: a demo pool's frozen seeds (settings.playoff_fantasy.demo_seeds) when it
+ * has them, otherwise today's standings (the real seeding once the season is over).
+ */
+export async function pfPicture(season: number, seeds: PfDemoSeeds | null | undefined, teams: PfTeam[]): Promise<{ AFC: Seeded[]; NFC: Seeded[] } | null> {
+  if (!seeds) return getPlayoffPicture(season).catch(() => null);
+  const byEspn = new Map(teams.map((t) => [t.espnId ?? "", t]));
+  const conf = (c: "AFC" | "NFC") =>
+    seeds[c].flatMap((s, i): Seeded[] => {
+      const t = byEspn.get(s.id);
+      return t ? [{ espnId: s.id, name: t.name, fullName: t.name, abbreviation: t.abbreviation, logo: t.logo_url, seed: i + 1, conference: c, record: s.record }] : [];
+    });
+  const AFC = conf("AFC");
+  const NFC = conf("NFC");
+  return AFC.length === 7 && NFC.length === 7 ? { AFC, NFC } : getPlayoffPicture(season).catch(() => null);
+}
+
+/** A demo pool's made-up playoffs (settings.playoff_fantasy.demo_sim), from its seeds. */
+async function demoSim(season: number, players: PfPlayer[], teams: PfTeam[], demo: { through: number; seed: number; seeds?: PfDemoSeeds | null }) {
+  const [picture, stats] = await Promise.all([pfPicture(season, demo.seeds, teams), getPfSeasonStats(season, players)]);
   const vol = Object.fromEntries(Object.entries(stats).map(([id, st]) => [id, st.vol]));
   return picture ? simulatePlayoffs(picture, players, teams, demo.through, demo.seed, vol) : null;
 }
 
 /** The season's playoff games: ESPN's, or a demo pool's made-up ones. */
-export async function getPfGames(season: number, players: PfPlayer[], teams: PfTeam[], demo?: { through: number; seed: number } | null): Promise<PlayoffGame[]> {
+export async function getPfGames(season: number, players: PfPlayer[], teams: PfTeam[], demo?: { through: number; seed: number; seeds?: PfDemoSeeds | null } | null): Promise<PlayoffGame[]> {
   if (demo) return (await demoSim(season, players, teams, demo))?.games ?? [];
   return getPlayoffGames(season).catch(() => []);
 }
 
-export async function getPfPoints(season: number, sc: PfScoring, players: PfPlayer[] = [], teams: PfTeam[] = [], demo?: { through: number; seed: number } | null): Promise<PfPoints> {
+export async function getPfPoints(season: number, sc: PfScoring, players: PfPlayer[] = [], teams: PfTeam[] = [], demo?: { through: number; seed: number; seeds?: PfDemoSeeds | null } | null): Promise<PfPoints> {
   const byPlayer = new Map<string, { total: number; rounds: number[] }>();
   const add = (id: string, round: number, pts: number) => {
     const p = byPlayer.get(id) ?? { total: 0, rounds: [0, 0, 0, 0] };
