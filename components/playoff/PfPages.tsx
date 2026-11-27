@@ -674,7 +674,8 @@ export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: 
   // Highest scoring: playoff points once games start; before that the regular season under the
   // pool's scoring, with the stat line.
   const stats = started ? {} : await getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams);
-  const TOP = 3;
+  // Weekly style shows Top Players only, six deep; Full Playoffs, three.
+  const TOP = weekly ? 6 : 3;
   const groups: SumGroup[] = positions.map((pos) => {
     const at = players.filter((p) => p.pos === pos);
     return {
@@ -775,6 +776,7 @@ export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: 
       ) : (
         <PfSummaryTabs
           key={weekly ? String(round) : "season"}
+          topOnly={Boolean(weekly)}
           owned={owned}
           groups={groups}
           positions={positions}
@@ -785,7 +787,7 @@ export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: 
           notes={
             weekly
               ? {
-                  own: round === null ? "Ownership shows once the Wild Card round starts." : `Ownership shows once the ${ROUNDS[round].name} round starts.`,
+                  own: round === null ? "Once the Wild Card round starts" : `Once the ${ROUNDS[round].name} round starts`,
                   perfect: round === null ? "Pick a round to see its perfect lineup." : `The perfect lineup shows once the ${ROUNDS[round].name} round starts.`,
                   ownOf: round === null ? "entries that have used him" : null,
                 }
