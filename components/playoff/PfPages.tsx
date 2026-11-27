@@ -50,6 +50,17 @@ async function standingsFor(ctx: PoolBase, settings: PfSettings, players: PfPlay
   return { games, pts, rows: rows as (PfRow | PfWeeklyRow)[], weekly: { rows, cur, nextLock, open: roundOpen(games, cur, now, settings.weekly_lock) }, now };
 }
 
+/** Weekly style: each player in an entry's lineups with his playoff games and his multiplier in each round's lineup (null: not in it). */
+function weeklyLogs(row: PfWeeklyRow, players: PfPlayer[], teams: PfTeam[], pts: PfPoints, settings: PfSettings): Map<string, PfRosterRow> {
+  const ids = [...new Set(row.lineups.flat())];
+  return new Map(
+    rosterRows(ids, players, teams, pts, null, settings).map((x) => [
+      x.id,
+      { ...x, slot: undefined, mult: [0, 1, 2, 3].map((r) => ((row.lineups[r] ?? []).includes(x.id) ? (row.mult[r]?.get(x.id) ?? 1) : null)) },
+    ]),
+  );
+}
+
 /** One entry's roster for the locked My Team table: position by position, each player's pool ownership, points by round and his playoff games. */
 function rosterRows(ids: string[], players: PfPlayer[], teams: PfTeam[], pts: PfPoints, own: Map<string, number> | null, settings: PfSettings): PfRosterRow[] {
   const playerOf = new Map(players.map((p) => [p.id, p]));
@@ -488,7 +499,7 @@ async function PfWeeklyPicks({
         {pts.live && <AutoRefresh active />}
         {chips}
         <section className="sm:max-w-xl">
-          <PfWeeklyRounds row={row} players={players} teams={teams} pts={pts} rounds={[r]} roster={settings.roster} flex={settings.flex} />
+          <PfWeeklyRounds row={row} players={players} teams={teams} pts={pts} rounds={[r]} roster={settings.roster} flex={settings.flex} logs={weeklyLogs(row, players, teams, pts, settings)} />
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <ScoringInfo settings={settings} /> {r < cur ? "This round is over." : "This round's lineup has locked."} A player&apos;s points are multiplied by the rounds in a row he&apos;s been in the lineup.
           </p>
@@ -603,7 +614,7 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
                     <p className="py-1.5 text-xs text-muted">Shows when lineups lock.</p>
                   ) : weekly && "lineups" in r ? (
                     <div className="pt-1">
-                      <PfWeeklyRounds row={r} players={players} teams={teams} pts={pts} rounds={Array.from({ length: weekly.cur + 1 }, (_, i) => i)} hidden={r.userId !== me && !ctx.isCommissioner} compact roster={settings.roster} flex={settings.flex} />
+                      <PfWeeklyRounds row={r} players={players} teams={teams} pts={pts} rounds={Array.from({ length: weekly.cur + 1 }, (_, i) => i)} hidden={r.userId !== me && !ctx.isCommissioner} compact roster={settings.roster} flex={settings.flex} logs={weeklyLogs(r as PfWeeklyRow, players, teams, pts, settings)} />
                     </div>
                   ) : !r.playerIds.length ? (
                     <p className="py-1.5 text-xs text-muted">No lineup set.</p>

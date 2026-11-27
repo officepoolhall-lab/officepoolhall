@@ -2,6 +2,7 @@ import { FitText } from "@/components/FitText";
 import { TeamLogo } from "@/components/ui";
 import { ROUNDS, lineupSlots, type Position } from "@/lib/playoffFantasy";
 import type { PfPlayer, PfPoints, PfTeam, PfWeeklyRow } from "@/lib/playoffFantasyData";
+import { PfPlayerButton, type PfRosterRow } from "./PfRoster";
 
 // Weekly style: an entry's lineup round by round, each player with his
 // multiplier and points (already multiplied), the round's total in its heading. Rounds side by
@@ -19,6 +20,7 @@ export function PfWeeklyRounds({
   compact = false,
   roster,
   flex = 0,
+  logs,
 }: {
   row: PfWeeklyRow;
   players: PfPlayer[];
@@ -32,6 +34,8 @@ export function PfWeeklyRounds({
   /** The pool's lineup spots, to label the flex spots FLEX. */
   roster: Record<Position, number>;
   flex?: number;
+  /** Each player's playoff games (with his multipliers in this lineup): tap a name to open them. */
+  logs?: Map<string, PfRosterRow>;
 }) {
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const teamOf = new Map(teams.map((t) => [t.id, t]));
@@ -63,8 +67,17 @@ export function PfWeeklyRounds({
                   return (
                     <li key={id} className={`flex h-8 items-center gap-1.5 text-[13px] ${out ? "text-muted" : ""}`}>
                       <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{slotOf.get(id)}</span>
-                      <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
-                      <FitText min={8} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
+                      {logs?.get(id) ? (
+                        <PfPlayerButton row={logs.get(id)!} started={pts.roundsStarted} className="-my-0.5 flex min-w-0 flex-1 items-center gap-1.5 self-stretch rounded-md px-1">
+                          <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
+                          <FitText min={8} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
+                        </PfPlayerButton>
+                      ) : (
+                        <>
+                          <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
+                          <FitText min={8} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
+                        </>
+                      )}
                       {m > 1 && (
                         <span title={`${fmt(raw)} × ${m}`} className="shrink-0 rounded bg-[var(--win-fill)] px-1 text-[10px] font-extrabold leading-4 tabular-nums text-win">
                           {m}x
