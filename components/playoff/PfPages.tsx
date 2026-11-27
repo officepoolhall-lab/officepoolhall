@@ -631,21 +631,39 @@ function perfectSlots(list: PfPlayer[], ptsOf: (id: string) => number, roster: R
   return out.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot) || ptsOf(b.p.id) - ptsOf(a.p.id));
 }
 
-/** Pool Summary: two tabs, Ownership % (every rostered player, by position, sortable) and Top Players (each position's most rostered and highest scoring, and the perfect lineup). */
-export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
+/**
+ * Pool Summary: three tabs, Ownership % (every rostered player, by position, sortable), Top
+ * Players (each position's most rostered and highest scoring) and the Perfect Lineup. Weekly
+ * style: a chip for each round (its own lineups and points; a round's ownership shows once it
+ * starts), and All Rounds (points so far; ownership: the entries that have used each player).
+ */
+export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: string; /** Weekly style: "0"-"3" or "all". */ week?: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
-  // Weekly style: ownership is of the current round's lineups (as far as they've locked).
-  const { games, pts, rows } = await standingsFor(ctx, settings, players, teams, entries, locked);
+  const { games, pts, rows, weekly } = await standingsFor(ctx, settings, players, teams, entries, locked);
   const ticker = playoffTicker(games);
-  const started = pts.roundsStarted > 0;
   const teamOf = new Map(teams.map((t) => [t.id, t]));
-  const ptsOf = (id: string) => pts.byPlayer.get(id)?.total ?? 0;
   const positions = POSITIONS.filter((p) => settings.roster[p] > 0);
 
-  // After the lock: how many lineups have each player.
+  // Weekly style: which round (null: all rounds so far). Default: the latest round under way, or
+  // the one lineups are being set for.
+  const cur = weekly?.cur ?? 0;
+  const latest = Math.min(cur, Math.max(0, pts.roundsStarted - 1));
+  const round: number | null = !weekly ? null : week === "all" ? null : week && /^[0-3]$/.test(week) && Number(week) <= cur ? Number(week) : latest;
+  const wrows = weekly ? (rows as PfWeeklyRow[]) : [];
+
+  // The points that count here: a round's, or the playoffs so far.
+  const ptsOf = (id: string) => (round === null ? (pts.byPlayer.get(id)?.total ?? 0) : (pts.byPlayer.get(id)?.rounds[round] ?? 0));
+  const started = round === null ? pts.roundsStarted > 0 : pts.roundsStarted > round;
+  // Ownership shows once lineups lock (weekly: once the round has started; all rounds: once any has).
+  const showOwn = weekly ? started : locked;
+
+  // How many lineups have each player: the round's lineups; all rounds: entries that have used him.
   const counts = new Map<string, number>();
-  if (locked) for (const r of rows) for (const id of new Set(r.playerIds)) counts.set(id, (counts.get(id) ?? 0) + 1);
-  const lineups = rows.filter((r) => r.playerIds.length > 0).length;
+  const lineupsOf: string[][] = weekly
+    ? wrows.map((r) => (round === null ? [...new Set(r.lineups.slice(0, cur + 1).flat())] : (r.lineups[round] ?? [])))
+    : rows.map((r) => r.playerIds);
+  if (showOwn) for (const ids of lineupsOf) for (const id of new Set(ids)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const lineups = lineupsOf.filter((ids) => ids.length > 0).length;
   const sum = (p: PfPlayer): SumPlayer => {
     const t = teamOf.get(p.teamId);
     const count = counts.get(p.id) ?? 0;
@@ -677,19 +695,26 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
     };
   });
 
-  // The perfect lineup, once games start.
-  // Weekly style has no team limit: simply each position's top scorers.
+  // The perfect lineup, once games start. Weekly style: one round's (no team limit: each
+  // position's top scorers, then the flex spots), before multipliers; none for all rounds.
   const perfect = !started
     ? null
     : settings.style === "weekly"
-      ? (() => {
-          const ids = positions.flatMap((pos) => players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.roster[pos]).map((p) => p.id));
-          // Then the flex spots: the best running backs, receivers and tight ends left.
-          ids.push(...players.filter((p) => FLEX_POS.includes(p.pos) && !ids.includes(p.id) && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.flex).map((p) => p.id));
-          return { ids, total: Math.round(ids.reduce((t, id) => t + ptsOf(id), 0) * 100) / 100 };
-        })()
+      ? round === null
+        ? null
+        : (() => {
+            const ids = positions.flatMap((pos) => players.filter((p) => p.pos === pos && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.roster[pos]).map((p) => p.id));
+            // Then the flex spots: the best running backs, receivers and tight ends left.
+            ids.push(...players.filter((p) => FLEX_POS.includes(p.pos) && !ids.includes(p.id) && ptsOf(p.id) > 0).sort((a, b) => ptsOf(b.id) - ptsOf(a.id)).slice(0, settings.flex).map((p) => p.id));
+            return { ids, total: Math.round(ids.reduce((t, id) => t + ptsOf(id), 0) * 100) / 100 };
+          })()
       : optimalLineup(players, ptsOf, settings.roster, settings.flex);
-  const best = rows[0];
+  // The best entry: overall, or (weekly) that round's best score, multipliers included.
+  const best =
+    weekly && round !== null
+      ? [...wrows].sort((a, b) => b.rounds[round] - a.rounds[round])[0]
+      : rows[0];
+  const bestPts = best ? (weekly && round !== null ? (best as PfWeeklyRow).rounds[round] : best.points) : 0;
   const playerOf = new Map(players.map((p) => [p.id, p]));
   const perfectNode =
     perfect && perfect.ids.length > 0 ? (
@@ -698,9 +723,11 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
           <SectionLabel fit className="!text-sm lg:!text-base">Perfect Lineup</SectionLabel>
           <span className="shrink-0 text-sm font-extrabold tabular-nums">{fmt(perfect.total)}</span>
         </div>
-        {best && best.points > 0 && (
+        {best && bestPts > 0 && (
           <FitText min={9} className="mt-1 block text-xs text-muted tabular-nums">
-            Best entry: {best.name}, {fmt(best.points)} ({Math.round((best.points / perfect.total) * 100)}%)
+            {weekly
+              ? `Best entry this round: ${best.name}, ${fmt(bestPts)} with multipliers. The perfect lineup is before multipliers.`
+              : `Best entry: ${best.name}, ${fmt(bestPts)} (${Math.round((bestPts / perfect.total) * 100)}%)`}
           </FitText>
         )}
         <ul className="mt-1 divide-y divide-line">
@@ -723,12 +750,48 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
   return (
     <div data-wide>
       {pts.live && <AutoRefresh active />}
-      <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
+      {weekly ? (
+        <LockReminder ctx={ctx} slug={slug} settings={settings} entries={rows} locked={!weekly.open} lockAt={weekly.nextLock} />
+      ) : (
+        <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
+      )}
       <PoolPageHeader title="Pool Summary" games={ticker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tzOf(ctx)} />
+      {/* Weekly style: a chip for each round so far, then All Rounds. */}
+      {weekly && players.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {Array.from({ length: cur + 1 }, (_, i) => (
+            <Link key={i} href={`/p/${slug}/summary?week=${i}`} scroll={false} className={chipClass(round === i, "cursor-pointer", "sm")}>
+              {ROUNDS[i].name}
+            </Link>
+          ))}
+          {Array.from({ length: WEEKLY_ROUNDS - cur - 1 }, (_, j) => (
+            <span key={`n${j}`} className={chipClass(false, "cursor-default opacity-40", "sm")} title="Opens when the round before it is over">{ROUNDS[cur + 1 + j].name}</span>
+          ))}
+          <Link href={`/p/${slug}/summary?week=all`} scroll={false} className={chipClass(round === null, "cursor-pointer", "sm")}>All Rounds</Link>
+        </div>
+      )}
       {players.length === 0 ? (
         <Empty>{NOT_READY}</Empty>
       ) : (
-        <PfSummaryTabs owned={owned} groups={groups} positions={positions} lineups={lineups} locked={locked} started={started} perfect={perfectNode} />
+        <PfSummaryTabs
+          key={weekly ? String(round) : "season"}
+          owned={owned}
+          groups={groups}
+          positions={positions}
+          lineups={lineups}
+          locked={showOwn}
+          started={started}
+          perfect={perfectNode}
+          notes={
+            weekly
+              ? {
+                  own: round === null ? "Ownership shows once the Wild Card round starts." : `Ownership shows once the ${ROUNDS[round].name} round starts.`,
+                  perfect: round === null ? "Pick a round to see its perfect lineup." : `The perfect lineup shows once the ${ROUNDS[round].name} round starts.`,
+                  ownOf: round === null ? "entries that have used him" : null,
+                }
+              : undefined
+          }
+        />
       )}
     </div>
   );
