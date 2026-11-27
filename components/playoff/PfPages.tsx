@@ -577,6 +577,18 @@ export async function PfStandingsPage({ ctx, slug }: { ctx: PoolBase; slug: stri
   );
 }
 
+/** The perfect lineup in the pool's lineup order: each position's spots (best first), then any
+ *  running backs, receivers and tight ends past their spots as FLEX, then kicker and defense. */
+function perfectSlots(list: PfPlayer[], ptsOf: (id: string) => number, roster: Record<string, number>) {
+  const order = ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF"];
+  const out: { p: PfPlayer; slot: string }[] = [];
+  for (const pos of POSITIONS) {
+    const at = list.filter((p) => p.pos === pos).sort((a, b) => ptsOf(b.id) - ptsOf(a.id));
+    at.forEach((p, i) => out.push({ p, slot: i < (roster[pos] ?? 0) ? pos : "FLEX" }));
+  }
+  return out.sort((a, b) => order.indexOf(a.slot) - order.indexOf(b.slot) || ptsOf(b.p.id) - ptsOf(a.p.id));
+}
+
 /** Pool Summary: two tabs, Ownership % (every rostered player, by position, sortable) and Top Players (each position's most rostered and highest scoring, and the perfect lineup). */
 export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
@@ -650,14 +662,12 @@ export async function PfSummaryPage({ ctx, slug }: { ctx: PoolBase; slug: string
           </FitText>
         )}
         <ul className="mt-1 divide-y divide-line">
-          {perfect.ids
-            .map((id) => playerOf.get(id)!)
-            .sort((a, b) => POSITIONS.indexOf(a.pos) - POSITIONS.indexOf(b.pos) || ptsOf(b.id) - ptsOf(a.id))
-            .map((p) => {
+          {perfectSlots(perfect.ids.map((id) => playerOf.get(id)!), ptsOf, settings.roster)
+            .map(({ p, slot }) => {
               const t = teamOf.get(p.teamId);
               return (
                 <li key={p.id} className="flex h-8 items-center gap-1.5 text-[13px]">
-                  <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{p.pos}</span>
+                  <span className="w-8 shrink-0 text-[10px] font-bold text-muted">{slot}</span>
                   <TeamLogo src={t?.logo_url} abbr={t?.abbreviation} className="size-4 shrink-0" />
                   <FitText min={10} className="min-w-0 flex-1 font-medium">{p.name}</FitText>
                   <span className="shrink-0 font-semibold tabular-nums">{fmt(ptsOf(p.id))}</span>
