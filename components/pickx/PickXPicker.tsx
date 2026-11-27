@@ -290,7 +290,7 @@ export function PickXPicker({
 
       {/* A bar fixed along the bottom, as on every pool's My Picks: the count and save status. On
           phones the View My Picks tab sits on its top edge and opens the picks drawer. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-accent bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="flex h-10 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] text-sm">
           <span className="shrink-0 font-semibold tabular-nums">
             {picked.length} <span className="font-normal text-muted">of {settings.picks} picked{forName ? ` for ${forName}` : ""}</span>

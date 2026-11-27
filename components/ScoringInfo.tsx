@@ -13,14 +13,18 @@ export type ScoringTable = { head: string[]; rows: string[][] };
 export function ScoringInfo({ groups, intro, table }: { groups: ScoringGroups; /** A line under the heading ("Lineup: 1 QB, …"). */ intro?: string; table?: ScoringTable }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+  const [at, setAt] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const box = useRef<HTMLSpanElement>(null);
   // Fixed under the button and kept on screen (a title near the left edge, a narrow phone).
   const show = () => {
     const r = box.current?.getBoundingClientRect();
     if (r) {
       const w = Math.min(window.innerWidth >= 640 ? 608 : 352, window.innerWidth - 32);
-      setAt({ top: r.bottom + 8, left: Math.max(16, Math.min(r.left, window.innerWidth - w - 16)) });
+      // As tall as the screen allows below the button (it scrolls inside past that), above any
+      // bar fixed along the bottom of the page.
+      const bar = document.querySelector<HTMLElement>("[data-bottom-bar]")?.getBoundingClientRect();
+      const floor = bar && bar.height > 0 && bar.top > r.bottom ? bar.top : window.innerHeight;
+      setAt({ top: r.bottom + 8, left: Math.max(16, Math.min(r.left, window.innerWidth - w - 16)), maxHeight: Math.max(160, floor - r.bottom - 8 - 12) });
     }
     setOpen(true);
   };
@@ -67,8 +71,10 @@ export function ScoringInfo({ groups, intro, table }: { groups: ScoringGroups; /
           role="dialog"
           style={{ top: at.top, left: at.left }}
           aria-label="Scoring rules"
-          className="fixed z-40 block w-[min(22rem,calc(100vw-2rem))] sm:w-[min(38rem,calc(100vw-2rem))] rounded-xl border-2 border-accent bg-bg p-4 text-left text-sm font-normal tracking-normal text-ink shadow-xl before:absolute before:inset-x-0 before:-top-3 before:h-3 before:content-['']"
+          className="fixed z-40 block whitespace-normal w-[min(22rem,calc(100vw-2rem))] sm:w-[min(38rem,calc(100vw-2rem))] rounded-xl border-2 border-accent bg-bg text-left text-sm font-normal tracking-normal text-ink shadow-xl before:absolute before:inset-x-0 before:-top-3 before:h-3 before:content-['']"
         >
+          {/* The rules scroll inside when the screen is too short for all of them. */}
+          <span style={{ maxHeight: at.maxHeight - 4 }} className="block overflow-y-auto overscroll-contain p-4">
           <span className="block text-base font-bold">Scoring</span>
           {intro && <span className="mt-0.5 block text-xs text-muted">{intro}</span>}
           {table && (
@@ -93,7 +99,7 @@ export function ScoringInfo({ groups, intro, table }: { groups: ScoringGroups; /
               </table>
             </span>
           )}
-          <span className={`mt-2 block max-h-[65vh] overflow-y-auto overscroll-contain sm:max-h-none ${table ? "" : "sm:columns-2 sm:gap-6"}`}>
+          <span className={`mt-2 block ${table ? "" : "sm:columns-2 sm:gap-6"}`}>
             {groups.map((g) => (
               <span key={g.group} className="mb-2 block break-inside-avoid">
                 <span className="block border-b border-line pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase">{g.group}</span>
@@ -105,6 +111,7 @@ export function ScoringInfo({ groups, intro, table }: { groups: ScoringGroups; /
                 ))}
               </span>
             ))}
+          </span>
           </span>
         </span>
       )}
