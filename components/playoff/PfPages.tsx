@@ -654,9 +654,9 @@ function perfectSlots(list: PfPlayer[], ptsOf: (id: string) => number, roster: R
  * Pool Summary: three tabs, Ownership % (every rostered player, by position, sortable), Top
  * Players (each position's most rostered and highest scoring) and the Perfect Lineup. Weekly
  * style: a chip for each round (its own lineups and points; a round's ownership shows once it
- * starts), and All Rounds (points so far; ownership: the entries that have used each player).
+ * starts).
  */
-export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: string; /** Weekly style: "0"-"3" or "all". */ week?: string }) {
+export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: string; /** Weekly style: the round, "0"-"3". */ week?: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   const { games, pts, rows, weekly } = await standingsFor(ctx, settings, players, teams, entries, locked);
   const ticker = playoffTicker(games);
@@ -667,7 +667,7 @@ export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: 
   // the one lineups are being set for.
   const cur = weekly?.cur ?? 0;
   const latest = Math.min(cur, Math.max(0, pts.roundsStarted - 1));
-  const round: number | null = !weekly ? null : week === "all" ? null : week && /^[0-3]$/.test(week) && Number(week) <= cur ? Number(week) : latest;
+  const round: number | null = !weekly ? null : week && /^[0-3]$/.test(week) && Number(week) <= cur ? Number(week) : latest;
   const wrows = weekly ? (rows as PfWeeklyRow[]) : [];
 
   // The points that count here: a round's, or the playoffs so far.
@@ -776,7 +776,7 @@ export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: 
         <LockReminder ctx={ctx} slug={slug} settings={settings} entries={entries} locked={locked} />
       )}
       <PoolPageHeader title="Pool Summary" games={ticker.games} now={Date.now() /* eslint-disable-line react-hooks/purity */} timezone={tzOf(ctx)} />
-      {/* Weekly style: a chip for each round so far, then All Rounds. */}
+      {/* Weekly style: a chip for each round so far. */}
       {weekly && players.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
           {Array.from({ length: cur + 1 }, (_, i) => (
@@ -787,7 +787,6 @@ export async function PfSummaryPage({ ctx, slug, week }: { ctx: PoolBase; slug: 
           {Array.from({ length: WEEKLY_ROUNDS - cur - 1 }, (_, j) => (
             <span key={`n${j}`} className={chipClass(false, "cursor-default opacity-40", "sm")} title="Opens when the round before it is over">{ROUNDS[cur + 1 + j].name}</span>
           ))}
-          <Link href={`/p/${slug}/summary?week=all`} scroll={false} className={chipClass(round === null, "cursor-pointer", "sm")}>All Rounds</Link>
         </div>
       )}
       {players.length === 0 ? (
