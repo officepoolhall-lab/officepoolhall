@@ -139,19 +139,22 @@ export function simulatePlayoffs(
     row[round] = v;
     m.set(id, row);
   };
-  let n = 0;
   const side = (t: Seeded, homeAway: "home" | "away", score: number, lost: boolean) => ({
     espnId: t.espnId, name: t.name, fullName: t.fullName, abbreviation: t.abbreviation, logo: t.logo, homeAway, score, lost,
   });
 
-  /** Play (or just schedule) one game; returns the winner once it's played. */
-  const play = (round: number, away: Seeded, home: Seeded): Seeded | null => {
+  /**
+   * Play (or just schedule) one game; returns the winner once it's played. `slot` fixes the game's
+   * dice: AFC Wild Card 1-3, NFC Wild Card 4-6, AFC Divisional 7-8, NFC Divisional 9-10,
+   * Conference 11-12, Super Bowl 13. So playing a later round never changes an earlier result.
+   */
+  const play = (slot: number, round: number, away: Seeded, home: Seeded): Seeded | null => {
     const id = `demo-${round}-${away.espnId}-${home.espnId}`;
     if (round >= through) {
       games.push({ id, round, date: DATES[round], state: "pre", teams: [side(away, "away", 0, false), side(home, "home", 0, false)] });
       return null;
     }
-    const r = rng(seed * 7919 + ++n * 104729);
+    const r = rng(seed * 7919 + slot * 104729);
     const a = offense(r, rosterOf(away.espnId), vol);
     const h = offense(r, rosterOf(home.espnId), vol);
     const defense = (opp: ReturnType<typeof offense>, oppScore: number): DefLine => ({
@@ -186,20 +189,21 @@ export function simulatePlayoffs(
   const champs: Partial<Record<"AFC" | "NFC", Seeded | null>> = {};
   for (const c of ["AFC", "NFC"] as const) {
     const s = (k: number) => picture[c].find((t) => t.seed === k)!;
-    const wc = [play(0, s(7), s(2)), play(0, s(6), s(3)), play(0, s(5), s(4))];
+    const nfc = c === "NFC" ? 1 : 0;
+    const wc = [play(1 + nfc * 3, 0, s(7), s(2)), play(2 + nfc * 3, 0, s(6), s(3)), play(3 + nfc * 3, 0, s(5), s(4))];
     if (wc.some((w) => !w)) {
       champs[c] = null;
       continue;
     }
     const left = (wc as Seeded[]).sort((x, y) => x.seed - y.seed);
-    const div = [play(1, left[2], s(1)), play(1, left[1], left[0])];
+    const div = [play(7 + nfc * 2, 1, left[2], s(1)), play(8 + nfc * 2, 1, left[1], left[0])];
     if (div.some((w) => !w)) {
       champs[c] = null;
       continue;
     }
     const [hi, lo] = (div as Seeded[]).sort((x, y) => x.seed - y.seed);
-    champs[c] = play(2, lo, hi);
+    champs[c] = play(11 + nfc, 2, lo, hi);
   }
-  if (champs.AFC && champs.NFC) play(3, champs.AFC, champs.NFC);
+  if (champs.AFC && champs.NFC) play(13, 3, champs.AFC, champs.NFC);
   return { games, lines, defs };
 }
