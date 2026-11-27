@@ -292,7 +292,7 @@ export function SurvivorBoard({
       {/* The tracker, as on every pool's My Picks: what's picked and whether it saved (not once
           the pot is split). */}
       {!split?.done && (
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="mx-auto max-w-5xl py-2.5 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] lg:max-w-none">
           {error && <p className="mb-1.5 text-sm text-loss" role="alert">{error}</p>}
           <div className="flex items-center gap-3">

@@ -311,7 +311,7 @@ export function MajorPicker({
       {!readOnly && (
         // Fixed to the bottom of the screen the whole time (the page leaves room for it), one
         // slim row: the tier checklist and the button.
-        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-bg py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+        <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-line bg-bg py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
           {/* What each tier still needs; a tier turns green with a check once it's filled. */}
           {contest === "tiers" ? (
             <>
