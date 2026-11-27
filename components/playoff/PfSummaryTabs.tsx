@@ -42,7 +42,7 @@ export type SumNotes = {
   ownOf: string | null;
 };
 
-export function PfSummaryTabs({ owned, groups, positions, lineups, locked, started, perfect, notes }: {
+export function PfSummaryTabs({ owned, groups, positions, lineups, locked, started, perfect, notes, topOnly = false }: {
   owned: SumPlayer[];
   groups: SumGroup[];
   positions: string[];
@@ -55,8 +55,11 @@ export function PfSummaryTabs({ owned, groups, positions, lineups, locked, start
   perfect: ReactNode;
   /** Weekly style: the wording for a round (or all rounds). */
   notes?: SumNotes;
+  /** Weekly style: Top Players only (no Ownership % or Perfect Lineup tabs). */
+  topOnly?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>(locked ? "own" : "top");
+  if (topOnly) return <TopPlayers groups={groups} locked={locked} started={started} pointsLabel="Most points" lockedNote={notes?.own} />;
   return (
     <>
       <div className="mb-4 inline-flex rounded-full bg-surface p-0.5" role="tablist">
@@ -150,7 +153,15 @@ function Ownership({ owned, positions, lineups, ownOf }: { owned: SumPlayer[]; p
 }
 
 /** Each position: its most rostered and its highest scoring, side by side. */
-function TopPlayers({ groups, locked, started }: { groups: SumGroup[]; locked: boolean; started: boolean }) {
+function TopPlayers({ groups, locked, started, pointsLabel = "Highest scoring", lockedNote = "After the lock" }: {
+  groups: SumGroup[];
+  locked: boolean;
+  started: boolean;
+  /** The points column's heading once games start. */
+  pointsLabel?: string;
+  /** Under Most rostered before it shows. */
+  lockedNote?: string;
+}) {
   const row = (p: SumPlayer, value: string, sub?: string | null) => (
     <li key={p.id} className={`flex h-8 items-center gap-1.5 text-[13px] ${p.out ? "text-muted" : ""}`}>
       <TeamLogo src={p.logo} abbr={p.team} className="size-4 shrink-0" />
@@ -172,11 +183,11 @@ function TopPlayers({ groups, locked, started }: { groups: SumGroup[]; locked: b
                 {locked ? (
                   <ul className="divide-y divide-line">{g.rostered.map((r) => row(r.p, r.value))}</ul>
                 ) : (
-                  <p className="text-xs text-muted">After the lock</p>
+                  <p className="text-xs text-muted">{lockedNote}</p>
                 )}
               </div>
               <div className="min-w-0">
-                <div className="py-1 text-[11px] font-bold tracking-wide text-muted uppercase">{started ? "Highest scoring" : "Top reg. season"}</div>
+                <div className="py-1 text-[11px] font-bold tracking-wide text-muted uppercase">{started ? pointsLabel : "Top reg. season"}</div>
                 {g.scoring.length ? (
                   <ul className="divide-y divide-line">{g.scoring.map((r) => row(r.p, r.value, r.sub))}</ul>
                 ) : (
