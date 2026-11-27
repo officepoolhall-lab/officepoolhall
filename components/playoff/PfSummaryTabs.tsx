@@ -33,7 +33,16 @@ type Sort = "name" | "own" | "count" | "points";
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 
-export function PfSummaryTabs({ owned, groups, positions, lineups, locked, started, perfect }: {
+export type SumNotes = {
+  /** Instead of the ownership table before it shows. */
+  own: string;
+  /** Instead of the perfect lineup before (or when) there isn't one. */
+  perfect: string;
+  /** What Own counts, when it isn't the lineups ("entries that have used him"). */
+  ownOf: string | null;
+};
+
+export function PfSummaryTabs({ owned, groups, positions, lineups, locked, started, perfect, notes }: {
   owned: SumPlayer[];
   groups: SumGroup[];
   positions: string[];
@@ -44,6 +53,8 @@ export function PfSummaryTabs({ owned, groups, positions, lineups, locked, start
   started: boolean;
   /** The perfect lineup (null until the Wild Card round starts), its own tab. */
   perfect: ReactNode;
+  /** Weekly style: the wording for a round (or all rounds). */
+  notes?: SumNotes;
 }) {
   const [tab, setTab] = useState<Tab>(locked ? "own" : "top");
   return (
@@ -64,21 +75,21 @@ export function PfSummaryTabs({ owned, groups, positions, lineups, locked, start
       </div>
       {tab === "own" ? (
         locked ? (
-          <Ownership owned={owned} positions={positions} lineups={lineups} />
+          <Ownership owned={owned} positions={positions} lineups={lineups} ownOf={notes?.ownOf ?? null} />
         ) : (
-          <p className="text-sm text-muted">Ownership shows once lineups lock.</p>
+          <p className="text-sm text-muted">{notes?.own ?? "Ownership shows once lineups lock."}</p>
         )
       ) : tab === "top" ? (
         <TopPlayers groups={groups} locked={locked} started={started} />
       ) : (
-        perfect ?? <p className="text-sm text-muted">The perfect lineup shows once the Wild Card round starts.</p>
+        perfect ?? <p className="text-sm text-muted">{notes?.perfect ?? "The perfect lineup shows once the Wild Card round starts."}</p>
       )}
     </>
   );
 }
 
 /** Every rostered player: a position filter, and a sort on any column (tap again to flip it). */
-function Ownership({ owned, positions, lineups }: { owned: SumPlayer[]; positions: string[]; lineups: number }) {
+function Ownership({ owned, positions, lineups, ownOf }: { owned: SumPlayer[]; positions: string[]; lineups: number; ownOf: string | null }) {
   const [pos, setPos] = useState<string>("ALL");
   const [sort, setSort] = useState<{ by: Sort; desc: boolean }>({ by: "own", desc: true });
   const list = owned
@@ -133,7 +144,7 @@ function Ownership({ owned, positions, lineups }: { owned: SumPlayer[]; position
           ))}
         </ul>
       )}
-      <FitText min={8} className="mt-2 text-xs text-muted">Own is the share of the pool&apos;s {lineups} lineups with that player. Tap a column to sort.</FitText>
+      <FitText min={8} className="mt-2 text-xs text-muted">{ownOf ? `Own is the share of the pool's ${lineups} entries that have used that player. Tap a column to sort.` : `Own is the share of the pool's ${lineups} lineups with that player. Tap a column to sort.`}</FitText>
     </section>
   );
 }
