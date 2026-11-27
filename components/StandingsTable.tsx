@@ -1,4 +1,5 @@
 import { FitText } from "./FitText";
+import { Medal } from "@/components/ui";
 import Link from "next/link";
 import { points } from "@/lib/format";
 import { winPct } from "@/lib/record";
@@ -25,6 +26,7 @@ export function StandingsTable({
   compact = false,
   extras,
   playerHref,
+  medals = false,
 }: {
   rows: StandingRow[];
   me: string;
@@ -45,6 +47,8 @@ export function StandingsTable({
   extras?: Extra[];
   /** Where a player's name links (their week-by-week history). */
   playerHref?: (userId: string) => string;
+  /** Final standings: medals for 1st, 2nd and 3rd. */
+  medals?: boolean;
 }) {
   const fill = Boolean(limit && limitLg && limitLg > limit);
   const lg = fill ? limitLg : limit;
@@ -69,6 +73,7 @@ export function StandingsTable({
           compact={compact}
           extras={extras}
           playerHref={playerHref}
+          medals={medals}
           className={limit && i >= limit ? "max-lg:hidden" : ""}
           data={r.userId === me ? { "data-fill-me": "" } : undefined}
         />
@@ -84,6 +89,7 @@ export function StandingsTable({
             compact={compact}
             extras={extras}
             playerHref={playerHref}
+            medals={medals}
             className={pinnedClass}
             data={fill ? { "data-fill-pin": "flex" } : undefined}
           />
@@ -148,6 +154,7 @@ function Row({
   compact,
   extras,
   playerHref,
+  medals = false,
   className = "",
   data,
 }: {
@@ -158,6 +165,7 @@ function Row({
   compact: boolean;
   extras?: Extra[];
   playerHref?: (userId: string) => string;
+  medals?: boolean;
   className?: string;
   /** data-* attributes for FillColumn. */
   data?: Record<string, string>;
@@ -167,7 +175,7 @@ function Row({
   const record = `${r.wins}–${r.losses}${r.pushes ? `–${r.pushes}` : ""}`;
   return (
     <li className={`flex items-center gap-3 ${compact ? "min-h-9 py-1.5 text-sm" : "min-h-12 py-3"} ${className}`} {...data}>
-      <span className="w-6 text-right text-sm tabular-nums text-muted">{r.rank}</span>
+      <span className="flex w-6 shrink-0 justify-end text-sm tabular-nums text-muted">{medals ? <Medal place={r.rank} className="size-6" /> : r.rank}</span>
       {/* The name on one line, never cut off: it steps down to fit a narrow column. */}
       <FitText min={11} className="flex-1 font-medium">
         {playerHref ? (

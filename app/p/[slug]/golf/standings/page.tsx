@@ -131,7 +131,7 @@ export default async function GolfStandingsPage({ params, searchParams }: PagePr
                 </SectionLabel>
                 <GolfSeasonHeaderRow />
               </div>
-              <GolfSeasonStandings rows={data.rows} playerHref={playerHref} />
+              <GolfSeasonStandings rows={data.rows} playerHref={playerHref} medals={data.seasonFinal} />
             </TabPanel>
 
             <TabPanel id="weekly" label="Week standings">

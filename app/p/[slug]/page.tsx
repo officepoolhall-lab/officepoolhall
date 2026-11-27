@@ -30,6 +30,7 @@ import { getCurrentSlate, getPoolContext, getSlateGames, getUpcomingSlate } from
 import { possiblePoints, slotValuesFor } from "@/lib/possible";
 import { getTournamentPicks, getTournaments, tournamentUpside } from "@/lib/tournaments";
 import { getStandingsBook, standingsByPoints } from "@/lib/standings";
+import { weeklySeasonFinal } from "@/lib/seasonFinal";
 import { NEWS_TITLE, teamSport, type TeamSport } from "@/lib/sports";
 
 export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
@@ -48,7 +49,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
   // scores for both tables), the week's games, the entry's picks and score, and how many
   // picks it has for next week if that's open early. News and rankings come from other
   // sites, so they stream in below (Suspense) rather than hold up the page.
-  const [book, games, { data: mine }, { data: score }, upcomingPicked, bracket, allTournaments] = await Promise.all([
+  const [book, games, { data: mine }, { data: score }, upcomingPicked, bracket, allTournaments, seasonFinal] = await Promise.all([
     getStandingsBook(ctx),
     slate ? getSlateGames(ctx, slate.id) : Promise.resolve([]),
     slate
@@ -64,6 +65,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
       : Promise.resolve(0),
     getBracket(ctx),
     getTournaments(ctx),
+    weeklySeasonFinal(ctx),
   ]);
   // This week's in-season tournaments (MTEs) count toward its score, so they're in "possible" too.
   const weekTournaments = slate ? allTournaments.filter((t) => t.week === slate.week) : [];
@@ -230,7 +232,7 @@ export default async function PoolHome({ params }: PageProps<"/p/[slug]">) {
                 label: "Season",
                 title: "Standings",
                 href: `/p/${slug}/standings`,
-                content: <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} limitLg={homeRowsLg} playerHref={(id) => `/p/${slug}/standings/${id}`} />,
+                content: <StandingsTable rows={season} me={ctx.entryUserId} flat={flat} compact limit={8} limitLg={homeRowsLg} playerHref={(id) => `/p/${slug}/standings/${id}`} medals={seasonFinal} />,
               },
               ...(slate && weekly
                 ? [

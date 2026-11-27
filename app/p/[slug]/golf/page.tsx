@@ -10,7 +10,7 @@ import { Countdown } from "@/components/Countdown";
 import { GolfLiveTicker } from "@/components/GolfLiveTicker";
 import { NewsList } from "@/components/NewsList";
 import { FillColumn } from "@/components/FillColumn";
-import { ChevronIcon, SectionLabel } from "@/components/ui";
+import { ChevronIcon, Medal, SectionLabel } from "@/components/ui";
 import {
   getGolfContext,
   getGolfEvents,
@@ -139,7 +139,7 @@ export default async function GolfHomePage({ params }: PageProps<"/p/[slug]">) {
                 All <ChevronIcon className="size-4" />
               </Link>
             </div>
-            <StandingsPreview rows={standings} me={ctx.entryUserId} limit={10} />
+            <StandingsPreview rows={standings} me={ctx.entryUserId} limit={10} medals={seasonFinal(events)} />
           </section>
 
         </FillColumn>
@@ -188,7 +188,22 @@ async function LastWeek({ ctx, event, pick }: { ctx: GolfContext; event: GolfEve
 }
 
 /** The top of the season standings, plus the viewer's own row when they're further down. */
-function StandingsPreview({ rows, me, limit }: { rows: GolfStanding[]; me: string; limit: number }) {
+/** Every event of the season (not counting canceled ones) is final: the standings are final, with medals. */
+const seasonFinal = (events: { status: string }[]) => {
+  const counted = events.filter((e) => e.status !== "canceled");
+  return counted.length > 0 && counted.every((e) => e.status === "final");
+};
+
+/** Place, or once the season is final a medal for 1st-3rd. */
+function PlaceCell({ place, medal }: { place: number | null; medal: boolean }) {
+  return (
+    <span className="flex w-7 shrink-0 justify-end tabular-nums text-muted">
+      {place === null ? "" : medal && place <= 3 ? <Medal place={place} className="size-6" /> : place}
+    </span>
+  );
+}
+
+function StandingsPreview({ rows, me, limit, medals = false }: { rows: GolfStanding[]; me: string; limit: number; medals?: boolean }) {
   if (!rows.length) return <p className="border-y border-line py-3 text-sm text-muted">No standings yet.</p>;
   // Tied prize money shares a place.
   const places = rows.map((r, i) => (i > 0 && r.season_earnings === rows[i - 1].season_earnings ? null : i + 1));
@@ -213,7 +228,7 @@ function StandingsPreview({ rows, me, limit }: { rows: GolfStanding[]; me: strin
             pin ? `border-t-2 border-line lg:hidden ${meIndex >= limit ? "" : "max-lg:hidden"}` : i >= limit ? "max-lg:hidden" : ""
           }`}
         >
-          <span className="w-7 text-right tabular-nums text-muted">{placeOf(i)}</span>
+          <PlaceCell place={placeOf(i)} medal={medals} />
           <span className="min-w-0 flex-1 truncate">{r.display_name}</span>
           <span className="tabular-nums">{money(r.season_earnings)}</span>
         </li>
@@ -429,7 +444,7 @@ async function MajorsHome({ slug, ctx }: { slug: string; ctx: GolfContext }) {
                     // Phones: the top 10. Desktop: as many as fit beside the rankings (FillColumn).
                     className={`flex min-h-9 items-center gap-2.5 py-1.5 text-sm ${r.user_id === ctx.entryUserId ? "bg-surface font-semibold" : ""} ${i >= 10 ? "max-lg:hidden" : ""}`}
                   >
-                    <span className="w-7 text-right tabular-nums text-muted">{r.total === null ? "" : r.rank}</span>
+                    <PlaceCell place={r.total === null ? null : r.rank} medal={seasonFinal(events)} />
                     <span className="min-w-0 flex-1 truncate">{names.get(r.user_id) ?? "Player"}</span>
                     <span className="tabular-nums">{fmt(r.total)}</span>
                   </li>
