@@ -39,6 +39,7 @@ export function PfLineupBuilder({
   lockedIds = [],
   mult = {},
   title,
+  opponents = {},
 }: {
   players: Player[];
   teams: Team[];
@@ -65,6 +66,8 @@ export function PfLineupBuilder({
   mult?: Record<string, number>;
   /** The lineup's heading (default "My Lineup"). */
   title?: string;
+  /** Each team's opponent this round, by team id: "vs PIT", "@ DEN" or "Bye". */
+  opponents?: Record<string, string>;
 }) {
   const lockedSet = useMemo(() => new Set(lockedIds), [lockedIds]);
   // "2x" beside a player who'd score double (or more) this round.
@@ -166,7 +169,10 @@ export function PfLineupBuilder({
     }
     return keep;
   }, [players, stats, picked]);
+  // Only positions the pool's lineup has (its own spots, or RB/WR/TE with flex spots).
+  const usable = (p: Player) => roster[p.pos] > 0 || (flex > 0 && FLEX_POS.includes(p.pos));
   const shown = (p: Player) => {
+    if (!usable(p)) return false;
     if (pos !== "ALL" && p.pos !== pos) return false;
     if (picked.includes(p.id)) return true;
     if (q) return p.name.toLowerCase().includes(q) || (teamOf.get(p.teamId)?.name ?? "").toLowerCase().includes(q);
@@ -374,7 +380,9 @@ export function PfLineupBuilder({
                   <section key={t.id} className="min-w-0">
                     <h3 className="mb-0.5 flex items-center gap-2 border-l-4 border-accent bg-surface px-3 py-1 text-sm font-bold text-ink lg:rounded-r-md">
                       <TeamLogo src={t.logo_url} abbr={t.abbreviation} className="size-5 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                      <span className="min-w-0 truncate">{t.name}</span>
+                      {opponents[t.id] && <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted">{opponents[t.id]}</span>}
+                      <span className="flex-1" />
                       {used && <span className="shrink-0 truncate text-xs font-semibold text-loss">Used · {used.name}</span>}
                     </h3>
                     <ul className="divide-y divide-line">
