@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Segmented, SettingRow, SettingsSection, Toggle, settingInput } from "@/components/SettingsUI";
-import { WEEKLY_ROSTER, PF_DEFAULT, POSITIONS, POSITION_NAME, pfRules, pfSettingsError, rosterSize, type PfScoring, type PfSettings } from "@/lib/playoffFantasy";
+import { WEEKLY_ROSTER, PF_DEFAULT, POSITIONS, POSITION_NAME, pfSettingsError, rosterSize, type PfScoring, type PfSettings } from "@/lib/playoffFantasy";
 
 /** Every scoring value, for the "all values" grid: label, key, and the step its input moves by. */
 const VALUES: { group: string; rows: [keyof PfScoring, string, number][] }[] = [
@@ -47,7 +47,7 @@ const VALUES: { group: string; rows: [keyof PfScoring, string, number][] }[] = [
 ];
 
 /**
- * Playoff Fantasy rules: the roster by position, the scoring (the common choices up front,
+ * Playoff Fantasy rules: the format, the roster by position, the scoring (the common choices up front,
  * every value behind "All scoring values") and, on the pool's Settings page, when rosters
  * lock. Serializes to a hidden `rules` input (JSON); the lock time is its own field.
  */
@@ -64,16 +64,13 @@ export function PfRulesFields({ initial, lockLocal, locked = false }: { initial:
   return (
     <div className="space-y-4">
       <input type="hidden" name="rules" value={JSON.stringify(s)} />
-      <div className="rounded-2xl bg-accent/10 p-4 ring-1 ring-accent/30">
-        <div className="text-xs font-semibold uppercase tracking-wide text-accent">The rules at a glance</div>
-        <ul className="mt-1.5 space-y-0.5 text-[15px] text-ink">
-          {pfRules(s).map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-        {problem && <p className="mt-2 text-sm font-semibold text-loss">{problem}</p>}
-        {locked && <p className="mt-2 text-xs text-muted">Rosters have locked, so the roster spots can&apos;t change. Scoring changes re-score everyone.</p>}
-      </div>
+      {/* Only what needs saying: a setting that won't save, or that the spots are fixed now. */}
+      {(problem || locked) && (
+        <div className="space-y-1">
+          {problem && <p className="text-sm font-semibold text-loss">{problem}</p>}
+          {locked && <p className="text-xs text-muted">Lineups have locked, so the format and roster spots can&apos;t change. Scoring changes re-score everyone.</p>}
+        </div>
+      )}
 
       <SettingsSection title="Format" description="One roster for the full playoffs, or a new lineup every round.">
         <SettingRow
