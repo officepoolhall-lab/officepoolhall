@@ -7,11 +7,10 @@ import { FitText } from "@/components/FitText";
 import { FillColumn } from "@/components/FillColumn";
 import { savePfLineup } from "@/app/p/[slug]/formats/actions";
 import type { PoolBase } from "@/lib/pool";
-import { FLEX_POS, POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterText, pfScoringTable, rosterSize, statColumns, type PfSettings } from "@/lib/playoffFantasy";
+import { FLEX_POS, POSITIONS, POSITION_NAME, ROUNDS, optimalLineup, rosterText, pfScoringTable, rosterSize, statColumns, type PfDemoSeeds, type PfSettings } from "@/lib/playoffFantasy";
 import { ScoringInfo as ScoringPopup } from "@/components/ScoringInfo";
 import type { ReactNode } from "react";
-import { getPlayoffPicture } from "@/lib/nflPlayoffs";
-import { NO_POINTS, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, weeklyView, type PfEntry, type PfPlayer, type PfPoints, type PfRow, type PfTeam, type PfWeeklyRow } from "@/lib/playoffFantasyData";
+import { NO_POINTS, pfPicture, getPf, getPfPoints, getPfGames, getPfInjuries, getPfSeasonStats, pfStandings, playoffTicker, weeklyView, type PfEntry, type PfPlayer, type PfPoints, type PfRow, type PfTeam, type PfWeeklyRow } from "@/lib/playoffFantasyData";
 import { savePfWeekly } from "@/app/p/[slug]/formats/actions";
 import { WEEKLY_ROUNDS, currentRound, lostIn, aliveAt, playerLocked, roundKicks, roundOpen, teamGame } from "@/lib/pfWeekly";
 import type { PlayoffGame } from "@/lib/nflPlayoffs";
@@ -147,7 +146,7 @@ const NOT_READY = "Rosters open as soon as the playoff field is set, at the end 
 export async function PfHome({ ctx, slug }: { ctx: PoolBase; slug: string }) {
   const { settings, teams, players, entries, locked } = await getPf(ctx);
   // The Wild Card matchups (as the standings stand today until the season is over).
-  const [picture, sf] = await Promise.all([getPlayoffPicture(ctx.pool.season).catch(() => null), standingsFor(ctx, settings, players, teams, entries, locked)]);
+  const [picture, sf] = await Promise.all([pfPicture(ctx.pool.season, settings.demo_seeds, teams), standingsFor(ctx, settings, players, teams, entries, locked)]);
   const { games, pts, rows, weekly } = sf;
   const mine = ctx.isGuest ? undefined : rows.find((r) => r.userId === ctx.entryUserId);
   const mineAt = mine ? rows.indexOf(mine) : -1;
@@ -302,11 +301,12 @@ function StandingRow({ r, me, locked, pin = false, className = "" }: { r: PfRow;
  * seed in the Wild Card round. From the playoff games once they're set; before that (a demo
  * pool), the Wild Card matchups if the season ended today (2 hosts 7, 3 hosts 6, 4 hosts 5).
  */
-async function opponentsFor(season: number, games: PlayoffGame[], teams: PfTeam[], r: number): Promise<Record<string, string>> {
+async function opponentsFor(season: number, games: PlayoffGame[], teams: PfTeam[], r: number, seeds: PfDemoSeeds | null | undefined, all: PfTeam[] = teams): Promise<Record<string, string>> {
   const idOf = new Map(teams.map((t) => [t.espnId ?? "", t.id]));
   const abbr = (t: { abbreviation: string | null; name: string }) => t.abbreviation ?? t.name;
   const out: Record<string, string> = {};
-  const here = games.filter((g) => g.round === r && g.teams.length === 2);
+  // Games with both teams set (ESPN lists the Wild Card games with "TBD" teams before then).
+  const here = games.filter((g) => g.round === r && g.teams.length === 2 && g.teams.every((t) => idOf.has(t.espnId)));
   if (here.length) {
     for (const g of here)
       for (const [a, b] of [[g.teams[0], g.teams[1]], [g.teams[1], g.teams[0]]]) {
@@ -318,7 +318,7 @@ async function opponentsFor(season: number, games: PlayoffGame[], teams: PfTeam[
     return out;
   }
   if (r !== 0) return out;
-  const picture = await getPlayoffPicture(season).catch(() => null);
+  const picture = await pfPicture(season, seeds, all);
   if (!picture) return out;
   for (const seeds of [picture.AFC, picture.NFC]) {
     const at = (n: number) => seeds.find((s) => s.seed === n);
@@ -386,7 +386,7 @@ export async function PfPicksPage({ ctx, slug, forUserId, round }: { ctx: PoolBa
     );
   }
 
-  const [stats, injuries, opponents] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams), opponentsFor(ctx.pool.season, allGames, teams, 0)]);
+  const [stats, injuries, opponents] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams), opponentsFor(ctx.pool.season, allGames, teams, 0, settings.demo_seeds)]);
   return (
     <>
       <h1 className="sr-only">{title}</h1>
@@ -493,7 +493,7 @@ async function PfWeeklyPicks({
     );
   }
 
-  const [stats, injuries, opponents] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams), opponentsFor(ctx.pool.season, games, playing, r)]);
+  const [stats, injuries, opponents] = await Promise.all([getPfSeasonStats(ctx.pool.season, players, settings.scoring, teams), getPfInjuries(teams), opponentsFor(ctx.pool.season, games, playing, r, settings.demo_seeds, teams)]);
   return (
     <>
       <h1 className="sr-only">My Team</h1>

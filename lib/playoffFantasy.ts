@@ -83,6 +83,8 @@ export type PfStyle = "roster" | "weekly";
 /** Weekly style: each player locks at his own game's kickoff, or the whole lineup at the round's first. */
 export type PfWeeklyLock = "player" | "week";
 
+export type PfDemoSeeds = Record<"AFC" | "NFC", { id: string; record: string | null }[]>;
+
 export type PfSettings = {
   style: PfStyle;
   weekly_lock: PfWeeklyLock;
@@ -92,10 +94,16 @@ export type PfSettings = {
    */
   demo_projected?: boolean;
   /**
+   * Demo pools only (set in the database): the seeding frozen on the day the demo was set up,
+   * each conference's teams in seed order (ESPN ids, with records). The bracket and matchups
+   * use it instead of today's standings until the real field is set.
+   */
+  demo_seeds?: PfDemoSeeds | null;
+  /**
    * Demo pools only: made-up playoff games and player stats, played through `through` rounds
    * (1 = Wild Card done, 2 = Divisional done...), the same every time for a given `seed`.
    */
-  demo_sim?: { through: number; seed: number } | null;
+  demo_sim?: { through: number; seed: number; seeds?: PfDemoSeeds | null } | null;
   /** When lineups lock (the first Wild Card kickoff), ISO; null until the commissioner sets it. */
   lock_at: string | null;
   roster: Record<Position, number>;
@@ -140,6 +148,15 @@ export const PF_DEFAULT: PfSettings = {
 /** The weekly style's starting lineup: QB, 2 RB, 2 WR, TE, K, DEF (8 players). */
 export const WEEKLY_ROSTER: Record<Position, number> = { QB: 1, RB: 2, WR: 2, TE: 1, K: 1, DEF: 1 };
 
+function demoSeeds(v: unknown): PfDemoSeeds | null {
+  if (!v || typeof v !== "object") return null;
+  const conf = (x: unknown) =>
+    Array.isArray(x) ? x.flatMap((t) => (t && typeof t === "object" && (t as Record<string, unknown>).id != null ? [{ id: String((t as Record<string, unknown>).id), record: typeof (t as Record<string, unknown>).record === "string" ? String((t as Record<string, unknown>).record) : null }] : [])) : [];
+  const AFC = conf((v as Record<string, unknown>).AFC);
+  const NFC = conf((v as Record<string, unknown>).NFC);
+  return AFC.length === 7 && NFC.length === 7 ? { AFC, NFC } : null;
+}
+
 export function pfSettings(settings: unknown): PfSettings {
   const s = block(settings, "playoff_fantasy");
   const r = (s.roster ?? {}) as Record<string, unknown>;
@@ -150,9 +167,10 @@ export function pfSettings(settings: unknown): PfSettings {
     style: s.style === "weekly" ? "weekly" : "roster",
     weekly_lock: s.weekly_lock === "week" ? "week" : "player",
     demo_projected: s.demo_projected === true,
+    demo_seeds: demoSeeds(s.demo_seeds),
     demo_sim:
       s.demo_sim && typeof s.demo_sim === "object"
-        ? { through: Math.min(4, Math.max(0, Number((s.demo_sim as Record<string, unknown>).through) || 0)), seed: Number((s.demo_sim as Record<string, unknown>).seed) || 1 }
+        ? { through: Math.min(4, Math.max(0, Number((s.demo_sim as Record<string, unknown>).through) || 0)), seed: Number((s.demo_sim as Record<string, unknown>).seed) || 1, seeds: demoSeeds(s.demo_seeds) }
         : null,
     lock_at: typeof s.lock_at === "string" && !Number.isNaN(Date.parse(s.lock_at)) ? s.lock_at : null,
     roster: Object.fromEntries(POSITIONS.map((p) => [p, int(r[p], 0, 10) ?? PF_DEFAULT.roster[p]])) as Record<Position, number>,
