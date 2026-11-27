@@ -30,6 +30,24 @@ export function TrophyIcon({ className = "size-3" }: { className?: string }) {
   );
 }
 
+/**
+ * A medal for a final 1st, 2nd or 3rd place (gold, silver, bronze), the place on its face.
+ * Anything else: just the place, as text.
+ */
+export function Medal({ place, className = "size-5" }: { place: number; className?: string }) {
+  const fill = place === 1 ? "#D4A017" : place === 2 ? "#9AA0A8" : place === 3 ? "#B8733A" : null;
+  if (!fill) return <>{place}</>;
+  const ribbon = place === 1 ? "#2563EB" : place === 2 ? "#DC2626" : "#16A34A";
+  return (
+    <svg viewBox="0 0 20 24" role="img" aria-label={place === 1 ? "1st place" : place === 2 ? "2nd place" : "3rd place"} className={`inline-block shrink-0 ${className}`}>
+      <path d="M4.5 0h4.5l3 6.5H7.5z" fill={ribbon} />
+      <path d="M15.5 0H11L8 6.5h4.5z" fill={ribbon} opacity=".8" />
+      <circle cx="10" cy="14.6" r="9" fill={fill} />
+      <text x="10" y="18.9" textAnchor="middle" fontSize="12.5" fontWeight="800" fill="#fff" style={{ fontFamily: "inherit" }}>{place}</text>
+    </svg>
+  );
+}
+
 export function ChevronIcon({ className = "size-4" }: { className?: string }) {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden className={className}>
